@@ -3,6 +3,7 @@ import axios from 'axios';
 import type { InvoiceItem, SpecRow } from '../types';
 import { normalizeItem } from '../invoiceUtils';
 import { getVisibleColumnsFromPayload, getLocalDateString, normalizeSavedColumnLabels } from '../types';
+import { sanitizePdfFontSizes, type PdfFontSizes } from '../pdf/pdfFontSizes';
 
 interface UseInvoiceLoaderParams {
   clientId: string | undefined;
@@ -28,6 +29,7 @@ interface UseInvoiceLoaderParams {
   setCustomColumns?: (updater: any) => void;
   setAdditionalInfoVisible: (vis: Record<string, boolean>) => void;
   setAdditionalFieldsOrder?: (order: string[]) => void;
+  setPdfFontSizes?: (sizes: PdfFontSizes) => void;
   setContractDeliveryTerms: (terms: string[]) => void;
   setDeliveryTermsOptions: (terms: string[]) => void;
   initialForChangeLogRef: React.MutableRefObject<{ form: Record<string, unknown>; items: InvoiceItem[] } | null>;
@@ -60,6 +62,7 @@ export function createLoadData({
   setCustomColumns,
   setAdditionalInfoVisible,
   setAdditionalFieldsOrder,
+  setPdfFontSizes,
   setContractDeliveryTerms,
   setDeliveryTermsOptions,
   initialForChangeLogRef,
@@ -149,6 +152,9 @@ export function createLoadData({
               }
               if (setAdditionalFieldsOrder && Array.isArray(dupAi?.additionalFieldsOrder)) {
                 setAdditionalFieldsOrder(dupAi.additionalFieldsOrder as string[]);
+              }
+              if (setPdfFontSizes) {
+                setPdfFontSizes(sanitizePdfFontSizes(dupAi?.pdfFontSizes));
               }
               const todayIso = getLocalDateString();
               setForm((prev: any) => ({
@@ -390,6 +396,9 @@ export function createLoadData({
             }
             if (setAdditionalFieldsOrder && Array.isArray(ai?.additionalFieldsOrder)) {
               setAdditionalFieldsOrder(ai.additionalFieldsOrder as string[]);
+            }
+            if (setPdfFontSizes) {
+              setPdfFontSizes(sanitizePdfFontSizes(ai?.pdfFontSizes));
             }
 
             initialForChangeLogRef.current = {

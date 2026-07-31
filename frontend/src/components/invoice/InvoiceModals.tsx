@@ -5,6 +5,8 @@ import { AdditionalInfoModal } from './AdditionalInfoModal';
 import { FssRegionModal } from './FssRegionModal';
 import { AddFieldModal } from './AddFieldModal';
 import { CargoImportModal } from './CargoImportModal';
+import { PdfFontSizeModal } from './PdfFontSizeModal';
+import type { PdfFontSizes } from './pdf/pdfFontSizes';
 import type { CargoPreviewRow } from './useCargoImport';
 
 interface InvoiceModalsProps {
@@ -47,6 +49,11 @@ interface InvoiceModalsProps {
   additionalFieldsOrder: string[];
   setAdditionalFieldsOrder: (order: string[]) => void;
 
+  showPdfFontSizeModal: boolean;
+  setShowPdfFontSizeModal: (val: boolean) => void;
+  pdfFontSizes: PdfFontSizes;
+  setPdfFontSizes: (sizes: PdfFontSizes) => void;
+
   showCargoImportModal: boolean;
   setShowCargoImportModal: (val: boolean) => void;
   cargoImport: {
@@ -85,6 +92,11 @@ export const InvoiceModals: React.FC<InvoiceModalsProps> = ({
   addDeliveryTermOption,
   additionalFieldsOrder,
   setAdditionalFieldsOrder,
+
+  showPdfFontSizeModal,
+  setShowPdfFontSizeModal,
+  pdfFontSizes,
+  setPdfFontSizes,
 
   showFssRegionModal,
   setShowFssRegionModal,
@@ -133,6 +145,17 @@ export const InvoiceModals: React.FC<InvoiceModalsProps> = ({
             setAdditionalFieldsOrder={setAdditionalFieldsOrder}
             onClose={() => setShowAdditionalInfoModal(false)}
             onShowAddField={() => setShowAddFieldModal(true)}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showPdfFontSizeModal && (
+          <PdfFontSizeModal
+            pdfFontSizes={pdfFontSizes}
+            setPdfFontSizes={setPdfFontSizes}
+            canEdit={canEditEffective}
+            onClose={() => setShowPdfFontSizeModal(false)}
           />
         )}
       </AnimatePresence>

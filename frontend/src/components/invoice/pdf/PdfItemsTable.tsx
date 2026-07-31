@@ -12,6 +12,12 @@ interface PdfItemsTableProps {
   invoiceCurrency: string;
   showSumWords: boolean;
   scale?: number;
+  /**
+   * Qo'lda belgilangan shrift (pt). `MAX_TABLE_FONT` shiftini bekor qiladi, lekin
+   * ustunlar kengligi FIZIK cheklov — sig'masa `fitTable` baribir kichraytiradi
+   * (qarang: `fitTable`).
+   */
+  fontSize?: number;
 }
 
 const getCellText = (key: string, item: any): string => {
@@ -271,15 +277,21 @@ const allocateColumnWidths = (
 
 /**
  * Ustunlarga sig'adigan eng katta shriftni topib, kengliklarni taqsimlaydi.
- * `preferred` — hujjatning umumiy masshtabidan kelib chiqqan xohlanadigan o'lcham.
+ * `preferred` — hujjatning umumiy masshtabidan kelib chiqqan (yoki qo'lda
+ * belgilangan) xohlanadigan o'lcham.
+ *
+ * @param minSize izlashning quyi chegarasi. Qo'lda o'lcham belgilanganda u
+ *   `ABSOLUTE_MIN_TABLE_FONT` dan ham past bo'lishi mumkin — foydalanuvchi
+ *   ataylab mayda o'lcham tanlagan bo'lsa uni ko'tarib qo'yish noto'g'ri.
  */
 const fitTable = (
   columns: string[],
   demands: Record<string, ColumnDemand>,
   preferred: number,
-  available: number
+  available: number,
+  minSize: number = ABSOLUTE_MIN_TABLE_FONT
 ): { fontSize: number; widths: number[] } => {
-  for (let size = preferred; size >= ABSOLUTE_MIN_TABLE_FONT; size--) {
+  for (let size = preferred; size >= minSize; size--) {
     const widths = allocateColumnWidths(columns, demands, size, available);
     if (widths) return { fontSize: size, widths };
   }
@@ -289,7 +301,7 @@ const fitTable = (
   const mins = columns.map(key => Math.min(demands[key].min, MAX_MIN_SHARE * available));
   const sum = mins.reduce((s, w) => s + w, 0) || 1;
   return {
-    fontSize: ABSOLUTE_MIN_TABLE_FONT,
+    fontSize: minSize,
     widths: mins.map(w => (available * w) / sum),
   };
 };
@@ -319,6 +331,7 @@ export const PdfItemsTable: React.FC<PdfItemsTableProps> = ({
   invoiceCurrency,
   showSumWords,
   scale = 1,
+  fontSize: fontSizeOverride,
 }) => {
   const sc = (v: number) => Math.round(v * scale);
   const SUM_COLUMNS = ['quantity', 'shtCount', 'packagesCount', 'gross', 'net', 'total'];
@@ -344,13 +357,22 @@ export const PdfItemsTable: React.FC<PdfItemsTableProps> = ({
     );
   });
 
-  // Xohlanadigan shrift — hujjatning umumiy masshtabidan; kenglik yetmasa
-  // `fitTable` uni kichraytiradi va shu shriftga mos kengliklarni taqsimlaydi
-  const preferred = Math.min(
+  // Xohlanadigan shrift — qo'lda belgilangan bo'lsa o'sha, aks holda hujjatning
+  // umumiy masshtabidan. Kenglik yetmasa `fitTable` uni kichraytiradi va shu
+  // shriftga mos kengliklarni taqsimlaydi.
+  const preferred = fontSizeOverride ?? Math.min(
     MAX_TABLE_FONT,
     Math.max(ABSOLUTE_MIN_TABLE_FONT, Math.round(BASE_TABLE_FONT * scale))
   );
-  const { fontSize, widths } = fitTable(orderedVisibleColumns, demands, preferred, tableWidth(scale));
+  // Qo'lda tanlangan o'lcham `ABSOLUTE_MIN_TABLE_FONT` dan past bo'lsa, izlashning
+  // quyi chegarasi ham pasayadi — aks holda "5pt" so'ralganda 6pt chiqib qolardi
+  const minSize = Math.min(preferred, ABSOLUTE_MIN_TABLE_FONT);
+  const { fontSize, widths } = fitTable(orderedVisibleColumns, demands, preferred, tableWidth(scale), minSize);
+
+  // "Сумма прописью" jadval izohi — qo'lda o'lcham berilganda jadvalning HAQIQIY
+  // (kenglikka moslangan) shriftiga tenglashadi, aks holda izoh jadval matnidan
+  // kattaroq bo'lib qolishi mumkin edi
+  const sumWordsFont = fontSizeOverride !== undefined ? fontSize : scaleFont(7, scale);
 
   // Yoga kengliklarni flex ga proporsional taqsimlaydi; yig'indi sahifa
   // kengligiga teng bo'lgani uchun har bir ustun aynan hisoblangan kenglikni oladi
@@ -448,7 +470,7 @@ export const PdfItemsTable: React.FC<PdfItemsTableProps> = ({
       </View>
 
       {showSumWords && (
-        <View style={{ fontSize: scaleFont(7, scale), marginTop: 0, marginBottom: sc(4), paddingLeft: sc(20) }}>
+        <View style={{ fontSize: sumWordsFont, marginTop: 0, marginBottom: sc(4), paddingLeft: sc(20) }}>
           <Text>Сумма прописью: {numberToWordsRu(sumItemTotals(items), invoiceCurrency)}</Text>
         </View>
       )}

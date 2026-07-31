@@ -291,6 +291,12 @@ const invoiceSchema = z.object({
     columnLabels: z.record(z.string(), z.string().max(200)).optional(),
     visibleAdditionalInfoFields: z.record(z.string(), z.boolean()).optional(),
     additionalFieldsOrder: z.array(z.string()).optional(),
+    // PDF bo'limlari uchun qo'lda belgilangan shrift o'lchamlari (pt).
+    // Oraliq frontend'dagi PDF_FONT_MIN/PDF_FONT_MAX bilan bir xil.
+    pdfFontSizes: z.record(
+      z.enum(['parties', 'additionalInfo', 'itemsTable', 'notes']),
+      z.number().int().min(5).max(14)
+    ).optional(),
     // O'zgarishlar jurnali
     changeLog: z.array(z.object({
       timestamp: z.string().max(50).optional(),

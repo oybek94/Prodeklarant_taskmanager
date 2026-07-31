@@ -231,6 +231,8 @@ const Invoice = () => {
     fssAutoDownload, setFssAutoDownload,
     addressCopySuccess, setAddressCopySuccess,
     additionalFieldsOrder, setAdditionalFieldsOrder,
+    showPdfFontSizeModal, setShowPdfFontSizeModal,
+    pdfFontSizes, setPdfFontSizes,
   } = useInvoiceModalsState();
 
   // Extracted hooks
@@ -392,6 +394,7 @@ const Invoice = () => {
     setCustomColumns,
     setAdditionalInfoVisible,
     setAdditionalFieldsOrder,
+    setPdfFontSizes,
     setContractDeliveryTerms,
     setDeliveryTermsOptions,
     initialForChangeLogRef,
@@ -429,6 +432,7 @@ const Invoice = () => {
     columnOrder,
     customColumns,
     additionalFieldsOrder,
+    pdfFontSizes,
     packagingTypes,
     canEditEffective,
     invoiceNumberWarning,
@@ -566,6 +570,7 @@ const Invoice = () => {
         totalColumnLabel,
         invoiceCurrency,
         pdfIncludeSeal: includeSeal,
+        pdfFontSizes,
       });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -585,8 +590,8 @@ const Invoice = () => {
     }
   }, [
     viewTab, form, invoice, selectedContract, contracts, task, isSellerShipper, isBuyerConsignee, 
-    isAdditionalInfoVisible, customFields, specCustomFields, additionalFieldsOrder, items, 
-    orderedVisibleColumns, columnLabels, totalColumnLabel, invoiceCurrency
+    isAdditionalInfoVisible, customFields, specCustomFields, additionalFieldsOrder, items,
+    orderedVisibleColumns, columnLabels, totalColumnLabel, invoiceCurrency, pdfFontSizes
   ]);
 
   const handleUpdateContractRequirements = async (newRequirements: string) => {
@@ -680,6 +685,7 @@ const Invoice = () => {
           openFssRegionPicker={openFssRegionPicker}
           onOpenTaskModal={handleOpenTaskModal}
           onOpenCargoImport={handleOpenCargoImport}
+          onOpenPdfFontSizes={() => setShowPdfFontSizeModal(true)}
           canEditEffective={canEditEffective}
           needsErrorReport={sertifikatStageCompleted && canEdit && !taskHasErrors}
         />
@@ -903,6 +909,10 @@ const Invoice = () => {
         addDeliveryTermOption={addDeliveryTermOption}
         additionalFieldsOrder={additionalFieldsOrder}
         setAdditionalFieldsOrder={setAdditionalFieldsOrder}
+        showPdfFontSizeModal={showPdfFontSizeModal}
+        setShowPdfFontSizeModal={setShowPdfFontSizeModal}
+        pdfFontSizes={pdfFontSizes}
+        setPdfFontSizes={setPdfFontSizes}
         showFssRegionModal={showFssRegionModal}
         setShowFssRegionModal={setShowFssRegionModal}
         regionCodes={regionCodes}

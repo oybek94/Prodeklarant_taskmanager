@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import type { RegionCode, FssFilePrefix } from '../types';
+import type { PdfFontSizes } from '../pdf/pdfFontSizes';
 
 export const useInvoiceModalsState = () => {
   const [showAdditionalInfoModal, setShowAdditionalInfoModal] = useState(false);
@@ -27,6 +28,10 @@ export const useInvoiceModalsState = () => {
 
   const [addressCopySuccess, setAddressCopySuccess] = useState(false);
   const [additionalFieldsOrder, setAdditionalFieldsOrder] = useState<string[]>([]);
+
+  /** PDF bo'limlari uchun qo'lda belgilangan shrift o'lchamlari (pt) */
+  const [showPdfFontSizeModal, setShowPdfFontSizeModal] = useState(false);
+  const [pdfFontSizes, setPdfFontSizes] = useState<PdfFontSizes>({});
 
   return {
     showAdditionalInfoModal,
@@ -63,5 +68,9 @@ export const useInvoiceModalsState = () => {
     setAddressCopySuccess,
     additionalFieldsOrder,
     setAdditionalFieldsOrder,
+    showPdfFontSizeModal,
+    setShowPdfFontSizeModal,
+    pdfFontSizes,
+    setPdfFontSizes,
   };
 };

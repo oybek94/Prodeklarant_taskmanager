@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 import type { InvoiceItem, Task, ChangeLogEntry } from '../types';
 import { normalizeItem, buildTaskTitle, round2, sumItemTotals } from '../invoiceUtils';
 import { normalizeText } from '../../../utils/textNormalize';
+import type { PdfFontSizes } from '../pdf/pdfFontSizes';
 
 /* ─── constants ──────────────────────────────────────────────────── */
 
@@ -79,6 +80,7 @@ interface UseInvoiceSaveParams {
   columnOrder: string[];
   customColumns: string[];
   additionalFieldsOrder: string[];
+  pdfFontSizes: PdfFontSizes;
   packagingTypes: { name: string; code?: string }[];
   canEditEffective: boolean;
   invoiceNumberWarning: string | null;
@@ -116,6 +118,7 @@ export function useInvoiceSave({
   columnOrder,
   customColumns,
   additionalFieldsOrder,
+  pdfFontSizes,
   packagingTypes,
   canEditEffective,
   invoiceNumberWarning,
@@ -412,6 +415,7 @@ export function useInvoiceSave({
             customColumns,
             visibleAdditionalInfoFields: additionalInfoVisible,
             additionalFieldsOrder: additionalFieldsOrder,
+            pdfFontSizes,
             tareRules: currentForm.additionalInfo?.tareRules,
           };
           if (invoice) {

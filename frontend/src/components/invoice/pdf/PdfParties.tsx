@@ -1,7 +1,7 @@
 import React from 'react';
 import { Text, View } from '@react-pdf/renderer';
 import { styles } from './PdfStyles';
-import { scaleFont } from './pdfScale';
+import { sectionFont } from './pdfFontSizes';
 
 interface PdfPartiesProps {
   selectedContract: any;
@@ -9,13 +9,15 @@ interface PdfPartiesProps {
   isSellerShipper: boolean;
   isBuyerConsignee: boolean;
   scale?: number;
+  /** Qo'lda belgilangan shrift (pt); berilmasa masshtabdan hisoblanadi */
+  fontSize?: number;
 }
 
 export const PdfParties: React.FC<PdfPartiesProps> = ({
-  selectedContract, task, isSellerShipper, isBuyerConsignee, scale = 1,
+  selectedContract, task, isSellerShipper, isBuyerConsignee, scale = 1, fontSize,
 }) => {
   const sc = (v: number) => Math.round(v * scale);
-  const fz = scaleFont(9, scale); // rekvizitlar umumiy masshtab bilan bir xil o'lchamda (≤11pt)
+  const fz = sectionFont(fontSize, 9, scale); // rekvizitlar umumiy masshtab bilan bir xil o'lchamda (≤9pt)
   const txt = { fontSize: fz, marginBottom: sc(2), lineHeight: 1.4 };
   const nameSt = { ...txt, fontWeight: 'bold' as const };
   const titleSt = { fontSize: fz, fontWeight: 'bold' as const, marginBottom: sc(3) };

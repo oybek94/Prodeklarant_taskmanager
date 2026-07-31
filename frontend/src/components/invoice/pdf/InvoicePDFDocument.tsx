@@ -10,6 +10,7 @@ import { PdfSignatures } from './PdfSignatures';
 import { PdfPriceList } from './PdfPriceList';
 import type { PdfOnRender } from './pdfLayout';
 import { PAGE_PAD_TOP, PAGE_PAD_BOTTOM, clampScale, estimateScale } from './pdfScale';
+import type { PdfFontSizes } from './pdfFontSizes';
 
 export interface InvoicePDFDocumentProps {
   viewTab: 'invoice' | 'spec' | 'packing' | 'pricelist';
@@ -37,6 +38,12 @@ export interface InvoicePDFDocumentProps {
    * hisoblab beradi (qarang: `pdfFit.tsx`).
    */
   scaleOverride?: number;
+  /**
+   * Bo'limlar uchun QO'LDA belgilangan shrift o'lchamlari (pt). Belgilangan
+   * bo'lim `scale` bilan o'zgarmaydi — auto-fit qolgan bo'limlarni moslashtiradi
+   * (qarang: `pdfFontSizes.ts`).
+   */
+  pdfFontSizes?: PdfFontSizes;
   /** @react-pdf `Document.onRender` — layout o'lchash uchun (qarang: `pdfFit.tsx`) */
   onRender?: PdfOnRender;
 }
@@ -62,8 +69,10 @@ export const InvoicePDFDocument: React.FC<InvoicePDFDocumentProps> = ({
   invoiceCurrency,
   pdfIncludeSeal,
   scaleOverride,
+  pdfFontSizes,
   onRender,
 }) => {
+  const fs = pdfFontSizes ?? {};
   // Ko'rinadigan qo'shimcha maydonlar sonini hisoblaymiz
   const visibleAddFields = [
     isAdditionalInfoVisible('deliveryTerms') && !!form.deliveryTerms,
@@ -128,6 +137,7 @@ export const InvoicePDFDocument: React.FC<InvoicePDFDocumentProps> = ({
               isSellerShipper={isSellerShipper}
               isBuyerConsignee={isBuyerConsignee}
               scale={scale}
+              fontSize={fs.parties}
             />
 
             <PdfAdditionalInfo
@@ -139,6 +149,7 @@ export const InvoicePDFDocument: React.FC<InvoicePDFDocumentProps> = ({
               packingCustomFields={packingCustomFields}
               additionalFieldsOrder={additionalFieldsOrder}
               scale={scale}
+              fontSize={fs.additionalInfo}
             />
 
             <View style={[dividerStyle, { borderTopWidth: 1.5, marginVertical: sc(8) }]} />
@@ -151,9 +162,10 @@ export const InvoicePDFDocument: React.FC<InvoicePDFDocumentProps> = ({
               invoiceCurrency={invoiceCurrency}
               showSumWords={viewTab !== 'packing' && orderedVisibleColumns.includes('total')}
               scale={scale}
+              fontSize={fs.itemsTable}
             />
 
-            {viewTab !== 'spec' && <PdfNotes notes={form.notes} scale={scale} />}
+            {viewTab !== 'spec' && <PdfNotes notes={form.notes} scale={scale} fontSize={fs.notes} />}
 
             <PdfSignatures
               contract={selectedContract || {}}

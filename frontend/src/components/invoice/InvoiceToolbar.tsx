@@ -40,6 +40,7 @@ interface InvoiceToolbarProps {
   openFssRegionPicker: (type: FssFilePrefix) => void;
   onOpenTaskModal: () => void;
   onOpenCargoImport: () => void;
+  onOpenPdfFontSizes: () => void;
   canEditEffective: boolean;
   /** Sertifikatlar tayyor, lekin xatolik hali kiritilmagan — xatolik so'rovi kerak */
   needsErrorReport: boolean;
@@ -117,6 +118,7 @@ export const InvoiceToolbar: React.FC<InvoiceToolbarProps> = React.memo(({
   openFssRegionPicker,
   onOpenTaskModal,
   onOpenCargoImport,
+  onOpenPdfFontSizes,
   canEditEffective,
   needsErrorReport,
 }) => {
@@ -394,6 +396,22 @@ export const InvoiceToolbar: React.FC<InvoiceToolbarProps> = React.memo(({
               aria-label="Xatolik qo'shish"
             >
               <Icon icon="solar:danger-triangle-linear" className="h-4 w-4" />
+            </button>
+          )}
+
+          {/* PDF shrift o'lchamlari — `Invoys ▾` menyusiga qo'yilmagan: u faqat
+              invoys tayyor bo'lgandan keyin ko'rinadi, o'lchamni esa undan oldin
+              ham belgilash kerak bo'lishi mumkin. Narx ro'yxati tabining layouti
+              boshqacha — u yerda bu sozlama ishlamaydi. */}
+          {viewTab !== 'pricelist' && (
+            <button
+              type="button"
+              onClick={onOpenPdfFontSizes}
+              className={`${ACTION_BTN} px-2`}
+              title="PDF bo'limlari uchun shrift o'lchamini tanlash"
+              aria-label="PDF shrift o'lchamlari"
+            >
+              <Icon icon="solar:text-field-linear" className="h-4 w-4" />
             </button>
           )}
 

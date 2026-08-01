@@ -25,9 +25,13 @@ export const SpecsTab = () => {
   const [loadingPackagingTypes, setLoadingPackagingTypes] = useState(true);
   const [packagingName, setPackagingName] = useState('');
   const [packagingCode, setPackagingCode] = useState('');
+  const [packagingTareMin, setPackagingTareMin] = useState('');
+  const [packagingTareMax, setPackagingTareMax] = useState('');
   const [editingPackagingId, setEditingPackagingId] = useState<string | null>(null);
   const [editingPackagingName, setEditingPackagingName] = useState('');
   const [editingPackagingCode, setEditingPackagingCode] = useState('');
+  const [editingPackagingTareMin, setEditingPackagingTareMin] = useState('');
+  const [editingPackagingTareMax, setEditingPackagingTareMax] = useState('');
 
   useEffect(() => {
     refreshTnvedProducts();
@@ -109,31 +113,67 @@ export const SpecsTab = () => {
     await refreshTnvedProducts();
   };
 
+  /** Bo'sh input = diapazon yo'q (null). Noto'g'ri raqam kiritilsa xato qaytaradi. */
+  const parseTareInput = (value: string): number | null | 'invalid' => {
+    const trimmed = value.trim().replace(',', '.');
+    if (!trimmed) return null;
+    const n = Number(trimmed);
+    if (!Number.isFinite(n) || n < 0) return 'invalid';
+    return n;
+  };
+
+  /** Ikkala chegarani tekshiradi; xato bo'lsa alert ko'rsatib null qaytaradi */
+  const readTareRange = (minRaw: string, maxRaw: string): { tareMin: number | null; tareMax: number | null } | null => {
+    const tareMin = parseTareInput(minRaw);
+    const tareMax = parseTareInput(maxRaw);
+    if (tareMin === 'invalid' || tareMax === 'invalid') {
+      alert('Tara qiymati manfiy bo‘lmagan raqam bo‘lishi kerak');
+      return null;
+    }
+    if (tareMin !== null && tareMax !== null && tareMin > tareMax) {
+      alert('Tara min qiymati max qiymatidan katta bo‘lishi mumkin emas');
+      return null;
+    }
+    return { tareMin, tareMax };
+  };
+
   const handleAddPackagingType = async () => {
     if (!packagingName.trim() || !packagingCode.trim()) {
       alert('Qadoq nomi va qadoq kodi majburiy');
       return;
     }
+    const range = readTareRange(packagingTareMin, packagingTareMax);
+    if (!range) return;
     try {
-      await apiClient.post('/packaging-types', { name: packagingName.trim(), code: packagingCode.trim() });
+      await apiClient.post('/packaging-types', {
+        name: packagingName.trim(),
+        code: packagingCode.trim(),
+        ...range,
+      });
       setPackagingName('');
       setPackagingCode('');
+      setPackagingTareMin('');
+      setPackagingTareMax('');
       await loadPackagingTypes();
     } catch (e: any) {
       alert(e.response?.data?.error || 'Qo‘shishda xatolik');
     }
   };
 
-  const startEditPackaging = (item: { id: string; name: string; code?: string }) => {
+  const startEditPackaging = (item: PackagingTypeItem) => {
     setEditingPackagingId(item.id);
     setEditingPackagingName(item.name);
     setEditingPackagingCode(item.code || '');
+    setEditingPackagingTareMin(item.tareMin != null ? String(item.tareMin) : '');
+    setEditingPackagingTareMax(item.tareMax != null ? String(item.tareMax) : '');
   };
 
   const cancelEditPackaging = () => {
     setEditingPackagingId(null);
     setEditingPackagingName('');
     setEditingPackagingCode('');
+    setEditingPackagingTareMin('');
+    setEditingPackagingTareMax('');
   };
 
   const handleSavePackaging = async () => {
@@ -142,10 +182,13 @@ export const SpecsTab = () => {
       alert('Qadoq nomi va qadoq kodi majburiy');
       return;
     }
+    const range = readTareRange(editingPackagingTareMin, editingPackagingTareMax);
+    if (!range) return;
     try {
       await apiClient.put(`/packaging-types/${editingPackagingId}`, {
         name: editingPackagingName.trim(),
         code: editingPackagingCode.trim(),
+        ...range,
       });
       cancelEditPackaging();
       await loadPackagingTypes();
@@ -323,7 +366,29 @@ export const SpecsTab = () => {
                 placeholder="Kod (ixitiyoriy)"
                 className="px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-green-500 outline-none text-sm"
               />
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={packagingTareMin}
+                onChange={(e) => setPackagingTareMin(e.target.value)}
+                placeholder="Tara min (kg)"
+                className="px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-green-500 outline-none text-sm"
+              />
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={packagingTareMax}
+                onChange={(e) => setPackagingTareMax(e.target.value)}
+                placeholder="Tara max (kg)"
+                className="px-3 py-2 border border-gray-300 dark:border-slate-600 rounded-lg focus:ring-2 focus:ring-green-500 outline-none text-sm"
+              />
             </div>
+            <p className="mt-2 text-xs text-green-700">
+              Tara — bir qadoqning o&apos;z og&apos;irligi. Invoysda (brutto − netto) / qadoq soni shu oraliqdan chiqsa,
+              dastur qadoq turi noto&apos;g&apos;ri tanlangan bo&apos;lishi mumkinligini ogohlantiradi. Bo&apos;sh qoldirilsa — tekshirilmaydi.
+            </p>
             <button
               onClick={handleAddPackagingType}
               className="mt-3 w-full md:w-auto px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
@@ -344,9 +409,37 @@ export const SpecsTab = () => {
                         type="text"
                         value={editingPackagingName}
                         onChange={(e) => setEditingPackagingName(e.target.value)}
+                        placeholder="Qadoq nomi"
                         className="px-2 py-1 border border-green-300 rounded outline-none text-sm"
                         autoFocus
                       />
+                      <input
+                        type="text"
+                        value={editingPackagingCode}
+                        onChange={(e) => setEditingPackagingCode(e.target.value)}
+                        placeholder="Kod"
+                        className="px-2 py-1 border border-green-300 rounded outline-none text-sm"
+                      />
+                      <div className="flex gap-2">
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={editingPackagingTareMin}
+                          onChange={(e) => setEditingPackagingTareMin(e.target.value)}
+                          placeholder="Tara min"
+                          className="w-1/2 px-2 py-1 border border-green-300 rounded outline-none text-sm"
+                        />
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={editingPackagingTareMax}
+                          onChange={(e) => setEditingPackagingTareMax(e.target.value)}
+                          placeholder="Tara max"
+                          className="w-1/2 px-2 py-1 border border-green-300 rounded outline-none text-sm"
+                        />
+                      </div>
                       <div className="flex gap-2">
                         <button onClick={handleSavePackaging} className="flex-1 bg-green-600 text-white py-1 rounded text-xs">Saqlash</button>
                         <button onClick={cancelEditPackaging} className="flex-1 bg-gray-200 text-gray-600 dark:text-slate-300 py-1 rounded text-xs">Bekor</button>
@@ -357,6 +450,11 @@ export const SpecsTab = () => {
                       <div>
                         <div className="text-gray-800 dark:text-slate-200 font-medium">{type.name}</div>
                         {type.code && <div className="text-xs text-gray-400 dark:text-slate-500">Kod: {type.code}</div>}
+                        <div className="text-xs text-gray-400 dark:text-slate-500">
+                          {type.tareMin != null && type.tareMax != null
+                            ? `Tara: ${type.tareMin}–${type.tareMax} kg`
+                            : 'Tara: tekshirilmaydi'}
+                        </div>
                       </div>
                       <div className="flex gap-1">
                         <button onClick={() => startEditPackaging(type)} className="p-1.5 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:bg-blue-500/10 rounded"><Icon icon="solar:pen-2-bold-duotone" className="w-3.5 h-3.5" /></button>

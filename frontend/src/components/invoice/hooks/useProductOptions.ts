@@ -2,17 +2,18 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import apiClient from '../../../lib/api';
 import { getTnvedProducts } from '../../../utils/tnvedProducts';
 import type { SpecRow } from '../types';
+import type { PackagingTypeItem } from '../../../types/settings';
 
 /**
  * TNVED mahsulotlar va qadoq turlarini yuklash va taklif qilish.
  */
 export function useProductOptions(selectedContractSpec: SpecRow[], frequentProducts: Array<{name: string, count: number, tnvedCode?: string}> = []) {
   const [tnvedProducts, setTnvedProducts] = useState<Array<{ id: string; name: string; code: string }>>([]);
-  const [packagingTypes, setPackagingTypes] = useState<Array<{ id: string; name: string; code?: string }>>([]);
+  const [packagingTypes, setPackagingTypes] = useState<PackagingTypeItem[]>([]);
 
   const loadPackagingTypes = useCallback(async () => {
     try {
-      const res = await apiClient.get<Array<{ id: string; name: string; code?: string }>>('/packaging-types');
+      const res = await apiClient.get<PackagingTypeItem[]>('/packaging-types');
       setPackagingTypes(Array.isArray(res.data) ? res.data : []);
     } catch {
       setPackagingTypes([]);

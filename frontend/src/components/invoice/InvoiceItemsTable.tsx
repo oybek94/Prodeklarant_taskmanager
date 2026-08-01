@@ -1,5 +1,6 @@
 import React, { type RefObject, useMemo, useState } from 'react';
 import type { InvoiceItem, ViewTab, VisibleColumns, ColumnLabels, ColumnLabelKey, InvoiceFormData } from './types';
+import type { PackagingTypeItem } from '../../types/settings';
 import { UNIT_OPTIONS, DEFAULT_COLUMN_LABELS } from './types';
 import { formatNumber, formatNumberFixed, formatUnitPrice, numberToWordsRu, getCurrencySymbol, sumItemTotals } from './invoiceUtils';
 import { InvoiceWeightSummary } from './InvoiceWeightSummary';
@@ -45,7 +46,7 @@ interface InvoiceItemsTableProps {
   handlePackagesCountChange: (index: number, value: string) => void;
   applyPackagesCountFormula: (index: number) => void;
   getPackagesCountDisplayValue: (index: number, item: InvoiceItem) => string;
-  packagingTypes: { id: string; name: string; code?: string }[];
+  packagingTypes: PackagingTypeItem[];
   applyMassNetWeightFormula: (packageType: string, tareWeight: number) => void;
   form: InvoiceFormData;
   setForm: React.Dispatch<React.SetStateAction<InvoiceFormData>>;
@@ -759,6 +760,7 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = React.memo(({
             trailerWeight={form.trailerWeight}
             palletWeight={form.palletWeight}
             vehicleWeight={form.vehicleWeight}
+            packagingTypes={packagingTypes}
           />
           <ExportPriceCalculator 
             form={form}

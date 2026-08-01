@@ -25,6 +25,7 @@ import { useInvoiceModalsState } from '../components/invoice/hooks/useInvoiceMod
 import { useInvoiceCalculations } from '../components/invoice/hooks/useInvoiceCalculations';
 import { InvoiceChangeLog } from '../components/invoice/InvoiceChangeLog';
 import { InvoiceWeightSummary } from '../components/invoice/InvoiceWeightSummary';
+import { TareWarningModal } from '../components/invoice/TareWarningModal';
 import { InvoiceSignatures, SpecSignatures } from '../components/invoice/InvoiceSignatures';
 import { InvoiceModals } from '../components/invoice/InvoiceModals';
 import { InvoiceToolbar } from '../components/invoice/InvoiceToolbar';
@@ -411,7 +412,7 @@ const Invoice = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [taskId, clientId, contractIdFromQuery]);
 
-  const { handleSubmit, showItemErrors } = useInvoiceSave({
+  const { handleSubmit, showItemErrors, tareWarnings, dismissTareWarnings, confirmTareAndSave } = useInvoiceSave({
     form,
     setForm,
     items,
@@ -895,6 +896,14 @@ const Invoice = () => {
           onUpdateRequirements={canEditEffective ? handleUpdateContractRequirements : undefined}
         />
       )}
+
+      {/* Qadoq turi tara og'irligiga mos kelmasa — saqlashdan oldin tasdiqlash */}
+      <TareWarningModal
+        warnings={tareWarnings}
+        onCancel={dismissTareWarnings}
+        onConfirm={confirmTareAndSave}
+        saving={saving}
+      />
 
       <InvoiceModals
         showAdditionalInfoModal={showAdditionalInfoModal}

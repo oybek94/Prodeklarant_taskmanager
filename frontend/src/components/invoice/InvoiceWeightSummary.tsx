@@ -1,6 +1,7 @@
 import React from 'react';
 import type { InvoiceItem } from './types';
-import { formatNumber, isTareInRange } from './invoiceUtils';
+import type { PackagingTypeItem } from '../../types/settings';
+import { formatNumber, isTareInRange, suggestPackagingTypes } from './invoiceUtils';
 
 interface InvoiceWeightSummaryProps {
   items: InvoiceItem[];
@@ -8,13 +9,15 @@ interface InvoiceWeightSummaryProps {
   trailerWeight: string;
   palletWeight: string;
   vehicleWeight?: string;
+  /** Tara oralig'i shu ro'yxatdan olinadi (bazadan) */
+  packagingTypes?: PackagingTypeItem[];
 }
 
 /**
  * Maksimal og'irlik, farq, tare tekshiruvi paneli.
  * PDF da va Spetsifikatsiya tabida ko'rinmaydi — buni parent kontrol qiladi.
  */
-export const InvoiceWeightSummary = React.memo(function InvoiceWeightSummary({ items, loaderWeight, trailerWeight, palletWeight, vehicleWeight }: InvoiceWeightSummaryProps) {
+export const InvoiceWeightSummary = React.memo(function InvoiceWeightSummary({ items, loaderWeight, trailerWeight, palletWeight, vehicleWeight, packagingTypes = [] }: InvoiceWeightSummaryProps) {
   const goodsGross = items.reduce((sum, item) => sum + (item.grossWeight || 0), 0);
   const loader = Number(loaderWeight) || 0;
   const trailer = Number(trailerWeight) || 0;
@@ -79,10 +82,14 @@ export const InvoiceWeightSummary = React.memo(function InvoiceWeightSummary({ i
             const grossPerPkg = gross / qty;
             const netPerPkg = net / qty;
             const tarePerPkg = grossPerPkg - netPerPkg;
-            const tareOutOfRange = !isTareInRange(tarePerPkg, item.packageType || '');
+            const tareOutOfRange = !isTareInRange(tarePerPkg, item.packageType || '', packagingTypes);
+            // Tara chetga chiqqan bo'lsa — qaysi qadoq turiga to'g'ri kelishini taklif qilamiz
+            const suggestions = tareOutOfRange
+              ? suggestPackagingTypes(tarePerPkg, packagingTypes, item.packageType || '')
+              : [];
             return (
               <li key={index} className={tareOutOfRange ? 'text-red-600 font-medium' : undefined}>
-                {item.name || '—'} - {formatNumber(grossPerPkg)} -- {formatNumber(netPerPkg)} -- {formatNumber(tarePerPkg)}{item.packageType ? ` (${item.packageType})` : ''}
+                {item.name || '—'} - {formatNumber(grossPerPkg)} -- {formatNumber(netPerPkg)} -- {formatNumber(tarePerPkg)}{item.packageType ? ` (${item.packageType}${suggestions.length > 0 ? ` → ${suggestions.join(' / ')}?` : ''})` : ''}
               </li>
             );
           })}

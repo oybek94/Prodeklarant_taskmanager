@@ -1,6 +1,7 @@
 // Invoice moduli uchun utility funksiyalar
 
 import type { InvoiceItem, SpecRow } from './types';
+import type { PackagingTypeItem } from '../../types/settings';
 
 // --- Sana formatlash ---
 
@@ -116,29 +117,113 @@ export const syncItemsFromSpec = (currentItems: InvoiceItem[], spec: SpecRow[]):
   });
 
 // --- Tara tekshiruvi ---
+// Diapazonlar bazadan keladi (PackagingType.tareMin/tareMax) — kodda qotirilmagan.
+// Mantiq backenddagi src/services/packaging-tare.ts bilan bir xil bo'lishi shart.
 
-/** Qadoq turi bo'yicha tara (кг) ruxsat etilgan oralig'i */
-export const getTareRange = (packageType: string): { min: number; max: number } | null => {
-  const key = (packageType || '').trim().toLowerCase().replace(/\s+/g, '');
-  const ranges: Record<string, { min: number; max: number }> = {
-    'дер.ящик': { min: 0.7, max: 2.5 },
-    'пласт.ящик': { min: 0.1, max: 2 },
-    'пласт.ящик.': { min: 0.1, max: 2 },
-    мешки: { min: 0.01, max: 0.1 },
-    'картон.короб.': { min: 0.3, max: 2.5 },
-    'картон.короб': { min: 0.3, max: 2.5 },
-    навалом: { min: 0, max: 0 },
-  };
-  return ranges[key] ?? null;
+/** Nomlarni solishtirish uchun normallashtirish: "Пласт. Ящик" -> "пласт.ящик" */
+export const normalizePackagingName = (name: string): string =>
+  (name || '').trim().toLowerCase().replace(/\s+/g, '');
+
+/** Qadoq turi bo'yicha tara (кг) oralig'i. Belgilanmagan bo'lsa null. */
+export const getTareRange = (
+  packageType: string,
+  types: PackagingTypeItem[]
+): { min: number; max: number } | null => {
+  const key = normalizePackagingName(packageType);
+  if (!key || !Array.isArray(types)) return null;
+  const found = types.find((t) => normalizePackagingName(t.name) === key);
+  if (!found || found.tareMin == null || found.tareMax == null) return null;
+  return { min: Number(found.tareMin), max: Number(found.tareMax) };
 };
 
-/** Tara oralig'ida yoki yo'qligini tekshirish */
-export const isTareInRange = (tareKg: number, packageType: string): boolean => {
-  const range = getTareRange(packageType);
+/** Tara oralig'ida yoki yo'qligini tekshirish. Diapazon yo'q bo'lsa — har doim true. */
+export const isTareInRange = (
+  tareKg: number,
+  packageType: string,
+  types: PackagingTypeItem[]
+): boolean => {
+  const range = getTareRange(packageType, types);
   if (!range) return true;
+  // навалом (0/0): qadoq yo'q, tara aniq nol bo'lishi kerak
   if (range.min === 0 && range.max === 0) return Math.abs(tareKg) < 1e-6;
   const eps = 1e-9;
   return tareKg >= range.min - eps && tareKg <= range.max + eps;
+};
+
+/**
+ * Bir qadoq tarasi (kg). Qadoq soni yoki og'irliklar bo'lmasa null.
+ * packagesCount ustuvor; bo'lmasa quantity ishlatiladi (backend bilan bir xil).
+ */
+export const computeTarePerPackage = (item: InvoiceItem): number | null => {
+  const qty = (item.packagesCount ?? Number(item.quantity)) || 0;
+  if (!qty || qty <= 0) return null;
+  const gross = Number(item.grossWeight);
+  const net = Number(item.netWeight);
+  if (!Number.isFinite(gross) || !Number.isFinite(net)) return null;
+  return Math.round(((gross - net) / qty) * 1000) / 1000;
+};
+
+/** Tara qaysi boshqa qadoq turlarining oralig'iga to'g'ri keladi */
+export const suggestPackagingTypes = (
+  tareKg: number,
+  types: PackagingTypeItem[],
+  excludeName: string
+): string[] => {
+  const excludeKey = normalizePackagingName(excludeName);
+  if (!Array.isArray(types)) return [];
+  return types
+    .filter((t) => t.tareMin != null && t.tareMax != null)
+    .filter((t) => normalizePackagingName(t.name) !== excludeKey)
+    .filter((t) => isTareInRange(tareKg, t.name, types))
+    .map((t) => t.name);
+};
+
+export interface TareWarning {
+  rowIndex: number;
+  itemName: string;
+  packageType: string;
+  tarePerPkg: number;
+  expectedMin: number;
+  expectedMax: number;
+  suggestions: string[];
+}
+
+/**
+ * Qadoq turi shubhali bo'lgan qatorlarni topadi.
+ * Bloklamaydi — natija foydalanuvchiga tasdiqlash modalida ko'rsatiladi.
+ */
+export const checkItemsTare = (
+  items: InvoiceItem[],
+  types: PackagingTypeItem[]
+): TareWarning[] => {
+  if (!Array.isArray(items) || !Array.isArray(types) || types.length === 0) return [];
+  const warnings: TareWarning[] = [];
+
+  items.forEach((item, rowIndex) => {
+    const packageType = (item.packageType || '').trim();
+    if (!packageType) return;
+
+    const range = getTareRange(packageType, types);
+    if (!range) return;
+
+    const tarePerPkg = computeTarePerPackage(item);
+    if (tarePerPkg === null) return;
+    // Manfiy tara = netto > brutto; buni alohida bloklovchi tekshiruv ushlaydi
+    if (tarePerPkg < 0) return;
+    if (isTareInRange(tarePerPkg, packageType, types)) return;
+
+    warnings.push({
+      rowIndex,
+      itemName: item.name?.trim() || 'Nomsiz',
+      packageType,
+      tarePerPkg,
+      expectedMin: range.min,
+      expectedMax: range.max,
+      suggestions: suggestPackagingTypes(tarePerPkg, types, packageType),
+    });
+  });
+
+  return warnings;
 };
 
 // --- Son -> So'z (rus tilida) ---

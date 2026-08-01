@@ -3,7 +3,8 @@ import axios from 'axios';
 import apiClient from '../../../lib/api';
 import toast from 'react-hot-toast';
 import type { InvoiceItem, Task, ChangeLogEntry } from '../types';
-import { normalizeItem, buildTaskTitle, round2, sumItemTotals } from '../invoiceUtils';
+import { normalizeItem, buildTaskTitle, round2, sumItemTotals, checkItemsTare } from '../invoiceUtils';
+import type { TareWarning } from '../invoiceUtils';
 import { normalizeText, deepNormalizeStrings } from '../../../utils/textNormalize';
 import type { PdfFontSizes } from '../pdf/pdfFontSizes';
 
@@ -135,6 +136,8 @@ export function useInvoiceSave({
 }: UseInvoiceSaveParams) {
 
   const [showItemErrors, setShowItemErrors] = useState(false);
+  /** Qadoq turi shubhali qatorlar — bo'sh bo'lmasa tasdiqlash modali ochiladi */
+  const [tareWarnings, setTareWarnings] = useState<TareWarning[]>([]);
 
   const buildChangeLog = useCallback((): ChangeLogEntry[] => {
     const initial = initialForChangeLogRef.current;
@@ -199,7 +202,7 @@ export function useInvoiceSave({
     return entries;
   }, [form, items, initialForChangeLogRef]);
 
-  const handleSubmit = useCallback(async (e?: React.FormEvent, overrideForm?: typeof form, silent: boolean = false) => {
+  const handleSubmit = useCallback(async (e?: React.FormEvent, overrideForm?: typeof form, silent: boolean = false, skipTareConfirm: boolean = false) => {
     if (e) e.preventDefault();
     if (!canEditEffective) return;
 
@@ -233,14 +236,13 @@ export function useInvoiceSave({
       return;
     }
 
+    // Fizik imkonsiz holatlar — bloklanadi (backendda ham xuddi shu tekshiruv bor)
     const eps = 1e-6;
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
-      const packageType = (item.packageType || '').trim();
-      const ptLower = packageType.toLowerCase();
+      const ptLower = (item.packageType || '').trim().toLowerCase();
       const gross = Number(item.grossWeight) || 0;
       const net = Number(item.netWeight) || 0;
-      const qty = (item.packagesCount ?? Number(item.quantity)) || 0;
 
       const prefix = `${i + 1}-qatordagi tovar (${item.name || 'Nomsiz'}): `;
 
@@ -260,23 +262,6 @@ export function useInvoiceSave({
           setShowItemErrors(true);
           toast.error(`${prefix}Netto og‘irligi brutto og‘irligidan kichik bo‘lishi kerak.`);
           return;
-        }
-      }
-
-      if (qty > 0 && (ptLower === 'дер.ящик' || ptLower === 'пласт.ящик')) {
-        const tarePerPkg = (gross - net) / qty;
-        if (ptLower === 'дер.ящик') {
-          if (tarePerPkg < 0.7 - eps || tarePerPkg > 2.5 + eps) {
-            setShowItemErrors(true);
-            toast.error(`${prefix}дер.ящик og‘irligi 0.7 kg – 2.5 kg oralig‘ida bo‘lishi kerak.`);
-            return;
-          }
-        } else if (ptLower === 'пласт.ящик') {
-          if (tarePerPkg < 0.1 - eps || tarePerPkg > 2 + eps) {
-            setShowItemErrors(true);
-            toast.error(`${prefix}пласт.ящик og‘irligi 0.1 kg – 2 kg oralig‘ida bo‘lishi kerak.`);
-            return;
-          }
         }
       }
     }
@@ -301,6 +286,18 @@ export function useInvoiceSave({
 
     // Reset item errors if valid
     setShowItemErrors(false);
+
+    // Qadoq turi tekshiruvi — bloklamaydi, tasdiqlash so'raydi.
+    // Tara oralig'i bazadagi PackagingType.tareMin/tareMax dan olinadi.
+    // silent (avto-saqlash) rejimida modal ko'rsatib bo'lmaydi — o'tkazib yuboramiz.
+    if (!skipTareConfirm && !silent) {
+      const warnings = checkItemsTare(items, packagingTypes);
+      if (warnings.length > 0) {
+        setTareWarnings(warnings);
+        return;
+      }
+    }
+    setTareWarnings([]);
 
     try {
       setSaving(true);
@@ -498,5 +495,17 @@ export function useInvoiceSave({
     }
   }, [form, items, invoice, task, taskId, clientId, selectedContractId, canEditEffective, invoiceNumberWarning, additionalInfoError, customFields, specCustomFields, packingCustomFields, additionalInfoVisible, visibleColumns, columnLabels, columnOrder, customColumns, packagingTypes, newInvoiceTaskForm, buildChangeLog, setForm, setItems, setInvoice, setTask, setSelectedContractId, setAdditionalInfoError, setShowAdditionalInfoModal, setSaving, setMarkSnapshotAfterSave, setInvoiceNumberWarning, navigate]);
 
-  return { handleSubmit, buildChangeLog, showItemErrors };
+  /** "Tuzatish" — modalni yopadi va xato qatorlarni ajratib ko'rsatadi */
+  const dismissTareWarnings = useCallback(() => {
+    setTareWarnings([]);
+    setShowItemErrors(true);
+  }, []);
+
+  /** "Baribir saqlash" — tara tekshiruvini chetlab o'tib saqlaydi */
+  const confirmTareAndSave = useCallback(() => {
+    setTareWarnings([]);
+    void handleSubmit(undefined, undefined, false, true);
+  }, [handleSubmit]);
+
+  return { handleSubmit, buildChangeLog, showItemErrors, tareWarnings, dismissTareWarnings, confirmTareAndSave };
 }

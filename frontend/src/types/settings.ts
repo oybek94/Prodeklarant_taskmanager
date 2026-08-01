@@ -2,6 +2,13 @@ export interface PackagingTypeItem {
   id: string;
   name: string;
   code?: string;
+  /**
+   * Bir qadoqqa to'g'ri keladigan tara og'irligi (kg) oralig'i.
+   * Qadoq turi adashib noto'g'ri tanlanganini aniqlash uchun ishlatiladi.
+   * null/undefined = bu tur uchun tekshiruv yo'q.
+   */
+  tareMin?: number | null;
+  tareMax?: number | null;
 }
 
 export interface BXMConfig {

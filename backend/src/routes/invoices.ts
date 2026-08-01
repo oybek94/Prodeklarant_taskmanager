@@ -17,6 +17,7 @@ import { generateCommodityEkExcel } from '../services/commodity-ek-excel';
 import { generateCmrDocx } from '../services/cmr-doc';
 import fs from 'fs/promises';
 import { socketEmitter } from '../services/socketEmitter';
+import { checkItemsTare, TareWarning } from '../services/packaging-tare';
 
 const router = Router();
 
@@ -1263,7 +1264,9 @@ router.post('/', requireAuth('ADMIN', 'MANAGER', 'DEKLARANT'), async (req: AuthR
 
     const { taskId, clientId, invoiceNumber, contractNumber, contractId, date, currency, totalAmount, notes, additionalInfo, items } = parsed.data;
 
-    // VALIDATION
+    // VALIDATION — faqat fizik imkonsiz holatlar bloklanadi.
+    // Tara oralig'i (qadoq turi noto'g'ri tanlanganini aniqlash) bloklamaydi —
+    // u pastda ogohlantirish sifatida hisoblanadi va javob tanasida qaytariladi.
     if (items && items.length > 0) {
       const eps = 1e-6;
       for (let i = 0; i < items.length; i++) {
@@ -1272,7 +1275,6 @@ router.post('/', requireAuth('ADMIN', 'MANAGER', 'DEKLARANT'), async (req: AuthR
         const ptLower = packageType.toLowerCase();
         const gross = Number(item.grossWeight) || 0;
         const net = Number(item.netWeight) || 0;
-        const qty = (item.packagesCount ?? Number(item.quantity)) || 0;
 
         const prefix = `${i + 1}-qatordagi tovar (${item.name || 'Nomsiz'}): `;
 
@@ -1288,22 +1290,28 @@ router.post('/', requireAuth('ADMIN', 'MANAGER', 'DEKLARANT'), async (req: AuthR
             return res.status(400).json({ error: `${prefix}Netto og‘irligi brutto og‘irligidan kichik bo‘lishi kerak.` });
           }
         }
+      }
+    }
 
-        if (qty > 0 && (ptLower === 'дер.ящик' || ptLower === 'пласт.ящик')) {
-          const tarePerPkg = (gross - net) / qty;
-          
-          if (ptLower === 'дер.ящик') {
-            if (tarePerPkg < 0.7 - eps || tarePerPkg > 2.5 + eps) {
-              return res.status(400).json({ error: `${prefix}дер.ящик og‘irligi 0.7 kg – 2.5 kg oralig‘ida bo‘lishi kerak.` });
-            }
-          }
-          
-          if (ptLower === 'пласт.ящик') {
-            if (tarePerPkg < 0.1 - eps || tarePerPkg > 2 + eps) {
-              return res.status(400).json({ error: `${prefix}пласт.ящик og‘irligi 0.1 kg – 2 kg oralig‘ida bo‘lishi kerak.` });
-            }
-          }
-        }
+    // Qadoq turi tekshiruvi (tara og'irligi bo'yicha) — bloklamaydi, ogohlantiradi.
+    // Diapazonlar bazadan keladi, shuning uchun Sozlamalarda qo'shilgan yangi tur ham tekshiriladi.
+    let tareWarnings: TareWarning[] = [];
+    if (items && items.length > 0) {
+      try {
+        const packagingTypes = await prisma.packagingType.findMany({
+          select: { name: true, tareMin: true, tareMax: true },
+        });
+        tareWarnings = checkItemsTare(
+          items,
+          packagingTypes.map((p) => ({
+            name: p.name,
+            tareMin: p.tareMin != null ? Number(p.tareMin) : null,
+            tareMax: p.tareMax != null ? Number(p.tareMax) : null,
+          }))
+        );
+      } catch (err: any) {
+        // Ogohlantirish hech qachon saqlashni to'xtatmasligi kerak
+        console.error('[invoice] tare check failed:', err?.message || err);
       }
     }
 
@@ -1568,7 +1576,9 @@ router.post('/', requireAuth('ADMIN', 'MANAGER', 'DEKLARANT'), async (req: AuthR
         netWeight: item.netWeight ? Number(item.netWeight) : null,
         unitPrice: Number(item.unitPrice),
         totalPrice: Number(item.totalPrice),
-      }))
+      })),
+      // Qadoq turi shubhali bo'lgan qatorlar. Saqlash amalga oshgan — bu faqat ogohlantirish.
+      warnings: tareWarnings,
     });
     // Real-time: invoice saqlangani haqida xabar berish
     if (req.user) {

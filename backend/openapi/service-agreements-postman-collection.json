@@ -1,0 +1,117 @@
+{
+  "info": {
+    "name": "Prodeklarant — Service Agreements",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3001/api" },
+    { "key": "token", "value": "" },
+    { "key": "clientId", "value": "1" },
+    { "key": "agreementId", "value": "" },
+    { "key": "agreementNumber", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "next-number",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+        "url": "{{baseUrl}}/service-agreements/next-number?year=2026"
+      },
+      "event": [{
+        "listen": "test",
+        "script": { "exec": [
+          "pm.test('200', () => pm.response.to.have.status(200));",
+          "const b = pm.response.json();",
+          "pm.test('raqam 2026/ bilan boshlanadi', () => pm.expect(b.agreementNumber).to.match(/^2026\\//));",
+          "pm.collectionVariables.set('agreementNumber', b.agreementNumber);"
+        ] }
+      }]
+    },
+    {
+      "name": "create",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": "{{baseUrl}}/service-agreements",
+        "body": { "mode": "raw", "raw": "{\"clientId\":{{clientId}},\"agreementNumber\":\"{{agreementNumber}}\",\"agreementDate\":\"2026-03-12\",\"customerName\":\"NEWMAN TEST MCHJ\",\"customerInn\":\"305999111\",\"executorName\":\"PRODEKLARANT MCHJ\",\"paymentModel\":\"MONTHLY\",\"monthlyDueDay\":10,\"creditLimit\":20000000,\"mainTariffBhm\":3}" }
+      },
+      "event": [{
+        "listen": "test",
+        "script": { "exec": [
+          "pm.test('201', () => pm.response.to.have.status(201));",
+          "pm.collectionVariables.set('agreementId', pm.response.json().id);"
+        ] }
+      }]
+    },
+    {
+      "name": "create duplicate → 409",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": "{{baseUrl}}/service-agreements",
+        "body": { "mode": "raw", "raw": "{\"clientId\":{{clientId}},\"agreementNumber\":\"{{agreementNumber}}\",\"agreementDate\":\"2026-03-12\",\"customerName\":\"NEWMAN TEST MCHJ\",\"executorName\":\"PRODEKLARANT MCHJ\",\"paymentModel\":\"PREPAID\",\"mainTariffBhm\":3}" }
+      },
+      "event": [{
+        "listen": "test",
+        "script": { "exec": ["pm.test('409', () => pm.response.to.have.status(409));"] }
+      }]
+    },
+    {
+      "name": "create invalid (MONTHLY without day) → 400",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": "{{baseUrl}}/service-agreements",
+        "body": { "mode": "raw", "raw": "{\"clientId\":{{clientId}},\"agreementNumber\":\"2026/900\",\"agreementDate\":\"2026-03-12\",\"customerName\":\"X\",\"executorName\":\"Y\",\"paymentModel\":\"MONTHLY\",\"mainTariffBhm\":3}" }
+      },
+      "event": [{
+        "listen": "test",
+        "script": { "exec": ["pm.test('400', () => pm.response.to.have.status(400));"] }
+      }]
+    },
+    {
+      "name": "search by INN",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+        "url": "{{baseUrl}}/service-agreements?q=305999111"
+      },
+      "event": [{
+        "listen": "test",
+        "script": { "exec": [
+          "pm.test('200', () => pm.response.to.have.status(200));",
+          "pm.test('kamida bitta natija', () => pm.expect(pm.response.json().items.length).to.be.above(0));"
+        ] }
+      }]
+    },
+    {
+      "name": "terminate",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "url": "{{baseUrl}}/service-agreements/{{agreementId}}/terminate",
+        "body": { "mode": "raw", "raw": "{\"terminationReason\":\"14.3-band bo'yicha\"}" }
+      },
+      "event": [{
+        "listen": "test",
+        "script": { "exec": [
+          "pm.test('200', () => pm.response.to.have.status(200));",
+          "pm.test('holat TERMINATED', () => pm.expect(pm.response.json().status).to.eql('TERMINATED'));"
+        ] }
+      }]
+    }
+  ]
+}

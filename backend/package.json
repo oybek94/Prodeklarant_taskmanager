@@ -19,6 +19,7 @@
     "prisma:seed": "ts-node --transpile-only prisma/seed.ts",
     "test:integration": "newman run ./openapi/lms-postman-collection.json -e ./openapi/lms-postman-environment.json --delay-request 50",
     "test:integration:ci": "npm run test:integration",
+    "test:integration:agreements": "newman run ./openapi/service-agreements-postman-collection.json --env-var baseUrl=http://localhost:3001/api --env-var token=$TOKEN --env-var clientId=$CLIENT_ID --delay-request 50",
     "seed:lesson": "tsx src/scripts/seed-lesson-prodeklarant-intro.ts",
     "create:exam": "tsx src/scripts/create-exam-for-lesson.ts",
     "list:lessons": "tsx src/scripts/list-lessons.ts"

@@ -146,7 +146,7 @@ export function buildVidUpakovki(item: Partial<InvoiceItem>): string {
  * - B: Tovar tasnifi (nomi)
  * - C: Tovar TIF TN raqami
  * - D: Miqdor (toldirilmaydi)
- * - E: Miqdor birligi (toldirilmaydi)
+ * - E: Miqdor birligi (166 - kg)
  * - F: Brutto vazn (kg)
  * - G: Netto vazni (kg)
  * - H: Joylar soni
@@ -165,16 +165,20 @@ export async function generateST1GoodsExcel(payload: ST1GoodsExcelPayload): Prom
     throw new Error(`${TEMPLATE_NAME}: birinchi worksheet topilmadi`);
   }
 
+  const unitCodeIndex = buildUnitCodeIndex(workbook);
   const invoiceNumber = toStr(invoice.invoiceNumber);
   const invoiceDate = formatDate(invoice.date);
 
   items.forEach((item, index) => {
     const row = DATA_START_ROW + index;
+    const resolvedCode = resolveUnitCode(item.unit, unitCodeIndex);
+    const unitCode = resolvedCode ? (toNum(resolvedCode) !== '' ? toNum(resolvedCode) : resolvedCode) : 166;
+
     sheet.getCell(`A${row}`).value = index + 1;
     sheet.getCell(`B${row}`).value = toStr(item.name);
     sheet.getCell(`C${row}`).value = toStr(item.tnvedCode);
     sheet.getCell(`D${row}`).value = '';
-    sheet.getCell(`E${row}`).value = '';
+    sheet.getCell(`E${row}`).value = unitCode;
     sheet.getCell(`F${row}`).value = toNum(item.grossWeight);
     sheet.getCell(`G${row}`).value = toNum(item.netWeight);
     sheet.getCell(`H${row}`).value = toNum(item.packagesCount);

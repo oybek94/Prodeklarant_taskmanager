@@ -31,6 +31,7 @@ import certifierFeeConfigRouter from './routes/certifier-fee-config';
 import yearlyGoalConfigRouter from './routes/yearly-goal-config';
 import regionCodesRouter from './routes/region-codes';
 import packagingTypesRouter from './routes/packaging-types';
+import serviceAgreementsRouter from './routes/service-agreements';
 import tnvedProductsRouter from './routes/tnved-products';
 import contractsRouter from './routes/contracts';
 import taskStatusRouter from './routes/task-status';
@@ -258,6 +259,7 @@ app.use('/api/certifier-fee-config', certifierFeeConfigRouter);
 app.use('/api/yearly-goal-config', yearlyGoalConfigRouter);
 app.use('/api/region-codes', regionCodesRouter);
 app.use('/api/packaging-types', requireAuth(), packagingTypesRouter);
+app.use('/api/service-agreements', requireAuth(), serviceAgreementsRouter);
 app.use('/api/tnved-products', requireAuth(), tnvedProductsRouter);
 app.use('/api/contracts', requireAuth(), contractsRouter);
 // Public QR verification endpoint (no authentication required)

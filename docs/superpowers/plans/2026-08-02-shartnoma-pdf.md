@@ -491,7 +491,12 @@ const baseShape = {
  * u shunchaki PDF'da ishlatilmaydi.
  */
 function requireModelFields<T extends z.ZodTypeAny>(schema: T) {
-  return schema.superRefine((data: Record<string, unknown>, ctx: z.RefinementCtx) => {
+  return schema.superRefine((value, ctx: z.RefinementCtx) => {
+    // Zod generik chiqarishi tufayli `value` bu yerda `unknown` bo'ladi —
+    // bir marta toraytiramiz, keyin maydonlarga bemalol murojaat qilinadi.
+    // (Callback parametriga to'g'ridan-to'g'ri `Record<string, unknown>`
+    // annotatsiyasi qo'yilsa TS2345 beradi.)
+    const data = value as Record<string, unknown>;
     const need = (field: string) => {
       if (data[field] === undefined || data[field] === null) {
         ctx.addIssue({

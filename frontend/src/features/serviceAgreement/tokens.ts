@@ -1,4 +1,4 @@
-﻿import { PAYMENT_MODEL_LETTER, type ServiceAgreement, type TariffRow } from './types';
+import { PAYMENT_MODEL_LETTER, type ServiceAgreement, type TariffRow } from './types';
 
 /** Shablon matnida ishlatiladigan barcha token — boshqasi yozilsa TypeScript ushlaydi */
 export interface AgreementTokens {
@@ -55,7 +55,10 @@ export function formatMoney(value: number): string {
 }
 
 /** Bo'sh qiymat o'rniga chiziqcha — shartnomada bo'sh joy qolmasligi kerak */
-const dash = (value: string | null | undefined): string => (value && value.trim() ? value : '—');
+const dash = (value: string | null | undefined): string => {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : '—';
+};
 
 const numText = (value: number | null | undefined): string => (value == null ? '—' : String(value));
 

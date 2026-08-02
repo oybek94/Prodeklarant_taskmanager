@@ -1,4 +1,4 @@
-﻿import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { buildTokens, formatMoney } from './tokens';
 import type { ServiceAgreement } from './types';
 
@@ -49,5 +49,9 @@ describe('buildTokens', () => {
   it('bo\'sh maydonlarni chiziqcha bilan almashtiradi', () => {
     expect(buildTokens({ ...agreement, brokerRegistryNumber: null }, 412000).brokerRegistryNumber).toBe('');
     expect(buildTokens({ ...agreement, customerOked: null }, 412000).customerOked).toBe('—');
+  });
+
+  it('to\'ldirilgan maydonlarni kesib chiqaradi', () => {
+    expect(buildTokens({ ...agreement, customerAddress: '  Farg\'ona  ' }, 412000).customerAddress).toBe('Farg\'ona');
   });
 });

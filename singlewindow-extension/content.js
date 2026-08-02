@@ -172,7 +172,11 @@ async function fillAppExpertizaSt1(data) {
     // Ochiq qolgan sana paneli yoki ro'yxat keyingi bosishni yutib yuboradi
     await closeOpenOverlays();
 
-    // 1. Oddiy matn maydonlari
+    // 1. Oddiy matn maydonlari.
+    // Sotuvchi≠yuk yuboruvchi va sotib oluvchi≠yuk qabul qiluvchi qoidalari
+    // (п/п qo'shilishi) payload tayyorlanayotganda hisoblanadi —
+    // useInvoiceExtension.ts dagi ST1_GRZ_ADDR va IMPPN_ADDR_ST1 maydonlari
+    // eski to'ldirgich ishlatadigan qiymatlarning aynan o'zi.
     // Eslatma: "Ishlab chiqaruvchi" (manufacturer_*) maydonlari ataylab
     // to'ldirilmaydi — majburiy emas va ko'pincha boshqa korxona bo'ladi.
     const textFields = {
@@ -184,7 +188,7 @@ async function fillAppExpertizaSt1(data) {
 
     for (const [name, value] of Object.entries(textFields)) {
         if (value === undefined || value === null || value === '') continue;
-        if (!setReactInputValue(name, value)) {
+        if (!setReactInputValue(name, toSingleLine(value))) {
             warnings.push(`Maydon topilmadi: ${name}`);
         }
     }
@@ -351,6 +355,14 @@ async function setDatePickerValue(name, value) {
     await delay(200);
 
     return el.value === value;
+}
+
+// Bu saytda manzil maydonlari bir qatorli <input>. Brauzer yangi qatorni
+// O'RNIGA HECH NARSA QO'YMASDAN tashlab yuboradi, ya'ni ST1_GRZ_ADDR dagi
+// "manzil\nп/п sotuvchi" qiymati "manzilп/п sotuvchi" bo'lib birikib qoladi.
+// (Eski saytda bu maydon textarea edi, shuning uchun muammo ko'rinmagan.)
+function toSingleLine(value) {
+    return String(value).replace(/\s+/g, ' ').trim();
 }
 
 // Shartnomadagi davlat nomini saytdagi ro'yxat nomiga o'giradi

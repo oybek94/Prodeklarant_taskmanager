@@ -887,12 +887,25 @@ git commit -m "feat(api): add service agreements CRUD routes"
 }
 ```
 
-- [ ] **Step 2: `backend/package.json` ga skript qo'shish**
+- [ ] **Step 2: portativ runner + npm skript**
+
+`$TOKEN` kabi shell kengaytirishni **ishlatmang**: `npm run` Windows'da `cmd.exe` orqali ketadi va o'zgaruvchi kengaymaydi — newman'ga so'zma-so'z `$TOKEN` boradi, natijada test 401/400 lar bilan yiqilib, API buzuqdek ko'rinadi.
+
+`backend/openapi/run-agreements-tests.mjs` yarating. U:
+
+1. `process.env` dan `TOKEN`, `CLIENT_ID` va ixtiyoriy `BASE_URL` ni o'qiydi;
+2. ular yo'q bo'lsa o'zbekcha tushuntirish chiqarib `exit 1` qiladi (Prisma'ga ham, newman'ga ham tegmasdan). Token `localStorage.getItem("accessToken")` dan olinadi;
+3. newman'ga **faqat** `baseUrl`, `token`, `clientId` ni uzatadi. `agreementNumber` va `agreementId` ni **hech qachon** e'lon qilmang — Postman'da environment collection'dan ustun turadi va test skriptlari `pm.collectionVariables.set(...)` bilan qo'ygan qiymatni bosib ketadi;
+4. **teardown**: test natijasidan qat'i nazar Prisma bilan fixture'ni o'chiradi — filtr `customerName: 'NEWMAN TEST MCHJ'` **VA** `customerInn: '305999111'` ikkalasi birga (kengroq filtr real shartnomalarni yo'q qilishi mumkin). Nechta yozuv o'chirilgani o'zbekcha yoziladi, nol bo'lsa ogohlantiradi;
+5. exit kodini saqlaydi: newman yiqilsa yoki tozalash xato bersa — 1, aks holda 0;
+6. `prisma.$disconnect()` qiladi.
+
+Teardown majburiy: `.env` jonli bazaga qaraydi, API'da `DELETE` yo'q, va tozalashsiz ikkinchi yugurish `2026/001` takrorlangani uchun 409 bilan yiqiladi.
 
 `scripts` blokiga:
 
 ```json
-"test:integration:agreements": "newman run ./openapi/service-agreements-postman-collection.json --env-var baseUrl=http://localhost:3001/api --env-var token=$TOKEN --env-var clientId=$CLIENT_ID --delay-request 50"
+"test:integration:agreements": "node ./openapi/run-agreements-tests.mjs"
 ```
 
 - [ ] **Step 3: Ishga tushirib tekshirish**

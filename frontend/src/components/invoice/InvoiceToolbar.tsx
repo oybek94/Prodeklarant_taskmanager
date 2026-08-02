@@ -32,6 +32,7 @@ interface InvoiceToolbarProps {
   generateCmrDoc: () => void;
   generateTirExcel: () => void;
   generateST1Excel: () => void;
+  generateST1GoodsExcel: () => void;
   generateCommodityEkExcel: () => void;
   generateInvoiceExcel: () => void;
   generatePdf: (withStamp: boolean) => void;
@@ -110,6 +111,7 @@ export const InvoiceToolbar: React.FC<InvoiceToolbarProps> = React.memo(({
   generateCmrDoc,
   generateTirExcel,
   generateST1Excel,
+  generateST1GoodsExcel,
   generateCommodityEkExcel,
   generateInvoiceExcel,
   generatePdf,
@@ -303,6 +305,16 @@ export const InvoiceToolbar: React.FC<InvoiceToolbarProps> = React.memo(({
                     role="menuitem"
                   >
                     ST-1
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { generateST1GoodsExcel(); setSertifikatlarDropdownOpen(false); }}
+                    disabled={templatesDisabled}
+                    className={MENU_ITEM}
+                    role="menuitem"
+                    title="Yangi ST-1 dasturiga tovarlarni import qilish uchun ro'yxat"
+                  >
+                    ST-1 tovarlar (yangi)
                   </button>
                 </div>
               )}

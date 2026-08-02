@@ -21,7 +21,7 @@ if (!token || !clientId) {
   console.error('Token qanday olish:');
   console.error('  1. Prodeklarant tizimiga login qiling');
   console.error('  2. Brauzer konsolidan talab qo\'ling:');
-  console.error('     const token = localStorage.getItem("token"); console.log(token)');
+  console.error('     const token = localStorage.getItem("accessToken"); console.log(token)');
   console.error('  3. Natijani TOKEN sifatida o\'rnating');
   console.error('');
   console.error('CLIENT_ID (mavjud mijoz ID):');
@@ -31,15 +31,17 @@ if (!token || !clientId) {
 }
 
 // Newman bilan testni ishga tushirish
+// Eslatma: agreementId va agreementNumber ni o'z ichiga olmang!
+// Ular koleksiya testlari tomonidan pm.collectionVariables.set() orqali o'rnatiladi.
+// Agar ularni muhit o'zgaruvchilari sifatida e'lon qilsak, Newman'da muhit qiymatlari
+// koleksiya qiymatlarini ko'lib chiqadi va bo'sh qiymatlar testni buzadi.
 newman.run({
   collection: path.join(__dirname, 'service-agreements-postman-collection.json'),
   environment: {
     values: [
       { key: 'baseUrl', value: baseUrl, type: 'string' },
       { key: 'token', value: token, type: 'string' },
-      { key: 'clientId', value: clientId, type: 'string' },
-      { key: 'agreementId', value: '', type: 'string' },
-      { key: 'agreementNumber', value: '', type: 'string' }
+      { key: 'clientId', value: clientId, type: 'string' }
     ]
   },
   delayRequest: 50,

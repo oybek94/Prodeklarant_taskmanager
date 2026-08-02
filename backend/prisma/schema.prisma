@@ -66,14 +66,14 @@ model User {
 }
 
 model Client {
-  id                         Int              @id @default(autoincrement())
+  id                         Int                @id @default(autoincrement())
   name                       String
-  dealAmount                 Decimal?         @db.Decimal(18, 2)
-  dealAmountCurrency         Currency?        @default(UZS)
+  dealAmount                 Decimal?           @db.Decimal(18, 2)
+  dealAmountCurrency         Currency?          @default(UZS)
   phone                      String?
   passwordHash               String?
   creditType                 String?
-  creditLimit                Decimal?         @db.Decimal(18, 2)
+  creditLimit                Decimal?           @db.Decimal(18, 2)
   creditStartDate            DateTime?
   contractNumber             String?
   address                    String?
@@ -87,25 +87,94 @@ model Client {
   correspondentBank          String?
   correspondentBankAccount   String?
   correspondentBankSwift     String?
-  createdAt                  DateTime         @default(now())
-  updatedAt                  DateTime         @updatedAt
-  dealAmountExchangeRate     Decimal?         @db.Decimal(18, 6)
-  dealAmountInUzs            Decimal?         @db.Decimal(18, 2)
-  dealAmount_amount_original Decimal?         @db.Decimal(14, 2)
+  createdAt                  DateTime           @default(now())
+  updatedAt                  DateTime           @updatedAt
+  dealAmountExchangeRate     Decimal?           @db.Decimal(18, 6)
+  dealAmountInUzs            Decimal?           @db.Decimal(18, 2)
+  dealAmount_amount_original Decimal?           @db.Decimal(14, 2)
   dealAmount_currency        Currency?
-  dealAmount_exchange_rate   Decimal?         @db.Decimal(10, 4)
-  dealAmount_amount_uzs      Decimal?         @db.Decimal(16, 2)
+  dealAmount_exchange_rate   Decimal?           @db.Decimal(10, 4)
+  dealAmount_amount_uzs      Decimal?           @db.Decimal(16, 2)
   dealAmount_exchange_source ExchangeSource?
-  defaultAfterHoursPayer     AfterHoursPayer? @default(CLIENT)
-  initialDebt                Decimal?         @db.Decimal(18, 2)
-  initialDebtCurrency        Currency?        @default(UZS)
-  initialDebtExchangeRate    Decimal?         @db.Decimal(18, 6)
-  initialDebtInUzs           Decimal?         @db.Decimal(18, 2)
+  defaultAfterHoursPayer     AfterHoursPayer?   @default(CLIENT)
+  initialDebt                Decimal?           @db.Decimal(18, 2)
+  initialDebtCurrency        Currency?          @default(UZS)
+  initialDebtExchangeRate    Decimal?           @db.Decimal(18, 6)
+  initialDebtInUzs           Decimal?           @db.Decimal(18, 2)
+  director                   String?
+  mfo                        String?
+  oked                       String?
+  serviceAgreements          ServiceAgreement[]
   contracts                  Contract[]
   invoices                   Invoice[]
   tasks                      Task[]
-  transactions               Transaction[]    @relation("TransactionClient")
-  leads                      Lead[]           @relation("LeadClient")
+  transactions               Transaction[]      @relation("TransactionClient")
+  leads                      Lead[]             @relation("LeadClient")
+}
+
+model ServiceAgreement {
+  id                Int             @id @default(autoincrement())
+  clientId          Int
+  agreementNumber   String          @unique
+  agreementDate     DateTime
+  templateVersion   String          @default("v1")
+  status            AgreementStatus @default(DRAFT)
+  terminatedAt      DateTime?
+  terminationReason String?
+
+  // Buyurtmachi rekvizitlari — SNAPSHOT. Client o'zgarsa ham bu o'zgarmaydi.
+  customerName          String
+  customerInn           String?
+  customerAddress       String?
+  customerDirector      String?
+  customerDirectorBasis String?
+  customerBankName      String?
+  customerBankAccount   String?
+  customerMfo           String?
+  customerOked          String?
+  customerPhone         String?
+  customerEmail         String?
+
+  // Bajaruvchi rekvizitlari — SNAPSHOT (CompanySettings dan ko'chiriladi)
+  executorName        String
+  executorInn         String?
+  executorAddress     String?
+  executorDirector    String?
+  executorBankName    String?
+  executorBankAccount String?
+  executorMfo         String?
+  executorOked        String?
+  executorPhone       String?
+  executorEmail       String?
+
+  // Tijorat shartlari
+  paymentModel         PaymentModel @default(PREPAID)
+  monthlyDueDay        Int?
+  perCountThreshold    Int?
+  perCountDueDays      Int?
+  perAmountThreshold   Decimal?     @db.Decimal(18, 2)
+  perAmountDueDays     Int?
+  creditLimit          Decimal?     @db.Decimal(18, 2)
+  prepaidRevertDays    Int          @default(10)
+  mainTariffBhm        Decimal      @db.Decimal(6, 2)
+  tariffs              Json         @default("[]")
+  vatPayer             Boolean      @default(false)
+  jurisdictionCourt    String?
+  brokerRegistryNumber String?
+  signingPlace         String       @default("Олтиариқ тумани")
+
+  includeSeal Boolean @default(true)
+
+  createdById Int?
+  updatedById Int?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
+  @@index([customerInn])
+  @@index([status])
 }
 
 model Task {
@@ -1467,4 +1536,17 @@ enum SellerBonusType {
   CONTRACT_SMALL
   CONTRACT_MEDIUM
   CONTRACT_LARGE
+}
+
+enum AgreementStatus {
+  DRAFT
+  ACTIVE
+  TERMINATED
+}
+
+enum PaymentModel {
+  PREPAID
+  MONTHLY
+  PER_COUNT
+  PER_AMOUNT
 }

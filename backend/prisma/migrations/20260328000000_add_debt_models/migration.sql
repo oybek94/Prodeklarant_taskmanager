@@ -1,0 +1,7 @@
+-- Bo'sh (no-op) migratsiya.
+--
+-- Bu papka migratsiya tarixida mavjud edi, lekin migration.sql fayli yo'q edi
+-- va shu sababli `prisma migrate` drift xatosi (P3017) berardi. Ushbu
+-- migratsiya nazarda tutgan jadvallar bazaga allaqachon boshqa yo'l bilan
+-- qo'llangan, shuning uchun bu yerda bajariladigan SQL yo'q — fayl faqat
+-- migratsiya tarixini butun qilish uchun turibdi.

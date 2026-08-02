@@ -1,10 +1,12 @@
 #!/usr/bin/env node
 
 import newman from 'newman';
+import { PrismaClient } from '@prisma/client';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const prisma = new PrismaClient();
 
 // O'qish: TOKEN, CLIENT_ID, BASE_URL (ixtiyoriy) muhit o'zgaruvchilardan
 const token = process.env.TOKEN;
@@ -46,12 +48,42 @@ newman.run({
   },
   delayRequest: 50,
   reporters: ['cli']
-}, function(err, summary) {
+}, async function(err, summary) {
+  let testsFailed = false;
+
   if (err) {
     console.error('Newman xatosi:', err.message);
-    process.exit(1);
+    testsFailed = true;
+  } else {
+    testsFailed = summary.run.failures.length > 0;
+  }
+
+  // Tozalash: bu test paketi jonli bazaga qarshi ishga tushgan uchun, test yozuvlarini
+  // o'chirib tashlash majburiy. Mos keladigan yozuvlarni customerName va customerInn orqali
+  // aniqlik bilan tanlash (boshqa hech qanday maydonni bermang, faqat ushbu ikkita).
+  // Tozalash muvaffaqiyat yoki muvaffaqiyatsizlikdan qat'i nazar bajarilishi kerak.
+  try {
+    const deleted = await prisma.serviceAgreement.deleteMany({
+      where: {
+        AND: [
+          { customerName: 'NEWMAN TEST MCHJ' },
+          { customerInn: '305999111' }
+        ]
+      }
+    });
+
+    if (deleted.count > 0) {
+      console.log(`\n✓ Tozalash: ${deleted.count} ta test yozuvi o'chirildi`);
+    } else {
+      console.log(`\n⚠ Tozalash: test yozuvlari topilmadi (ehtimol identifikatorlar o'zgargan)`);
+    }
+  } catch (cleanupErr) {
+    console.error('\n❌ Tozalash xatosi:', cleanupErr.message);
+    testsFailed = true;
+  } finally {
+    await prisma.$disconnect();
   }
 
   // Newman-ning chiqish kodini tarqatish (CI uchun muhim)
-  process.exit(summary.run.failures.length > 0 ? 1 : 0);
+  process.exit(testsFailed ? 1 : 0);
 });

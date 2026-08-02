@@ -6,6 +6,7 @@ import {
   agreementCreateSchema,
   agreementUpdateSchema,
   terminateSchema,
+  AgreementCreateInput,
 } from './service-agreements.schema';
 
 const router = Router();
@@ -68,10 +69,16 @@ router.get('/:id', requireAuth(), async (req, res) => {
   res.json(item);
 });
 
+// Zod chiqarishida `agreementDate` matn (string), Prisma esa `Date` kutadi.
+// Qolgan maydonlar Zod tipini saqlab qoladi — shu sababli Prisma create
+// chaqiruvida `as never` kerak bo'lmaydi (u strukturaviy nomuvofiqliklarni
+// butunlay yashirib qo'yardi).
+type PrismaCreateData = Omit<AgreementCreateInput, 'agreementDate'> & { agreementDate: Date };
+
 /** Zod natijasini Prisma `data` ga o'giradi (sana matndan Date ga) */
-function toPrismaData(input: Record<string, unknown>) {
+function toPrismaData(input: AgreementCreateInput): PrismaCreateData {
   const { agreementDate, ...rest } = input;
-  return { ...rest, agreementDate: new Date(String(agreementDate)) };
+  return { ...rest, agreementDate: new Date(agreementDate) };
 }
 
 router.post('/', requireAuth(), async (req: AuthRequest, res) => {
@@ -80,10 +87,10 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
   try {
     const created = await prisma.serviceAgreement.create({
       data: {
-        ...toPrismaData(parsed.data as Record<string, unknown>),
+        ...toPrismaData(parsed.data),
         createdById: req.user?.id ?? null,
         updatedById: req.user?.id ?? null,
-      } as never,
+      },
     });
     res.status(201).json(created);
   } catch (error: unknown) {
@@ -95,19 +102,30 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
   }
 });
 
+/**
+ * PATCH uchun: `agreementDate` kelgan bo'lsa Date'ga o'giradi, kelmagan bo'lsa
+ * maydonni umuman qo'shmaydi — qolgan barcha maydonlar Zod tipida o'zgarishsiz
+ * o'tadi (agreementUpdateSchema qisman/partial bo'lgani uchun generik ishlatiladi).
+ */
+function toPrismaUpdateData<T extends { agreementDate?: string }>(
+  input: T,
+): Omit<T, 'agreementDate'> & { agreementDate?: Date } {
+  const { agreementDate, ...rest } = input;
+  return agreementDate !== undefined ? { ...rest, agreementDate: new Date(agreementDate) } : rest;
+}
+
 router.patch('/:id', requireAuth(), async (req: AuthRequest, res) => {
   const id = parseInt(req.params.id, 10);
   if (!Number.isFinite(id)) return res.status(400).json({ error: 'Invalid id' });
   const parsed = agreementUpdateSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   try {
-    const data = parsed.data as Record<string, unknown>;
     const updated = await prisma.serviceAgreement.update({
       where: { id },
       data: {
-        ...(data.agreementDate ? toPrismaData(data) : data),
+        ...toPrismaUpdateData(parsed.data),
         updatedById: req.user?.id ?? null,
-      } as never,
+      },
     });
     res.json(updated);
   } catch (error: unknown) {

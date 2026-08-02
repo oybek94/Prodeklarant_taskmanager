@@ -2643,20 +2643,28 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Davlati *</label>
-                        <input
-                          type="text"
-                          list="destination-countries"
+                        <select
                           value={contractForm.destinationCountry}
                           onChange={(e) => setContractFormAndRef({ ...contractForm, destinationCountry: e.target.value })}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                          placeholder="Davlatni tanlang..."
                           required
-                        />
-                        <datalist id="destination-countries">
+                        >
+                          <option value="">Tanlang...</option>
+                          {/* Eski shartnomalarda ro'yxatdan tashqari qiymat bo'lishi
+                              mumkin (masalan lotincha "Russia"). Uni jimgina
+                              yo'qotmaymiz — ko'rinib tursin va tuzatilsin. */}
+                          {contractForm.destinationCountry
+                            && !(allCountries as readonly string[]).includes(contractForm.destinationCountry) && (
+                            <option value={contractForm.destinationCountry}>
+                              {contractForm.destinationCountry} — ro'yxatda yo'q, tuzating
+                            </option>
+                          )}
                           {allCountries.map((country) => (
-                            <option key={country} value={country} />
+                            <option key={country} value={country}>
+                              {country}
+                            </option>
                           ))}
-                        </datalist>
+                        </select>
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Yuridik manzili *</label>

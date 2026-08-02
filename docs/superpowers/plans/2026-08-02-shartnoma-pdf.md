@@ -22,6 +22,15 @@
 - Kirish huquqi cheklanmaydi: `requireAuth()` (rol argumentisiz), `ProtectedRoute` da `allowedRoles` berilmaydi.
 - Shartnoma matni — o'zbek kirill alifbosida (`ҳ`, `қ`, `ғ`, `ў`). Kodning izohlari — o'zbek lotin, mavjud fayllar kabi.
 - Yangi Prisma model nomi `ServiceAgreement` — `Contract` band (tashqi savdo kontrakti).
+- **Baseline TypeScript xatosi.** Repoda bu reja boshlanishidan OLDIN ham mavjud bo'lgan bitta xato bor:
+
+  ```
+  src/components/invoice/hooks/useInvoiceSave.ts(294,46): error TS2345:
+    Argument of type '{ name: string; code?: string | undefined; }[]' is not
+    assignable to parameter of type 'PackagingTypeItem[]'.
+  ```
+
+  Bu xato ushbu rejaning ishi emas va **tuzatilmaydi** (invoys kodiga tegilmaydi). Har qanday `tsc` tekshiruvida u chiqadi. Shuning uchun barcha TypeScript darvozalarining mezoni: **shu bitta ma'lum xatodan boshqa yangi xato qo'shilmasin**. Boshqa fayldan yoki boshqa qatordan xato chiqsa — u sizning o'zgarishingizdan, tuzatilishi shart.
 
 ---
 
@@ -943,7 +952,7 @@ Va `styles.page` ichidagi `fontFamily: ['Roboto', 'NotoSans'],` ni shunga o'zgar
 - [ ] **Step 3: Kompilyatsiyani tekshirish**
 
 Run: `cd frontend && npx tsc -b --noEmit`
-Expected: xatosiz.
+Expected: faqat ma'lum baseline xatosi (`useInvoiceSave.ts(294,46)`). Boshqa xato bo'lmasin.
 
 - [ ] **Step 4: Invoys PDF'i buzilmaganini tekshirish**
 
@@ -1122,7 +1131,7 @@ export async function terminateAgreement(id: number, terminationReason: string):
 - [ ] **Step 3: Kompilyatsiyani tekshirish**
 
 Run: `cd frontend && npx tsc -b --noEmit`
-Expected: xatosiz.
+Expected: faqat ma'lum baseline xatosi (`useInvoiceSave.ts(294,46)`). Boshqa xato bo'lmasin.
 
 - [ ] **Step 4: Commit**
 
@@ -1863,7 +1872,7 @@ export async function renderAgreementPdf(agreement: ServiceAgreement, bhmUzs: nu
 - [ ] **Step 4: Kompilyatsiyani tekshirish**
 
 Run: `cd frontend && npx tsc -b --noEmit`
-Expected: xatosiz.
+Expected: faqat ma'lum baseline xatosi (`useInvoiceSave.ts(294,46)`). Boshqa xato bo'lmasin.
 
 - [ ] **Step 5: Commit**
 
@@ -2087,7 +2096,7 @@ Muharrir route'lari bu vazifada qo'shilmaydi — ular Task 12 da, muharrirning o
 
 - [ ] **Step 4: Tekshirish**
 
-Run: `cd frontend && npx tsc -b --noEmit && npm run dev`
+Run: `cd frontend && npx tsc -b --noEmit` (faqat baseline `useInvoiceSave.ts` xatosi bo'lsin), so'ng `npm run dev`
 Brauzerda `/shartnomalar` sahifasini oching.
 Expected: sahifa ochiladi, bo'sh holat ko'rinadi, yon menyuda "Shartnomalar" bandi bor. "Ochish" havolasi hozircha ishlamaydi — muharrir Task 12 da qo'shiladi.
 
@@ -2420,7 +2429,7 @@ Diqqat: `/shartnomalar/yangi` `/shartnomalar/:id` dan OLDIN turishi kerak, aks h
 - [ ] **Step 4: Kompilyatsiyani tekshirish**
 
 Run: `cd frontend && npx tsc -b --noEmit`
-Expected: xatosiz.
+Expected: faqat ma'lum baseline xatosi (`useInvoiceSave.ts(294,46)`). Boshqa xato bo'lmasin.
 
 - [ ] **Step 5: Qo'lda tekshirish**
 
@@ -2501,6 +2510,7 @@ import { STATUS_LABEL, type ServiceAgreement } from '../features/serviceAgreemen
 - [ ] **Step 2: Tekshirish**
 
 Run: `cd frontend && npx tsc -b --noEmit`
+Expected: faqat ma'lum baseline xatosi (`useInvoiceSave.ts(294,46)`). Boshqa xato bo'lmasin.
 Brauzerda shartnomasi bor mijoz kartochkasini oching.
 Expected: "Shartnomalar" bo'limi ro'yxat bilan ko'rinadi.
 

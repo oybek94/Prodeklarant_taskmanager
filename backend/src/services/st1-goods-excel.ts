@@ -122,18 +122,35 @@ const resolveUnitCode = (unit: unknown, index: Map<string, string>): string => {
 };
 
 /**
+ * Qadoqlash turi matnini tayyorlaydi.
+ * Agar invoysda Мест (quantity — palletlar/joylar soni) yozilgan bo'lsa:
+ * "пласт.ящик на 29 паллетах" ko'rinishida yoziladi.
+ */
+export function buildVidUpakovki(item: Partial<InvoiceItem>): string {
+  const pack = toStr(item.packageType).trim();
+  const mest = Number(item.quantity ?? 0);
+  if (mest > 0 && pack) {
+    return `${pack} на ${Math.round(mest)} паллетах`;
+  }
+  if (mest > 0) {
+    return `на ${Math.round(mest)} паллетах`;
+  }
+  return pack;
+}
+
+/**
  * goods.xlsx (yangi ST-1 dasturi uchun tovarlar ro'yxati) shablonini yuklab,
  * 2-qatordan boshlab invoys tovarlarini yozadi. Shablon tuzilishi va
  * "Birliklar" varag'i o'zgartirilmaydi.
  * - A: № (tartib raqami)
  * - B: Tovar tasnifi (nomi)
  * - C: Tovar TIF TN raqami
- * - D: Miqdor
- * - E: Miqdor birligi — "Birliklar" varag'idagi kod (166, 796, ...)
+ * - D: Miqdor (toldirilmaydi)
+ * - E: Miqdor birligi (toldirilmaydi)
  * - F: Brutto vazn (kg)
  * - G: Netto vazni (kg)
  * - H: Joylar soni
- * - I: Qadoqlash turi
+ * - I: Qadoqlash turi (masalan "пласт.ящик на 29 паллетах")
  * - J: Hisob-faktura raqami (faqat birinchi qator)
  * - K: Hisob-faktura sanasi (faqat birinchi qator)
  */
@@ -148,7 +165,6 @@ export async function generateST1GoodsExcel(payload: ST1GoodsExcelPayload): Prom
     throw new Error(`${TEMPLATE_NAME}: birinchi worksheet topilmadi`);
   }
 
-  const unitCodeIndex = buildUnitCodeIndex(workbook);
   const invoiceNumber = toStr(invoice.invoiceNumber);
   const invoiceDate = formatDate(invoice.date);
 
@@ -157,12 +173,12 @@ export async function generateST1GoodsExcel(payload: ST1GoodsExcelPayload): Prom
     sheet.getCell(`A${row}`).value = index + 1;
     sheet.getCell(`B${row}`).value = toStr(item.name);
     sheet.getCell(`C${row}`).value = toStr(item.tnvedCode);
-    sheet.getCell(`D${row}`).value = toNum(item.quantity);
-    sheet.getCell(`E${row}`).value = resolveUnitCode(item.unit, unitCodeIndex);
+    sheet.getCell(`D${row}`).value = '';
+    sheet.getCell(`E${row}`).value = '';
     sheet.getCell(`F${row}`).value = toNum(item.grossWeight);
     sheet.getCell(`G${row}`).value = toNum(item.netWeight);
     sheet.getCell(`H${row}`).value = toNum(item.packagesCount);
-    sheet.getCell(`I${row}`).value = toStr(item.packageType);
+    sheet.getCell(`I${row}`).value = buildVidUpakovki(item);
     if (index === 0) {
       sheet.getCell(`J${row}`).value = invoiceNumber;
       sheet.getCell(`K${row}`).value = invoiceDate;
@@ -171,3 +187,4 @@ export async function generateST1GoodsExcel(payload: ST1GoodsExcelPayload): Prom
 
   return workbook;
 }
+

@@ -1446,21 +1446,23 @@ export const v1: AgreementTemplate = {
 
     { kind: 'heading', level: 2, text: '2. ШАРТНОМА ПРЕДМЕТИ' },
     // …2.1 va 2.2 bandlari…
+    // 2.3-band: umumiy matn bitta joyda, faqat maqomni belgilovchi oxirgi gap
+    // shartli. Reestr raqami kiritilmagan bo'lsa firma o'zini broker deb
+    // ko'rsatmasligi kerak — bu huquqiy talab, kosmetik tanlov emas.
     {
       kind: 'paragraph',
       text:
         '2.3. **Хизматларнинг чегараси.** Бажарувчи божхона органларининг қарорларини қабул қилмайди ва ' +
-        'уларга таъсир кўрсата олмайди. Бажарувчи божхона брокери сифатида фаолият юритади ва тегишли ' +
-        'реестрга {{brokerRegistryNumber}} рақами билан киритилган.',
-      // Reestr raqami kiritilmagan bo'lsa firma o'zini broker deb ko'rsatmasligi kerak
+        'уларга таъсир кўрсата олмайди.',
+    },
+    {
+      kind: 'paragraph',
+      text: 'Бажарувчи божхона брокери сифатида фаолият юритади ва тегишли реестрга {{brokerRegistryNumber}} рақами билан киритилган.',
       when: (t) => t.brokerRegistryNumber !== '',
     },
     {
       kind: 'paragraph',
-      text:
-        '2.3. **Хизматларнинг чегараси.** Бажарувчи божхона органларининг қарорларини қабул қилмайди ва ' +
-        'уларга таъсир кўрсата олмайди. Бажарувчи Буюртмачининг ишончли вакили сифатида ҳужжатларни ' +
-        'тайёрлайди ва топширади.',
+      text: 'Бажарувчи Буюртмачининг ишончли вакили сифатида ҳужжатларни тайёрлайди ва топширади.',
       when: (t) => t.brokerRegistryNumber === '',
     },
 
@@ -2065,16 +2067,15 @@ export default function ServiceAgreements() {
 
 ```tsx
 const ServiceAgreements = lazy(() => import('./pages/ServiceAgreements'));
-const ServiceAgreementEditor = lazy(() => import('./pages/ServiceAgreementEditor'));
 ```
 
 Route bloki (`/clients` route'lari yoniga). `allowedRoles` **berilmaydi** — sahifa barcha uchun ochiq:
 
 ```tsx
 <Route path="/shartnomalar" element={<ProtectedRoute><ServiceAgreements /></ProtectedRoute>} />
-<Route path="/shartnomalar/yangi" element={<ProtectedRoute><ServiceAgreementEditor /></ProtectedRoute>} />
-<Route path="/shartnomalar/:id" element={<ProtectedRoute><ServiceAgreementEditor /></ProtectedRoute>} />
 ```
+
+Muharrir route'lari bu vazifada qo'shilmaydi — ular Task 12 da, muharrirning o'zi bilan birga keladi. Shu sababli ro'yxatdagi "Ochish" havolasi va "Yangi shartnoma" tugmasi Task 12 gacha 404 beradi; bu kutilgan oraliq holat.
 
 - [ ] **Step 3: Yon menyuga qo'shish**
 
@@ -2084,26 +2085,16 @@ Route bloki (`/clients` route'lari yoniga). `allowedRoles` **berilmaydi** — sa
     { path: '/shartnomalar', label: 'Shartnomalar', icon: 'solar:document-text-bold-duotone', group: 'Savdo va CRM' },
 ```
 
-- [ ] **Step 4: Vaqtinchalik editor zaglushkasi**
-
-`ServiceAgreementEditor` Task 12 da yoziladi, lekin `App.tsx` kompilyatsiyasi uchun fayl hozir kerak. `frontend/src/pages/ServiceAgreementEditor.tsx`:
-
-```tsx
-export default function ServiceAgreementEditor() {
-  return <div className="p-6">Muharrir tayyorlanmoqda…</div>;
-}
-```
-
-- [ ] **Step 5: Tekshirish**
+- [ ] **Step 4: Tekshirish**
 
 Run: `cd frontend && npx tsc -b --noEmit && npm run dev`
 Brauzerda `/shartnomalar` sahifasini oching.
-Expected: sahifa ochiladi, bo'sh holat ko'rinadi, yon menyuda "Shartnomalar" bandi bor.
+Expected: sahifa ochiladi, bo'sh holat ko'rinadi, yon menyuda "Shartnomalar" bandi bor. "Ochish" havolasi hozircha ishlamaydi — muharrir Task 12 da qo'shiladi.
 
-- [ ] **Step 6: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
-git add frontend/src/pages/ServiceAgreements.tsx frontend/src/pages/ServiceAgreementEditor.tsx frontend/src/App.tsx frontend/src/components/Layout.tsx
+git add frontend/src/pages/ServiceAgreements.tsx frontend/src/App.tsx frontend/src/components/Layout.tsx
 git commit -m "feat(frontend): add service agreements list page"
 ```
 
@@ -2113,7 +2104,8 @@ git commit -m "feat(frontend): add service agreements list page"
 
 **Files:**
 - Create: `frontend/src/components/serviceAgreement/AgreementPreview.tsx`
-- Modify: `frontend/src/pages/ServiceAgreementEditor.tsx` (Task 11 dagi zaglushka o'rniga)
+- Create: `frontend/src/pages/ServiceAgreementEditor.tsx`
+- Modify: `frontend/src/App.tsx` (muharrir route'lari)
 
 **Interfaces:**
 - Consumes: `getAgreement`/`createAgreement`/`updateAgreement`/`getNextNumber` (Task 7), `renderAgreementPdf` (Task 10)
@@ -2408,12 +2400,29 @@ export default function ServiceAgreementEditor() {
 }
 ```
 
-- [ ] **Step 3: Kompilyatsiyani tekshirish**
+- [ ] **Step 3: Muharrir route'larini qo'shish**
+
+`frontend/src/App.tsx` — lazy import bloki:
+
+```tsx
+const ServiceAgreementEditor = lazy(() => import('./pages/ServiceAgreementEditor'));
+```
+
+Route bloki, Task 11 da qo'shilgan `/shartnomalar` route'i yoniga. `allowedRoles` berilmaydi:
+
+```tsx
+<Route path="/shartnomalar/yangi" element={<ProtectedRoute><ServiceAgreementEditor /></ProtectedRoute>} />
+<Route path="/shartnomalar/:id" element={<ProtectedRoute><ServiceAgreementEditor /></ProtectedRoute>} />
+```
+
+Diqqat: `/shartnomalar/yangi` `/shartnomalar/:id` dan OLDIN turishi kerak, aks holda `yangi` so'zi `:id` sifatida tushuniladi.
+
+- [ ] **Step 4: Kompilyatsiyani tekshirish**
 
 Run: `cd frontend && npx tsc -b --noEmit`
 Expected: xatosiz.
 
-- [ ] **Step 4: Qo'lda tekshirish**
+- [ ] **Step 5: Qo'lda tekshirish**
 
 `npm run dev` bilan `/shartnomalar/yangi` sahifasini oching:
 
@@ -2423,10 +2432,10 @@ Expected: xatosiz.
 4. Broker reestri raqamini kiriting → 2.3-band "реестрга … киритилган" ga almashadi; o'chiring → "ишончли вакили" qaytadi.
 5. Saqlang → `/shartnomalar/:id` ga o'tadi, ro'yxatda ko'rinadi.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
-git add frontend/src/pages/ServiceAgreementEditor.tsx frontend/src/components/serviceAgreement/AgreementPreview.tsx
+git add frontend/src/pages/ServiceAgreementEditor.tsx frontend/src/components/serviceAgreement/AgreementPreview.tsx frontend/src/App.tsx
 git commit -m "feat(frontend): add agreement editor with live PDF preview"
 ```
 

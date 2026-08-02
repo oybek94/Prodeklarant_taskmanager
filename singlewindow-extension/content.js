@@ -122,16 +122,48 @@ function fillSt1Form(data) {
 const APP_EXPERTIZA_PURPOSE = "Ekspertiza akti asosida kelib chiqish sertifikatini olish";
 const APP_EXPERTIZA_DELIVERY_TYPE = "Avtoyo'l transporti";
 
-// Prodeklarant ro'yxati (frontend/src/constants/countries.ts) bilan saytdagi
-// 252 ta davlat nomi mos kelmaydigan holatlar. Qolganlari to'g'ridan-to'g'ri
+// Saytdagi davlat ro'yxati FAQAT ruscha. Shartnomadagi `destinationCountry`
+// esa erkin matn maydoni (Clients.tsx da datalist, tanlash majburiy emas) —
+// shu bois lotincha yozuvlar ham uchraydi. Qolgan nomlar to'g'ridan-to'g'ri
 // yoki "shu bilan boshlanadi" qoidasi bilan topiladi:
 //   МОЛДОВА → "Молдова, Республика", ИРАН → "Иран (Исламская Республика)"
 const APP_EXPERTIZA_COUNTRY_ALIASES = {
+    // Saytda butunlay boshqacha atalganlari
     "кыргызстан": "Кыргызия",
     "оаэ": "Объединенные Арабские Эмираты",
-    // Diqqat: "Корея, Народно-Демократическая Республика" — Shimoliy Koreya,
-    // shuning uchun aniq ko'rsatilgan
-    "южная корея": "Корея, Республика"
+    // Diqqat: ro'yxatda "Корея, Народно-Демократическая Республика"
+    // (Shimoliy Koreya) ham bor, shuning uchun aniq ko'rsatilgan
+    "южная корея": "Корея, Республика",
+
+    // Lotincha yozilgan holatlar
+    "russia": "Россия",
+    "rossiya": "Россия",
+    "kazakhstan": "Казахстан",
+    "belarus": "Беларусь",
+    "kyrgyzstan": "Кыргызия",
+    "tajikistan": "Таджикистан",
+    "turkmenistan": "Туркменистан",
+    "armenia": "Армения",
+    "azerbaijan": "Азербайджан",
+    "georgia": "Грузия",
+    "moldova": "Молдова, Республика",
+    "ukraine": "Украина",
+    "china": "Китай",
+    "xitoy": "Китай",
+    "turkey": "Турция",
+    "turkiya": "Турция",
+    "iran": "Иран (Исламская Республика)",
+    "afghanistan": "Афганистан",
+    "india": "Индия",
+    "pakistan": "Пакистан",
+    "mongolia": "Монголия",
+    "uae": "Объединенные Арабские Эмираты",
+    "south korea": "Корея, Республика",
+    "germany": "Германия",
+    "poland": "Польша",
+    "lithuania": "Литва",
+    "latvia": "Латвия",
+    "estonia": "Эстония"
 };
 
 async function fillAppExpertizaSt1(data) {

@@ -72,8 +72,16 @@ function sendToContentScript(action, mockData, statusDiv) {
                     statusDiv.style.color = "#ef4444";
                 } else if (response && response.success) {
                     if (action === "fill_form" || action === "fill_st1_form") {
-                        statusDiv.textContent = "Shakl muvaffaqiyatli to'ldirildi!";
-                        statusDiv.style.color = "#10b981";
+                        const warnings = response.warnings || [];
+                        if (warnings.length > 0) {
+                            // To'ldirilmagan maydonlar jim qolmasligi kerak — ayniqsa
+                            // ro'yxatdan tanlanadiganlari ko'zga tashlanmaydi
+                            statusDiv.textContent = `To'ldirildi, lekin: ${warnings.join('; ')}`;
+                            statusDiv.style.color = "#f59e0b";
+                        } else {
+                            statusDiv.textContent = "Shakl muvaffaqiyatli to'ldirildi!";
+                            statusDiv.style.color = "#10b981";
+                        }
                     } else if (action === "check_products") {
                         if (response.errors === 0) {
                             statusDiv.textContent = "Barcha ma'lumotlar to'g'ri!";

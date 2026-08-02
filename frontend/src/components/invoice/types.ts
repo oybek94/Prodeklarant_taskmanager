@@ -67,6 +67,7 @@ export interface Contract {
   sellerCorrespondentBankSwift?: string;
   buyerName: string;
   buyerAddress: string;
+  destinationCountry?: string;
   buyerDetails?: string;
   buyerInn?: string;
   buyerOgrn?: string;

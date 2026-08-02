@@ -9,11 +9,19 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         }
     } else if (request.action === "fill_st1_form") {
         const data = request.data;
-        if (data) {
-            fillSt1Form(data);
-            sendResponse({ success: true });
+        if (!data) {
+            sendResponse({ success: false, errorMsg: "Ma'lumotlar kelmadi!" });
+            return true;
+        }
+        // app.expertiza.uz — eski application.expertiza.uz saytining React'dagi yangi
+        // versiyasi: maydon nomlari va shakl tuzilishi butunlay boshqa.
+        if (location.hostname === 'app.expertiza.uz') {
+            fillAppExpertizaSt1(data)
+                .then((warnings) => sendResponse({ success: true, warnings }))
+                .catch((err) => sendResponse({ success: false, errorMsg: String(err && err.message || err) }));
         } else {
-            sendResponse({ success: false });
+            fillSt1Form(data);
+            sendResponse({ success: true, warnings: [] });
         }
     } else if (request.action === "check_products") {
         const data = request.data;
@@ -106,6 +114,240 @@ function fillSt1Form(data) {
     // to'g'ri keladi, shuning uchun kengaytma ularni to'ldirmaydi.
 }
 
+// ---------------------------------------------------------------------------
+// app.expertiza.uz (ST-1, 2-qadam)
+// ---------------------------------------------------------------------------
+
+// Har safar bir xil bo'lgani uchun doimiy qilib qo'yilgan tanlovlar
+const APP_EXPERTIZA_PURPOSE = "Ekspertiza akti asosida kelib chiqish sertifikatini olish";
+const APP_EXPERTIZA_DELIVERY_TYPE = "Avtoyo'l transporti";
+
+// Prodeklarant ro'yxati (frontend/src/constants/countries.ts) bilan saytdagi
+// 252 ta davlat nomi mos kelmaydigan holatlar. Qolganlari to'g'ridan-to'g'ri
+// yoki "shu bilan boshlanadi" qoidasi bilan topiladi:
+//   МОЛДОВА → "Молдова, Республика", ИРАН → "Иран (Исламская Республика)"
+const APP_EXPERTIZA_COUNTRY_ALIASES = {
+    "кыргызстан": "Кыргызия",
+    "оаэ": "Объединенные Арабские Эмираты",
+    // Diqqat: "Корея, Народно-Демократическая Республика" — Shimoliy Koreya,
+    // shuning uchun aniq ko'rsatilgan
+    "южная корея": "Корея, Республика"
+};
+
+async function fillAppExpertizaSt1(data) {
+    const warnings = [];
+
+    // Ochiq qolgan sana paneli yoki ro'yxat keyingi bosishni yutib yuboradi
+    await closeOpenOverlays();
+
+    // 1. Oddiy matn maydonlari
+    // Eslatma: "Ishlab chiqaruvchi" (manufacturer_*) maydonlari ataylab
+    // to'ldirilmaydi — majburiy emas va ko'pincha boshqa korxona bo'ladi.
+    const textFields = {
+        "consignor_name": data.EXPPN_NM,
+        "consignor_address": data.ST1_GRZ_ADDR || data.EXPPN_ADDR,
+        "consignee_name": data.IMPPN_NM,
+        "consignee_address": data.IMPPN_ADDR_ST1 || data.IMPPN_ADDR
+    };
+
+    for (const [name, value] of Object.entries(textFields)) {
+        if (value === undefined || value === null || value === '') continue;
+        if (!setReactInputValue(name, value)) {
+            warnings.push(`Maydon topilmadi: ${name}`);
+        }
+    }
+
+    // 2. Dropdownlar (react-select) — ketma-ket, chunki biri yopilmasa
+    //    keyingisining menyusi ochilmaydi
+    const selects = [
+        ["point_id", APP_EXPERTIZA_PURPOSE, "Ariza maqsadi"],
+        ["consignee_country_id", resolveCountryName(data.DESTINATION_COUNTRY), "Yuk qabul qiluvchi davlat"],
+        ["delivery_type_id", APP_EXPERTIZA_DELIVERY_TYPE, "Yuk tashish turi"]
+    ];
+
+    for (const [name, wanted, label] of selects) {
+        if (!wanted) {
+            warnings.push(`${label}: qiymat yo'q`);
+            continue;
+        }
+        const err = await selectReactSelectOption(name, wanted);
+        if (err) warnings.push(`${label}: ${err}`);
+    }
+
+    // 3. Yuklash sanasi — antd DatePicker, formati DD.MM.YYYY.
+    //    Eng oxirida to'ldiriladi: ochilgan sana paneli keyingi dropdownning
+    //    birinchi bosilishini yutib yuboradi.
+    if (!(await setDatePickerValue("shipment_date", getTodayDotted()))) {
+        warnings.push("Yuklash sanasi to'ldirilmadi");
+    }
+
+    return warnings;
+}
+
+// React (bu saytdagi kabi) o'zgarishni `_valueTracker` orqali aniqlaydi: hodisa
+// yuborilganda tracker DOM qiymatidan FARQ qilishi kerak. Eski
+// setInputValueByName() esa trackerga yangi qiymatni yozib qo'yadi — natijada
+// React hech narsa o'zgarmagan deb hisoblaydi va qiymat birinchi qayta
+// chizishda yo'qoladi.
+function setReactInputValue(name, value) {
+    const el = document.querySelector(`[name="${name}"]`);
+    if (!el) {
+        console.warn(`[AutoFill] Maydon (input) topilmadi: ${name}`);
+        return false;
+    }
+
+    const previous = el.value;
+    if (previous === value) return true;
+
+    const prototype = el.tagName.toLowerCase() === 'textarea'
+        ? window.HTMLTextAreaElement.prototype
+        : window.HTMLInputElement.prototype;
+    const nativeSetter = Object.getOwnPropertyDescriptor(prototype, "value")?.set;
+
+    if (nativeSetter) {
+        nativeSetter.call(el, value);
+    } else {
+        el.value = value;
+    }
+
+    if (el._valueTracker) {
+        el._valueTracker.setValue(previous);
+    }
+
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+
+    return true;
+}
+
+// Sana paneli yoki ro'yxat ochiq qolgan bo'lsa yopadi
+async function closeOpenOverlays() {
+    if (document.activeElement && document.activeElement !== document.body) {
+        document.activeElement.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', keyCode: 27, which: 27, bubbles: true }));
+        document.activeElement.blur();
+        await delay(200);
+    }
+}
+
+// react-select'ni qiymat o'rnatish orqali to'ldirib bo'lmaydi — yashirin input
+// React state'dan boshqariladi. Shuning uchun menyu ochilib, kerakli variant
+// bosiladi. Xato bo'lsa matn qaytadi, muvaffaqiyatda null.
+async function selectReactSelectOption(name, wanted) {
+    const hidden = document.querySelector(`[name="${name}"]`);
+    if (!hidden) return "maydon topilmadi";
+
+    // `react-select-20-input` kabi ID'lar render'da o'zgaradi, shuning uchun
+    // yashirin inputdan konteynerga chiqiladi
+    const container = hidden.closest('[class*="-container"]');
+    const input = container && container.querySelector('input[id^="react-select"]');
+    if (!input) return "ro'yxat elementi topilmadi";
+
+    // Boshqa element fokusda qolsa, birinchi hodisa menyuni ochish o'rniga
+    // avvalgi elementni yopishga ketadi
+    if (document.activeElement && document.activeElement !== document.body) {
+        document.activeElement.blur();
+        await delay(150);
+    }
+
+    // Sintetik `mousedown` bu react-select qurilishida menyuni ochmaydi
+    // (faqat fokus beradi), ArrowDown esa ishonchli ochadi
+    input.focus();
+    await delay(150);
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', keyCode: 40, which: 40, bubbles: true }));
+
+    // Variantlarni FAQAT shu ro'yxatning o'zidan olamiz: `react-select-5-input`
+    // → `react-select-5-option-*`. Aks holda oldingi dropdownning kechikib
+    // yopilgan menyusi o'qilib qoladi.
+    const optionPrefix = `${input.id.replace(/-input$/, '')}-option-`;
+    let options = [];
+    for (let attempt = 0; attempt < 10 && options.length === 0; attempt++) {
+        await delay(150);
+        options = [...document.querySelectorAll(`[id^="${optionPrefix}"]`)];
+    }
+    if (options.length === 0) return "ro'yxat ochilmadi";
+
+    const target = normalizeOptionText(wanted);
+    const match = options.find(o => normalizeOptionText(o.innerText) === target)
+        || options.find(o => normalizeOptionText(o.innerText).startsWith(target));
+
+    if (!match) {
+        // Menyuni yopib qo'yamiz, aks holda keyingi dropdown ochilmaydi
+        input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', keyCode: 27, which: 27, bubbles: true }));
+        input.blur();
+        await delay(150);
+        return `"${wanted}" ro'yxatda topilmadi`;
+    }
+
+    match.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0 }));
+    match.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, button: 0 }));
+    match.dispatchEvent(new MouseEvent('click', { bubbles: true, button: 0 }));
+    await delay(250);
+    input.blur();
+    await delay(100);
+
+    return null;
+}
+
+// antd DatePicker matnni faqat 'input' + Enter dan keyin qabul qiladi
+async function setDatePickerValue(name, value) {
+    const el = document.querySelector(`[name="${name}"]`);
+    if (!el) return false;
+
+    const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set;
+    const previous = el.value;
+
+    el.focus();
+    await delay(150);
+
+    if (nativeSetter) {
+        nativeSetter.call(el, value);
+    } else {
+        el.value = value;
+    }
+    if (el._valueTracker) {
+        el._valueTracker.setValue(previous);
+    }
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    await delay(200);
+
+    el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', keyCode: 13, which: 13, bubbles: true }));
+    await delay(200);
+
+    // Escape'siz sana paneli ochiq qoladi va sahifadagi keyingi bosishni yutadi
+    el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', keyCode: 27, which: 27, bubbles: true }));
+    el.blur();
+    await delay(200);
+
+    return el.value === value;
+}
+
+// Shartnomadagi davlat nomini saytdagi ro'yxat nomiga o'giradi
+function resolveCountryName(value) {
+    if (!value) return value;
+    return APP_EXPERTIZA_COUNTRY_ALIASES[normalizeOptionText(value)] || value;
+}
+
+// Katta-kichik harf, ortiqcha probel, ё/е va apostrof turlari farq qilmasin
+function normalizeOptionText(str) {
+    return String(str)
+        .toLowerCase()
+        .replace(/ё/g, 'е')
+        .replace(/[’'`´]/g, "'")
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+function getTodayDotted() {
+    const today = new Date();
+    const dd = String(today.getDate()).padStart(2, '0');
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    return `${dd}.${mm}.${today.getFullYear()}`; // DD.MM.YYYY
+}
+
+function delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 // Qattiq (majburiy) bosish funksiyasi (barcha frameworklarni chetlab o'tishga harakat)
 function forceCheck(element) {
     if (!element) return;
@@ -189,8 +431,10 @@ function setInputValueByName(name, value) {
         }
         
         triggerEvents(el);
+        return true;
     } else {
         console.warn(`[AutoFill] Maydon (input) topilmadi: ${name}`);
+        return false;
     }
 }
 

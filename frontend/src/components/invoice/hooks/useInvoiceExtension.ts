@@ -59,6 +59,9 @@ export function useInvoiceExtension(
         IMPPN_NM: imppnNm,
         IMPPN_ADDR: imppnAddr,
         IMPPN_ADDR_ST1: imppnAddrSt1,
+        // app.expertiza.uz "Yuk qabul qiluvchi davlat" ro'yxati ruscha —
+        // shartnomadagi davlat nomi shu ro'yxatga moslashtiriladi
+        DESTINATION_COUNTRY: selectedContract?.destinationCountry || '',
         EXP_CTDC_NO: (selectedContract?.contractNumber || form.contractNumber || form.invoiceNumber) || '',
         EXP_CVNT_DT: (selectedContract?.contractDate ? String(selectedContract.contractDate).split('T')[0] : (form.date ? String(form.date).split('T')[0] : '')) || '',
         vehicleNumber: form.vehicleNumber || '',

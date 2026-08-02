@@ -7,7 +7,7 @@
   "host_permissions": [
     "*://*.singlewindow.uz/*", 
     "*://singlewindow.uz/*",
-    "*://application.expertiza.uz/*",
+    "*://*.expertiza.uz/*",
     "http://localhost/*",
     "https://*.prodeklarant.uz/*",
     "https://prodeklarant.uz/*"
@@ -24,7 +24,7 @@
   },
   "content_scripts": [
     {
-      "matches": ["*://*.singlewindow.uz/*", "*://singlewindow.uz/*", "*://application.expertiza.uz/*"],
+      "matches": ["*://*.singlewindow.uz/*", "*://singlewindow.uz/*", "*://*.expertiza.uz/*"],
       "js": ["content.js"]
     }
   ]

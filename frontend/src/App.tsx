@@ -45,6 +45,7 @@ const Debts = lazy(() => import('./pages/Debts'));
 const FAQ = lazy(() => import('./pages/FAQ'));
 const SellerKpi = lazy(() => import('./pages/SellerKpi'));
 const DataAssistant = lazy(() => import('./pages/DataAssistant').then(m => ({ default: m.DataAssistant })));
+const ServiceAgreements = lazy(() => import('./pages/ServiceAgreements'));
 
 const PageLoader = () => (
   <div className="flex items-center justify-center min-h-[60vh]">
@@ -279,6 +280,14 @@ const AppRoutes = () => {
           element={
             <ProtectedRoute allowedRoles={['ADMIN', 'MANAGER', 'DEKLARANT', 'CERTIFICATE_WORKER', 'WORKER', 'OPERATOR', 'ACCOUNTANT', 'OWNER']}>
               <ClientDetail />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/shartnomalar"
+          element={
+            <ProtectedRoute>
+              <ServiceAgreements />
             </ProtectedRoute>
           }
         />

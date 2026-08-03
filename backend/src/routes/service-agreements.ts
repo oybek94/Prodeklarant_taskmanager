@@ -18,8 +18,11 @@ router.get('/', requireAuth(), async (req, res) => {
     const status = typeof req.query.status === 'string' ? req.query.status : '';
     const page = Math.max(1, Number(req.query.page) || 1);
     const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 25));
+    // Mijoz kartochkasi aynan shu mijozning shartnomalarini so'raydi
+    const clientId = Number(req.query.clientId) || 0;
 
     const where = {
+      ...(clientId > 0 ? { clientId } : {}),
       ...(status && ['DRAFT', 'ACTIVE', 'TERMINATED'].includes(status)
         ? { status: status as 'DRAFT' | 'ACTIVE' | 'TERMINATED' }
         : {}),

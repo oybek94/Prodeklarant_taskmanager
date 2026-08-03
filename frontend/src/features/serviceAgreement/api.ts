@@ -6,6 +6,7 @@ const BASE = '/service-agreements';
 export async function listAgreements(params: {
   q?: string;
   status?: string;
+  clientId?: number;
   page?: number;
   limit?: number;
 }): Promise<AgreementListResponse> {

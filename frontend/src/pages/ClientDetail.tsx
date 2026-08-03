@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { Icon } from '@iconify/react';
 import apiClient from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
@@ -8,6 +8,8 @@ import CurrencyDisplay from '../components/CurrencyDisplay';
 import DateInput from '../components/DateInput';
 import { useIsMobile } from '../utils/useIsMobile';
 import { EXPORT_COUNTRIES } from '../constants/countries';
+import { listAgreements } from '../features/serviceAgreement/api';
+import { STATUS_LABEL, type ServiceAgreement } from '../features/serviceAgreement/types';
 
 const resolveUploadUrl = (url?: string | null) => {
   if (!url) return '';
@@ -80,6 +82,8 @@ const ClientDetail = () => {
   const [loading, setLoading] = useState(true);
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [loadingContracts, setLoadingContracts] = useState(true);
+  /** Xizmat shartnomalari (`ServiceAgreement`) — yuqoridagi `Contract` tashqi savdo kontrakti */
+  const [agreements, setAgreements] = useState<ServiceAgreement[]>([]);
   const [showContractForm, setShowContractForm] = useState(false);
   const [contractTab, setContractTab] = useState<'main' | 'parties' | 'additional' | 'files'>('main');
   const [editingContract, setEditingContract] = useState<Contract | null>(null);
@@ -150,8 +154,19 @@ const ClientDetail = () => {
     if (id) {
       loadClient();
       loadContracts();
+      loadAgreements();
     }
   }, [id]);
+
+  const loadAgreements = async () => {
+    try {
+      const res = await listAgreements({ clientId: Number(id), limit: 100 });
+      setAgreements(res.items);
+    } catch (error) {
+      console.error('Error loading service agreements:', error);
+      setAgreements([]);
+    }
+  };
 
   const loadClient = async () => {
     try {
@@ -867,6 +882,30 @@ const ClientDetail = () => {
               </tbody>
             </table>
           </div>
+        )}
+      </div>
+
+      {/* Xizmat shartnomalari (ServiceAgreement) — yuqoridagi bo'lim tashqi savdo kontraktlari */}
+      <div className="bg-white rounded-lg shadow p-6 mb-6">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-lg font-semibold">Xizmat shartnomalari ({agreements.length})</h2>
+          <Link to="/shartnomalar/yangi" className="text-sm text-blue-600 hover:underline">Yangi</Link>
+        </div>
+        {agreements.length === 0 ? (
+          <div className="text-center py-6 text-gray-400">Xizmat shartnomasi yo'q</div>
+        ) : (
+          <ul className="divide-y divide-gray-100">
+            {agreements.map((a) => (
+              <li key={a.id} className="flex items-center justify-between py-2">
+                <Link to={`/shartnomalar/${a.id}`} className="text-blue-600 hover:underline">
+                  {a.agreementNumber}
+                </Link>
+                <span className="text-sm text-gray-500">
+                  {new Date(a.agreementDate).toLocaleDateString('ru-RU')} · {STATUS_LABEL[a.status]}
+                </span>
+              </li>
+            ))}
+          </ul>
         )}
       </div>
 

@@ -1,8 +1,17 @@
 import { describe, it, expect } from 'vitest';
+import { openSync } from 'fontkit';
 import { getTemplate, CURRENT_TEMPLATE_VERSION } from './index';
 import { resolveText, visibleBlocks } from './types';
 import { buildTokens } from '../tokens';
 import type { ServiceAgreement } from '../types';
+
+/**
+ * `components/pdf/fonts.ts` dagi stek bilan bir xil bo'lishi shart.
+ * Yo'l vitest ildiziga (`frontend/`) nisbatan — konfiguratsiya shu yerda.
+ */
+const PDF_FONTS = ['Roboto-Regular', 'Roboto-Medium', 'Roboto-Bold', 'NotoSans-Regular'].map((name) =>
+  openSync(`public/fonts/${name}.ttf`),
+);
 
 const base: ServiceAgreement = {
   id: 1, clientId: 1, agreementNumber: '2026/014', agreementDate: '2026-03-12T00:00:00.000Z',
@@ -29,7 +38,7 @@ function renderAll(agreement: ServiceAgreement): string {
   return visibleBlocks(template, tokens)
     .map((block) => {
       if (block.kind === 'heading' || block.kind === 'paragraph') return resolveText(block.text, tokens);
-      if (block.kind === 'table') return block.rows(tokens).flat().join(' ');
+      if (block.kind === 'table') return [...block.header, ...block.rows(tokens).flat()].join(' ');
       return '';
     })
     .join('\n');
@@ -75,5 +84,34 @@ describe('v1 shabloni', () => {
 
   it('joriy versiya mavjud', () => {
     expect(getTemplate(CURRENT_TEMPLATE_VERSION).version).toBe('v1');
+  });
+
+  /**
+   * `@react-pdf` shriftda glifi yo'q belgini JIMGINA tashlab yuboradi, shuning
+   * uchun `renderAgreementPdf` bunday hujjatni umuman yaratmaydi (qarang:
+   * `components/invoice/pdf/pdfGlyphCheck.ts`). Ya'ni shablonga qamrovdan
+   * tashqari bitta belgi tushsa — PDF butunlay ishlamay qoladi. Shu sababli
+   * qamrov aynan shu yerda, matn manbasida tekshiriladi.
+   */
+  it('shablon matnidagi har bir belgi PDF shriftlarida mavjud', () => {
+    const text = [
+      renderAll(base),
+      renderAll({ ...base, paymentModel: 'PREPAID' }),
+      renderAll({ ...base, paymentModel: 'PER_COUNT' }),
+      renderAll({ ...base, paymentModel: 'PER_AMOUNT' }),
+      renderAll({ ...base, brokerRegistryNumber: '№ 123' }),
+      renderAll({ ...base, vatPayer: true }),
+    ].join('\n');
+
+    const missing = new Set<string>();
+    for (const char of text) {
+      const codePoint = char.codePointAt(0);
+      if (codePoint === undefined || char === '\n') continue;
+      // Stekdagi ISTALGAN shriftda bo'lsa yetarli — @react-pdf zaxira shriftga o'tadi
+      if (PDF_FONTS.some((font) => font.hasGlyphForCodePoint(codePoint))) continue;
+      missing.add(`«${char}» U+${codePoint.toString(16).toUpperCase().padStart(4, '0')}`);
+    }
+
+    expect([...missing]).toEqual([]);
   });
 });

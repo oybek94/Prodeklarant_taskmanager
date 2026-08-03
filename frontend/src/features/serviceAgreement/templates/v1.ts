@@ -696,7 +696,9 @@ export const v1: AgreementTemplate = {
     { kind: 'paragraph', text: 'Шартнома № {{agreementNumber}} бўйича' },
     {
       kind: 'paragraph',
-      text: 'Тури: ☐ якка тартибдаги (Буюртма-ариза № ____)   ☐ жамланма (давр: __________ дан __________ гача)',
+      // Katakcha `☐` (U+2610) EMAS: u Roboto'da ham, NotoSans'da ham yo'q va
+      // PDF'dan jimgina tushib qolardi (qarang: pdfGlyphCheck.ts).
+      text: 'Тури: [ ] якка тартибдаги (Буюртма-ариза № ____)   [ ] жамланма (давр: __________ дан __________ гача)',
     },
     {
       kind: 'table',

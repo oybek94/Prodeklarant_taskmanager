@@ -4,10 +4,48 @@ import { z } from 'zod';
 import { AuthRequest, requireAuth } from '../middleware/auth';
 import { Prisma, Currency, ExchangeSource } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
-import { getLatestExchangeRate, getExchangeRate } from '../services/exchange-rate';
+import { getLatestExchangeRate } from '../services/exchange-rate';
 import { validateMonetaryFields, calculateAmountUzs } from '../services/monetary-validation';
 
 const router = Router();
+
+/**
+ * SALARY transaksiyaga mos keladigan WorkerPayment yozuvini topib o'chiradi.
+ * Ikkalasini bog'lovchi ustun yo'q, shuning uchun ishchi, valyuta va summa bo'yicha qidiramiz.
+ */
+async function deleteMatchingWorkerPayment(
+  client: Prisma.TransactionClient,
+  transaction: {
+    workerId: number;
+    amount: Prisma.Decimal;
+    originalAmount: Prisma.Decimal | null;
+    currency: Currency;
+    originalCurrency: Currency | null;
+  }
+) {
+  const amount = new Prisma.Decimal(transaction.originalAmount ?? transaction.amount);
+  const currency = transaction.originalCurrency ?? transaction.currency;
+
+  const where: Prisma.WorkerPaymentWhereInput = {
+    workerId: transaction.workerId,
+    paidCurrency: currency,
+  };
+  if (currency === 'USD') {
+    where.paidAmountUsd = { equals: amount };
+  } else {
+    where.paidAmountUzs = { equals: amount };
+  }
+
+  // Vaqti bo'yicha mos kelishi shart emas, oxirgi yaratilgan mos summani topamiz
+  const matching = await client.workerPayment.findFirst({
+    where,
+    orderBy: { createdAt: 'desc' },
+  });
+
+  if (matching) {
+    await client.workerPayment.delete({ where: { id: matching.id } });
+  }
+}
 
 const baseSchema = z.object({
   type: z.enum(['INCOME', 'EXPENSE', 'SALARY']),
@@ -335,38 +373,18 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
   if (data.type === 'SALARY' && !data.workerId) {
     return res.status(400).json({ error: 'workerId required for SALARY' });
   }
-  // CARD faqat UZS bo'lishi mumkin
-  if (data.paymentMethod === 'CARD' && data.currency === 'USD') {
-    return res.status(400).json({ error: 'Karta faqat UZS valyutasida bo\'lishi mumkin' });
+  // Transaksiyalar faqat UZS'da yuritiladi (eski USD yozuvlar o'z holicha qoladi)
+  if (data.currency !== 'UZS') {
+    return res.status(400).json({ error: 'Transaksiyalar faqat UZS valyutasida bo\'lishi mumkin' });
   }
 
-  // Determine currency from request body, default to USD
-  let originalCurrency: Currency = (data.currency as Currency) || 'USD';
+  const originalCurrency: Currency = 'UZS';
 
   const originalAmount = new Decimal(data.amount);
   const exchangeSource: ExchangeSource = (data.exchangeSource as ExchangeSource) || 'CBU';
 
-  // Get or calculate exchange rate
-  let exchangeRate: Decimal;
-  if (data.exchangeRate) {
-    exchangeRate = new Decimal(data.exchangeRate);
-  } else {
-    // Auto-fetch exchange rate for transaction date if not provided
-    // Use transaction date instead of current date
-    const transactionDate = data.date || new Date();
-    try {
-      exchangeRate = await getExchangeRate(transactionDate, originalCurrency, 'UZS', undefined, exchangeSource);
-    } catch (error) {
-      return res.status(400).json({
-        error: `Exchange rate is required for currency ${originalCurrency}. Failed to fetch rate for date ${transactionDate.toISOString()}: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      });
-    }
-  }
-
-  // If UZS, exchange rate must be 1
-  if (originalCurrency === 'UZS' && !exchangeRate.eq(1)) {
-    exchangeRate = new Decimal(1);
-  }
+  // UZS -> UZS bo'lgani uchun kurs har doim 1
+  const exchangeRate = new Decimal(1);
 
   // Calculate converted UZS amount
   const amountUzs = calculateAmountUzs(originalAmount, originalCurrency, exchangeRate);
@@ -456,6 +474,7 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
   });
 
   // If this is a SALARY transaction, also create a WorkerPayment record
+  let workerPaymentWarning: string | undefined;
   if (data.type === 'SALARY' && data.workerId) {
     try {
       const { createWorkerPayment } = await import('../services/worker-payment');
@@ -472,11 +491,14 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
       );
     } catch (error) {
       console.error('Failed to create WorkerPayment record for SALARY transaction:', error);
-      // Don't fail the transaction creation, just log the error
+      // Transaksiya saqlanib bo'lgan, shuning uchun uni bekor qilmaymiz —
+      // ammo qarz kamaymaganini foydalanuvchi bilishi kerak
+      workerPaymentWarning =
+        'Transaksiya saqlandi, lekin ishchining oylik yozuvi yaratilmadi — qarz kamaymadi.';
     }
   }
 
-  res.status(201).json(result);
+  res.status(201).json(workerPaymentWarning ? { ...result, workerPaymentWarning } : result);
 });
 
 router.get('/:id', async (req, res) => {
@@ -521,40 +543,18 @@ router.put('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
   if (data.type === 'SALARY' && !data.workerId) {
     return res.status(400).json({ error: 'workerId required for SALARY' });
   }
-  // CARD faqat UZS bo'lishi mumkin
-  if (data.paymentMethod === 'CARD' && data.currency === 'USD') {
-    return res.status(400).json({ error: 'Karta faqat UZS valyutasida bo\'lishi mumkin' });
+  // Transaksiyalar faqat UZS'da yuritiladi. Eski USD yozuv tahrirlansa ham UZS'ga o'tadi.
+  if (data.currency !== 'UZS') {
+    return res.status(400).json({ error: 'Transaksiyalar faqat UZS valyutasida bo\'lishi mumkin' });
   }
 
-  // Determine currency from request body, default to USD
-  let originalCurrency: Currency = (data.currency as Currency) || 'USD';
+  const originalCurrency: Currency = 'UZS';
 
   const originalAmount = new Decimal(data.amount);
   const exchangeSource: ExchangeSource = (data.exchangeSource as ExchangeSource) || 'CBU';
 
-  // Get or calculate exchange rate
-  // For updates, use existing transaction's exchange rate (immutable)
-  let exchangeRate: Decimal;
-  if (oldTransaction.exchange_rate) {
-    exchangeRate = oldTransaction.exchange_rate;
-  } else if (oldTransaction.exchangeRate) {
-    exchangeRate = new Decimal(oldTransaction.exchangeRate);
-  } else {
-    // Fallback: use transaction date for rate lookup
-    const transactionDate = data.date || oldTransaction.date;
-    try {
-      exchangeRate = await getExchangeRate(transactionDate, originalCurrency, 'UZS', undefined, exchangeSource);
-    } catch (error) {
-      return res.status(400).json({
-        error: `Exchange rate is required for currency ${originalCurrency}. Failed to fetch rate for date ${transactionDate.toISOString()}: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      });
-    }
-  }
-
-  // If UZS, exchange rate must be 1
-  if (originalCurrency === 'UZS' && !exchangeRate.eq(1)) {
-    exchangeRate = new Decimal(1);
-  }
+  // UZS -> UZS bo'lgani uchun kurs har doim 1
+  const exchangeRate = new Decimal(1);
 
   const amountUzs = calculateAmountUzs(originalAmount, originalCurrency, exchangeRate);
 
@@ -664,7 +664,41 @@ router.put('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
     return updated;
   });
 
-  res.json(result);
+  // SALARY to'lovi tahrirlansa, unga mos WorkerPayment ham qayta yaratilishi kerak —
+  // aks holda ishchining "Joriy qarz"i eski summa bo'yicha qolib ketadi
+  let workerPaymentWarning: string | undefined;
+  const wasSalary = oldTransaction.type === 'SALARY' && oldTransaction.workerId !== null;
+  const isSalary = data.type === 'SALARY' && data.workerId !== undefined;
+
+  if (wasSalary || isSalary) {
+    try {
+      if (wasSalary) {
+        await deleteMatchingWorkerPayment(prisma, {
+          workerId: oldTransaction.workerId!,
+          amount: oldTransaction.amount,
+          originalAmount: oldTransaction.originalAmount,
+          currency: oldTransaction.currency,
+          originalCurrency: oldTransaction.originalCurrency,
+        });
+      }
+
+      if (isSalary) {
+        const { createWorkerPayment } = await import('../services/worker-payment');
+        await createWorkerPayment(data.workerId!, originalCurrency, originalAmount, {
+          exchangeRate: originalCurrency === 'UZS' ? undefined : exchangeRate,
+          paymentDate: data.date,
+          comment: data.comment || undefined,
+          isLegacyPayment: data.isLegacyPayment,
+        });
+      }
+    } catch (error) {
+      console.error('Failed to sync WorkerPayment record for SALARY transaction:', error);
+      workerPaymentWarning =
+        'Transaksiya yangilandi, lekin ishchining oylik yozuvi moslashtirilmadi — qarzni tekshiring.';
+    }
+  }
+
+  res.json(workerPaymentWarning ? { ...result, workerPaymentWarning } : result);
 });
 
 router.delete('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
@@ -709,29 +743,13 @@ router.delete('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
 
     // Agar bu ish haqi (SALARY) to'lovi bo'lsa, unga mos WorkerPayment'ni ham o'chiramiz
     if (transaction.type === 'SALARY' && transaction.workerId) {
-      const amount = Number(transaction.originalAmount || transaction.amount);
-      const currency = transaction.originalCurrency || transaction.currency;
-      
-      const wpQuery: any = {
+      await deleteMatchingWorkerPayment(tx, {
         workerId: transaction.workerId,
-        paidCurrency: currency,
-      };
-
-      if (currency === 'USD') {
-        wpQuery.paidAmountUsd = { equals: amount };
-      } else {
-        wpQuery.paidAmountUzs = { equals: amount };
-      }
-
-      // Vaqti bo'yicha mos kelishi shart emas, oxirgi yaratilgan mos keladigan summani topamiz
-      const matchingWp = await tx.workerPayment.findFirst({
-        where: wpQuery,
-        orderBy: { createdAt: 'desc' }
+        amount: transaction.amount,
+        originalAmount: transaction.originalAmount,
+        currency: transaction.currency,
+        originalCurrency: transaction.originalCurrency,
       });
-
-      if (matchingWp) {
-        await tx.workerPayment.delete({ where: { id: matchingWp.id } });
-      }
     }
 
     // Transaction o'chirish

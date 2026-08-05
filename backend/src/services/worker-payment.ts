@@ -94,6 +94,34 @@ export async function calculateTotalEarned(
 }
 
 /**
+ * To'lovning berilgan valyutadagi summasi.
+ * Eski yozuvlarda kerakli valyuta ustuni bo'sh bo'lishi mumkin (masalan USD'da
+ * berilgan oylikda paidAmountUzs = null) — bunda yozuvda saqlangan kurs bo'yicha
+ * konvertatsiya qilamiz. Kurs saqlanmagan bo'lsa 0 qaytaramiz: taxminiy kurs bilan
+ * hisoblagandan ko'ra qarzni o'zgartirmaslik xavfsizroq.
+ */
+function getPaidAmountIn(
+  payment: {
+    paidAmountUsd: Decimal | null;
+    paidAmountUzs: Decimal | null;
+    exchangeRate: Decimal | null;
+  },
+  currency: Currency
+): Decimal {
+  const usd = payment.paidAmountUsd != null ? new Decimal(payment.paidAmountUsd) : null;
+  const uzs = payment.paidAmountUzs != null ? new Decimal(payment.paidAmountUzs) : null;
+
+  const direct = currency === 'UZS' ? uzs : usd;
+  if (direct && !direct.isZero()) return direct;
+
+  const source = currency === 'UZS' ? usd : uzs;
+  const rate = payment.exchangeRate != null ? new Decimal(payment.exchangeRate) : null;
+  if (!source || source.isZero() || !rate || rate.isZero()) return new Decimal(0);
+
+  return currency === 'UZS' ? source.times(rate) : source.div(rate);
+}
+
+/**
  * Get total paid in a specific currency for a worker
  */
 export async function calculateTotalPaid(
@@ -126,10 +154,7 @@ export async function calculateTotalPaid(
 
   let total = new Decimal(0);
   for (const payment of payments) {
-    const amount = currency === 'UZS' 
-      ? (payment.paidAmountUzs || 0)
-      : payment.paidAmountUsd;
-    total = total.plus(new Decimal(amount));
+    total = total.plus(getPaidAmountIn(payment, currency));
   }
 
   return total;
@@ -228,8 +253,18 @@ export async function createWorkerPayment(
 
   if (paidCurrency === 'USD') {
     paidAmountUsd = paidAmountDecimal;
-    exchangeRate = null;
-    paidAmountUzs = null;
+    // UZS ekvivalentini ham saqlaymiz: ishchining oyligi UZS'da hisoblansa,
+    // to'lov qarzdan ayrilishi uchun paidAmountUzs bo'sh bo'lmasligi kerak
+    if (options?.exchangeRate) {
+      exchangeRate = new Decimal(options.exchangeRate);
+    } else {
+      try {
+        exchangeRate = await getExchangeRate(paymentDate, 'USD', 'UZS', client);
+      } catch {
+        exchangeRate = null;
+      }
+    }
+    paidAmountUzs = exchangeRate && !exchangeRate.isZero() ? paidAmountUsd.times(exchangeRate) : null;
   } else if (paidCurrency === 'UZS') {
     paidAmountUzs = paidAmountDecimal;
 

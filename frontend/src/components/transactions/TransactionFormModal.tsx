@@ -234,30 +234,20 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = React.m
             />
           </div>
 
+          {/* Transaksiyalar faqat UZS'da kiritiladi — valyuta tanlash yo'q */}
           <MonetaryInput
             amount={form.amount}
-            currency={form.currency}
-            exchangeRate={form.exchangeRate}
+            currency="UZS"
             date={form.date}
             onAmountChange={(value) => {
               setForm({ ...form, amount: value });
               setMonetaryErrors({ ...monetaryErrors, amount: undefined });
             }}
-            onCurrencyChange={(value) => {
-              setForm({ ...form, currency: value });
-              setMonetaryErrors({ ...monetaryErrors, currency: undefined });
-            }}
-            onExchangeRateChange={(value) => {
-              setForm({ ...form, exchangeRate: value });
-              setMonetaryErrors({ ...monetaryErrors, exchangeRate: undefined });
-            }}
+            onCurrencyChange={() => {}}
             label="Summa"
             required
             showLabels={true}
-            currencyRules={{
-              allowed: form.paymentMethod === 'CARD' ? ['UZS'] : undefined,
-              exchangeRateRequired: true,
-            }}
+            currencyRules={{ fixed: 'UZS' }}
             errors={monetaryErrors}
           />
 
@@ -278,9 +268,7 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = React.m
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  setForm({ ...form, paymentMethod: 'CARD', currency: 'UZS' });
-                }}
+                onClick={() => setForm({ ...form, paymentMethod: 'CARD' })}
                 className={`flex-1 px-4 py-2 border-2 rounded-lg font-medium transition-colors ${form.paymentMethod === 'CARD'
                   ? 'bg-blue-600 text-white border-blue-600'
                   : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500'

@@ -99,7 +99,8 @@ const Transactions = () => {
   const [form, setForm] = useState<TransactionFormData>({
     type: 'INCOME',
     amount: '',
-    currency: 'USD',
+    // Transaksiyalar faqat UZS'da kiritiladi
+    currency: 'UZS',
     exchangeRate: '',
     paymentMethod: '',
     comment: '',
@@ -325,14 +326,10 @@ const Transactions = () => {
       const payload: any = {
         type: form.type,
         amount: parseFloat(form.amount),
-        currency: form.currency,
+        currency: 'UZS',
         comment: form.comment,
         date: new Date(form.date),
       };
-
-      if (form.exchangeRate && form.currency === 'USD') {
-        payload.exchangeRate = parseFloat(form.exchangeRate);
-      }
 
       if (form.type === 'INCOME') {
         if (!form.clientId) { alert('Mijozni tanlang'); return; }
@@ -350,10 +347,13 @@ const Transactions = () => {
         payload.virtualCardId = parseInt(form.virtualCardId);
       }
 
-      await apiClient.post('/transactions', payload);
+      const { data: created } = await apiClient.post('/transactions', payload);
+      if (created?.workerPaymentWarning) {
+        toast.error(created.workerPaymentWarning, { duration: 8000 });
+      }
       handleCloseNewTransaction();
       setForm({
-        type: 'INCOME', amount: '', currency: 'USD', exchangeRate: '', paymentMethod: '',
+        type: 'INCOME', amount: '', currency: 'UZS', exchangeRate: '', paymentMethod: '',
         comment: '', date: new Date().toISOString().split('T')[0], clientId: '', workerId: '',
         expenseCategory: '', virtualCardId: '', isLegacyPayment: false,
       });
@@ -370,8 +370,9 @@ const Transactions = () => {
     setForm({
       type: transaction.type,
       amount: transaction.amount.toString(),
-      currency: (transaction.currency || 'USD') as 'USD' | 'UZS',
-      exchangeRate: '', 
+      // Tahrirlangan transaksiya har doim UZS bo'lib saqlanadi
+      currency: 'UZS',
+      exchangeRate: '',
       paymentMethod: (transaction.paymentMethod || '') as '' | 'CASH' | 'CARD',
       comment: transaction.comment || '',
       date: new Date(transaction.date).toISOString().split('T')[0],
@@ -400,7 +401,7 @@ const Transactions = () => {
       const payload: any = {
         type: form.type,
         amount: parseFloat(form.amount),
-        currency: form.currency,
+        currency: 'UZS',
         paymentMethod: form.paymentMethod || undefined,
         comment: form.comment,
         date: new Date(form.date),
@@ -422,10 +423,13 @@ const Transactions = () => {
         payload.virtualCardId = parseInt(form.virtualCardId);
       }
 
-      await apiClient.put(`/transactions/${editingTransaction.id}`, payload);
+      const { data: updated } = await apiClient.put(`/transactions/${editingTransaction.id}`, payload);
+      if (updated?.workerPaymentWarning) {
+        toast.error(updated.workerPaymentWarning, { duration: 8000 });
+      }
       handleCloseEditTransaction();
       setForm({
-        type: 'INCOME', amount: '', currency: 'USD', exchangeRate: '', paymentMethod: '',
+        type: 'INCOME', amount: '', currency: 'UZS', exchangeRate: '', paymentMethod: '',
         comment: '', date: new Date().toISOString().split('T')[0], clientId: '', workerId: '',
         expenseCategory: '', virtualCardId: '', isLegacyPayment: false,
       });

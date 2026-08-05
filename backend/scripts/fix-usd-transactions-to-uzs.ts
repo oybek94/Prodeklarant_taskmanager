@@ -8,10 +8,14 @@
  * Bu skript shunday yozuvlarni UZS'ga o'tkazadi. Summa o'zgarmaydi — faqat valyuta,
  * kurs va so'mdagi ekvivalent maydonlari to'g'rilanadi.
  *
+ * DIQQAT: hamma USD yozuv ham xato emas. Summasi USD miqdorida kiritilganlari
+ * (masalan 200 yoki 3000) haqiqiy USD to'lov bo'lishi mumkin — ularni UZS'ga
+ * o'girish pulni yo'qotadi. Shuning uchun --ids bilan aniq yozuvlarni tanlang.
+ *
  * Ko'rish (hech narsa o'zgartirmaydi):
  *   npx tsx scripts/fix-usd-transactions-to-uzs.ts
- * Qo'llash:
- *   npx tsx scripts/fix-usd-transactions-to-uzs.ts --apply
+ * Faqat tanlanganlarni qo'llash:
+ *   npx tsx scripts/fix-usd-transactions-to-uzs.ts --ids=616,617,618,948 --apply
  * Sanani o'zgartirish:
  *   npx tsx scripts/fix-usd-transactions-to-uzs.ts --from=2026-06-06
  */
@@ -26,6 +30,11 @@ const apply = args.includes('--apply');
 const fromArg = args.find((a) => a.startsWith('--from='))?.split('=')[1] ?? DEFAULT_FROM;
 const fromDate = new Date(`${fromArg}T00:00:00.000Z`);
 
+const idsArg = args.find((a) => a.startsWith('--ids='))?.split('=')[1];
+const ids = idsArg
+  ? idsArg.split(',').map((s) => Number(s.trim())).filter((n) => Number.isInteger(n) && n > 0)
+  : null;
+
 function fmt(value: Prisma.Decimal | null): string {
   return value == null ? '-' : value.toFixed(2);
 }
@@ -34,11 +43,22 @@ async function main() {
   if (Number.isNaN(fromDate.getTime())) {
     throw new Error(`Noto'g'ri sana: ${fromArg}`);
   }
+  if (idsArg && (!ids || ids.length === 0)) {
+    throw new Error(`Noto'g'ri --ids qiymati: ${idsArg}`);
+  }
+  // Butun ro'yxatni ko'r-ko'rona o'zgartirib yubormaslik uchun
+  if (apply && !ids) {
+    throw new Error(
+      '--apply faqat --ids bilan ishlaydi. Avval ro\'yxatni ko\'ring, keyin tuzatilishi kerak bo\'lgan ID\'larni sanang:\n' +
+        '  npx tsx scripts/fix-usd-transactions-to-uzs.ts --ids=616,617 --apply'
+    );
+  }
 
   const broken = await prisma.transaction.findMany({
     where: {
       createdAt: { gte: fromDate },
       OR: [{ currency: 'USD' }, { originalCurrency: 'USD' }, { currency_universal: 'USD' }],
+      ...(ids ? { id: { in: ids } } : {}),
     },
     orderBy: { date: 'asc' },
     include: { worker: { select: { id: true, name: true } } },
@@ -46,6 +66,13 @@ async function main() {
 
   console.log(`Rejim: ${apply ? 'QO\'LLASH' : "faqat ko'rsatish (--apply bermadingiz)"}`);
   console.log(`Sana: ${fromArg} dan keyin yaratilganlar`);
+  if (ids) {
+    const missing = ids.filter((id) => !broken.some((t) => t.id === id));
+    console.log(`Tanlangan ID'lar: ${ids.join(', ')}`);
+    if (missing.length > 0) {
+      console.log(`  Topilmadi (yoki USD emas): ${missing.join(', ')}`);
+    }
+  }
   console.log(`Topildi: ${broken.length} ta USD transaksiya\n`);
 
   if (broken.length === 0) return;
@@ -75,8 +102,10 @@ async function main() {
   }
 
   if (!apply) {
-    console.log('\nRo\'yxatni tekshiring. Haqiqiy USD to\'lovlar bo\'lsa, --from= bilan sanani toraytiring.');
-    console.log('O\'zgartirish uchun: npx tsx scripts/fix-usd-transactions-to-uzs.ts --apply');
+    console.log('\nRo\'yxatni tekshiring: summasi USD miqdorida ko\'ringanlari (200, 3000 kabi)');
+    console.log('haqiqiy USD to\'lov bo\'lishi mumkin — ularni tanlamang.');
+    console.log('O\'zgartirish uchun aniq ID\'larni sanang:');
+    console.log('  npx tsx scripts/fix-usd-transactions-to-uzs.ts --ids=<id,id,...> --apply');
     return;
   }
 

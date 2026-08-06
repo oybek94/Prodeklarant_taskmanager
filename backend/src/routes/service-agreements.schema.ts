@@ -6,6 +6,14 @@ const tariffRowSchema = z.object({
   bhm: z.number().nonnegative(),
 });
 
+/**
+ * Bazada nullable bo'lgan ustunlar uchun: `undefined` ham, `null` ham qabul
+ * qilinadi. Frontend to'ldirilmagan maydonni `null` bilan yuboradi (GET javobi
+ * ham `null` qaytaradi), shuning uchun faqat `.optional()` bo'lsa oddiy
+ * shartnoma ham 400 bilan rad etilardi. PATCH'da `null` — "maydonni tozalash".
+ * Quyidagi `.nullish()` maydonlari `schema.prisma` dagi `?` ustunlar bilan
+ * bir xil ro'yxat; `.default()` li maydonlar (DB'da NOT NULL) tegilmaydi.
+ */
 const baseShape = {
   clientId: z.number().int().positive(),
   agreementNumber: z.string().min(1).max(50),
@@ -14,41 +22,41 @@ const baseShape = {
   status: z.enum(['DRAFT', 'ACTIVE', 'TERMINATED']).default('DRAFT'),
 
   customerName: z.string().min(1),
-  customerInn: z.string().optional(),
-  customerAddress: z.string().optional(),
-  customerDirector: z.string().optional(),
-  customerDirectorBasis: z.string().optional(),
-  customerBankName: z.string().optional(),
-  customerBankAccount: z.string().optional(),
-  customerMfo: z.string().optional(),
-  customerOked: z.string().optional(),
-  customerPhone: z.string().optional(),
-  customerEmail: z.string().optional(),
+  customerInn: z.string().nullish(),
+  customerAddress: z.string().nullish(),
+  customerDirector: z.string().nullish(),
+  customerDirectorBasis: z.string().nullish(),
+  customerBankName: z.string().nullish(),
+  customerBankAccount: z.string().nullish(),
+  customerMfo: z.string().nullish(),
+  customerOked: z.string().nullish(),
+  customerPhone: z.string().nullish(),
+  customerEmail: z.string().nullish(),
 
   executorName: z.string().min(1),
-  executorInn: z.string().optional(),
-  executorAddress: z.string().optional(),
-  executorDirector: z.string().optional(),
-  executorBankName: z.string().optional(),
-  executorBankAccount: z.string().optional(),
-  executorMfo: z.string().optional(),
-  executorOked: z.string().optional(),
-  executorPhone: z.string().optional(),
-  executorEmail: z.string().optional(),
+  executorInn: z.string().nullish(),
+  executorAddress: z.string().nullish(),
+  executorDirector: z.string().nullish(),
+  executorBankName: z.string().nullish(),
+  executorBankAccount: z.string().nullish(),
+  executorMfo: z.string().nullish(),
+  executorOked: z.string().nullish(),
+  executorPhone: z.string().nullish(),
+  executorEmail: z.string().nullish(),
 
   paymentModel: z.enum(['PREPAID', 'MONTHLY', 'PER_COUNT', 'PER_AMOUNT']),
-  monthlyDueDay: z.number().int().min(1).max(28).optional(),
-  perCountThreshold: z.number().int().positive().optional(),
-  perCountDueDays: z.number().int().positive().optional(),
-  perAmountThreshold: z.number().nonnegative().optional(),
-  perAmountDueDays: z.number().int().positive().optional(),
-  creditLimit: z.number().nonnegative().optional(),
+  monthlyDueDay: z.number().int().min(1).max(28).nullish(),
+  perCountThreshold: z.number().int().positive().nullish(),
+  perCountDueDays: z.number().int().positive().nullish(),
+  perAmountThreshold: z.number().nonnegative().nullish(),
+  perAmountDueDays: z.number().int().positive().nullish(),
+  creditLimit: z.number().nonnegative().nullish(),
   prepaidRevertDays: z.number().int().positive().default(10),
   mainTariffBhm: z.number().nonnegative(),
   tariffs: z.array(tariffRowSchema).default([]),
   vatPayer: z.boolean().default(false),
-  jurisdictionCourt: z.string().optional(),
-  brokerRegistryNumber: z.string().optional(),
+  jurisdictionCourt: z.string().nullish(),
+  brokerRegistryNumber: z.string().nullish(),
   signingPlace: z.string().default('Олтиариқ тумани'),
   includeSeal: z.boolean().default(true),
 };

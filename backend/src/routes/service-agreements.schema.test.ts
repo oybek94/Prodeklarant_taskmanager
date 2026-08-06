@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { agreementCreateSchema } from './service-agreements.schema';
+import { agreementCreateSchema, agreementUpdateSchema } from './service-agreements.schema';
 
 const base = {
   clientId: 1,
@@ -43,5 +43,53 @@ describe('agreementCreateSchema', () => {
 
   it('bo\'sh korxona nomini rad etadi', () => {
     expect(agreementCreateSchema.safeParse({ ...base, customerName: '' }).success).toBe(false);
+  });
+
+  // Frontend to'ldirilmagan maydonni `null` bilan yuboradi (bazadagi ustunlar
+  // nullable, GET javobi ham `null` qaytaradi) — schema buni qabul qilishi shart.
+  it('to\'ldirilmagan maydonlar uchun null qabul qiladi', () => {
+    const r = agreementCreateSchema.safeParse({
+      ...base,
+      customerInn: null,
+      customerAddress: null,
+      customerDirector: null,
+      customerDirectorBasis: null,
+      customerBankName: null,
+      customerBankAccount: null,
+      customerMfo: null,
+      customerOked: null,
+      customerPhone: null,
+      customerEmail: null,
+      executorInn: null,
+      executorAddress: null,
+      executorDirector: null,
+      executorBankName: null,
+      executorBankAccount: null,
+      executorMfo: null,
+      executorOked: null,
+      executorPhone: null,
+      executorEmail: null,
+      monthlyDueDay: null,
+      perCountThreshold: null,
+      perCountDueDays: null,
+      perAmountThreshold: null,
+      perAmountDueDays: null,
+      creditLimit: null,
+      jurisdictionCourt: null,
+      brokerRegistryNumber: null,
+    });
+    expect(r.success).toBe(true);
+  });
+
+  it('null model uchun majburiy maydonni to\'ldirmaydi', () => {
+    const r = agreementCreateSchema.safeParse({ ...base, paymentModel: 'MONTHLY', monthlyDueDay: null });
+    expect(r.success).toBe(false);
+  });
+});
+
+describe('agreementUpdateSchema', () => {
+  it('null bilan maydonni tozalashga ruxsat beradi', () => {
+    const r = agreementUpdateSchema.safeParse({ paymentModel: 'PREPAID', jurisdictionCourt: null, creditLimit: null });
+    expect(r.success).toBe(true);
   });
 });

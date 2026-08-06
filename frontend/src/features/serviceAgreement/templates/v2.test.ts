@@ -72,21 +72,31 @@ describe('v2 shabloni', () => {
     expect(text).not.toContain('1187007@mail.ru');
   });
 
-  it('16.2–16.6 bandlari olib tashlangan', () => {
+  it('qisqartirilgan tuzilma: 13 bo\'lim, atamalar bo\'limi yo\'q', () => {
     const text = renderAll(base);
-    expect(text).toContain('16.1.');
-    expect(text).toContain('16.2.');
-    expect(text).not.toContain('16.3.');
-    expect(text).not.toContain('16.7.');
-    expect(text).not.toContain('16.8.');
+    expect(text).toContain('13. ТОМОНЛАРНИНГ РЕКВИЗИТЛАРИ');
+    expect(text).not.toContain('14.');
+    expect(text).not.toContain('АТАМАЛАР ВА ТАЪРИФЛАР');
+  });
+
+  it('himoya bandlari saqlangan', () => {
+    const text = renderAll(base);
+    // Bularsiz shartnoma Bajaruvchi uchun ma'nosiz — o'chib ketmaganiga ishonch
+    expect(text).toContain('Буюртмачининг кафолатлари');
+    expect(text).toContain('контрабанда');
+    expect(text).toContain('Регресс');
+    expect(text).toContain('Жавобгарлик чегараси');
+    expect(text).toContain('ушлаб туриш');
+    expect(text).toContain('Декларант мақоми');
   });
 
   it('to\'lov modeli va shartli bandlar v1 dagidek ishlaydi', () => {
-    expect(renderAll(base)).toContain('Танланган модель: B');
+    expect(renderAll(base)).toContain('Тўлов модели: B (ойлик, постпайд)');
+    expect(renderAll(base)).not.toContain('Тўлов модели: A');
     expect(renderAll(base)).toContain('Кредит лимити');
     expect(renderAll({ ...base, paymentModel: 'PREPAID' })).not.toContain('Кредит лимити');
     expect(renderAll(base)).toContain('ишончли вакили');
-    expect(renderAll({ ...base, brokerRegistryNumber: '№ 123' })).toContain('реестрга');
+    expect(renderAll({ ...base, brokerRegistryNumber: '№ 123' })).toContain('реестр');
     expect(renderAll({ ...base, vatPayer: true })).not.toContain('ҚҚС тўловчиси эмас');
   });
 

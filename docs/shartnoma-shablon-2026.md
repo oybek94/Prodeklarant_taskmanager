@@ -1,9 +1,18 @@
-> **Eslatma (2026-08-06).** Quyidagi matn — `templates/v1.ts` manbasi. Yangi
-> shartnomalar endi **`v2`** bilan chiqadi (`templates/v2.ts`). v2 dagi farqlar:
-> 5 ta ilova olib tashlandi (tarif jadvali 5.2-band ostiga ko'chdi), 16.2–16.6
-> va iloval1ar ro'yxati chiqarildi (16.7 → 16.2), Bajaruvchi e-mail'i doimiy
-> `docs@prodeklarant.uz`, 15.1 dagi «18-банд» → «17-банд». Imzolangan v1
-> shartnomalari o'zgarishsiz v1 matnida qayta chiqadi.
+> **Eslatma (2026-08-06).** Quyidagi matn — `templates/v1.ts` manbasi (to'liq
+> tahrir, 11 bet). Yangi shartnomalar endi **`v2`** bilan chiqadi
+> (`templates/v2.ts`) — **3 bet**. v2 dagi farqlar:
+>
+> - 5 ta ilova olib tashlandi; tarif jadvali asosiy matnga (4.2-band) ko'chdi
+> - Bo'limlar 17 tadan 13 taga tushdi: atamalar bo'limi, korrupsiyaga qarshi,
+>   fors-major, maxfiylik, xabarnomalar va «boshqa shartlar» qisqartirildi;
+>   4.1–4.3 va 3.2 dagi uzun ro'yxatlar abzatslarga jamlandi
+> - To'lov modeli jadvali o'rniga faqat **tanlangan** model bandi chiqadi
+> - Bajaruvchi e-mail'i doimiy `docs@prodeklarant.uz`; sarlavha osti olib tashlandi
+> - Saqlangan himoya bandlari: Buyurtmachi kafolatlari (3.4), regress (7.2),
+>   javobgarlik chegarasi (7.4–7.5), hujjatni ushlab turish (3.2), muhr/ЭРИ
+>   kalitlari (6-bo'lim), Deklarant maqomi (1.4)
+>
+> Imzolangan v1 shartnomalari o'zgarishsiz v1 matnida qayta chiqadi.
 
 # ХИЗМАТ КЎРСАТИШ ШАРТНОМАСИ № 2026/<<[shartnoma raqami]>>
 

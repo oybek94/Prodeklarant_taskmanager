@@ -33,6 +33,9 @@ export default function AgreementPreview({ agreement, bhmUzs }: Props) {
         })
         .catch((err: unknown) => {
           if (cancelled) return;
+          // Glif xatosidan boshqasi ekranda umumiy matn bo'lib ko'rinadi —
+          // asl sabab konsolda qolsin, aks holda uni topib bo'lmaydi.
+          if (!(err instanceof PdfMissingGlyphError)) console.error('[AgreementPreview]', err);
           setError(err instanceof PdfMissingGlyphError ? describeMissingGlyphs(err.missing) : 'PDF yaratilmadi');
         })
         .finally(() => { if (!cancelled) setPending(false); });

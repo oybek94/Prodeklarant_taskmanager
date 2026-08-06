@@ -61,11 +61,12 @@ export const AgreementPdfDocument: React.FC<AgreementPdfDocumentProps> = ({ temp
           case 'signature':
             return (
               <View key={index} style={styles.signatureRow}>
+                {/* Imzo qatorida qisqartirilgan F.I.Sh. — to'liq ism preambulada */}
                 <View style={styles.signatureCol}>
-                  <Text style={styles.signatureLine}>Бажарувчи: {tokens.executorDirector}</Text>
+                  <Text style={styles.signatureLine}>Бажарувчи: {tokens.executorDirectorShort}</Text>
                 </View>
                 <View style={styles.signatureCol}>
-                  <Text style={styles.signatureLine}>Буюртмачи: {tokens.customerDirector}</Text>
+                  <Text style={styles.signatureLine}>Буюртмачи: {tokens.customerDirectorShort}</Text>
                 </View>
               </View>
             );

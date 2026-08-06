@@ -488,6 +488,8 @@ export const v2: AgreementTemplate = {
       widths: [50, 50],
       rows: (t) => [
         [t.executorName, t.customerName],
+        // Qisqartirilgan F.I.Sh. — to'liq ism preambulada
+        [`Директор: ${t.executorDirectorShort}`, `Директор: ${t.customerDirectorShort}`],
         [`Манзил: ${t.executorAddress}`, `Манзил: ${t.customerAddress}`],
         [`СТИР: ${t.executorInn}`, `СТИР: ${t.customerInn}`],
         [`ИФУТ (ОКЭД): ${t.executorOked}`, `ИФУТ (ОКЭД): ${t.customerOked}`],

@@ -18,10 +18,15 @@ export interface AgreementTokens {
   customerPhone: string;
   customerEmail: string;
 
+  /** `Турсунбоев О.У.` — rekvizitlar va imzo qatori uchun qisqartirilgan shakl */
+  customerDirectorShort: string;
+
   executorName: string;
   executorInn: string;
   executorAddress: string;
   executorDirector: string;
+  /** `Турсунбоев О.У.` — rekvizitlar va imzo qatori uchun qisqartirilgan shakl */
+  executorDirectorShort: string;
   executorBankName: string;
   executorBankAccount: string;
   executorMfo: string;
@@ -54,6 +59,30 @@ export function formatMoney(value: number): string {
   return Math.round(value).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
 }
 
+/** «ўғли / қизи» kabi qo'shimchalar bosh harfga aylantirilmaydi */
+const NAME_SUFFIX = /^(ўғли|угли|қизи|кизи|o'g'li|og'li|qizi)$/i;
+
+/**
+ * To'liq F.I.Sh. ni qisqartiradi:
+ * `Турсунбоев Ойбек Улуғбек ўғли` → `Турсунбоев О.У.`
+ *
+ * Allaqachon qisqargan shakl (`Aliyev A.A.`) va bitta so'zli qiymat (`—`)
+ * o'zgarishsiz qaytadi.
+ */
+export function abbreviateName(full: string): string {
+  const parts = full.trim().split(/\s+/).filter(Boolean);
+  if (parts.length < 2) return full.trim();
+
+  const [surname, ...rest] = parts;
+  const initials = rest
+    .filter((word) => !NAME_SUFFIX.test(word))
+    // Nuqta bilan tugagan bo'lak allaqachon bosh harf — tegilmaydi
+    .map((word) => (word.endsWith('.') ? word : `${[...word][0]}.`))
+    .join('');
+
+  return initials ? `${surname} ${initials}` : surname;
+}
+
 /** Bo'sh qiymat o'rniga chiziqcha — shartnomada bo'sh joy qolmasligi kerak */
 const dash = (value: string | null | undefined): string => {
   const trimmed = value?.trim();
@@ -84,6 +113,7 @@ export function buildTokens(a: ServiceAgreement, bhmUzs: number): AgreementToken
     customerInn: dash(a.customerInn),
     customerAddress: dash(a.customerAddress),
     customerDirector: dash(a.customerDirector),
+    customerDirectorShort: abbreviateName(dash(a.customerDirector)),
     customerDirectorBasis: dash(a.customerDirectorBasis),
     customerBankName: dash(a.customerBankName),
     customerBankAccount: dash(a.customerBankAccount),
@@ -96,6 +126,7 @@ export function buildTokens(a: ServiceAgreement, bhmUzs: number): AgreementToken
     executorInn: dash(a.executorInn),
     executorAddress: dash(a.executorAddress),
     executorDirector: dash(a.executorDirector),
+    executorDirectorShort: abbreviateName(dash(a.executorDirector)),
     executorBankName: dash(a.executorBankName),
     executorBankAccount: dash(a.executorBankAccount),
     executorMfo: dash(a.executorMfo),

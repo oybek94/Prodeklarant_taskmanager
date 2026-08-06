@@ -6,6 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 import AgreementPreview from '../components/serviceAgreement/AgreementPreview';
 import { createAgreement, getAgreement, getNextNumber, terminateAgreement, updateAgreement } from '../features/serviceAgreement/api';
 import { CURRENT_TEMPLATE_VERSION } from '../features/serviceAgreement/templates';
+import { withMainTariff } from '../features/serviceAgreement/tariffs';
 import {
   PAYMENT_MODEL_LABEL,
   STATUS_LABEL,
@@ -72,6 +73,14 @@ export default function ServiceAgreementEditor() {
 
   const set = <K extends keyof ServiceAgreement>(key: K, value: ServiceAgreement[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }));
+
+  /**
+   * BYuD tarifi shartnomada ikki joyda chiqadi — 4.2-band matnida va tarif
+   * jadvalining birinchi qatorida. Ikkalasi ham shu yerdan yangilanadi, aks
+   * holda hujjatda ikki xil narx paydo bo'ladi.
+   */
+  const setMainTariff = (value: string) =>
+    setForm((prev) => ({ ...prev, mainTariffBhm: value, tariffs: withMainTariff(prev.tariffs, value) }));
 
   useEffect(() => {
     apiClient.get('/bxm/current').then(({ data }) => setBhmUzs(Number(data.amountUzs) || 0)).catch(() => setBhmUzs(0));
@@ -308,7 +317,7 @@ export default function ServiceAgreementEditor() {
         <section className="rounded-xl border border-gray-200 p-4">
           <h2 className="mb-3 font-semibold">3. Qo'shimcha shartlar</h2>
           <div className="grid gap-3 sm:grid-cols-2">
-            <input value={form.mainTariffBhm} onChange={(e) => set('mainTariffBhm', e.target.value)} placeholder="BYuD tarifi (BHM)" className="rounded-lg border border-gray-300 px-3 py-2" />
+            <input value={form.mainTariffBhm} onChange={(e) => setMainTariff(e.target.value)} placeholder="BYuD tarifi (BHM)" className="rounded-lg border border-gray-300 px-3 py-2" />
             <input value={form.jurisdictionCourt ?? ''} onChange={(e) => set('jurisdictionCourt', e.target.value)} placeholder="Sud" className="rounded-lg border border-gray-300 px-3 py-2" />
             <input value={form.brokerRegistryNumber ?? ''} onChange={(e) => set('brokerRegistryNumber', e.target.value)} placeholder="Broker reestri raqami (bo'sh — 2.3-band tushadi)" className="rounded-lg border border-gray-300 px-3 py-2 sm:col-span-2" />
           </div>

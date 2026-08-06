@@ -9,7 +9,6 @@
  * ham tekshiradi — shablon qisqarib qolsa, qamrov yo'qolganini bilib olamiz.
  */
 import { describe, it, expect, vi } from 'vitest';
-import path from 'node:path';
 import React from 'react';
 import { Font, pdf } from '@react-pdf/renderer';
 import { renderAgreementPdf } from './renderAgreementPdf';
@@ -26,7 +25,15 @@ import type { ServiceAgreement } from '../types';
 // quvurining qolgan qismi o'zgarishsiz sinaladi.
 vi.mock('../../../components/pdf/fonts', () => ({ PDF_FONT_STACK: ['Roboto', 'NotoSans'] }));
 
-const font = (name: string) => path.resolve(process.cwd(), 'public/fonts', name);
+/**
+ * `public/fonts/` ichidagi shriftga fayl tizimi yo'li. `node:path` ishlatilmaydi:
+ * `tsconfig.app.json` da `"types": []` — ilova loyihasida Node turlari yo'q.
+ */
+const font = (name: string): string => {
+  const decoded = decodeURIComponent(new URL(`../../../../public/fonts/${name}`, import.meta.url).pathname);
+  // Windows: "/G:/…" ko'rinishidagi yo'ldan boshidagi qiya chiziq olib tashlanadi
+  return /^\/[A-Za-z]:/.test(decoded) ? decoded.slice(1) : decoded;
+};
 
 Font.register({
   family: 'Roboto',

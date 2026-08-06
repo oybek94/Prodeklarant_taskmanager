@@ -4,9 +4,15 @@ import toast from 'react-hot-toast';
 import apiClient from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import AgreementPreview from '../components/serviceAgreement/AgreementPreview';
-import { createAgreement, getAgreement, getNextNumber, updateAgreement } from '../features/serviceAgreement/api';
+import { createAgreement, getAgreement, getNextNumber, terminateAgreement, updateAgreement } from '../features/serviceAgreement/api';
 import { CURRENT_TEMPLATE_VERSION } from '../features/serviceAgreement/templates';
-import { PAYMENT_MODEL_LABEL, type PaymentModel, type ServiceAgreement } from '../features/serviceAgreement/types';
+import {
+  PAYMENT_MODEL_LABEL,
+  STATUS_LABEL,
+  type AgreementStatus,
+  type PaymentModel,
+  type ServiceAgreement,
+} from '../features/serviceAgreement/types';
 
 const EMPTY: ServiceAgreement = {
   id: 0, clientId: 0, agreementNumber: '', agreementDate: new Date().toISOString(),
@@ -54,9 +60,15 @@ export default function ServiceAgreementEditor() {
   const [bhmUzs, setBhmUzs] = useState(0);
   const [saving, setSaving] = useState(false);
   const [syncToClient, setSyncToClient] = useState(false);
+  const [terminateOpen, setTerminateOpen] = useState(false);
+  const [terminationReason, setTerminationReason] = useState('');
+  const [terminating, setTerminating] = useState(false);
 
   // Mijoz kartochkasini yangilash faqat ADMIN uchun ochiq (PATCH /clients/:id)
   const canSyncToClient = user?.role === 'ADMIN';
+
+  // Bekor qilingan shartnoma faqat o'qish uchun — matni o'zgarmasligi kerak
+  const isTerminated = form.status === 'TERMINATED';
 
   const set = <K extends keyof ServiceAgreement>(key: K, value: ServiceAgreement[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -120,7 +132,27 @@ export default function ServiceAgreementEditor() {
     }
   };
 
+  /** Bekor qilish — sabab majburiy (backend `terminateSchema`: `min(1)`) */
+  const terminate = async () => {
+    const reason = terminationReason.trim();
+    if (!reason) return toast.error('Bekor qilish sababini yozing');
+    if (!id) return;
+
+    setTerminating(true);
+    try {
+      setForm(await terminateAgreement(Number(id), reason));
+      setTerminateOpen(false);
+      setTerminationReason('');
+      toast.success('Shartnoma bekor qilindi');
+    } catch {
+      toast.error('Bekor qilishda xatolik');
+    } finally {
+      setTerminating(false);
+    }
+  };
+
   const save = async () => {
+    if (isTerminated) return toast.error('Bekor qilingan shartnoma tahrirlanmaydi');
     if (!form.clientId) return toast.error('Mijozni tanlang');
     if (!form.customerName.trim()) return toast.error('Korxona nomi kerak');
     if (form.paymentModel === 'MONTHLY' && !form.monthlyDueDay) return toast.error('Oyning sanasini kiriting');
@@ -163,6 +195,51 @@ export default function ServiceAgreementEditor() {
   return (
     <div className="grid gap-6 p-4 sm:p-6 lg:grid-cols-2">
       <div className="space-y-6">
+        {/* Holat paneli — faqat saqlangan shartnoma uchun */}
+        {id && (
+          <section className="rounded-xl border border-gray-200 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <div className="font-semibold">№ {form.agreementNumber}</div>
+                <div className="text-xs text-gray-500">
+                  {new Date(form.agreementDate).toLocaleDateString('ru-RU')} — {form.customerName}
+                </div>
+              </div>
+
+              {isTerminated ? (
+                <span className="rounded-full bg-red-100 px-3 py-1 text-sm text-red-700">
+                  {STATUS_LABEL.TERMINATED}
+                </span>
+              ) : (
+                <div className="flex items-center gap-2">
+                  {/* Holat oddiy `Saqlash` bilan yoziladi; bekor qilish alohida endpoint */}
+                  <select
+                    value={form.status}
+                    onChange={(e) => set('status', e.target.value as AgreementStatus)}
+                    className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                  >
+                    <option value="DRAFT">{STATUS_LABEL.DRAFT}</option>
+                    <option value="ACTIVE">{STATUS_LABEL.ACTIVE}</option>
+                  </select>
+                  <button
+                    onClick={() => setTerminateOpen(true)}
+                    className="rounded-lg border border-red-200 px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+                  >
+                    Bekor qilish
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {isTerminated && (
+              <div className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+                {form.terminatedAt && `${new Date(form.terminatedAt).toLocaleDateString('ru-RU')} — `}
+                Sabab: {form.terminationReason || '—'}
+              </div>
+            )}
+          </section>
+        )}
+
         {/* 1. Mijoz va rekvizitlar */}
         <section className="rounded-xl border border-gray-200 p-4">
           <h2 className="mb-3 font-semibold">1. Mijoz va rekvizitlar</h2>
@@ -237,7 +314,7 @@ export default function ServiceAgreementEditor() {
           </div>
         </section>
 
-        <button onClick={save} disabled={saving} className="w-full rounded-lg bg-blue-600 py-3 text-white hover:bg-blue-700 disabled:opacity-50">
+        <button onClick={save} disabled={saving || isTerminated} className="w-full rounded-lg bg-blue-600 py-3 text-white hover:bg-blue-700 disabled:opacity-50">
           {saving ? 'Saqlanmoqda…' : 'Saqlash'}
         </button>
       </div>
@@ -245,6 +322,39 @@ export default function ServiceAgreementEditor() {
       <div className="lg:sticky lg:top-6 lg:self-start">
         <AgreementPreview agreement={form} bhmUzs={bhmUzs} />
       </div>
+
+      {terminateOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+          onMouseDown={(e) => { if (e.target === e.currentTarget) setTerminateOpen(false); }}
+        >
+          <div className="w-full max-w-md rounded-xl bg-white p-5">
+            <h3 className="mb-1 font-semibold">Shartnomani bekor qilish</h3>
+            <p className="mb-3 text-sm text-gray-600">
+              № {form.agreementNumber} — {form.customerName}. Bekor qilingandan keyin shartnoma tahrirlanmaydi.
+            </p>
+            <textarea
+              value={terminationReason}
+              onChange={(e) => setTerminationReason(e.target.value)}
+              rows={3}
+              placeholder="Bekor qilish sababi"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2"
+            />
+            <div className="mt-4 flex justify-end gap-2">
+              <button onClick={() => setTerminateOpen(false)} className="rounded-lg bg-gray-100 px-4 py-2 text-sm text-gray-700">
+                Yopish
+              </button>
+              <button
+                onClick={terminate}
+                disabled={terminating}
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm text-white hover:bg-red-700 disabled:opacity-50"
+              >
+                {terminating ? 'Bajarilmoqda…' : 'Bekor qilish'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

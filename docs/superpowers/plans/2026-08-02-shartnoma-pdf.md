@@ -89,13 +89,13 @@ Shablon testi bu rejadagi eng muhim test, lekin frontendda test runner yo'q. Shu
 - Consumes: hech narsa
 - Produces: `npm run test` (frontend) — `vitest run`
 
-- [ ] **Step 1: Vitest o'rnatish**
+- [x] **Step 1: Vitest o'rnatish**
 
 ```bash
 cd frontend && npm install -D vitest@^4.1.10
 ```
 
-- [ ] **Step 2: `frontend/vitest.config.ts` yaratish**
+- [x] **Step 2: `frontend/vitest.config.ts` yaratish**
 
 ```ts
 import { defineConfig } from 'vitest/config';
@@ -110,14 +110,14 @@ export default defineConfig({
 
 Izoh: `environment: 'node'` — bu rejadagi testlar sof funksiyalarni tekshiradi, DOM kerak emas.
 
-- [ ] **Step 3: `frontend/package.json` scripts blokiga qo'shish**
+- [x] **Step 3: `frontend/package.json` scripts blokiga qo'shish**
 
 ```json
 "test": "vitest run",
 "test:watch": "vitest"
 ```
 
-- [ ] **Step 4: Failing smoke test yozish**
+- [x] **Step 4: Failing smoke test yozish**
 
 `frontend/src/features/serviceAgreement/smoke.test.ts`:
 
@@ -131,12 +131,12 @@ describe('vitest sozlamasi', () => {
 });
 ```
 
-- [ ] **Step 5: Testni ishga tushirish**
+- [x] **Step 5: Testni ishga tushirish**
 
 Run: `cd frontend && npm run test`
 Expected: PASS — 1 test.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add frontend/package.json frontend/package-lock.json frontend/vitest.config.ts frontend/src/features/serviceAgreement/smoke.test.ts
@@ -153,7 +153,7 @@ git commit -m "chore(frontend): add vitest test runner"
 **Interfaces:**
 - Produces: `prisma.serviceAgreement`, `AgreementStatus`, `PaymentModel` enum'lari; `Client.director`, `Client.mfo`, `Client.oked`
 
-- [ ] **Step 1: Enum'larni qo'shish**
+- [x] **Step 1: Enum'larni qo'shish**
 
 `schema.prisma` oxiriga (boshqa enum'lar yoniga):
 
@@ -172,7 +172,7 @@ enum PaymentModel {
 }
 ```
 
-- [ ] **Step 2: `ServiceAgreement` modelini qo'shish**
+- [x] **Step 2: `ServiceAgreement` modelini qo'shish**
 
 ```prisma
 model ServiceAgreement {
@@ -241,7 +241,7 @@ model ServiceAgreement {
 }
 ```
 
-- [ ] **Step 3: `Client` modelini kengaytirish**
+- [x] **Step 3: `Client` modelini kengaytirish**
 
 `model Client` ichiga (`contracts Contract[]` qatoridan oldin) qo'shing:
 
@@ -252,21 +252,21 @@ model ServiceAgreement {
   serviceAgreements ServiceAgreement[]
 ```
 
-- [ ] **Step 4: Schema sintaksisini tekshirish (bazaga tegmasdan)**
+- [x] **Step 4: Schema sintaksisini tekshirish (bazaga tegmasdan)**
 
 Run: `cd backend && npx prisma validate`
 Expected: `The schema at prisma\schema.prisma is valid 🚀`
 
-- [ ] **Step 5: Migratsiya holatini ko'rish**
+- [x] **Step 5: Migratsiya holatini ko'rish**
 
 Run: `cd backend && npx prisma migrate status`
 Expected: drift haqida ogohlantirish — bazada 2 ta bo'sh migratsiya papkasi bor.
 
-- [ ] **Step 6: STOP — foydalanuvchidan ruxsat so'rang**
+- [x] **Step 6: STOP — foydalanuvchidan ruxsat so'rang**
 
 Baza masofaviy va **jonli** (138.249.7.15). Keyingi ikki buyruq bazaga yozadi. 5-qadam natijasini foydalanuvchiga ko'rsating va aniq ruxsat oling. Ruxsatsiz davom etmang.
 
-- [ ] **Step 7: Driftni yopish va migratsiya (ruxsat olingandan keyin)**
+- [x] **Step 7: Driftni yopish va migratsiya (ruxsat olingandan keyin)**
 
 ```bash
 cd backend
@@ -276,7 +276,7 @@ npx prisma migrate dev --name add_service_agreement
 
 Expected: yangi migratsiya qo'llandi, `prisma generate` avtomatik ishladi.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add backend/prisma/schema.prisma backend/prisma/migrations
@@ -299,7 +299,7 @@ git commit -m "feat(db): add ServiceAgreement model and client requisite fields"
   - `agreementCreateSchema`, `agreementUpdateSchema`, `terminateSchema` (Zod)
   - `AgreementCreateInput` (`z.infer<typeof agreementCreateSchema>`)
 
-- [ ] **Step 1: Helper testini yozish**
+- [x] **Step 1: Helper testini yozish**
 
 `backend/src/routes/service-agreements.helpers.test.ts`:
 
@@ -330,12 +330,12 @@ describe('nextAgreementNumber', () => {
 });
 ```
 
-- [ ] **Step 2: Testni ishga tushirib, yiqilishini ko'rish**
+- [x] **Step 2: Testni ishga tushirib, yiqilishini ko'rish**
 
 Run: `cd backend && npx vitest run src/routes/service-agreements.helpers.test.ts`
 Expected: FAIL — `Failed to resolve import "./service-agreements.helpers"`
 
-- [ ] **Step 3: Helperni yozish**
+- [x] **Step 3: Helperni yozish**
 
 `backend/src/routes/service-agreements.helpers.ts`:
 
@@ -361,12 +361,12 @@ export function nextAgreementNumber(year: number, existing: string[]): string {
 }
 ```
 
-- [ ] **Step 4: Testni qayta ishga tushirish**
+- [x] **Step 4: Testni qayta ishga tushirish**
 
 Run: `cd backend && npx vitest run src/routes/service-agreements.helpers.test.ts`
 Expected: PASS — 5 test.
 
-- [ ] **Step 5: Zod sxema testini yozish**
+- [x] **Step 5: Zod sxema testini yozish**
 
 `backend/src/routes/service-agreements.schema.test.ts`:
 
@@ -420,12 +420,12 @@ describe('agreementCreateSchema', () => {
 });
 ```
 
-- [ ] **Step 6: Testni ishga tushirib, yiqilishini ko'rish**
+- [x] **Step 6: Testni ishga tushirib, yiqilishini ko'rish**
 
 Run: `cd backend && npx vitest run src/routes/service-agreements.schema.test.ts`
 Expected: FAIL — modul topilmadi.
 
-- [ ] **Step 7: Zod sxemalarini yozish**
+- [x] **Step 7: Zod sxemalarini yozish**
 
 `backend/src/routes/service-agreements.schema.ts`:
 
@@ -523,12 +523,12 @@ export const terminateSchema = z.object({
 export type AgreementCreateInput = z.infer<typeof agreementCreateSchema>;
 ```
 
-- [ ] **Step 8: Testni qayta ishga tushirish**
+- [x] **Step 8: Testni qayta ishga tushirish**
 
 Run: `cd backend && npx vitest run src/routes/service-agreements.schema.test.ts`
 Expected: PASS — 8 assertion.
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```bash
 git add backend/src/routes/service-agreements.helpers.ts backend/src/routes/service-agreements.helpers.test.ts backend/src/routes/service-agreements.schema.ts backend/src/routes/service-agreements.schema.test.ts
@@ -547,7 +547,7 @@ git commit -m "feat(api): add service agreement validation schemas and number he
 - Consumes: `nextAgreementNumber`, `agreementCreateSchema`, `agreementUpdateSchema`, `terminateSchema` (Task 3)
 - Produces: `/api/service-agreements` endpointlari
 
-- [ ] **Step 1: Routerni yozish**
+- [x] **Step 1: Routerni yozish**
 
 `backend/src/routes/service-agreements.ts`:
 
@@ -711,7 +711,7 @@ router.post('/:id/terminate', requireAuth(), async (req: AuthRequest, res) => {
 export default router;
 ```
 
-- [ ] **Step 2: `server.ts` da ro'yxatdan o'tkazish**
+- [x] **Step 2: `server.ts` da ro'yxatdan o'tkazish**
 
 `backend/src/server.ts` — import bloki (33-qator atrofida, `packagingTypesRouter` yoniga):
 
@@ -725,12 +725,12 @@ Va `app.use` bloki (260-qator atrofida):
 app.use('/api/service-agreements', requireAuth(), serviceAgreementsRouter);
 ```
 
-- [ ] **Step 3: Backend kompilyatsiyasini tekshirish**
+- [x] **Step 3: Backend kompilyatsiyasini tekshirish**
 
 Run: `cd backend && npx tsc --noEmit`
 Expected: xatosiz.
 
-- [ ] **Step 4: Serverni ishga tushirib, endpointni qo'lda tekshirish**
+- [x] **Step 4: Serverni ishga tushirib, endpointni qo'lda tekshirish**
 
 ```bash
 cd backend && npm run dev
@@ -744,7 +744,7 @@ curl -s -H "Authorization: Bearer <TOKEN>" "http://localhost:3001/api/service-ag
 
 Expected: `{"agreementNumber":"2026/001"}`
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add backend/src/routes/service-agreements.ts backend/src/server.ts
@@ -763,7 +763,7 @@ git commit -m "feat(api): add service agreements CRUD routes"
 - Consumes: Task 4 endpointlari
 - Produces: `npm run test:integration:agreements`
 
-- [ ] **Step 1: Kolleksiya faylini yaratish**
+- [x] **Step 1: Kolleksiya faylini yaratish**
 
 `backend/openapi/service-agreements-postman-collection.json`:
 
@@ -887,7 +887,7 @@ git commit -m "feat(api): add service agreements CRUD routes"
 }
 ```
 
-- [ ] **Step 2: portativ runner + npm skript**
+- [x] **Step 2: portativ runner + npm skript**
 
 `$TOKEN` kabi shell kengaytirishni **ishlatmang**: `npm run` Windows'da `cmd.exe` orqali ketadi va o'zgaruvchi kengaymaydi — newman'ga so'zma-so'z `$TOKEN` boradi, natijada test 401/400 lar bilan yiqilib, API buzuqdek ko'rinadi.
 
@@ -908,7 +908,7 @@ Teardown majburiy: `.env` jonli bazaga qaraydi, API'da `DELETE` yo'q, va tozalas
 "test:integration:agreements": "node ./openapi/run-agreements-tests.mjs"
 ```
 
-- [ ] **Step 3: Ishga tushirib tekshirish**
+- [x] **Step 3: Ishga tushirib tekshirish**
 
 Backend `npm run dev` bilan ishlab turgan holda:
 
@@ -918,7 +918,7 @@ cd backend && TOKEN=<accessToken> CLIENT_ID=<mavjud mijoz id> npm run test:integ
 
 Expected: 6 request, barcha assertion PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add backend/openapi/service-agreements-postman-collection.json backend/package.json
@@ -938,7 +938,7 @@ git commit -m "test(api): add newman collection for service agreements"
 **Interfaces:**
 - Produces: `PDF_FONT_STACK: string[]` — `['Roboto', 'NotoSans']`
 
-- [ ] **Step 1: `frontend/src/components/pdf/fonts.ts` yaratish**
+- [x] **Step 1: `frontend/src/components/pdf/fonts.ts` yaratish**
 
 ```ts
 import { Font } from '@react-pdf/renderer';
@@ -970,7 +970,7 @@ Font.register({
 export const PDF_FONT_STACK = ['Roboto', 'NotoSans'];
 ```
 
-- [ ] **Step 2: `PdfStyles.ts` ni moslashtirish**
+- [x] **Step 2: `PdfStyles.ts` ni moslashtirish**
 
 `frontend/src/components/invoice/pdf/PdfStyles.ts` boshidagi 1–19 qatorlarni shunga almashtiring:
 
@@ -985,17 +985,17 @@ Va `styles.page` ichidagi `fontFamily: ['Roboto', 'NotoSans'],` ni shunga o'zgar
     fontFamily: PDF_FONT_STACK,
 ```
 
-- [ ] **Step 3: Kompilyatsiyani tekshirish**
+- [x] **Step 3: Kompilyatsiyani tekshirish**
 
 Run: `cd frontend && npx tsc -b --noEmit`
 Expected: faqat ma'lum baseline xatosi (`useInvoiceSave.ts(294,46)`). Boshqa xato bo'lmasin.
 
-- [ ] **Step 4: Invoys PDF'i buzilmaganini tekshirish**
+- [x] **Step 4: Invoys PDF'i buzilmaganini tekshirish**
 
 `npm run dev` bilan ilovani oching, istalgan invoysni oching va PDF tugmasini bosing.
 Expected: PDF avvalgidek yuklanadi, kirill matni to'liq chiqadi.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add frontend/src/components/pdf/fonts.ts frontend/src/components/invoice/pdf/PdfStyles.ts
@@ -1015,7 +1015,7 @@ git commit -m "refactor(pdf): extract font registration into shared module"
   - `PaymentModel`, `AgreementStatus`, `TariffRow`, `ServiceAgreement`, `AgreementListResponse`
   - `listAgreements`, `getAgreement`, `createAgreement`, `updateAgreement`, `terminateAgreement`, `getNextNumber`
 
-- [ ] **Step 1: `types.ts` yozish**
+- [x] **Step 1: `types.ts` yozish**
 
 ```ts
 export type PaymentModel = 'PREPAID' | 'MONTHLY' | 'PER_COUNT' | 'PER_AMOUNT';
@@ -1118,7 +1118,7 @@ export type AgreementInput = Omit<
 
 Izoh: `Decimal` maydonlar JSON'da string bo'lib keladi (Prisma), shuning uchun o'qishda `string`, yozishda `number`.
 
-- [ ] **Step 2: `api.ts` yozish**
+- [x] **Step 2: `api.ts` yozish**
 
 ```ts
 import apiClient from '../../lib/api';
@@ -1164,12 +1164,12 @@ export async function terminateAgreement(id: number, terminationReason: string):
 }
 ```
 
-- [ ] **Step 3: Kompilyatsiyani tekshirish**
+- [x] **Step 3: Kompilyatsiyani tekshirish**
 
 Run: `cd frontend && npx tsc -b --noEmit`
 Expected: faqat ma'lum baseline xatosi (`useInvoiceSave.ts(294,46)`). Boshqa xato bo'lmasin.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add frontend/src/features/serviceAgreement/types.ts frontend/src/features/serviceAgreement/api.ts
@@ -1188,7 +1188,7 @@ git commit -m "feat(frontend): add service agreement types and api client"
 - Consumes: `ServiceAgreement`, `TariffRow`, `PAYMENT_MODEL_LETTER` (Task 7)
 - Produces: `AgreementTokens` interfeysi, `buildTokens(agreement: ServiceAgreement, bhmUzs: number): AgreementTokens`, `formatMoney(value: number): string`
 
-- [ ] **Step 1: Testni yozish**
+- [x] **Step 1: Testni yozish**
 
 `frontend/src/features/serviceAgreement/tokens.test.ts`:
 
@@ -1248,12 +1248,12 @@ describe('buildTokens', () => {
 });
 ```
 
-- [ ] **Step 2: Testni ishga tushirib, yiqilishini ko'rish**
+- [x] **Step 2: Testni ishga tushirib, yiqilishini ko'rish**
 
 Run: `cd frontend && npx vitest run src/features/serviceAgreement/tokens.test.ts`
 Expected: FAIL — `./tokens` moduli topilmadi.
 
-- [ ] **Step 3: `tokens.ts` yozish**
+- [x] **Step 3: `tokens.ts` yozish**
 
 ```ts
 import { PAYMENT_MODEL_LETTER, type ServiceAgreement, type TariffRow } from './types';
@@ -1379,12 +1379,12 @@ export function buildTokens(a: ServiceAgreement, bhmUzs: number): AgreementToken
 }
 ```
 
-- [ ] **Step 4: Testni qayta ishga tushirish**
+- [x] **Step 4: Testni qayta ishga tushirish**
 
 Run: `cd frontend && npx vitest run src/features/serviceAgreement/tokens.test.ts`
 Expected: PASS — 8 test.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add frontend/src/features/serviceAgreement/tokens.ts frontend/src/features/serviceAgreement/tokens.test.ts
@@ -1409,7 +1409,7 @@ Bu rejadagi eng katta va eng muhim vazifa. Matn manbasi — `docs/shartnoma-shab
   - `Block`, `AgreementTemplate`, `resolveText(text: string, tokens: AgreementTokens): string`, `visibleBlocks(template: AgreementTemplate, tokens: AgreementTokens): Block[]`
   - `getTemplate(version: string): AgreementTemplate`
 
-- [ ] **Step 1: `types.ts` yozish**
+- [x] **Step 1: `types.ts` yozish**
 
 ```ts
 import type { AgreementTokens } from '../tokens';
@@ -1459,7 +1459,7 @@ export function visibleBlocks(template: AgreementTemplate, tokens: AgreementToke
 export type { TextTokenKey };
 ```
 
-- [ ] **Step 2: `v1.ts` yozish**
+- [x] **Step 2: `v1.ts` yozish**
 
 `docs/shartnoma-shablon-2026.md` ni ochib, uning **butun matnini** bloklarga ko'chiring. Quyida tuzilma va shartli bloklarning aniq ko'rinishi berilgan; qolgan bandlar shu naqshda davom ettiriladi.
 
@@ -1600,7 +1600,7 @@ export const v1: AgreementTemplate = {
 
 **Qolgan bandlar.** Yuqoridagi ro'yxatda `…` bilan belgilangan joylarga `docs/shartnoma-shablon-2026.md` dagi qolgan barcha bo'limlarni (1, 3, 4, 5.1–5.3, 5.6–5.10, 6–12, 14–16 va 2–5-ilovalar) shu naqshda ko'chiring: sarlavha → `heading`, band → `paragraph`, jadval → `table`, imzo qatori → `signature`, ilova boshi → `pageBreak` + `heading`. Shartli `when` faqat yuqorida ko'rsatilgan to'rt joyda ishlatiladi.
 
-- [ ] **Step 3: `index.ts` yozish**
+- [x] **Step 3: `index.ts` yozish**
 
 ```ts
 import type { AgreementTemplate } from './types';
@@ -1624,7 +1624,7 @@ export function getTemplate(version: string): AgreementTemplate {
 export { v1 };
 ```
 
-- [ ] **Step 4: Shablon testini yozish**
+- [x] **Step 4: Shablon testini yozish**
 
 `frontend/src/features/serviceAgreement/templates/v1.test.ts`:
 
@@ -1710,12 +1710,12 @@ describe('v1 shabloni', () => {
 });
 ```
 
-- [ ] **Step 5: Testni ishga tushirish**
+- [x] **Step 5: Testni ishga tushirish**
 
 Run: `cd frontend && npx vitest run src/features/serviceAgreement/templates/v1.test.ts`
 Expected: PASS — 8 test. Agar `{{` qolgani haqida xato chiqsa, `v1.ts` da o'sha token nomi `AgreementTokens` da yo'q demakdir.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add frontend/src/features/serviceAgreement/templates
@@ -1735,7 +1735,7 @@ git commit -m "feat(frontend): add versioned agreement template system with v1 t
 - Consumes: `PDF_FONT_STACK` (Task 6), `AgreementTokens`/`buildTokens` (Task 8), `getTemplate`/`resolveText`/`visibleBlocks` (Task 9), `deepNormalizeStrings` (`frontend/src/utils/textNormalize.ts`), `findMissingGlyphs`/`PdfMissingGlyphError` (`frontend/src/components/invoice/pdf/pdfGlyphCheck.ts`), `PdfLayoutNode` (`.../pdfLayout.ts`)
 - Produces: `renderAgreementPdf(agreement: ServiceAgreement, bhmUzs: number): Promise<Blob>`
 
-- [ ] **Step 1: `agreementPdfStyles.ts` yozish**
+- [x] **Step 1: `agreementPdfStyles.ts` yozish**
 
 ```ts
 import { StyleSheet } from '@react-pdf/renderer';
@@ -1774,7 +1774,7 @@ export const styles = StyleSheet.create({
 });
 ```
 
-- [ ] **Step 2: `AgreementPdfDocument.tsx` yozish**
+- [x] **Step 2: `AgreementPdfDocument.tsx` yozish**
 
 ```tsx
 import React from 'react';
@@ -1863,7 +1863,7 @@ export const AgreementPdfDocument: React.FC<AgreementPdfDocumentProps> = ({ temp
 );
 ```
 
-- [ ] **Step 3: `renderAgreementPdf.ts` yozish**
+- [x] **Step 3: `renderAgreementPdf.ts` yozish**
 
 ```ts
 import React from 'react';
@@ -1905,12 +1905,12 @@ export async function renderAgreementPdf(agreement: ServiceAgreement, bhmUzs: nu
 }
 ```
 
-- [ ] **Step 4: Kompilyatsiyani tekshirish**
+- [x] **Step 4: Kompilyatsiyani tekshirish**
 
 Run: `cd frontend && npx tsc -b --noEmit`
 Expected: faqat ma'lum baseline xatosi (`useInvoiceSave.ts(294,46)`). Boshqa xato bo'lmasin.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add frontend/src/features/serviceAgreement/pdf
@@ -1930,7 +1930,7 @@ git commit -m "feat(frontend): add agreement PDF renderer"
 - Consumes: `listAgreements` (Task 7), `renderAgreementPdf` (Task 10)
 - Produces: `/shartnomalar` route
 
-- [ ] **Step 1: Sahifani yozish**
+- [x] **Step 1: Sahifani yozish**
 
 `frontend/src/pages/ServiceAgreements.tsx` — asosiy tuzilma:
 
@@ -2106,7 +2106,7 @@ export default function ServiceAgreements() {
 }
 ```
 
-- [ ] **Step 2: Route qo'shish**
+- [x] **Step 2: Route qo'shish**
 
 `frontend/src/App.tsx` — lazy import bloki (47-qator atrofida):
 
@@ -2122,7 +2122,7 @@ Route bloki (`/clients` route'lari yoniga). `allowedRoles` **berilmaydi** — sa
 
 Muharrir route'lari bu vazifada qo'shilmaydi — ular Task 12 da, muharrirning o'zi bilan birga keladi. Shu sababli ro'yxatdagi "Ochish" havolasi va "Yangi shartnoma" tugmasi Task 12 gacha 404 beradi; bu kutilgan oraliq holat.
 
-- [ ] **Step 3: Yon menyuga qo'shish**
+- [x] **Step 3: Yon menyuga qo'shish**
 
 `frontend/src/components/Layout.tsx`, 353-qator yonidagi massivga (rol sharti yo'q):
 
@@ -2130,13 +2130,13 @@ Muharrir route'lari bu vazifada qo'shilmaydi — ular Task 12 da, muharrirning o
     { path: '/shartnomalar', label: 'Shartnomalar', icon: 'solar:document-text-bold-duotone', group: 'Savdo va CRM' },
 ```
 
-- [ ] **Step 4: Tekshirish**
+- [x] **Step 4: Tekshirish**
 
 Run: `cd frontend && npx tsc -b --noEmit` (faqat baseline `useInvoiceSave.ts` xatosi bo'lsin), so'ng `npm run dev`
 Brauzerda `/shartnomalar` sahifasini oching.
 Expected: sahifa ochiladi, bo'sh holat ko'rinadi, yon menyuda "Shartnomalar" bandi bor. "Ochish" havolasi hozircha ishlamaydi — muharrir Task 12 da qo'shiladi.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add frontend/src/pages/ServiceAgreements.tsx frontend/src/App.tsx frontend/src/components/Layout.tsx
@@ -2156,7 +2156,7 @@ git commit -m "feat(frontend): add service agreements list page"
 - Consumes: `getAgreement`/`createAgreement`/`updateAgreement`/`getNextNumber` (Task 7), `renderAgreementPdf` (Task 10)
 - Produces: `/shartnomalar/yangi` va `/shartnomalar/:id` sahifalari
 
-- [ ] **Step 1: `AgreementPreview.tsx` yozish**
+- [x] **Step 1: `AgreementPreview.tsx` yozish**
 
 ```tsx
 import { useEffect, useState } from 'react';
@@ -2223,7 +2223,7 @@ export default function AgreementPreview({ agreement, bhmUzs }: Props) {
 }
 ```
 
-- [ ] **Step 2: Muharrir sahifasini yozish**
+- [x] **Step 2: Muharrir sahifasini yozish**
 
 `frontend/src/pages/ServiceAgreementEditor.tsx` — asosiy tuzilma. Forma holati to'liq `ServiceAgreement` shaklida saqlanadi, shunda preview'ga to'g'ridan-to'g'ri uzatiladi.
 
@@ -2445,7 +2445,7 @@ export default function ServiceAgreementEditor() {
 }
 ```
 
-- [ ] **Step 3: Muharrir route'larini qo'shish**
+- [x] **Step 3: Muharrir route'larini qo'shish**
 
 `frontend/src/App.tsx` — lazy import bloki:
 
@@ -2462,12 +2462,12 @@ Route bloki, Task 11 da qo'shilgan `/shartnomalar` route'i yoniga. `allowedRoles
 
 Diqqat: `/shartnomalar/yangi` `/shartnomalar/:id` dan OLDIN turishi kerak, aks holda `yangi` so'zi `:id` sifatida tushuniladi.
 
-- [ ] **Step 4: Kompilyatsiyani tekshirish**
+- [x] **Step 4: Kompilyatsiyani tekshirish**
 
 Run: `cd frontend && npx tsc -b --noEmit`
 Expected: faqat ma'lum baseline xatosi (`useInvoiceSave.ts(294,46)`). Boshqa xato bo'lmasin.
 
-- [ ] **Step 5: Qo'lda tekshirish**
+- [x] **Step 5: Qo'lda tekshirish**
 
 `npm run dev` bilan `/shartnomalar/yangi` sahifasini oching:
 
@@ -2477,12 +2477,22 @@ Expected: faqat ma'lum baseline xatosi (`useInvoiceSave.ts(294,46)`). Boshqa xat
 4. Broker reestri raqamini kiriting → 2.3-band "реестрга … киритилган" ga almashadi; o'chiring → "ишончли вакили" qaytadi.
 5. Saqlang → `/shartnomalar/:id` ga o'tadi, ro'yxatda ko'rinadi.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add frontend/src/pages/ServiceAgreementEditor.tsx frontend/src/components/serviceAgreement/AgreementPreview.tsx frontend/src/App.tsx
 git commit -m "feat(frontend): add agreement editor with live PDF preview"
 ```
+
+- [x] **Step 7: Holat va bekor qilish UI (Self-Review'da keyinga qoldirilgan edi)**
+
+Muharrirga (`ServiceAgreementEditor.tsx`) saqlangan shartnoma uchun holat paneli qo'shiladi:
+
+1. `id` mavjud bo'lganda yuqorida panel: raqam/sana/korxona + `DRAFT ↔ ACTIVE` select (oddiy `Saqlash` bilan yoziladi, `status` allaqachon `AgreementInput` tarkibida) + «Bekor qilish» tugmasi.
+2. «Bekor qilish» modali: sabab uchun `textarea` (backend `terminateSchema` — `min(1)`, bo'sh bo'lsa toast xato), `POST /:id/terminate` → `terminateAgreement()` (Task 7 API klienti).
+3. Bekor qilingandan keyin forma javob bilan almashtiriladi: qizil «Bekor» belgisi, sana va sabab ko'rsatiladi, `Saqlash` tugmasi bloklanadi (`save()` ichida ham qo'riqchi bor) — bekor qilingan shartnoma matni o'zgarmasligi kerak.
+
+Modal naqshi mavjud sahifalardan olinadi (`fixed inset-0 bg-black/50 … backdrop-blur-sm`, backdrop `onMouseDown` bilan yopiladi). Komponent testi yozilmaydi: `vitest.config.ts` da `environment: 'node'` va `include: src/**/*.test.ts` — loyihada jsdom/testing-library yo'q. Tekshiruv: `tsc --noEmit` + qo'lda.
 
 ---
 
@@ -2494,7 +2504,7 @@ git commit -m "feat(frontend): add agreement editor with live PDF preview"
 **Interfaces:**
 - Consumes: `listAgreements` (Task 7)
 
-- [ ] **Step 1: Shartnomalar bo'limini qo'shish**
+- [x] **Step 1: Shartnomalar bo'limini qo'shish**
 
 `ClientDetail.tsx` ichida, mavjud bo'limlar naqshiga ergashib:
 
@@ -2543,14 +2553,14 @@ import { listAgreements } from '../features/serviceAgreement/api';
 import { STATUS_LABEL, type ServiceAgreement } from '../features/serviceAgreement/types';
 ```
 
-- [ ] **Step 2: Tekshirish**
+- [x] **Step 2: Tekshirish**
 
 Run: `cd frontend && npx tsc -b --noEmit`
 Expected: faqat ma'lum baseline xatosi (`useInvoiceSave.ts(294,46)`). Boshqa xato bo'lmasin.
 Brauzerda shartnomasi bor mijoz kartochkasini oching.
 Expected: "Shartnomalar" bo'limi ro'yxat bilan ko'rinadi.
 
-- [ ] **Step 3: Barcha testlarni ishga tushirish**
+- [x] **Step 3: Barcha testlarni ishga tushirish**
 
 ```bash
 cd frontend && npm run test
@@ -2559,7 +2569,7 @@ cd ../backend && npx vitest run src/routes/service-agreements.helpers.test.ts sr
 
 Expected: hammasi PASS.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add frontend/src/pages/ClientDetail.tsx
@@ -2587,7 +2597,7 @@ git commit -m "feat(frontend): show client agreements on client detail page"
 **Aniqlangan va tuzatilgan farqlar**
 
 - Spec'da frontend uchun `react-hook-form` + Zod aytilgan edi; bu paketlar loyihada yo'q va boshqa formalar `useState` ishlatadi. Global Constraints'ga chetlanish sifatida yozildi, Task 12 qo'lda validatsiya bilan bajariladi.
-- Spec'da shartnomani bekor qilish modali bor edi; Task 4 da endpoint yozilgan, lekin muharrirda modal alohida vazifaga ajratilmagan. Bu **ataylab**: `status` va `terminate` API tayyor, UI tugmasi Task 12 dagi forma bilan bir xil naqshda keyinroq qo'shiladi. Agar bekor qilish tugmasi birinchi relizda kerak bo'lsa, Task 12 ga qo'shimcha step sifatida kiriting.
+- Spec'da shartnomani bekor qilish modali bor edi; Task 4 da endpoint yozilgan, lekin muharrirda modal alohida vazifaga ajratilmagan edi. **Yopildi:** Task 12 Step 7 sifatida qo'shildi (holat paneli + bekor qilish modali + bekor qilingandan keyin faqat o'qish).
 
 **Tur muvofiqligi**
 

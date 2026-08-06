@@ -18,7 +18,6 @@ export const v2: AgreementTemplate = {
   version: 'v2',
   blocks: [
     { kind: 'heading', level: 1, text: 'ХИЗМАТ КЎРСАТИШ ШАРТНОМАСИ № {{agreementNumber}}' },
-    { kind: 'paragraph', text: '**(божхона мақсадлари учун ҳужжатларни тайёрлаш ва расмийлаштириш бўйича)**' },
     { kind: 'paragraph', text: '{{signingPlace}}                    {{agreementDate}}' },
     {
       kind: 'paragraph',

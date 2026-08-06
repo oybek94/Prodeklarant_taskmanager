@@ -621,6 +621,16 @@ router.patch('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
     if (req.body.email !== undefined) {
       updateData.email = req.body.email === null || req.body.email === '' ? undefined : req.body.email;
     }
+    // Xizmat shartnomasi rekvizitlari (ServiceAgreement muharriridan sinxronlanadi)
+    if (req.body.director !== undefined) {
+      updateData.director = req.body.director === null || req.body.director === '' ? undefined : req.body.director;
+    }
+    if (req.body.mfo !== undefined) {
+      updateData.mfo = req.body.mfo === null || req.body.mfo === '' ? undefined : req.body.mfo;
+    }
+    if (req.body.oked !== undefined) {
+      updateData.oked = req.body.oked === null || req.body.oked === '' ? undefined : req.body.oked;
+    }
     if (req.body.bankName !== undefined) {
       updateData.bankName = req.body.bankName === null || req.body.bankName === '' ? undefined : req.body.bankName;
     }

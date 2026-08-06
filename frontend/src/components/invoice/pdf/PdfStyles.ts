@@ -1,22 +1,5 @@
-import { StyleSheet, Font } from '@react-pdf/renderer';
-
-Font.register({
-  family: 'Roboto',
-  fonts: [
-    { src: '/fonts/Roboto-Regular.ttf', fontWeight: 400 },
-    { src: '/fonts/Roboto-Medium.ttf', fontWeight: 500 },
-    { src: '/fonts/Roboto-Bold.ttf', fontWeight: 700 },
-  ],
-});
-
-// Zaxira shrift: Roboto'da glifi bo'lmagan belgi @react-pdf tomonidan jimgina
-// tashlab yuborilmasligi uchun keng Unicode qamrovli NotoSans ishlatiladi.
-// `fontFamily: ['Roboto', 'NotoSans']` — har bir belgi uchun glifi bor birinchi
-// shrift tanlanadi (qarang: page.fontFamily).
-Font.register({
-  family: 'NotoSans',
-  fonts: [{ src: '/fonts/NotoSans-Regular.ttf', fontWeight: 400 }],
-});
+import { StyleSheet } from '@react-pdf/renderer';
+import { PDF_FONT_STACK } from '../../pdf/fonts';
 
 /**
  * Pechat (muhr) rasmining PDF'dagi balandligi — 3.8 sm (haqiqiy muhr o'lchami).
@@ -33,7 +16,7 @@ export const styles = StyleSheet.create({
     paddingTop: 40,
     paddingBottom: 20,
     paddingHorizontal: 30,
-    fontFamily: ['Roboto', 'NotoSans'],
+    fontFamily: PDF_FONT_STACK,
     fontSize: 9,
     color: '#111827',
     backgroundColor: '#ffffff',

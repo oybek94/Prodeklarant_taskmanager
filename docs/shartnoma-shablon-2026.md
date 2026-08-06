@@ -1,3 +1,10 @@
+> **Eslatma (2026-08-06).** Quyidagi matn — `templates/v1.ts` manbasi. Yangi
+> shartnomalar endi **`v2`** bilan chiqadi (`templates/v2.ts`). v2 dagi farqlar:
+> 5 ta ilova olib tashlandi (tarif jadvali 5.2-band ostiga ko'chdi), 16.2–16.6
+> va iloval1ar ro'yxati chiqarildi (16.7 → 16.2), Bajaruvchi e-mail'i doimiy
+> `docs@prodeklarant.uz`, 15.1 dagi «18-банд» → «17-банд». Imzolangan v1
+> shartnomalari o'zgarishsiz v1 matnida qayta chiqadi.
+
 # ХИЗМАТ КЎРСАТИШ ШАРТНОМАСИ № 2026/<<[shartnoma raqami]>>
 
 **(божхона мақсадлари учун ҳужжатларни тайёрлаш ва расмийлаштириш бўйича)**

@@ -5,8 +5,8 @@
  * balandligi har betda ~81 barobar o'sadi; bet raqami `bottom` bilan
  * joylashtirilgan bo'lsa, 10-betga borib pdfkit `unsupported number` bilan
  * yiqilardi va PDF UMUMAN yaratilmasdi. Xato faqat UZUN (ko'p betli) hujjatda
- * chiqadi, shuning uchun test to'liq `v1` shablonini chizadi va betlar sonini
- * ham tekshiradi — shablon qisqarib qolsa, qamrov yo'qolganini bilib olamiz.
+ * chiqadi, shuning uchun test eng uzun (`v1`) shablonni ham chizadi va betlar
+ * sonini tekshiradi — shablon qisqarib qolsa, qamrov yo'qolganini bilib olamiz.
  */
 import { describe, it, expect, vi } from 'vitest';
 import React from 'react';
@@ -48,7 +48,7 @@ Font.register({ family: 'NotoSans', fonts: [{ src: font('NotoSans-Regular.ttf'),
 /** Muharrirdagi yangi shartnoma holati: to'ldirilmagan maydonlar `null` */
 const agreement: ServiceAgreement = {
   id: 1, clientId: 7, agreementNumber: '2026/001', agreementDate: '2026-08-06T00:00:00.000Z',
-  templateVersion: 'v1', status: 'DRAFT', terminatedAt: null, terminationReason: null,
+  templateVersion: 'v2', status: 'DRAFT', terminatedAt: null, terminationReason: null,
   customerName: 'TEST MCHJ', customerInn: '123456789', customerAddress: null, customerDirector: null,
   customerDirectorBasis: 'Устав', customerBankName: null, customerBankAccount: null,
   customerMfo: null, customerOked: null, customerPhone: null, customerEmail: null,
@@ -70,21 +70,34 @@ describe('renderAgreementPdf', () => {
     expect(blob.size).toBeGreaterThan(0);
   }, 60_000);
 
-  it('hujjat ko\'p betli — xato aynan shu holatda chiqadi', async () => {
-    const clean = deepNormalizeStrings(agreement);
+  /** Berilgan versiyani chizib, betlar sonini qaytaradi */
+  const pageCount = async (version: string): Promise<number> => {
+    const clean = deepNormalizeStrings({ ...agreement, templateVersion: version });
     const tokens = deepNormalizeStrings(buildTokens(clean, BHM_UZS));
 
     let layout: PdfLayoutNode | undefined;
     await pdf(
       React.createElement(AgreementPdfDocument, {
-        template: getTemplate('v1'),
+        template: getTemplate(version),
         tokens,
         onRender: (info) => { layout = info._INTERNAL__LAYOUT__DATA_; },
       }),
     ).toBlob();
 
-    expect(measureLayout(layout)?.pageCount ?? 0).toBeGreaterThan(10);
+    return measureLayout(layout)?.pageCount ?? 0;
+  };
+
+  it('v1 (uzun, ilovali) hujjat ham chiziladi — bet raqami xatosi aynan shunda chiqardi', async () => {
+    // Bet raqami xatosi 10-betdan boshlab chiqadi, shuning uchun qamrov uchun
+    // eng uzun versiya sinaladi. v2 qisqa bo'lgani bilan tuzatish kerak bo'lib
+    // qolaveradi: shablon o'ssa yoki tariflar ko'paysa yana 10 betga chiqadi.
+    expect(await pageCount('v1')).toBeGreaterThan(10);
   }, 60_000);
+
+  it('v2 v1 dan kam betga sig\'adi', async () => {
+    const [v1Pages, v2Pages] = [await pageCount('v1'), await pageCount('v2')];
+    expect(v2Pages).toBeLessThan(v1Pages);
+  }, 120_000);
 
   it('B modeli (kredit limiti bandlari bilan) ham chiziladi', async () => {
     const monthly: ServiceAgreement = {

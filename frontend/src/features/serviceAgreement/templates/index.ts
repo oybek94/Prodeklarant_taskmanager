@@ -1,10 +1,11 @@
 import type { AgreementTemplate } from './types';
 import { v1 } from './v1';
+import { v2 } from './v2';
 
-const TEMPLATES: Record<string, AgreementTemplate> = { v1 };
+const TEMPLATES: Record<string, AgreementTemplate> = { v1, v2 };
 
 /** Eng so'nggi versiya — yangi shartnomalar shu bilan yaratiladi */
-export const CURRENT_TEMPLATE_VERSION = 'v1';
+export const CURRENT_TEMPLATE_VERSION = 'v2';
 
 /**
  * Imzolangan shartnoma AYNAN o'z versiyasida qayta chiqishi kerak, shuning
@@ -16,4 +17,4 @@ export function getTemplate(version: string): AgreementTemplate {
   return template;
 }
 
-export { v1 };
+export { v1, v2 };

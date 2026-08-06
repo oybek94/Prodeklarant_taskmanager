@@ -5,17 +5,14 @@ import { resolveText, visibleBlocks } from './types';
 import { buildTokens } from '../tokens';
 import type { ServiceAgreement } from '../types';
 
-/**
- * `components/pdf/fonts.ts` dagi stek bilan bir xil bo'lishi shart.
- * Yo'l vitest ildiziga (`frontend/`) nisbatan — konfiguratsiya shu yerda.
- */
+/** `components/pdf/fonts.ts` dagi stek bilan bir xil bo'lishi shart */
 const PDF_FONTS = ['Roboto-Regular', 'Roboto-Medium', 'Roboto-Bold', 'NotoSans-Regular'].map((name) =>
   openSync(`public/fonts/${name}.ttf`),
 );
 
 const base: ServiceAgreement = {
   id: 1, clientId: 1, agreementNumber: '2026/014', agreementDate: '2026-03-12T00:00:00.000Z',
-  templateVersion: 'v1', status: 'ACTIVE', terminatedAt: null, terminationReason: null,
+  templateVersion: 'v2', status: 'ACTIVE', terminatedAt: null, terminationReason: null,
   customerName: 'AGRO EXPORT MCHJ', customerInn: '305123456', customerAddress: 'Farg\'ona',
   customerDirector: 'Aliyev A.A.', customerDirectorBasis: 'Устав', customerBankName: 'Ipoteka bank',
   customerBankAccount: '20208', customerMfo: '00123', customerOked: '46900',
@@ -23,7 +20,7 @@ const base: ServiceAgreement = {
   executorName: 'PRODEKLARANT MCHJ', executorInn: '311953399', executorAddress: 'Oltiariq',
   executorDirector: 'Турсунбоев О.У.', executorBankName: 'Universalbank',
   executorBankAccount: '20208000007207845001', executorMfo: '00973', executorOked: null,
-  executorPhone: '+998911187007', executorEmail: 'oybek@prodeklarant.uz',
+  executorPhone: '+998911187007', executorEmail: '1187007@mail.ru',
   paymentModel: 'MONTHLY', monthlyDueDay: 10, perCountThreshold: 5, perCountDueDays: 3,
   perAmountThreshold: '20000000', perAmountDueDays: 3, creditLimit: '20000000', prepaidRevertDays: 10,
   mainTariffBhm: '3', tariffs: [{ name: 'Elektron BYuD', unit: '1 BYuD', bhm: 3 }],
@@ -31,7 +28,6 @@ const base: ServiceAgreement = {
   brokerRegistryNumber: null, signingPlace: 'Олтиариқ тумани', includeSeal: true,
 };
 
-/** Shablonni to'liq yechib, hosil bo'lgan matnni qaytaradi */
 function renderAll(agreement: ServiceAgreement): string {
   const tokens = buildTokens(agreement, 412000);
   const template = getTemplate(agreement.templateVersion);
@@ -44,61 +40,57 @@ function renderAll(agreement: ServiceAgreement): string {
     .join('\n');
 }
 
-describe('v1 shabloni', () => {
+describe('v2 shabloni', () => {
+  it('joriy versiya — v2', () => {
+    expect(CURRENT_TEMPLATE_VERSION).toBe('v2');
+  });
+
   it('barcha tokenlar yechiladi, {{...}} qolmaydi', () => {
+    expect(renderAll(base)).not.toContain('{{');
+  });
+
+  it('iloval1ar butunlay yo\'q', () => {
     const text = renderAll(base);
-    expect(text).not.toContain('{{');
+    expect(text).not.toContain('1-илова');
+    expect(text).not.toContain('2-илова');
+    expect(text).not.toContain('3-илова');
+    expect(text).not.toContain('4-илова');
+    expect(text).not.toContain('5-илова');
+    expect(text).not.toContain('ИЛОВА');
   });
 
-  it('to\'lov modeli harfi matnga tushadi', () => {
+  it('tarif jadvali asosiy matnda qoladi', () => {
+    const text = renderAll(base);
+    expect(text).toContain('Elektron BYuD');
+    expect(text).toContain('Нархи (БҲМ)');
+  });
+
+  it('Bajaruvchi e-mail\'i doimiy docs@prodeklarant.uz', () => {
+    const text = renderAll(base);
+    expect(text).toContain('docs@prodeklarant.uz');
+    // Sozlamalardagi eski manzil hujjatga tushmasligi kerak
+    expect(text).not.toContain('1187007@mail.ru');
+  });
+
+  it('16.2–16.6 bandlari olib tashlangan', () => {
+    const text = renderAll(base);
+    expect(text).toContain('16.1.');
+    expect(text).toContain('16.2.');
+    expect(text).not.toContain('16.3.');
+    expect(text).not.toContain('16.7.');
+    expect(text).not.toContain('16.8.');
+  });
+
+  it('to\'lov modeli va shartli bandlar v1 dagidek ishlaydi', () => {
     expect(renderAll(base)).toContain('Танланган модель: B');
-  });
-
-  it('kredit limiti bandi PREPAID modelida chiqmaydi', () => {
     expect(renderAll(base)).toContain('Кредит лимити');
     expect(renderAll({ ...base, paymentModel: 'PREPAID' })).not.toContain('Кредит лимити');
-  });
-
-  it('reestr raqami bo\'lmasa broker bandi vakil bandiga almashadi', () => {
-    const without = renderAll(base);
-    expect(without).toContain('ишончли вакили');
-    expect(without).not.toContain('реестрга');
-
-    const with_ = renderAll({ ...base, brokerRegistryNumber: '№ 123' });
-    expect(with_).toContain('реестрга');
-    expect(with_).not.toContain('ишончли вакили');
-  });
-
-  it('QQS bandi vatPayer=false da chiqadi', () => {
-    expect(renderAll(base)).toContain('ҚҚС тўловчиси эмас');
+    expect(renderAll(base)).toContain('ишончли вакили');
+    expect(renderAll({ ...base, brokerRegistryNumber: '№ 123' })).toContain('реестрга');
     expect(renderAll({ ...base, vatPayer: true })).not.toContain('ҚҚС тўловчиси эмас');
   });
 
-  it('tarif jadvali qatorlari chiqadi', () => {
-    expect(renderAll(base)).toContain('Elektron BYuD');
-  });
-
-  it('noma\'lum versiyada xato beradi', () => {
-    expect(() => getTemplate('v99')).toThrow(/Noma'lum shablon versiyasi/);
-  });
-
-  it('joriy versiya mavjud', () => {
-    expect(getTemplate(CURRENT_TEMPLATE_VERSION).version).toBe(CURRENT_TEMPLATE_VERSION);
-  });
-
-  it('eski shartnomalar hamon v1 da chiqadi', () => {
-    // Imzolangan hujjat o'z versiyasida qayta chiqishi shart — v2 chiqqanidan
-    // keyin ham v1 matni o'zgarmaganini shu yerda ushlab turamiz.
-    expect(renderAll(base)).toContain('1-илова');
-  });
-
-  /**
-   * `@react-pdf` shriftda glifi yo'q belgini JIMGINA tashlab yuboradi, shuning
-   * uchun `renderAgreementPdf` bunday hujjatni umuman yaratmaydi (qarang:
-   * `components/invoice/pdf/pdfGlyphCheck.ts`). Ya'ni shablonga qamrovdan
-   * tashqari bitta belgi tushsa — PDF butunlay ishlamay qoladi. Shu sababli
-   * qamrov aynan shu yerda, matn manbasida tekshiriladi.
-   */
+  /** Qarang: `v1.test.ts` — glifi yo'q belgi PDF'ni butunlay ishlamay qoldiradi */
   it('shablon matnidagi har bir belgi PDF shriftlarida mavjud', () => {
     const text = [
       renderAll(base),
@@ -113,7 +105,6 @@ describe('v1 shabloni', () => {
     for (const char of text) {
       const codePoint = char.codePointAt(0);
       if (codePoint === undefined || char === '\n') continue;
-      // Stekdagi ISTALGAN shriftda bo'lsa yetarli — @react-pdf zaxira shriftga o'tadi
       if (PDF_FONTS.some((font) => font.hasGlyphForCodePoint(codePoint))) continue;
       missing.add(`«${char}» U+${codePoint.toString(16).toUpperCase().padStart(4, '0')}`);
     }

@@ -9,34 +9,34 @@ import { PDF_FONT_STACK } from '../../../components/pdf/fonts';
  */
 /** A4 balandligi (pt) — bet raqamini pastki chetdan joylash uchun kerak */
 const A4_HEIGHT = 842;
-/** Bet raqami qatorining balandligi: fontSize 9 × lineHeight 1.45 ≈ 13 */
-const PAGE_NUMBER_LINE = 13;
+/** Bet raqami qatorining balandligi: fontSize 8 × lineHeight 1.22 ≈ 10 */
+const PAGE_NUMBER_LINE = 10;
 /** Bet raqami sahifaning pastki chetidan qancha yuqorida turadi */
 const PAGE_NUMBER_BOTTOM_GAP = 24;
 
 export const styles = StyleSheet.create({
   page: {
-    paddingTop: 48,
-    paddingBottom: 48,
-    paddingHorizontal: 56,
+    paddingTop: 32,
+    paddingBottom: 36,
+    paddingHorizontal: 40,
     fontFamily: PDF_FONT_STACK,
-    fontSize: 11,
-    lineHeight: 1.45,
+    fontSize: 8.5,
+    lineHeight: 1.22,
     color: '#111827',
     backgroundColor: '#ffffff',
   },
-  h1: { fontSize: 14, fontWeight: 'bold', textAlign: 'center', marginBottom: 10, marginTop: 4 },
-  h2: { fontSize: 12, fontWeight: 'bold', marginTop: 12, marginBottom: 6 },
-  paragraph: { marginBottom: 6, textAlign: 'justify' },
+  h1: { fontSize: 11, fontWeight: 'bold', textAlign: 'center', marginBottom: 6, marginTop: 2 },
+  h2: { fontSize: 9.5, fontWeight: 'bold', marginTop: 7, marginBottom: 3 },
+  paragraph: { marginBottom: 3, textAlign: 'justify' },
   bold: { fontWeight: 'bold' },
-  table: { width: '100%', borderWidth: 0.75, borderColor: '#9ca3af', marginVertical: 6 },
-  tableHeaderRow: { flexDirection: 'row', borderBottomWidth: 0.75, borderBottomColor: '#9ca3af' },
-  tableRow: { flexDirection: 'row', borderBottomWidth: 0.5, borderBottomColor: '#d1d5db' },
-  tableCell: { paddingVertical: 3, paddingHorizontal: 4, fontSize: 10 },
-  tableCellHeader: { paddingVertical: 3, paddingHorizontal: 4, fontSize: 10, fontWeight: 'bold' },
-  signatureRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 22 },
+  table: { width: '100%', borderWidth: 0.6, borderColor: '#9ca3af', marginVertical: 4 },
+  tableHeaderRow: { flexDirection: 'row', borderBottomWidth: 0.6, borderBottomColor: '#9ca3af' },
+  tableRow: { flexDirection: 'row', borderBottomWidth: 0.4, borderBottomColor: '#d1d5db' },
+  tableCell: { paddingVertical: 2, paddingHorizontal: 3, fontSize: 8 },
+  tableCellHeader: { paddingVertical: 2, paddingHorizontal: 3, fontSize: 8, fontWeight: 'bold' },
+  signatureRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 14 },
   signatureCol: { width: '45%' },
-  signatureLine: { borderTopWidth: 0.75, borderTopColor: '#111827', marginTop: 26, paddingTop: 3, fontSize: 10 },
+  signatureLine: { borderTopWidth: 0.6, borderTopColor: '#111827', marginTop: 18, paddingTop: 2, fontSize: 8.5 },
   /**
    * `top` bilan joylashtirilgan — `bottom` ISHLATIB BO'LMAYDI. @react-pdf 4.5.1
    * da `fixed` + `position: absolute` element balandligi har yangi betda ~81
@@ -49,8 +49,8 @@ export const styles = StyleSheet.create({
   pageNumber: {
     position: 'absolute',
     top: A4_HEIGHT - PAGE_NUMBER_BOTTOM_GAP - PAGE_NUMBER_LINE,
-    right: 56,
-    fontSize: 9,
+    right: 40,
+    fontSize: 8,
     color: '#6b7280',
   },
 });

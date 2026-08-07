@@ -7,6 +7,7 @@ import { normalizeItem, buildTaskTitle, round2, sumItemTotals, checkItemsTare } 
 import type { TareWarning } from '../invoiceUtils';
 import { normalizeText, deepNormalizeStrings } from '../../../utils/textNormalize';
 import type { PdfFontSizes } from '../pdf/pdfFontSizes';
+import type { PackagingTypeItem } from '../../../types/settings';
 
 /* ─── constants ──────────────────────────────────────────────────── */
 
@@ -82,7 +83,8 @@ interface UseInvoiceSaveParams {
   customColumns: string[];
   additionalFieldsOrder: string[];
   pdfFontSizes: PdfFontSizes;
-  packagingTypes: { name: string; code?: string }[];
+  // checkItemsTare tara oralig'ini (tareMin/tareMax) talab qiladi — to'liq tur
+  packagingTypes: PackagingTypeItem[];
   canEditEffective: boolean;
   invoiceNumberWarning: string | null;
   setInvoiceNumberWarning: (w: string) => void;

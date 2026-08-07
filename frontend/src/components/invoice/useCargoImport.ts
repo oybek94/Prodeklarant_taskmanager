@@ -54,6 +54,8 @@ export interface CargoPreviewRow {
   newValue: string;
   /** Invoysda hozir turgan qiymat (bo'sh bo'lishi mumkin) */
   currentValue: string;
+  /** Qiymat yozish emas, invoysdagi eski qiymatni tozalash qatori */
+  clear?: boolean;
 }
 
 /** Invoysning skalyar maydonlariga to'g'ridan-to'g'ri tushadigan qiymatlar */
@@ -91,6 +93,32 @@ const PRODUCT_FIELD_KEYS = Object.keys(PRODUCT_FIELD_LABELS) as ProductFieldKey[
 
 const asText = (v: unknown): string =>
   v === null || v === undefined || v === '' ? '' : String(v);
+
+/** Solishtirish uchun registr va ortiqcha bo'shliqlarni bir xillashtiradi */
+const collapse = (value: string): string => value.trim().toLowerCase().replace(/\s+/g, ' ');
+
+/**
+ * Matnda yorlig'i turgan, lekin qiymati yozilmagan qatorlarning yorliqlari
+ * ("Серийный номер датчика -", "Пломба:", yoki yolg'iz turgan yorliq).
+ *
+ * Mijoz bunday maydonni ataylab bo'sh qoldirgan bo'ladi. Invoysda esa oldingi
+ * yuk yoki nusxa olingan invoysdan qolgan eski qiymat turishi mumkin — u
+ * tozalanmasa hujjatga boshqa yukning ma'lumoti tushib ketadi.
+ */
+export const findBlankLabels = (rawText: string, labels: string[]): Set<string> => {
+  const lines = rawText.split(/\r?\n/).map(collapse).filter(Boolean);
+  const blank = new Set<string>();
+  labels.forEach((label) => {
+    const target = collapse(label);
+    if (!target) return;
+    const isBlank = lines.some(
+      (line) =>
+        line.startsWith(target) && line.slice(target.length).replace(/[-–—:.\s]/g, '') === ''
+    );
+    if (isBlank) blank.add(label);
+  });
+  return blank;
+};
 
 /** Faqat invoys qo'llab-quvvatlaydigan valyutalar tanlanadi */
 const normalizeCurrency = (raw: string | null): 'USD' | 'UZS' | null => {
@@ -186,7 +214,9 @@ export const buildPreviewRows = (
   form: InvoiceFormData,
   items: InvoiceItem[],
   customFields: CustomField[],
-  packingCustomFields: CustomField[]
+  packingCustomFields: CustomField[],
+  /** Mijozning asl matni — bo'sh qoldirilgan maydonlarni aniqlash uchun */
+  rawText: string
 ): CargoPreviewRow[] => {
   const rows: CargoPreviewRow[] = [];
 
@@ -305,6 +335,36 @@ export const buildPreviewRows = (
     });
   });
 
+  /*
+   * Matnda bo'sh qoldirilgan maydonlar — invoysdagi eski qiymat tozalanadi.
+   * Faqat matnda ochiq-oydin yorlig'i turib qiymati yozilmagan maydonlarga
+   * tegiladi; matnda umuman eslatilmagan maydonlar joyida qoladi.
+   */
+  const pushClearRows = (existing: CustomField[], prefix: 'custom' | 'packing', section: string) => {
+    const filled = new Set(
+      rows
+        .filter((row) => row.key.startsWith(`${prefix}:`))
+        .map((row) => collapse(row.key.slice(prefix.length + 1)))
+    );
+    const candidates = existing.filter(
+      (field) => field.value.trim() && !filled.has(collapse(field.label))
+    );
+    const blank = findBlankLabels(rawText, candidates.map((field) => field.label));
+    candidates.forEach((field) => {
+      if (!blank.has(field.label)) return;
+      rows.push({
+        key: `${prefix}-clear:${field.label}`,
+        label: `${field.label} (${section})`,
+        newValue: '',
+        currentValue: field.value,
+        clear: true,
+      });
+    });
+  };
+
+  pushClearRows(customFields, 'custom', 'Доп. информация');
+  pushClearRows(packingCustomFields, 'packing', 'Упаковочный лист');
+
   return rows;
 };
 
@@ -388,7 +448,7 @@ export const useCargoImport = ({
       const data = res.data?.data as CargoTextExtraction | undefined;
       if (!data) throw new Error('Bo\'sh javob');
 
-      const previewRows = buildPreviewRows(data, form, items, customFields, packingCustomFields);
+      const previewRows = buildPreviewRows(data, form, items, customFields, packingCustomFields, text);
       if (previewRows.length === 0) {
         toast.error("Matndan hech qanday maydon ajratib olinmadi");
         return;
@@ -553,16 +613,39 @@ export const useCargoImport = ({
     if (kvantColumnKey) perProductLabels.add(KVANT_COLUMN_LABEL);
     if (calibreAppliedToName) perProductLabels.add(CALIBRE_LABEL);
 
+    /*
+     * Matnda bo'sh qoldirilgan maydonlar: yorlig'i saqlanadi, qiymati tozalanadi.
+     * Bo'sh qiymatli maydon hujjatda ham, PDF'da ham ko'rinmaydi, lekin
+     * "Qo'shimcha ma'lumot" oynasida qo'lda to'ldirish uchun turaveradi.
+     */
+    const clearedLabels = (prefix: 'custom' | 'packing'): Set<string> => {
+      const keyPrefix = `${prefix}-clear:`;
+      return new Set(
+        rows
+          .filter((row) => row.clear && row.key.startsWith(keyPrefix) && isSelected(row.key))
+          .map((row) => row.key.slice(keyPrefix.length))
+      );
+    };
+    const clearValues = (fields: CustomField[], labels: Set<string>): CustomField[] =>
+      labels.size === 0
+        ? fields
+        : fields.map((field) => (labels.has(field.label) ? { ...field, value: '' } : field));
+
+    const customClears = clearedLabels('custom');
     const mergedCustom = mergeFields(customFields, infoFields, 'custom');
-    const baseCustom = mergedCustom ?? customFields;
+    const baseCustom = clearValues(mergedCustom ?? customFields, customClears);
     const nextCustom =
       perProductLabels.size > 0
         ? baseCustom.filter((field) => !perProductLabels.has(field.label))
         : baseCustom;
-    if (mergedCustom || nextCustom.length !== customFields.length) setCustomFields(nextCustom);
+    if (mergedCustom || customClears.size > 0 || nextCustom.length !== customFields.length) {
+      setCustomFields(nextCustom);
+    }
 
-    const nextPacking = mergeFields(packingCustomFields, parsed.packing_fields, 'packing');
-    if (nextPacking) setPackingCustomFields(nextPacking);
+    const packingClears = clearedLabels('packing');
+    const mergedPacking = mergeFields(packingCustomFields, parsed.packing_fields, 'packing');
+    const nextPacking = clearValues(mergedPacking ?? packingCustomFields, packingClears);
+    if (mergedPacking || packingClears.size > 0) setPackingCustomFields(nextPacking);
 
     toast.success(`${selectedKeys.size} ta maydon to'ldirildi`);
     reset();

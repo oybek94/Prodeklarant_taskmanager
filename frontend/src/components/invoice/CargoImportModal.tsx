@@ -123,12 +123,18 @@ export function CargoImportModal({
                     />
                     <div className="min-w-0 flex-1">
                       <div className="text-xs font-medium text-gray-500 leading-tight">{row.label}</div>
-                      <div className="text-sm text-gray-900 break-words whitespace-pre-wrap leading-snug mt-0.5">
-                        {row.newValue}
+                      <div
+                        className={`text-sm break-words whitespace-pre-wrap leading-snug mt-0.5 ${
+                          row.clear ? 'text-rose-600 italic' : 'text-gray-900'
+                        }`}
+                      >
+                        {row.clear ? "Matnda bo'sh — maydon tozalanadi" : row.newValue}
                       </div>
                       {row.currentValue && row.currentValue !== row.newValue && (
                         <div className="text-[11px] text-amber-600 mt-0.5 break-words">
-                          Hozirgi qiymat almashtiriladi: {row.currentValue}
+                          {row.clear
+                            ? `O'chiriladigan eski qiymat: ${row.currentValue}`
+                            : `Hozirgi qiymat almashtiriladi: ${row.currentValue}`}
                         </div>
                       )}
                     </div>

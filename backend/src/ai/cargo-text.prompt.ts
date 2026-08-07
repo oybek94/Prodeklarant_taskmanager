@@ -140,6 +140,10 @@ Har biri { label, value } ko'rinishida: qatordagi izohdan oldingi qism — label
 qiymat — value. Masalan "Серийный номер датчика -8083254" →
 { label: "Серийный номер датчика", value: "8083254" }.
 
+Qatorda yorliq bor-u qiymat YOZILMAGAN bo'lsa (masalan "Серийный номер датчика -"
+yoki "Пломба:") → value bo'sh string "" bo'lsin. Qiymatni matnning boshqa
+joyidan olmang va O'YLAB TOPMANG — mijoz uni ataylab bo'sh qoldirgan.
+
 EXTRA_FIELDS:
 Yuqoridagi maydonlarning HECH BIRIGA tushmagan, lekin nomi bor HAR BIR qiymat
 shu massivga tushishi SHART — hech qaysi ma'lumot yo'qolmasligi kerak.

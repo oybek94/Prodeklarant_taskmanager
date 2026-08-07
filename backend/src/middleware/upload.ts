@@ -95,8 +95,38 @@ export const upload = multer({
   }
 });
 
+// Rasmlar uchun alohida storage: kengaytma originalname'dan emas, mimetype'dan olinadi
+// (aks holda "rasm.html" nomi bilan uploads/images ichiga HTML tushib qolishi mumkin)
+const imageExtByMime: { [mime: string]: string } = {
+  'image/jpeg': '.jpg',
+  'image/jpg': '.jpg',
+  'image/png': '.png',
+  'image/gif': '.gif',
+  'image/webp': '.webp'
+};
+
+const imageStorage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, imagesDir),
+  filename: (req, file, cb) => {
+    file.originalname = Buffer.from(file.originalname, 'latin1').toString('utf8');
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    const ext = imageExtByMime[file.mimetype] || '.png';
+    const name = path.basename(file.originalname, path.extname(file.originalname))
+      .replace(/[^a-zA-Z0-9а-яА-ЯёЁ\s_\-]/g, '_');
+    cb(null, `${name}-${uniqueSuffix}${ext}`);
+  }
+});
+
+const imageUpload = multer({
+  storage: imageStorage,
+  fileFilter: fileFilter,
+  limits: {
+    fileSize: 20 * 1024 * 1024 // 20MB - rasm uchun yetarli
+  }
+});
+
 // Alohida upload middleware'lar
-export const uploadImage = upload.single('image');
+export const uploadImage = imageUpload.single('image');
 export const uploadVideo = upload.single('video');
 export const uploadAudio = upload.single('audio');
 export const uploadDocument = upload.single('document');

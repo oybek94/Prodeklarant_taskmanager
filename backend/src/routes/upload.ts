@@ -5,8 +5,8 @@ import { uploadImage, uploadVideo, uploadAudio, uploadDocument, uploadDocuments 
 
 const router = express.Router();
 
-// Rasm yuklash
-router.post('/image', requireAuth('ADMIN'), (req, res) => {
+// Rasm yuklash - shartnoma imzo/muhr/logotip uchun barcha xodimlarga ochiq
+router.post('/image', requireAuth(), (req, res) => {
   uploadImage(req, res, (err) => {
     if (err) {
       console.error('Image upload error:', err);

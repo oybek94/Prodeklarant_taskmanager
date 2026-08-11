@@ -1,0 +1,32 @@
+{
+  "name": "order-bot",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Gmail'ga kelgan zakaz xatlaridan jadval ma'lumotlarini ajratib Telegramga yuboradi",
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "chat-id": "tsx src/scripts/chat-id.ts",
+    "dump-fixture": "tsx src/scripts/dump-fixture.ts",
+    "check-mail": "tsx src/scripts/check-mail.ts"
+  },
+  "dependencies": {
+    "cheerio": "^1.0.0",
+    "dotenv": "^16.4.7",
+    "imapflow": "^1.0.191",
+    "mailparser": "^3.7.2",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/mailparser": "^3.4.5",
+    "@types/node": "^22.10.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.8"
+  }
+}

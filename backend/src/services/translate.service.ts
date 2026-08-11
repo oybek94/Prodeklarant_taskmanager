@@ -16,6 +16,48 @@ interface TranslatedRequisites {
 }
 
 /**
+ * Tidy up an AI translation before it is drawn / cached.
+ *
+ * The model sometimes invents a trademark sign ("ООО Хоразм" -> "Khorazm™ LLC"),
+ * which would be a NEW error in a customs document, so those are removed and the
+ * gap they leave behind is closed.
+ *
+ * Only HORIZONTAL whitespace is collapsed. `\s` also covers `\n`, and collapsing
+ * that flattened multi-line requisites — copied verbatim out of the contract,
+ * where the line breaks carry meaning (bank, account, SWIFT each on their own
+ * line) — into one long paragraph. The Russian PDF never touches the text, so
+ * the English one must keep the exact same layout.
+ */
+export const cleanTranslatedText = (text: string): string =>
+  text
+    .replace(/[™®]/g, '')
+    .replace(/ТМ/g, '') // Cyrillic TM
+    .replace(/\bTM\b/g, '') // Latin TM whole word
+    .replace(/[^\S\r\n]+/g, ' ')
+    .replace(/[^\S\r\n]+\./g, '.') // fix the space before a dot left by TM removal
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .join('\n')
+    .trim();
+
+/**
+ * Whether a cached translation may still be used.
+ *
+ * A changed source obviously invalidates it. On top of that, translations cached
+ * before 2026-08-11 had their line breaks collapsed away by the bug described in
+ * `cleanTranslatedText` — those entries are treated as stale too, otherwise the
+ * fix would never reach invoices that were already translated once.
+ */
+export const isCachedTranslationUsable = (
+  source: string,
+  cached: { source: string; translated: string },
+): boolean => {
+  if (cached.source !== source) return false;
+  if (source.includes('\n') && !cached.translated.includes('\n')) return false;
+  return true;
+};
+
+/**
  * Translate invoice requisites from Russian to English using OpenAI.
  * Sends all texts in a single API call for efficiency.
  */
@@ -47,7 +89,7 @@ export async function translateRequisites(
       messages: [
         {
           role: 'system',
-          content: `You are a professional translator for international trade documents. Translate the given JSON fields from Russian to English. Keep INN numbers, bank account numbers, SWIFT codes, phone numbers, email addresses, and other identifiers unchanged. For company names, transliterate them if they don't have a common English equivalent (e.g. "ООО" → "LLC", "ЗАО" → "CJSC"). For addresses, transliterate city/region names. Do not add any trademark symbols (like ™, ®, TM) or other special characters that are not present in the original text. Return a JSON object with the same keys but English values.`,
+          content: `You are a professional translator for international trade documents. Translate the given JSON fields from Russian to English. Keep INN numbers, bank account numbers, SWIFT codes, phone numbers, email addresses, and other identifiers unchanged. For company names, transliterate them if they don't have a common English equivalent (e.g. "ООО" → "LLC", "ЗАО" → "CJSC"). For addresses, transliterate city/region names. Preserve the line structure of every value exactly: a value containing line breaks must come back with the same number of lines in the same order, translating each line in place — never merge lines into a paragraph, never split one line into several, never add or drop blank lines. Do not add any trademark symbols (like ™, ®, TM) or other special characters that are not present in the original text. Return a JSON object with the same keys but English values.`,
         },
         {
           role: 'user',
@@ -60,19 +102,10 @@ export async function translateRequisites(
     if (!content) return Object.fromEntries(entries);
 
     const parsed = JSON.parse(content) as TranslatedRequisites;
-    
-    // Clean up hallucinated TM symbols from values
+
     for (const key in parsed) {
-      if (typeof parsed[key] === 'string') {
-        parsed[key] = parsed[key]
-          .replace(/™/g, '')
-          .replace(/ТМ/g, '') // Cyrillic TM
-          .replace(/®/g, '')
-          .replace(/\bTM\b/g, '') // Latin TM whole word
-          .replace(/\s+/g, ' ') // Collapse multiple spaces
-          .replace(/\s+\./g, '.') // Fix spaces before dots left by TM removal
-          .trim();
-      }
+      const value = parsed[key];
+      if (typeof value === 'string') parsed[key] = cleanTranslatedText(value);
     }
 
     return parsed;

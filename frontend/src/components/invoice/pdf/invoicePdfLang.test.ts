@@ -16,6 +16,7 @@ import React from 'react';
 import { Font, pdf } from '@react-pdf/renderer';
 import { InvoicePDFDocument, type InvoicePDFDocumentProps } from './InvoicePDFDocument';
 import { buildPdfTranslatableTexts } from './pdfTranslatableTexts';
+import { createPdfI18n } from './pdfI18n';
 import type { PdfLayoutNode } from './pdfLayout';
 import type { ViewTab } from '../types';
 
@@ -200,7 +201,7 @@ const collectText = (node: PdfLayoutNode | undefined, out: string[] = []): strin
  * "столовый"), shuning uchun bo'shliqlar yagona ko'rinishga keltiriladi — aks
  * holda uzun matn qidiruvda topilmay, tekshiruv YOLG'ON o'tib ketardi.
  */
-const renderText = async (props: InvoicePDFDocumentProps): Promise<string> => {
+const renderLines = async (props: InvoicePDFDocumentProps): Promise<string[]> => {
   let layout: PdfLayoutNode | undefined;
   await pdf(
     React.createElement(InvoicePDFDocument, {
@@ -208,8 +209,11 @@ const renderText = async (props: InvoicePDFDocumentProps): Promise<string> => {
       onRender: (info) => { layout = info._INTERNAL__LAYOUT__DATA_; },
     }),
   ).toBlob();
-  return collapse(collectText(layout).join(' '));
+  return collectText(layout).map((line) => line.trim());
 };
+
+const renderText = async (props: InvoicePDFDocumentProps): Promise<string> =>
+  collapse((await renderLines(props)).join(' '));
 
 /** Bo'shliqlarni (shu jumladan uzilmas bo'shliqni) yagona ko'rinishga keltiradi */
 const collapse = (text: string): string => text.replace(/\s+/gu, ' ').trim();
@@ -301,5 +305,52 @@ describe('Invoys PDF — til', () => {
     expect(drawn).toContain('Invoice No:');
     expect(drawn).toContain(collapse(contract.sellerName));
     expect(drawn).toContain(collapse(items[0].name));
+  }, 60_000);
+});
+
+/**
+ * Rekvizitlar shartnomadan ERKIN MATN sifatida ko'chiriladi — qator ko'chirishi
+ * ma'noli (bank, hisob raqami, SWIFT alohida qatorlarda turadi). Ruscha PDF
+ * matnga tegmaydi, shuning uchun inglizcha PDF ham AYNAN o'sha joylashuvni
+ * saqlashi kerak.
+ */
+describe('Invoys PDF — rekvizitlar joylashuvi', () => {
+  const detailsRu = [
+    'Банк: Ипотека Банк',
+    'Счёт: 20208000000000000001',
+    'SWIFT: IPJSUZ22',
+  ].join('\n');
+
+  const detailsEn = [
+    'Bank: Ipoteka Bank',
+    'Account: 20208000000000000001',
+    'SWIFT: IPJSUZ22',
+  ].join('\n');
+
+  it('tarjimadagi qator ko\'chirishi saqlanadi', () => {
+    const { t } = createPdfI18n('en', { sellerDetails: detailsEn });
+
+    expect(t('sellerDetails', detailsRu)).toBe(detailsEn);
+  });
+
+  it('ortiqcha bo\'shliq va ™ baribir tozalanadi (qator buzilmagan holda)', () => {
+    const { t } = createPdfI18n('en', { sellerDetails: 'Ipoteka™   Bank\nAccount:   2020' });
+
+    expect(t('sellerDetails', detailsRu)).toBe('Ipoteka Bank\nAccount: 2020');
+  });
+
+  it('ko\'p qatorli rekvizit PDF\'da alohida qatorlarda chiziladi', async () => {
+    const withDetails = { ...contract, sellerDetails: detailsRu };
+    const lines = await renderLines({
+      ...baseProps('invoice'),
+      selectedContract: withDetails,
+      contracts: [withDetails],
+      lang: 'en',
+      translations: { ...fakeTranslations(texts('invoice')), sellerDetails: detailsEn },
+    });
+
+    for (const expected of detailsEn.split('\n')) {
+      expect(lines).toContain(expected);
+    }
   }, 60_000);
 });

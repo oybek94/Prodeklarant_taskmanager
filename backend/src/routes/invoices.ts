@@ -3,7 +3,7 @@ import { prisma } from '../prisma';
 import { requireAuth, AuthRequest } from '../middleware/auth';
 import { z } from 'zod';
 import { generateInvoicePDF } from '../services/invoice-pdf';
-import { translateRequisites } from '../services/translate.service';
+import { translateRequisites, isCachedTranslationUsable } from '../services/translate.service';
 import { generateInvoiceExcel } from '../services/invoice-excel';
 import { generateFssExcel } from '../services/fss-excel';
 import { Prisma } from '@prisma/client';
@@ -898,7 +898,7 @@ router.post('/:id/translations-en', requireAuth(), async (req: AuthRequest, res:
 
     for (const [key, source] of Object.entries(requested)) {
       const hit = cache.get(key);
-      if (hit && hit.source === source) translations[key] = hit.translated;
+      if (hit && isCachedTranslationUsable(source, hit)) translations[key] = hit.translated;
       else if (source.trim()) missing[key] = source;
     }
 

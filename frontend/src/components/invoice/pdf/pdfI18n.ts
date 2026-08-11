@@ -220,8 +220,14 @@ const stripTrademarks = (text: string): string =>
   text
     .replace(/[™®]/g, '')
     .replace(/ТМ/g, '')
-    .replace(/\s+/g, ' ')
-    .replace(/\s+\./g, '.')
+    // FAQAT gorizontal bo'shliq yig'iladi. `\s` qator ko'chirishini ham
+    // qamrab olardi — natijada shartnomadan ko'chirilgan ko'p qatorli
+    // rekvizit inglizcha PDF'da bitta uzun qatorga yopishib qolardi.
+    .replace(/[^\S\r\n]+/g, ' ')
+    .replace(/[^\S\r\n]+\./g, '.')
+    .split('\n')
+    .map((line) => line.trim())
+    .join('\n')
     .trim();
 
 export interface PdfI18n {

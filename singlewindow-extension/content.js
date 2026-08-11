@@ -13,16 +13,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             sendResponse({ success: false, errorMsg: "Ma'lumotlar kelmadi!" });
             return true;
         }
-        // app.expertiza.uz — eski application.expertiza.uz saytining React'dagi yangi
-        // versiyasi: maydon nomlari va shakl tuzilishi butunlay boshqa.
-        if (location.hostname === 'app.expertiza.uz') {
-            fillAppExpertizaSt1(data)
-                .then((warnings) => sendResponse({ success: true, warnings }))
-                .catch((err) => sendResponse({ success: false, errorMsg: String(err && err.message || err) }));
-        } else {
-            fillSt1Form(data);
-            sendResponse({ success: true, warnings: [] });
-        }
+        // ST-1 faqat app.expertiza.uz da to'ldiriladi. Eski
+        // application.expertiza.uz ishlatilmaydi va qo'llab-quvvatlanmaydi.
+        fillAppExpertizaSt1(data)
+            .then((warnings) => sendResponse({ success: true, warnings }))
+            .catch((err) => sendResponse({ success: false, errorMsg: String(err && err.message || err) }));
     } else if (request.action === "check_products") {
         const data = request.data;
         console.log("Kengaytma qabul qilgan data:", data);
@@ -85,46 +80,36 @@ function fillForm(data) {
     }, 500);
 }
 
-function fillSt1Form(data) {
-    const today = new Date();
-    const dd = String(today.getDate()).padStart(2, '0');
-    const mm = String(today.getMonth() + 1).padStart(2, '0');
-    const yyyy = today.getFullYear();
-    const formattedDate = `${yyyy}-${mm}-${dd}`;
-
-    const fieldsMap = {
-        "ИзготовительНаименование": data.EXPPN_NM,
-        "ИзготовительАдрес": data.EXPPN_ADDR_CLEAN || data.EXPPN_ADDR,
-        "ГрузоотправительНаименование": data.EXPPN_NM,
-        "ГрузоотправительАдрес": data.ST1_GRZ_ADDR || data.EXPPN_ADDR,
-        "ГрузополучательНаименование": data.IMPPN_NM,
-        "ГрузополучательАдрес": data.IMPPN_ADDR_ST1 || data.IMPPN_ADDR,
-        "ДатаОтгрузки": formattedDate,
-        "ТоварыТекст": "Сельскохозяйственные продукты"
-    };
-
-    for (const [name, value] of Object.entries(fieldsMap)) {
-        if (value !== undefined && value !== null) {
-            setInputValueByName(name, value);
-        }
-    }
-
-    // Eslatma: "Вид отгрузки" va "Страна назначения" maydonlari expertizada
-    // angular-ui-select (native <select> emas) va so'rov nusxasida allaqachon
-    // to'g'ri keladi, shuning uchun kengaytma ularni to'ldirmaydi.
-}
-
 // ---------------------------------------------------------------------------
 // app.expertiza.uz (ST-1, 2-qadam)
 // ---------------------------------------------------------------------------
 
-// Har safar bir xil bo'lgani uchun doimiy qilib qo'yilgan tanlovlar
-const APP_EXPERTIZA_PURPOSE = "Ekspertiza akti asosida kelib chiqish sertifikatini olish";
-const APP_EXPERTIZA_DELIVERY_TYPE = "Avtoyo'l transporti";
+// Har safar bir xil bo'lgani uchun doimiy qilib qo'yilgan tanlovlar.
+// Ro'yxatdagi variant sayt tiliga qarab boshqacha chiziladi (o'zbek rejimida
+// name_uz, rus rejimida name_ru), shuning uchun qabul qilinadigan yozuvlarning
+// hammasi sanab o'tiladi — birinchisi xato xabarida ko'rsatiladi.
+const APP_EXPERTIZA_PURPOSE = [
+    "Ekspertiza akti asosida kelib chiqish sertifikatini olish",
+    "Получение сертификата происхождения на основании акт экспертизы",
+    "origin-cert-based-on-act" // saytdagi o'zgarmas `slug`
+];
+const APP_EXPERTIZA_DELIVERY_TYPE = [
+    "Avtoyo'l transporti",
+    "Автодорожный транспорт"
+];
 
-// Saytdagi davlat ro'yxati FAQAT ruscha. Shartnomadagi `destinationCountry`
-// esa erkin matn maydoni (Clients.tsx da datalist, tanlash majburiy emas) —
-// shu bois lotincha yozuvlar ham uchraydi. Qolgan nomlar to'g'ridan-to'g'ri
+// Qishloq xo'jaligi mahsulotlari aholidan sotib olinadi — ishlab chiqaruvchi
+// har doim shu ikki qiymat bilan yoziladi
+const APP_EXPERTIZA_MANUFACTURER_NAME = "Население Республики Узбекистан";
+const APP_EXPERTIZA_MANUFACTURER_ADDRESS = "Республика Узбекистан";
+
+// Quyidagi qiymatlar saytdagi yozuvning `name_uz` maydoniga mos keladi (u ham
+// ruscha, faqat qisqa shaklda: `name_uz` = "Россия", `name_ru` =
+// "Российской Федерации"). Solishtirish barcha til maydonlari bo'yicha
+// ketgani uchun sayt qaysi tilda ochilganidan qat'i nazar ishlaydi.
+// Shartnomadagi `destinationCountry` erkin matn maydoni (Clients.tsx da
+// datalist, tanlash majburiy emas) — shu bois lotincha yozuvlar ham
+// uchraydi. Bu yerda sanalmagan nomlar to'g'ridan-to'g'ri
 // yoki "shu bilan boshlanadi" qoidasi bilan topiladi:
 //   МОЛДОВА → "Молдова, Республика", ИРАН → "Иран (Исламская Республика)"
 const APP_EXPERTIZA_COUNTRY_ALIASES = {
@@ -177,9 +162,9 @@ async function fillAppExpertizaSt1(data) {
     // (п/п qo'shilishi) payload tayyorlanayotganda hisoblanadi —
     // useInvoiceExtension.ts dagi ST1_GRZ_ADDR va IMPPN_ADDR_ST1 maydonlari
     // eski to'ldirgich ishlatadigan qiymatlarning aynan o'zi.
-    // Eslatma: "Ishlab chiqaruvchi" (manufacturer_*) maydonlari ataylab
-    // to'ldirilmaydi — majburiy emas va ko'pincha boshqa korxona bo'ladi.
     const textFields = {
+        "manufacturer_name": APP_EXPERTIZA_MANUFACTURER_NAME,
+        "manufacturer_address": APP_EXPERTIZA_MANUFACTURER_ADDRESS,
         "consignor_name": data.EXPPN_NM,
         "consignor_address": data.ST1_GRZ_ADDR || data.EXPPN_ADDR,
         "consignee_name": data.IMPPN_NM,
@@ -302,17 +287,28 @@ async function selectReactSelectOption(name, wanted) {
     }
     if (options.length === 0) return "ro'yxat ochilmadi";
 
-    const target = normalizeOptionText(wanted);
-    const match = options.find(o => normalizeOptionText(o.innerText) === target)
-        || options.find(o => normalizeOptionText(o.innerText).startsWith(target));
+    const targets = (Array.isArray(wanted) ? wanted : [wanted])
+        .map(normalizeOptionText)
+        .filter(Boolean);
+    const candidates = options.map(getOptionCandidates);
 
-    if (!match) {
+    // Avval butun ro'yxat bo'ylab aniq moslik qidiriladi, faqat topilmasa
+    // prefiks qoidasiga o'tiladi — aks holda "Индия" birinchi uchragan
+    // "Индийский океан" ga yopishib qolishi mumkin
+    let index = options.findIndex((_, i) => candidates[i].some(c => targets.includes(c)));
+    if (index === -1) {
+        index = options.findIndex((_, i) => candidates[i].some(c => targets.some(t => c.startsWith(t))));
+    }
+
+    if (index === -1) {
         // Menyuni yopib qo'yamiz, aks holda keyingi dropdown ochilmaydi
         input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', keyCode: 27, which: 27, bubbles: true }));
         input.blur();
         await delay(150);
-        return `"${wanted}" ro'yxatda topilmadi`;
+        return `"${Array.isArray(wanted) ? wanted[0] : wanted}" ro'yxatda topilmadi`;
     }
+
+    const match = options[index];
 
     match.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0 }));
     match.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, button: 0 }));
@@ -321,6 +317,41 @@ async function selectReactSelectOption(name, wanted) {
     input.blur();
     await delay(100);
 
+    return null;
+}
+
+// Variantning ekrandagi matni sayt tiliga bog'liq: o'zbek rejimida `name_uz`,
+// rus rejimida `name_ru` chiziladi va bular butunlay boshqacha bo'lishi mumkin
+// (davlatlarda `name_uz` = "Россия", `name_ru` = "Российской Федерации").
+// Shu bois solishtirish uchun react-select variantining ORQASIDAGI yozuv
+// olinadi va uning barcha tildagi nomlari nomzod sifatida qaytariladi.
+// React ichki tuzilmasi o'zgarib qolsa, ekrandagi matn zaxira bo'lib qoladi.
+function getOptionCandidates(el) {
+    const values = [el.innerText];
+
+    const record = getReactOptionRecord(el);
+    if (record) {
+        for (const [key, value] of Object.entries(record)) {
+            if (typeof value !== 'string') continue;
+            if (key === 'slug' || /^name_/.test(key)) values.push(value);
+        }
+    }
+
+    return values.map(normalizeOptionText).filter(Boolean);
+}
+
+// react-select variantning ma'lumot obyektini `data` prop'ida saqlaydi —
+// DOM tugunidan fiber bo'ylab yuqoriga chiqib topamiz
+function getReactOptionRecord(el) {
+    const fiberKey = Object.keys(el).find(k => k.startsWith('__reactFiber'));
+    if (!fiberKey) return null;
+
+    let fiber = el[fiberKey];
+    for (let hops = 0; fiber && hops < 12; hops++) {
+        const data = fiber.memoizedProps && fiber.memoizedProps.data;
+        if (data && typeof data === 'object') return data;
+        fiber = fiber.return;
+    }
     return null;
 }
 

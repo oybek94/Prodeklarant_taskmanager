@@ -57,8 +57,8 @@ function sendToContentScript(action, mockData, statusDiv) {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         if (tabs && tabs[0]) {
             const url = tabs[0].url;
-            if (!url.includes('singlewindow.uz') && !url.includes('expertiza.uz')) {
-                statusDiv.textContent = "Bu kengaytma faqat singlewindow.uz yoki expertiza.uz saytida ishlaydi.";
+            if (!url.includes('singlewindow.uz') && !url.includes('app.expertiza.uz')) {
+                statusDiv.textContent = "Bu kengaytma faqat singlewindow.uz yoki app.expertiza.uz saytida ishlaydi.";
                 statusDiv.style.color = "#ef4444";
                 return;
             }

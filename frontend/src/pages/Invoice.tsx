@@ -39,10 +39,13 @@ import { InvoiceConflictWarning } from '../components/invoice/InvoiceConflictWar
 import { ContractRequirementsNote } from '../components/invoice/ContractRequirementsNote';
 import { InvoicePriceList } from '../components/invoice/InvoicePriceList';
 
+import axios from 'axios';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas-pro';
 import { renderFittedInvoicePdf } from '../components/invoice/pdf/pdfFit';
 import { PdfMissingGlyphError, describeMissingGlyphs } from '../components/invoice/pdf/pdfGlyphCheck';
+import { buildPdfTranslatableTexts } from '../components/invoice/pdf/pdfTranslatableTexts';
+import type { PdfLang } from '../components/invoice/pdf/pdfI18n';
 import Tasks from './Tasks';
 
 import type {
@@ -281,7 +284,6 @@ const Invoice = () => {
     generateCommodityEkExcel,
     generateFssExcel,
     generateInvoiceExcel,
-    generatePdfEn,
     openFssRegionPicker,
     openFssRegionSelector,
     loadRegionCodes,
@@ -302,7 +304,6 @@ const Invoice = () => {
     fssAutoDownload,
     setFssAutoDownload,
     setShowFssRegionModal,
-    viewTab,
   });
 
   const {
@@ -502,9 +503,41 @@ const Invoice = () => {
     });
   }, [columnOrder, effectiveColumns, items]);
 
-  const generatePdf = useCallback(async (includeSeal: boolean) => {
+  /**
+   * Inglizcha PDF uchun matn tarjimalari. Hujjat RUSCHA PDF bilan aynan bir xil
+   * komponentlardan chiziladi (qarang: `pdf/pdfI18n.ts`) — bu yerdan faqat
+   * tarjima matni keladi. Tarjima serverda invoysga keshlanadi.
+   */
+  const loadPdfTranslations = useCallback(async (): Promise<Record<string, string>> => {
+    if (!invoice?.id) throw new Error('Invoys saqlanmagan — avval saqlang');
+
+    const texts = buildPdfTranslatableTexts({
+      viewTab,
+      form,
+      selectedContract,
+      task,
+      isAdditionalInfoVisible,
+      customFields,
+      specCustomFields,
+      packingCustomFields,
+      items,
+      orderedVisibleColumns,
+      columnLabels,
+      totalColumnLabel,
+    });
+
+    const response = await apiClient.post(`/invoices/${invoice.id}/translations-en`, { texts });
+    const translations = response.data?.translations;
+    return translations && typeof translations === 'object' ? translations : {};
+  }, [
+    invoice?.id, viewTab, form, selectedContract, task, isAdditionalInfoVisible,
+    customFields, specCustomFields, packingCustomFields, items,
+    orderedVisibleColumns, columnLabels, totalColumnLabel,
+  ]);
+
+  const generatePdf = useCallback(async (includeSeal: boolean, lang: PdfLang = 'ru') => {
     // `catch` blokida ham kerak — xato bo'lganda o'sha toast almashtiriladi
-    const toastId = toast.loading("PDF tayyorlanmoqda...");
+    const toastId = toast.loading(lang === 'en' ? "Tarjima qilinmoqda..." : "PDF tayyorlanmoqda...");
     try {
 
       if (viewTab === 'pricelist') {
@@ -551,6 +584,8 @@ const Invoice = () => {
         return;
       }
 
+      const translations = lang === 'en' ? await loadPdfTranslations() : undefined;
+
       // Shriftlar sahifadagi ma'lumot miqdoriga qarab tanlanadi: hujjat avval
       // o'lchanadi, so'ng eng katta sig'adigan masshtabda qayta render qilinadi
       // (qarang: pdf/pdfFit.tsx)
@@ -575,6 +610,8 @@ const Invoice = () => {
         invoiceCurrency,
         pdfIncludeSeal: includeSeal,
         pdfFontSizes,
+        lang,
+        translations,
       });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -582,7 +619,8 @@ const Invoice = () => {
       const inv = invoice?.invoiceNumber || form.invoiceNumber || 'Invoice';
       const plateStr = getVehiclePlate(form.vehicleNumber);
       const plate = plateStr ? ` АВТО ${plateStr}` : '';
-      link.download = `${inv}${plate}.pdf`;
+      const langSuffix = lang === 'en' ? '_EN' : '';
+      link.download = `${inv}${plate}${langSuffix}.pdf`;
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -597,13 +635,25 @@ const Invoice = () => {
         toast.error(describeMissingGlyphs(err.missing), { id: toastId, duration: 20000 });
         return;
       }
+      // Tarjima bosqichi alohida ko'rsatiladi: sabab boshqa (server/AI), va
+      // foydalanuvchi ruscha PDF ishlayotganini bilishi kerak
+      if (lang === 'en') {
+        const apiError = axios.isAxiosError(err) && typeof err.response?.data?.error === 'string'
+          ? err.response.data.error
+          : (err instanceof Error ? err.message : '');
+        toast.error(apiError || "Tarjima qilishda xatolik yuz berdi", { id: toastId });
+        return;
+      }
       toast.error("PDF yaratishda xatolik yuz berdi", { id: toastId });
     }
   }, [
-    viewTab, form, invoice, selectedContract, contracts, task, isSellerShipper, isBuyerConsignee, 
+    viewTab, form, invoice, selectedContract, contracts, task, isSellerShipper, isBuyerConsignee,
     isAdditionalInfoVisible, customFields, specCustomFields, additionalFieldsOrder, items,
-    orderedVisibleColumns, columnLabels, totalColumnLabel, invoiceCurrency, pdfFontSizes
+    orderedVisibleColumns, columnLabels, totalColumnLabel, invoiceCurrency, pdfFontSizes,
+    loadPdfTranslations
   ]);
+
+  const generatePdfEn = useCallback(() => generatePdf(true, 'en'), [generatePdf]);
 
   const handleUpdateContractRequirements = async (newRequirements: string) => {
     if (!selectedContractId) return;

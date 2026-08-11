@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Document, Page, View } from '@react-pdf/renderer';
 import { styles } from './PdfStyles';
 import { PdfHeader } from './PdfHeader';
@@ -11,6 +11,7 @@ import { PdfPriceList } from './PdfPriceList';
 import type { PdfOnRender } from './pdfLayout';
 import { PAGE_PAD_TOP, PAGE_PAD_BOTTOM, clampScale, estimateScale } from './pdfScale';
 import type { PdfFontSizes } from './pdfFontSizes';
+import { createPdfI18n, type PdfLang } from './pdfI18n';
 
 export interface InvoicePDFDocumentProps {
   viewTab: 'invoice' | 'spec' | 'packing' | 'pricelist';
@@ -44,6 +45,17 @@ export interface InvoicePDFDocumentProps {
    * (qarang: `pdfFontSizes.ts`).
    */
   pdfFontSizes?: PdfFontSizes;
+  /**
+   * Hujjat tili. `en` da AYNAN shu komponentlar chiziladi — faqat matn
+   * almashadi (qarang: `pdfI18n.ts`), shuning uchun ruscha va inglizcha
+   * PDF ko'rinishi bir xil bo'ladi.
+   */
+  lang?: PdfLang;
+  /**
+   * Foydalanuvchi matnlarining tarjimasi (kalit -> ingliz matni).
+   * Kalitlar: `pdfTranslatableTexts.ts`. `lang === 'ru'` da ishlatilmaydi.
+   */
+  translations?: Record<string, string>;
   /** @react-pdf `Document.onRender` — layout o'lchash uchun (qarang: `pdfFit.tsx`) */
   onRender?: PdfOnRender;
 }
@@ -70,9 +82,12 @@ export const InvoicePDFDocument: React.FC<InvoicePDFDocumentProps> = ({
   pdfIncludeSeal,
   scaleOverride,
   pdfFontSizes,
+  lang,
+  translations,
   onRender,
 }) => {
   const fs = pdfFontSizes ?? {};
+  const i18n = useMemo(() => createPdfI18n(lang, translations), [lang, translations]);
   // Ko'rinadigan qo'shimcha maydonlar sonini hisoblaymiz
   const visibleAddFields = [
     isAdditionalInfoVisible('deliveryTerms') && !!form.deliveryTerms,
@@ -129,6 +144,7 @@ export const InvoicePDFDocument: React.FC<InvoicePDFDocumentProps> = ({
               invoice={invoice}
               selectedContract={selectedContract}
               scale={scale}
+              i18n={i18n}
             />
 
             <PdfParties
@@ -138,6 +154,7 @@ export const InvoicePDFDocument: React.FC<InvoicePDFDocumentProps> = ({
               isBuyerConsignee={isBuyerConsignee}
               scale={scale}
               fontSize={fs.parties}
+              i18n={i18n}
             />
 
             <PdfAdditionalInfo
@@ -150,6 +167,7 @@ export const InvoicePDFDocument: React.FC<InvoicePDFDocumentProps> = ({
               additionalFieldsOrder={additionalFieldsOrder}
               scale={scale}
               fontSize={fs.additionalInfo}
+              i18n={i18n}
             />
 
             <View style={[dividerStyle, { borderTopWidth: 1.5, marginVertical: sc(8) }]} />
@@ -163,9 +181,12 @@ export const InvoicePDFDocument: React.FC<InvoicePDFDocumentProps> = ({
               showSumWords={viewTab !== 'packing' && orderedVisibleColumns.includes('total')}
               scale={scale}
               fontSize={fs.itemsTable}
+              i18n={i18n}
             />
 
-            {viewTab !== 'spec' && <PdfNotes notes={form.notes} scale={scale} fontSize={fs.notes} />}
+            {viewTab !== 'spec' && (
+              <PdfNotes notes={form.notes} scale={scale} fontSize={fs.notes} i18n={i18n} />
+            )}
 
             <PdfSignatures
               contract={selectedContract || {}}
@@ -174,6 +195,7 @@ export const InvoicePDFDocument: React.FC<InvoicePDFDocumentProps> = ({
               isSellerShipper={isSellerShipper}
               isBuyerConsignee={isBuyerConsignee}
               scale={scale}
+              i18n={i18n}
             />
           </>
         )}

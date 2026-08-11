@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import apiClient from '../../../lib/api';
-import type { Invoice as InvoiceType, RegionCode, FssFilePrefix, Task, ViewTab } from '../types';
+import type { Invoice as InvoiceType, RegionCode, FssFilePrefix, Task } from '../types';
 import {
   sanitizeFileName,
   getVehiclePlate,
@@ -29,7 +29,6 @@ interface UseInvoiceDownloadsParams {
   fssAutoDownload: boolean;
   setFssAutoDownload: (v: boolean) => void;
   setShowFssRegionModal: (v: boolean) => void;
-  viewTab: ViewTab;
 }
 
 export function useInvoiceDownloads({
@@ -47,7 +46,6 @@ export function useInvoiceDownloads({
   fssAutoDownload,
   setFssAutoDownload,
   setShowFssRegionModal,
-  viewTab,
 }: UseInvoiceDownloadsParams) {
 
   // --- Utility builders ---
@@ -62,34 +60,6 @@ export function useInvoiceDownloads({
     const plate = getVehiclePlate(form.vehicleNumber)?.trim() || '';
     return plate ? `${inv} АВТО ${plate}` : inv;
   }, [form.vehicleNumber, form.invoiceNumber, invoice?.invoiceNumber]);
-
-  // --- PDF ---
-
-  const generatePdfEn = useCallback(async () => {
-    if (!invoice?.id) {
-      alert('Invoice topilmadi');
-      return;
-    }
-    try {
-      const isPacking = viewTab === 'packing';
-      const url = `/invoices/${invoice.id}/pdf-en${isPacking ? '?mode=packing' : ''}`;
-      const response = await apiClient.get(url, {
-        responseType: 'blob',
-      });
-      const suffix = isPacking ? '_Packing_EN.pdf' : '_EN.pdf';
-      const fileName = `${buildInvoiceDownloadBase()}${suffix}`;
-      const objectUrl = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = objectUrl;
-      link.setAttribute('download', fileName);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-    } catch (error) {
-      console.error('Error downloading English PDF:', error);
-      alert(error instanceof Error ? error.message : 'English PDF yuklab olishda xatolik yuz berdi');
-    }
-  }, [invoice?.id, buildInvoiceDownloadBase, viewTab]);
 
   // --- Process tracking ---
 
@@ -295,7 +265,6 @@ export function useInvoiceDownloads({
     generateCommodityEkExcel,
     generateFssExcel,
     generateInvoiceExcel,
-    generatePdfEn,
     openFssRegionPicker,
     openFssRegionSelector,
     loadRegionCodes,

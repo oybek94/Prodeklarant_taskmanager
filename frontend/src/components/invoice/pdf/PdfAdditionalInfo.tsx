@@ -2,6 +2,8 @@ import React, { useMemo } from 'react';
 import { Text, View } from '@react-pdf/renderer';
 import { styles } from './PdfStyles';
 import { sectionFont, sectionTitleFont } from './pdfFontSizes';
+import { createPdfI18n, type PdfI18n } from './pdfI18n';
+import { DEFAULT_ORIGIN_RU } from './pdfTranslatableTexts';
 
 interface PdfAdditionalInfoProps {
   form: any;
@@ -14,6 +16,8 @@ interface PdfAdditionalInfoProps {
   scale?: number;
   /** Qo'lda belgilangan shrift (pt); berilmasa masshtabdan hisoblanadi */
   fontSize?: number;
+  /** Hujjat tili (qarang: `pdfI18n.ts`); berilmasa ruscha */
+  i18n?: PdfI18n;
 }
 
 const Row: React.FC<{ label: string; value: string; scale: number; fontSize?: number }> = ({ label, value, scale, fontSize }) => {
@@ -36,8 +40,10 @@ export const PdfAdditionalInfo: React.FC<PdfAdditionalInfoProps> = ({
   additionalFieldsOrder,
   scale = 1,
   fontSize,
+  i18n,
 }) => {
   const sc = (v: number) => Math.round(v * scale);
+  const { L, t } = i18n ?? createPdfI18n();
   const fieldOrder = useMemo(() => {
     const order = additionalFieldsOrder ? [...additionalFieldsOrder] : [];
     const baseFields = ['shipmentPlace', 'destination', 'origin', 'manufacturer', 'orderNumber', 'gln', 'temperature', 'harvestYear'];
@@ -66,35 +72,35 @@ export const PdfAdditionalInfo: React.FC<PdfAdditionalInfoProps> = ({
     switch (key) {
       case 'shipmentPlace':
         return isAdditionalInfoVisible('shipmentPlace') && form.shipmentPlace
-          ? <Row key={key} label="Место отгрузки груза" value={form.shipmentPlace} scale={scale} fontSize={fontSize} />
+          ? <Row key={key} label={L.shipmentPlace} value={t('shipmentPlace', form.shipmentPlace)} scale={scale} fontSize={fontSize} />
           : null;
       case 'destination':
         return isAdditionalInfoVisible('destination') && form.destination
-          ? <Row key={key} label="Место назначения" value={form.destination} scale={scale} fontSize={fontSize} />
+          ? <Row key={key} label={L.destination} value={t('destination', form.destination)} scale={scale} fontSize={fontSize} />
           : null;
       case 'origin':
         return isAdditionalInfoVisible('origin')
-          ? <Row key={key} label="Происхождение товара" value={form.origin || 'Республика Узбекистан'} scale={scale} fontSize={fontSize} />
+          ? <Row key={key} label={L.origin} value={t('origin', form.origin || DEFAULT_ORIGIN_RU)} scale={scale} fontSize={fontSize} />
           : null;
       case 'manufacturer':
         return isAdditionalInfoVisible('manufacturer') && form.manufacturer
-          ? <Row key={key} label="Производитель" value={form.manufacturer} scale={scale} fontSize={fontSize} />
+          ? <Row key={key} label={L.manufacturer} value={t('manufacturer', form.manufacturer)} scale={scale} fontSize={fontSize} />
           : null;
       case 'orderNumber':
         return isAdditionalInfoVisible('orderNumber') && form.orderNumber
-          ? <Row key={key} label="Номер заказа" value={form.orderNumber} scale={scale} fontSize={fontSize} />
+          ? <Row key={key} label={L.orderNumber} value={form.orderNumber} scale={scale} fontSize={fontSize} />
           : null;
       case 'gln':
         return isAdditionalInfoVisible('gln') && form.gln
-          ? <Row key={key} label="Глобальный идентификационный номер GS1 (GLN)" value={form.gln} scale={scale} fontSize={fontSize} />
+          ? <Row key={key} label={L.gln} value={form.gln} scale={scale} fontSize={fontSize} />
           : null;
       case 'temperature':
         return isAdditionalInfoVisible('temperature') && form.temperature
-          ? <Row key={key} label="Температура" value={form.temperature} scale={scale} fontSize={fontSize} />
+          ? <Row key={key} label={L.temperature} value={t('temperature', form.temperature)} scale={scale} fontSize={fontSize} />
           : null;
       case 'harvestYear':
         return isAdditionalInfoVisible('harvestYear') && form.harvestYear
-          ? <Row key={key} label="Урожай" value={form.harvestYear} scale={scale} fontSize={fontSize} />
+          ? <Row key={key} label={L.harvestYear} value={t('harvestYear', form.harvestYear)} scale={scale} fontSize={fontSize} />
           : null;
       default:
         if (key.startsWith('custom_')) {
@@ -102,7 +108,13 @@ export const PdfAdditionalInfo: React.FC<PdfAdditionalInfoProps> = ({
           const field = customFields.find(f => f.id === fieldId);
           if (!field) return null;
           return isAdditionalInfoVisible(`custom_${field.id}`) && field.value
-            ? <Row key={field.id} label={field.label} value={field.value} scale={scale} fontSize={fontSize} />
+            ? <Row
+                key={field.id}
+                label={t(`custom_label_${field.id}`, field.label)}
+                value={t(`custom_value_${field.id}`, field.value)}
+                scale={scale}
+                fontSize={fontSize}
+              />
             : null;
         }
         return null;
@@ -134,23 +146,29 @@ export const PdfAdditionalInfo: React.FC<PdfAdditionalInfoProps> = ({
   return (
     <View style={{ marginTop: sc(6), paddingBottom: sc(4) }}>
       <Text style={{ fontSize: sectionTitleFont(fontSize, 10, scale), fontWeight: 'bold', marginBottom: sc(2), color: '#1f2937' }}>
-        Дополнительная информация
+        {L.additionalInfoTitle}
       </Text>
 
       {isAdditionalInfoVisible('deliveryTerms') && form.deliveryTerms && (
-        <Row label="Условия поставки" value={form.deliveryTerms} scale={scale} fontSize={fontSize} />
+        <Row label={L.deliveryTerms} value={t('deliveryTerms', form.deliveryTerms)} scale={scale} fontSize={fontSize} />
       )}
       {isAdditionalInfoVisible('vehicleNumber') && form.vehicleNumber && (
-        <Row label="Номер автотранспорта" value={form.vehicleNumber} scale={scale} fontSize={fontSize} />
+        <Row label={L.vehicleNumber} value={form.vehicleNumber} scale={scale} fontSize={fontSize} />
       )}
       {isAdditionalInfoVisible('customsAddress') && form.customsAddress && (
-        <Row label="Место там. очистки" value={form.customsAddress} scale={scale} fontSize={fontSize} />
+        <Row label={L.customsAddress} value={t('customsAddress', form.customsAddress)} scale={scale} fontSize={fontSize} />
       )}
 
       {fieldOrder.map((key) => renderFieldByKey(key))}
 
       {visiblePackingFields.map((field) => (
-        <Row key={field.id} label={field.label} value={field.value} scale={scale} fontSize={fontSize} />
+        <Row
+          key={field.id}
+          label={t(`packing_label_${field.id}`, field.label)}
+          value={t(`packing_value_${field.id}`, field.value)}
+          scale={scale}
+          fontSize={fontSize}
+        />
       ))}
     </View>
   );

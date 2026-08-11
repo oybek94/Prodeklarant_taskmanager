@@ -359,6 +359,54 @@ export const numberToWordsRu = (num: number, currency: string): string => {
   return result.charAt(0).toUpperCase() + result.slice(1);
 };
 
+// --- Son -> So'z (ingliz tilida) ---
+
+/** Valyuta birligining ingliz tilidagi nomlari */
+const EN_CURRENCY_UNITS: Record<string, { one: string; many: string; sub: string }> = {
+  USD: { one: 'US Dollar', many: 'US Dollars', sub: 'cents' },
+  EUR: { one: 'Euro', many: 'Euros', sub: 'eurocents' },
+  RUB: { one: 'Ruble', many: 'Rubles', sub: 'kopecks' },
+  UZS: { one: 'Sum', many: 'Sums', sub: 'tiyin' },
+};
+
+/**
+ * Sonni ingliz tilida so'z bilan yozish (valyuta bilan) — inglizcha invoysdagi
+ * "Amount in words" uchun. `numberToWordsRu` bilan bir xil qoidalar: manfiy/
+ * noto'g'ri qiymat nol deb olinadi, summa 2 kasrgacha yaxlitlanadi (jadvaldagi
+ * "Total" bilan bir xil bo'lishi uchun).
+ */
+export const numberToWordsEn = (num: number, currency: string): string => {
+  const cur = currency && String(currency).trim() ? String(currency).trim().toUpperCase() : 'USD';
+  const u = EN_CURRENCY_UNITS[cur] || EN_CURRENCY_UNITS.UZS;
+
+  const ones = [
+    '', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine',
+    'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen',
+    'seventeen', 'eighteen', 'nineteen',
+  ];
+  const tens = ['', '', 'twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'];
+
+  const convert = (n: number): string => {
+    if (n === 0) return '';
+    if (n < 20) return ones[n];
+    if (n < 100) return tens[Math.floor(n / 10)] + (n % 10 ? '-' + ones[n % 10] : '');
+    if (n < 1000) return ones[Math.floor(n / 100)] + ' hundred' + (n % 100 ? ' ' + convert(n % 100) : '');
+    if (n < 1_000_000) return convert(Math.floor(n / 1000)) + ' thousand' + (n % 1000 ? ' ' + convert(n % 1000) : '');
+    if (n < 1_000_000_000) return convert(Math.floor(n / 1_000_000)) + ' million' + (n % 1_000_000 ? ' ' + convert(n % 1_000_000) : '');
+    return convert(Math.floor(n / 1_000_000_000)) + ' billion' + (n % 1_000_000_000 ? ' ' + convert(n % 1_000_000_000) : '');
+  };
+
+  const safe = Number.isFinite(num) && num > 0 ? round2(num) : 0;
+  const whole = Math.floor(safe);
+  const dec = Math.round((safe - whole) * 100);
+
+  let result = whole === 0 ? 'zero' : convert(whole);
+  result += whole === 1 ? ` ${u.one}` : ` ${u.many}`;
+  if (dec > 0) result += ` ${dec} ${u.sub}`;
+
+  return result.charAt(0).toUpperCase() + result.slice(1);
+};
+
 // --- Download / Document helpers ---
 
 /** Ikki requestAnimationFrame kutish (DOM paint uchun) */

@@ -3,8 +3,7 @@ import { prisma } from '../prisma';
 import { requireAuth, AuthRequest } from '../middleware/auth';
 import { z } from 'zod';
 import { generateInvoicePDF } from '../services/invoice-pdf';
-import { generateInvoicePDFEnglish } from '../services/invoice-pdf-en';
-import { translateRequisites, buildTranslatableTexts } from '../services/translate.service';
+import { translateRequisites } from '../services/translate.service';
 import { generateInvoiceExcel } from '../services/invoice-excel';
 import { generateFssExcel } from '../services/fss-excel';
 import { Prisma } from '@prisma/client';
@@ -838,170 +837,97 @@ router.get('/:id/pdf', requireAuth(), async (req: AuthRequest, res: Response) =>
   }
 });
 
-// GET /invoices/:id/pdf-en - English Invoice PDF yuklab olish
-router.get('/:id/pdf-en', requireAuth(), async (req: AuthRequest, res: Response) => {
+// POST /invoices/:id/translations-en - inglizcha PDF uchun matnlarni tarjima qilish
+//
+// Inglizcha PDF frontendda, RUSCHA PDF bilan AYNAN bir xil komponentlardan
+// chiziladi (qarang: `frontend/.../pdf/pdfI18n.ts`) — bu yerda faqat matn
+// tarjima qilinadi. Matnlarni frontend yuboradi, chunki chiziladigan qiymat
+// bazadagi emas, FORMA dagi (saqlanmagan o'zgarish ham to'g'ri tarjima bo'lsin).
+//
+// Tarjima invoysga keshlanadi: bir marta tarjima qilingan matn qayta
+// so'ralmaydi (AI chaqiruvi qimmat va sekin).
+const translationsEnSchema = z.object({
+  texts: z.record(z.string().min(1).max(200), z.string().max(3000)).refine(
+    (v) => Object.keys(v).length <= 400,
+    { message: 'Tarjima uchun matnlar juda ko\'p (400 tadan ko\'p)' }
+  ),
+});
+
+router.post('/:id/translations-en', requireAuth(), async (req: AuthRequest, res: Response) => {
   try {
     const id = parseInt(req.params.id, 10);
     if (!Number.isFinite(id)) {
       return res.status(404).json({ error: 'Invoice topilmadi' });
     }
-    const mode: 'invoice' | 'packing' = req.query.mode === 'packing' ? 'packing' : 'invoice';
+
+    const parsed = translationsEnSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: parsed.error.issues[0]?.message || 'Noto\'g\'ri so\'rov' });
+    }
 
     const invoice = await prisma.invoice.findUnique({
       where: { id },
-      include: {
-        items: { orderBy: { orderIndex: 'asc' } },
-        client: true,
-        branch: true,
-      }
+      select: { id: true, additionalInfo: true },
     });
-
     if (!invoice) {
       return res.status(404).json({ error: 'Invoice topilmadi' });
     }
 
-    // Contract ma'lumotlarini olish
-    let contract: any = null;
-    if (invoice.contractId) {
-      contract = await prisma.contract.findUnique({ where: { id: invoice.contractId } });
-    }
-    if (!contract && invoice.contractNumber) {
-      contract = await prisma.contract.findFirst({
-        where: { clientId: invoice.clientId, contractNumber: invoice.contractNumber }
-      });
-    }
-    if (!contract) {
-      contract = await prisma.contract.findFirst({
-        where: { clientId: invoice.clientId },
-        orderBy: [{ contractDate: 'desc' }, { id: 'desc' }]
-      });
-    }
-
-    // Company settings
-    let companySettings: any = null;
-    if (contract) {
-      companySettings = {
-        id: 0, name: contract.sellerName || '', legalAddress: contract.sellerLegalAddress || '',
-        actualAddress: contract.sellerLegalAddress || '', inn: contract.sellerInn || null,
-        phone: null, email: null, bankName: contract.sellerBankName || null,
-        bankAddress: contract.sellerBankAddress || null, bankAccount: contract.sellerBankAccount || null,
-        swiftCode: contract.sellerBankSwift || null, correspondentBank: contract.sellerCorrespondentBank || null,
-        correspondentBankAddress: null, correspondentBankSwift: contract.sellerCorrespondentBankSwift || null,
-        createdAt: new Date(), updatedAt: new Date(),
-      } as any;
-    } else {
-      companySettings = await prisma.companySettings.findFirst();
-      if (!companySettings) {
-        return res.status(400).json({ error: 'Kompaniya sozlamalari topilmadi.' });
-      }
-    }
-
-    // Keshdan tekshirish
     const additionalInfo = (invoice.additionalInfo && typeof invoice.additionalInfo === 'object')
       ? (invoice.additionalInfo as Record<string, any>) : {};
-    let translatedRequisites: Record<string, string> = {};
+    const cachedAll = (additionalInfo.translatedRequisitesEn && typeof additionalInfo.translatedRequisitesEn === 'object')
+      ? (additionalInfo.translatedRequisitesEn as Record<string, unknown>) : {};
 
-    if (additionalInfo.translatedRequisitesEn && typeof additionalInfo.translatedRequisitesEn === 'object') {
-      // Keshdan olish
-      const cached = additionalInfo.translatedRequisitesEn as Record<string, string | undefined>;
-      for (const [k, v] of Object.entries(cached)) {
-        if (v !== undefined) translatedRequisites[k] = v;
-      }
-      
-      // Yangi qo'shilgan matnlar chiqib qolsa, ularni alohida tarjima qilib olamiz
-      const textsToTranslate = buildTranslatableTexts({
-        contract, client: invoice.client, company: companySettings, additionalInfo, invoice
-      });
-      const missingTexts: Record<string, string> = {};
-      for (const [k, v] of Object.entries(textsToTranslate)) {
-        if (!translatedRequisites[k] && v) {
-          missingTexts[k] = v;
-        }
-      }
-      if (Object.keys(missingTexts).length > 0) {
-        try {
-          const aiTranslated = await translateRequisites(missingTexts);
-          for (const [k, v] of Object.entries(aiTranslated)) {
-            if (v !== undefined) translatedRequisites[k] = v;
-          }
-          await prisma.invoice.update({
-            where: { id: invoice.id },
-            data: {
-              additionalInfo: {
-                ...additionalInfo,
-                translatedRequisitesEn: translatedRequisites,
-              } as Prisma.InputJsonValue,
-            },
-          });
-        } catch (e) {
-          console.error('Translation error on missing texts:', e);
-        }
-      }
-
-    } else {
-      // AI tarjima (on-demand)
-      try {
-        const textsToTranslate = buildTranslatableTexts({
-          contract, client: invoice.client, company: companySettings, additionalInfo, invoice
+    // Kesh MANBA matni bilan birga saqlanadi: foydalanuvchi ruscha matnni
+    // o'zgartirsa (masalan tovar nomini), eski tarjima ishlatilib qolmasligi
+    // kerak. Eski format (faqat tarjima matni) ham qo'llab-quvvatlanadi —
+    // unda manba noma'lum, shuning uchun tarjima qayta so'raladi.
+    const cache = new Map<string, { source: string; translated: string }>();
+    for (const [key, value] of Object.entries(cachedAll)) {
+      if (value && typeof value === 'object' && typeof (value as any).translated === 'string') {
+        cache.set(key, {
+          source: String((value as any).source ?? ''),
+          translated: String((value as any).translated),
         });
-        const aiTranslated = await translateRequisites(textsToTranslate);
-        for (const [k, v] of Object.entries(aiTranslated)) {
-          if (v !== undefined) translatedRequisites[k] = v;
-        }
-
-        // Keshga saqlash
-        await prisma.invoice.update({
-          where: { id: invoice.id },
-          data: {
-            additionalInfo: {
-              ...additionalInfo,
-              translatedRequisitesEn: translatedRequisites,
-            } as Prisma.InputJsonValue,
-          },
-        });
-      } catch (translateError) {
-        console.error('Translation error (using original texts):', translateError);
-        // Fallback: original texts
       }
     }
 
-    // English PDF generatsiya
-    const doc = generateInvoicePDFEnglish({
-      invoice: {
-        ...invoice,
-        totalAmount: new Prisma.Decimal(Number(invoice.totalAmount)),
-        items: invoice.items.map(item => ({
-          ...item,
-          quantity: new Prisma.Decimal(Number(item.quantity) || 0),
-          grossWeight: item.grossWeight ? new Prisma.Decimal(Number(item.grossWeight)) : null,
-          netWeight: item.netWeight ? new Prisma.Decimal(Number(item.netWeight)) : null,
-          unitPrice: new Prisma.Decimal(Number(item.unitPrice) || 0),
-          totalPrice: new Prisma.Decimal(Number(item.totalPrice) || 0),
-        }))
-      },
-      client: invoice.client,
-      company: companySettings,
-      contract,
-      translatedRequisites,
-      mode,
-    });
+    const requested = parsed.data.texts;
+    const translations: Record<string, string> = {};
+    const missing: Record<string, string> = {};
 
-    const fileBase = mode === 'packing'
-      ? `packing-${invoice.invoiceNumber}-EN.pdf`
-      : `invoice-${invoice.invoiceNumber}-EN.pdf`;
-    res.setHeader('Content-Type', 'application/pdf; charset=utf-8');
-    res.setHeader('Content-Disposition', attachmentDisposition(fileBase));
+    for (const [key, source] of Object.entries(requested)) {
+      const hit = cache.get(key);
+      if (hit && hit.source === source) translations[key] = hit.translated;
+      else if (source.trim()) missing[key] = source;
+    }
 
-    doc.on('error', (err: any) => {
-      console.error('PDF stream error:', err);
-      if (!res.headersSent) res.status(500).json({ error: 'PDF generatsiya xatoligi' });
-    });
+    if (Object.keys(missing).length > 0) {
+      const aiTranslated = await translateRequisites(missing);
+      for (const [key, source] of Object.entries(missing)) {
+        const translated = aiTranslated[key];
+        if (typeof translated === 'string' && translated.trim()) {
+          translations[key] = translated;
+          cache.set(key, { source, translated });
+        }
+      }
 
-    doc.pipe(res);
-    doc.end();
+      await prisma.invoice.update({
+        where: { id: invoice.id },
+        data: {
+          additionalInfo: {
+            ...additionalInfo,
+            translatedRequisitesEn: Object.fromEntries(cache),
+          } as Prisma.InputJsonValue,
+        },
+      });
+    }
+
+    res.json({ translations });
   } catch (error: any) {
-    console.error('Error generating English invoice PDF:', error);
-    if (!res.headersSent) res.status(500).json({ error: 'Serverda xatolik yuz berdi' });
+    console.error('Error translating invoice texts:', error);
+    // Tarjimasiz ham hujjat yaratilishi kerak — frontend ruscha matnga qaytadi
+    res.status(502).json({ error: 'Tarjima xizmati javob bermadi' });
   }
 });
 

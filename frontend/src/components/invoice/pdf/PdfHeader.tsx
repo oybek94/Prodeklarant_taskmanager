@@ -4,6 +4,7 @@ import { styles } from './PdfStyles';
 import { formatDate } from '../invoiceUtils';
 import { resolveUploadUrl } from '../types';
 import { scaleFont } from './pdfScale';
+import { createPdfI18n, type PdfI18n } from './pdfI18n';
 
 interface PdfHeaderProps {
   viewTab: 'invoice' | 'spec' | 'packing' | 'pricelist';
@@ -11,23 +12,27 @@ interface PdfHeaderProps {
   invoice: any;
   selectedContract: any;
   scale?: number;
+  /** Hujjat tili (qarang: `pdfI18n.ts`); berilmasa ruscha */
+  i18n?: PdfI18n;
 }
 
-export const PdfHeader: React.FC<PdfHeaderProps> = ({ viewTab, form, invoice, selectedContract, scale = 1 }) => {
+export const PdfHeader: React.FC<PdfHeaderProps> = ({ viewTab, form, invoice, selectedContract, scale = 1, i18n }) => {
   const sc = (v: number) => Math.round(v * scale);
   // Hujjat sarlavhasidan tashqari barcha matnlar 11pt bilan cheklanadi
   const fz = (v: number) => scaleFont(v, scale);
+  const { L } = i18n ?? createPdfI18n();
+
   const title =
-    viewTab === 'invoice' ? 'Инвойс' :
-    viewTab === 'spec' ? 'Спецификация' :
-    viewTab === 'packing' ? 'Упаковочный лист' :
-    'Прайс-лист';
+    viewTab === 'invoice' ? L.titleInvoice :
+    viewTab === 'spec' ? L.titleSpec :
+    viewTab === 'packing' ? L.titlePacking :
+    L.titlePriceList;
 
   const documentType =
-    viewTab === 'spec' ? 'Спецификация №:' :
-    viewTab === 'packing' ? 'Упаковочный лист №:' :
-    viewTab === 'pricelist' ? 'Прайс-лист №:' :
-    'Инвойс №:';
+    viewTab === 'spec' ? L.docNoSpec :
+    viewTab === 'packing' ? L.docNoPacking :
+    viewTab === 'pricelist' ? L.docNoPriceList :
+    L.docNoInvoice;
 
   const invoiceNumber = form.invoiceNumber !== undefined ? form.invoiceNumber : (invoice?.invoiceNumber || '');
   const invoiceDate = form.date ? formatDate(form.date) : '';
@@ -50,19 +55,19 @@ export const PdfHeader: React.FC<PdfHeaderProps> = ({ viewTab, form, invoice, se
       <View style={styles.headerInfoContainer}>
         <View style={[styles.headerInfoRow, { marginBottom: sc(4) }]}>
           <Text style={[styles.headerLabel, { fontSize: fz(10) }]}>{documentType}</Text>
-          <Text style={[styles.headerValue, { fontSize: fz(10) }]}>{invoiceNumber} от {invoiceDate} г.</Text>
+          <Text style={[styles.headerValue, { fontSize: fz(10) }]}>{L.numberDated(invoiceNumber, invoiceDate)}</Text>
         </View>
 
         {(viewTab === 'spec' || viewTab === 'packing') && (
           <View style={[styles.headerInfoRow, { marginBottom: sc(4) }]}>
-            <Text style={[styles.headerLabel, { fontSize: fz(10) }]}>Инвойс №:</Text>
-            <Text style={[styles.headerValue, { fontSize: fz(10) }]}>{invoiceNumber} от {invoiceDate} г.</Text>
+            <Text style={[styles.headerLabel, { fontSize: fz(10) }]}>{L.docNoInvoice}</Text>
+            <Text style={[styles.headerValue, { fontSize: fz(10) }]}>{L.numberDated(invoiceNumber, invoiceDate)}</Text>
           </View>
         )}
 
         <View style={[styles.headerInfoRow, { marginBottom: sc(4) }]}>
-          <Text style={[styles.headerLabel, { fontSize: fz(10) }]}>Контракт №:</Text>
-          <Text style={[styles.headerValue, { fontSize: fz(10) }]}>{contractNumber} от {contractDate}</Text>
+          <Text style={[styles.headerLabel, { fontSize: fz(10) }]}>{L.contractNo}</Text>
+          <Text style={[styles.headerValue, { fontSize: fz(10) }]}>{contractNumber} {L.dated} {contractDate}</Text>
         </View>
       </View>
     </View>

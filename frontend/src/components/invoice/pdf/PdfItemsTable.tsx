@@ -1,8 +1,11 @@
 import React from 'react';
 import { Text, View } from '@react-pdf/renderer';
 import { styles } from './PdfStyles';
-import { formatNumber, formatNumberFixed, formatUnitPrice, numberToWordsRu, getCurrencySymbol, sumItemTotals } from '../invoiceUtils';
+import { formatNumber, formatNumberFixed, formatUnitPrice, getCurrencySymbol, sumItemTotals } from '../invoiceUtils';
 import { scaleFont } from './pdfScale';
+import { createPdfI18n, type PdfI18n } from './pdfI18n';
+import { buildEffectiveColumnLabels } from './pdfColumnLabels';
+import { columnLabelKey, itemNameKey, itemUnitKey, packageTypeKey } from './pdfTranslatableTexts';
 
 interface PdfItemsTableProps {
   items: any[];
@@ -12,6 +15,8 @@ interface PdfItemsTableProps {
   invoiceCurrency: string;
   showSumWords: boolean;
   scale?: number;
+  /** Hujjat tili (qarang: `pdfI18n.ts`); berilmasa ruscha */
+  i18n?: PdfI18n;
   /**
    * Qo'lda belgilangan shrift (pt). `MAX_TABLE_FONT` shiftini bekor qiladi, lekin
    * ustunlar kengligi FIZIK cheklov — sig'masa `fitTable` baribir kichraytiradi
@@ -203,15 +208,14 @@ const MAX_MIN_SHARE = 0.3;
 const columnDemand = (
   key: string,
   items: any[],
+  /** Chiziladigan HAQIQIY sarlavhalar (hujjat tilida) */
   columnLabels: Record<string, string>,
-  totalColumnLabel: string,
   invoiceCurrency: string,
   /** Shu ustunda "Всего:" yozuvi chiqadimi (yig'indi ustunlaridan oldingi ustun) */
-  hasTotalLabel: boolean
+  hasTotalLabel: boolean,
+  totalRowLabel: string
 ): ColumnDemand => {
-  const headerLabel = key === 'total'
-    ? totalColumnLabel
-    : (key === 'shtCount' ? 'шт' : (columnLabels[key] || key));
+  const headerLabel = columnLabels[key] || key;
 
   // `index` ustunida getCellText bo'sh qaytaradi — chiziladigan qiymat tartib raqami
   const cellTexts = key === 'index'
@@ -222,7 +226,7 @@ const columnDemand = (
     headerLabel,
     ...cellTexts,
     getFooterText(key, items, invoiceCurrency),
-    hasTotalLabel ? 'Всего:' : '',
+    hasTotalLabel ? totalRowLabel : '',
   ];
 
   let word = 0;
@@ -324,7 +328,7 @@ const getColTextAlign = (key: string) => {
 };
 
 export const PdfItemsTable: React.FC<PdfItemsTableProps> = ({
-  items,
+  items: sourceItems,
   orderedVisibleColumns,
   columnLabels,
   totalColumnLabel,
@@ -332,28 +336,40 @@ export const PdfItemsTable: React.FC<PdfItemsTableProps> = ({
   showSumWords,
   scale = 1,
   fontSize: fontSizeOverride,
+  i18n,
 }) => {
   const sc = (v: number) => Math.round(v * scale);
   const SUM_COLUMNS = ['quantity', 'shtCount', 'packagesCount', 'gross', 'net', 'total'];
   const firstSumColIdx = orderedVisibleColumns.findIndex(key => SUM_COLUMNS.includes(key));
 
-  const uniqueUnits = Array.from(new Set(items.map(i => i.unit).filter(Boolean)));
-  let unitPriceLabel = columnLabels.unitPrice || 'Цена за ед.изм.';
-  if (uniqueUnits.length === 1) {
-    const u = uniqueUnits[0];
-    if (u === 'кор.' || u === 'кор') unitPriceLabel = 'Цена за коробку';
-    else if (u === 'упак.' || u === 'упак') unitPriceLabel = 'Цена за упаковку';
-    else if (u === 'шт.' || u === 'шт') unitPriceLabel = 'Цена за шт.';
-    else unitPriceLabel = `Цена за ${u}`;
-  }
-  const effectiveColumnLabels: Record<string, string> = { ...columnLabels, unitPrice: unitPriceLabel };
+  const { L, t, numberToWords } = i18n ?? createPdfI18n();
+
+  // Tarjima ustun kengligini o'zgartiradi ("Наименование товара" ≠ "Description"),
+  // shuning uchun u kenglik hisobidan OLDIN qo'llanadi: quyidagi hisob-kitob ham,
+  // chizish ham AYNAN bir xil matnni ko'radi.
+  const items = React.useMemo(
+    () => sourceItems.map((item, index) => ({
+      ...item,
+      name: t(itemNameKey(item, index), item.name || ''),
+      unit: t(itemUnitKey(item, index), item.unit || ''),
+      packageType: item.packageType ? t(packageTypeKey(item.packageType), item.packageType) : item.packageType,
+    })),
+    [sourceItems, t],
+  );
+
+  const ruColumnLabels = buildEffectiveColumnLabels(sourceItems, columnLabels, totalColumnLabel);
+  const effectiveColumnLabels: Record<string, string> = {};
+  orderedVisibleColumns.forEach((key) => {
+    effectiveColumnLabels[key] = t(columnLabelKey(key), ruColumnLabels[key] || key);
+  });
 
   // Har bir ustunning kenglik talabi (zaruriy minimum + qulay kenglik)
   const demands: Record<string, ColumnDemand> = {};
   orderedVisibleColumns.forEach((key, idx) => {
     demands[key] = columnDemand(
-      key, items, effectiveColumnLabels, totalColumnLabel, invoiceCurrency,
-      firstSumColIdx > 0 && idx === firstSumColIdx - 1
+      key, items, effectiveColumnLabels, invoiceCurrency,
+      firstSumColIdx > 0 && idx === firstSumColIdx - 1,
+      L.totalRow
     );
   });
 
@@ -419,7 +435,7 @@ export const PdfItemsTable: React.FC<PdfItemsTableProps> = ({
         <View style={styles.tableHeaderRow}>
           {orderedVisibleColumns.map((key) => (
             <View key={key} style={hCell(key)}>
-              <Text>{key === 'total' ? totalColumnLabel : (key === 'shtCount' ? 'шт' : effectiveColumnLabels[key])}</Text>
+              <Text>{effectiveColumnLabels[key]}</Text>
             </View>
           ))}
         </View>
@@ -442,7 +458,7 @@ export const PdfItemsTable: React.FC<PdfItemsTableProps> = ({
               const isLastBeforeSum = idx === firstSumColIdx - 1;
               return (
                 <View key={key} style={fCell(flexMap[key], isLastBeforeSum ? 'flex-end' : 'center')}>
-                  <Text>{isLastBeforeSum ? 'Всего:' : ''}</Text>
+                  <Text>{isLastBeforeSum ? L.totalRow : ''}</Text>
                 </View>
               );
             }
@@ -451,7 +467,7 @@ export const PdfItemsTable: React.FC<PdfItemsTableProps> = ({
               if (idx === 0) {
                 return (
                   <View key="vsego-only" style={fCell(1, 'flex-end')}>
-                    <Text>Всего:</Text>
+                    <Text>{L.totalRow}</Text>
                   </View>
                 );
               }
@@ -471,7 +487,7 @@ export const PdfItemsTable: React.FC<PdfItemsTableProps> = ({
 
       {showSumWords && (
         <View style={{ fontSize: sumWordsFont, marginTop: 0, marginBottom: sc(4), paddingLeft: sc(20) }}>
-          <Text>Сумма прописью: {numberToWordsRu(sumItemTotals(items), invoiceCurrency)}</Text>
+          <Text>{L.amountInWords}: {numberToWords(sumItemTotals(items), invoiceCurrency)}</Text>
         </View>
       )}
     </View>

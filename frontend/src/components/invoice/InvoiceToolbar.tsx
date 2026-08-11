@@ -366,17 +366,27 @@ export const InvoiceToolbar: React.FC<InvoiceToolbarProps> = React.memo(({
                   >
                     Pechatli PDF
                   </button>
-                  <div className="my-1 border-t border-gray-200" />
-                  <button
-                    type="button"
-                    onClick={() => { generatePdfEn(); setInvoysDropdownOpen(false); }}
-                    disabled={templatesDisabled}
-                    className={`${MENU_ITEM} font-medium text-emerald-700`}
-                    role="menuitem"
-                  >
-                    <Icon icon="solar:translation-linear" className="h-4 w-4" />
-                    {viewTab === 'packing' ? 'English Packing List (AI)' : 'English Invoice (AI)'}
-                  </button>
+                  {/* Prays-list rasmga aylantirilib chiziladi (html2canvas) —
+                      inglizcha varianti yo'q */}
+                  {viewTab !== 'pricelist' && (
+                    <>
+                      <div className="my-1 border-t border-gray-200" />
+                      <button
+                        type="button"
+                        onClick={() => { generatePdfEn(); setInvoysDropdownOpen(false); }}
+                        disabled={templatesDisabled}
+                        className={`${MENU_ITEM} font-medium text-emerald-700`}
+                        role="menuitem"
+                      >
+                        <Icon icon="solar:translation-linear" className="h-4 w-4" />
+                        {viewTab === 'packing'
+                          ? 'English Packing List (AI)'
+                          : viewTab === 'spec'
+                            ? 'English Specification (AI)'
+                            : 'English Invoice (AI)'}
+                      </button>
+                    </>
+                  )}
                 </div>
               )}
             </div>

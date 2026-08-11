@@ -144,8 +144,7 @@ export function useInvoiceDownloads({
 
   const generateSmrExcel = useCallback(() => downloadTemplate('cmr', 'SMR', 'CMR', 'TIR'), [downloadTemplate]);
   const generateTirExcel = useCallback(() => downloadTemplate('tir', 'TIR', 'TIR', 'TIR'), [downloadTemplate]);
-  const generateST1Excel = useCallback(() => downloadTemplate('st1', 'ST1', 'ST-1 shabloni', 'CERT'), [downloadTemplate]);
-  // Yangi ST-1 dasturiga (app.expertiza.uz) tovarlarni import qilish uchun goods.xlsx
+  // ST-1 dasturiga (app.expertiza.uz) tovarlarni import qilish uchun goods.xlsx
   const generateST1GoodsExcel = useCallback(() => downloadTemplate('st1-goods', 'ST1_TOVARLAR', 'ST-1 tovarlar shabloni', 'CERT'), [downloadTemplate]);
   const generateCommodityEkExcel = useCallback(() => downloadTemplate('commodity-ek', 'COMMODITY', 'Deklaratsiya shabloni', 'DECLARATION', 'CommodityEk_New.xlsx'), [downloadTemplate]);
   const generateCmrDoc = useCallback(async () => {
@@ -260,7 +259,6 @@ export function useInvoiceDownloads({
     generateSmrExcel,
     generateCmrDoc,
     generateTirExcel,
-    generateST1Excel,
     generateST1GoodsExcel,
     generateCommodityEkExcel,
     generateFssExcel,

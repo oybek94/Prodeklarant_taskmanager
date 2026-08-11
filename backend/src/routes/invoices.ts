@@ -11,7 +11,6 @@ import { getNextInvoiceNumber } from '../utils/invoice-number';
 import { attachmentDisposition } from '../utils/content-disposition';
 import { ensureCmrForInvoice } from '../services/cmr-service';
 import { ensureTirForInvoice } from '../services/tir-service';
-import { generateST1Excel } from '../services/st1-excel';
 import { generateST1GoodsExcel } from '../services/st1-goods-excel';
 import { generateCommodityEkExcel } from '../services/commodity-ek-excel';
 import { generateCmrDocx } from '../services/cmr-doc';
@@ -439,49 +438,7 @@ router.get('/task/:taskId', requireAuth(), async (req: AuthRequest, res) => {
   }
 });
 
-// GET /invoices/:id/st1 - ST1 shabloniga invoys ma'lumotlarini yozib Excel yuklab olish (/:id dan oldin bo'lishi kerak)
-router.get('/:id/st1', requireAuth(), async (req: AuthRequest, res: Response) => {
-  try {
-    const id = parseInt(req.params.id);
-    if (!Number.isFinite(id)) {
-      return res.status(404).json({ error: 'Invoice topilmadi' });
-    }
-
-    const invoice = await prisma.invoice.findUnique({
-      where: { id },
-      include: {
-        items: {
-          orderBy: { orderIndex: 'asc' }
-        },
-      },
-    });
-
-    if (!invoice) {
-      return res.status(404).json({ error: 'Invoice topilmadi' });
-    }
-
-    const workbook = await generateST1Excel({
-      invoice,
-      items: invoice.items,
-    });
-
-    const buffer = await workbook.xlsx.writeBuffer({ useStyles: true, useSharedStrings: true });
-    const outputBuffer = Buffer.from(buffer as ArrayBuffer);
-    const fileName = `ST1_${invoice.invoiceNumber || invoice.id}.xlsx`;
-    res.setHeader(
-      'Content-Type',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-    );
-    res.setHeader('Content-Disposition', attachmentDisposition(fileName));
-    res.setHeader('Content-Length', outputBuffer.length);
-    res.end(outputBuffer);
-  } catch (error: any) {
-    console.error('Error generating ST1 Excel:', error);
-    res.status(500).json({ error: 'Serverda xatolik yuz berdi' });
-  }
-});
-
-// GET /invoices/:id/st1-goods — goods.xlsx (yangi ST-1 dasturi uchun tovarlar ro'yxati) shabloniga yozib yuklab olish
+// GET /invoices/:id/st1-goods — goods.xlsx (ST-1 dasturi uchun tovarlar ro'yxati) shabloniga yozib yuklab olish
 router.get('/:id/st1-goods', requireAuth(), async (req: AuthRequest, res: Response) => {
   try {
     const id = parseInt(req.params.id);

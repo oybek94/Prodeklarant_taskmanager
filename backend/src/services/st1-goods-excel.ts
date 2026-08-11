@@ -9,8 +9,6 @@ export type ST1GoodsExcelPayload = {
 };
 
 const TEMPLATE_NAME = 'goods.xlsx';
-/** Birlik kodlari ro'yxati turgan varaq (Kod | Nomi | Belgi | Belgi (en)) */
-const UNITS_SHEET_NAME = 'Birliklar';
 /** Sarlavha 1-qatorda, ma'lumot 2-qatordan boshlanadi */
 const DATA_START_ROW = 2;
 
@@ -55,73 +53,6 @@ const toNum = (v: unknown): number | '' => {
 };
 
 /**
- * Birlik nomlarini solishtirish uchun bir ko'rinishga keltiradi:
- * kichik harf, ortiqcha probellarsiz, oxirgi nuqtasiz, ² va ³ o'rniga 2 va 3.
- * Shu tufayli "упак." ↔ "упак", "м2" ↔ "м²", "компл" ↔ "компл." mos tushadi.
- */
-const normalizeUnit = (value: unknown): string =>
-  toStr(value)
-    .toLowerCase()
-    .replace(/\s+/g, ' ')
-    .replace(/²/g, '2')
-    .replace(/³/g, '3')
-    .replace(/\.$/, '')
-    .trim();
-
-/**
- * Invoysdagi birlik yozuvlari "Birliklar" varag'idagi nomlar bilan aynan
- * mos kelmaydi (invoysda "шт", ro'yxatda "дона"). Bu jadval invoys birligini
- * ro'yxatdagi nomga olib boradi — qiymatlar normalizeUnit() ko'rinishida.
- */
-const UNIT_ALIASES: Record<string, string> = {
-  'шт': 'дона',
-  'штук': 'дона',
-  'дона': 'дона',
-  'ящ': 'ящик',
-  'меш': 'мешок',
-  'банк': 'банка',
-  'кор': 'коробка',
-  'пог.м': 'п.м',
-  'пог м': 'п.м',
-  'компл': 'компл',
-  'пар': 'пар',
-};
-
-/**
- * "Birliklar" varag'idan `normalizeUnit(nom) → Kod` lug'atini yig'adi.
- * Nomi, Belgi va Belgi (en) ustunlarining uchalasi ham kalit bo'ladi, shu bois
- * "Килограмм", "кг" va "kg" bir xil kodga olib boradi. Bir nom bir necha
- * qatorda uchrasa (masalan "т" — 168 va 185) birinchi qator ustun turadi.
- */
-const buildUnitCodeIndex = (workbook: ExcelJS.Workbook): Map<string, string> => {
-  const index = new Map<string, string>();
-  const sheet = workbook.getWorksheet(UNITS_SHEET_NAME);
-  if (!sheet) return index;
-
-  sheet.eachRow((row, rowNumber) => {
-    if (rowNumber < 2) return; // sarlavha
-    const code = toStr(row.getCell('A').value);
-    if (!code) return;
-    for (const column of ['B', 'C', 'D']) {
-      const key = normalizeUnit(row.getCell(column).value);
-      if (key && !index.has(key)) index.set(key, code);
-    }
-  });
-
-  return index;
-};
-
-/** Invoys birligi uchun "Birliklar" ro'yxatidagi kodni topadi; topilmasa bo'sh qator */
-const resolveUnitCode = (unit: unknown, index: Map<string, string>): string => {
-  const normalized = normalizeUnit(unit);
-  if (!normalized) return '';
-  const direct = index.get(normalized);
-  if (direct) return direct;
-  const alias = UNIT_ALIASES[normalized];
-  return alias ? index.get(alias) ?? '' : '';
-};
-
-/**
  * Qadoqlash turi matnini tayyorlaydi.
  * Agar invoysda Мест (quantity — palletlar/joylar soni) yozilgan bo'lsa:
  * "пласт.ящик на 29 паллетах" ko'rinishida yoziladi.
@@ -146,7 +77,7 @@ export function buildVidUpakovki(item: Partial<InvoiceItem>): string {
  * - B: Tovar tasnifi (nomi)
  * - C: Tovar TIF TN raqami
  * - D: Miqdor (toldirilmaydi)
- * - E: Miqdor birligi (166 - kg)
+ * - E: Miqdor birligi (to'ldirilmaydi — dasturning o'zi tanlaydi)
  * - F: Brutto vazn (kg)
  * - G: Netto vazni (kg)
  * - H: Joylar soni
@@ -165,20 +96,17 @@ export async function generateST1GoodsExcel(payload: ST1GoodsExcelPayload): Prom
     throw new Error(`${TEMPLATE_NAME}: birinchi worksheet topilmadi`);
   }
 
-  const unitCodeIndex = buildUnitCodeIndex(workbook);
   const invoiceNumber = toStr(invoice.invoiceNumber);
   const invoiceDate = formatDate(invoice.date);
 
   items.forEach((item, index) => {
     const row = DATA_START_ROW + index;
-    const resolvedCode = resolveUnitCode(item.unit, unitCodeIndex);
-    const unitCode = resolvedCode ? (toNum(resolvedCode) !== '' ? toNum(resolvedCode) : resolvedCode) : 166;
 
     sheet.getCell(`A${row}`).value = index + 1;
     sheet.getCell(`B${row}`).value = toStr(item.name);
     sheet.getCell(`C${row}`).value = toStr(item.tnvedCode);
     sheet.getCell(`D${row}`).value = '';
-    sheet.getCell(`E${row}`).value = unitCode;
+    sheet.getCell(`E${row}`).value = '';
     sheet.getCell(`F${row}`).value = toNum(item.grossWeight);
     sheet.getCell(`G${row}`).value = toNum(item.netWeight);
     sheet.getCell(`H${row}`).value = toNum(item.packagesCount);

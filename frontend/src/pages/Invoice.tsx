@@ -535,7 +535,10 @@ const Invoice = () => {
     orderedVisibleColumns, columnLabels, totalColumnLabel,
   ]);
 
-  const generatePdf = useCallback(async (includeSeal: boolean, lang: PdfLang = 'ru') => {
+  const generatePdf = useCallback(async (withSeal: boolean, lang: PdfLang = 'ru') => {
+    // Inglizcha nusxa — tarjima varianti, unda pechat va imzo rasmi HECH QACHON
+    // chiqmaydi (imzolangan original faqat ruscha hujjatda beriladi)
+    const includeSeal = lang === 'en' ? false : withSeal;
     // `catch` blokida ham kerak — xato bo'lganda o'sha toast almashtiriladi
     const toastId = toast.loading(lang === 'en' ? "Tarjima qilinmoqda..." : "PDF tayyorlanmoqda...");
     try {
@@ -653,7 +656,7 @@ const Invoice = () => {
     loadPdfTranslations
   ]);
 
-  const generatePdfEn = useCallback(() => generatePdf(true, 'en'), [generatePdf]);
+  const generatePdfEn = useCallback(() => generatePdf(false, 'en'), [generatePdf]);
 
   const handleUpdateContractRequirements = async (newRequirements: string) => {
     if (!selectedContractId) return;

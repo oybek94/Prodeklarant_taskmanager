@@ -32,6 +32,7 @@ const baseShape = {
   customerOked: z.string().nullish(),
   customerPhone: z.string().nullish(),
   customerEmail: z.string().nullish(),
+  customerRequisites: z.string().nullish(),
 
   executorName: z.string().min(1),
   executorInn: z.string().nullish(),

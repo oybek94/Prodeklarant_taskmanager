@@ -134,6 +134,9 @@ model ServiceAgreement {
   customerOked          String?
   customerPhone         String?
   customerEmail         String?
+  // Erkin, ko'p qatorli rekvizitlar bloki. To'ldirilgan bo'lsa PDF'ning
+  // 13-bo'limida yuqoridagi alohida ustunlar o'rniga AYNAN shu matn chiqadi.
+  customerRequisites    String?
 
   // Bajaruvchi rekvizitlari — SNAPSHOT (CompanySettings dan ko'chiriladi)
   executorName        String

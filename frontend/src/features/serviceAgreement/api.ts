@@ -36,6 +36,11 @@ export async function updateAgreement(id: number, input: Partial<AgreementInput>
   return data;
 }
 
+/** Bazadan butunlay o'chiradi — qaytarib bo'lmaydi (qarang: `DELETE /:id`) */
+export async function deleteAgreement(id: number): Promise<void> {
+  await apiClient.delete(`${BASE}/${id}`);
+}
+
 export async function terminateAgreement(id: number, terminationReason: string): Promise<ServiceAgreement> {
   const { data } = await apiClient.post<ServiceAgreement>(`${BASE}/${id}/terminate`, { terminationReason });
   return data;

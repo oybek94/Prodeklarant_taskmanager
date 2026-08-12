@@ -19,7 +19,7 @@ const base: ServiceAgreement = {
   customerName: 'AGRO EXPORT MCHJ', customerInn: '305123456', customerAddress: 'Farg\'ona',
   customerDirector: 'Aliyev A.A.', customerDirectorBasis: 'Устав', customerBankName: 'Ipoteka bank',
   customerBankAccount: '20208', customerMfo: '00123', customerOked: '46900',
-  customerPhone: '+998901234567', customerEmail: 'a@b.uz',
+  customerPhone: '+998901234567', customerEmail: 'a@b.uz', customerRequisites: null,
   executorName: 'PRODEKLARANT MCHJ', executorInn: '311953399', executorAddress: 'Oltiariq',
   executorDirector: 'Турсунбоев О.У.', executorBankName: 'Universalbank',
   executorBankAccount: '20208000007207845001', executorMfo: '00973', executorOked: null,

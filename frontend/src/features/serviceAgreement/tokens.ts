@@ -17,6 +17,12 @@ export interface AgreementTokens {
   customerOked: string;
   customerPhone: string;
   customerEmail: string;
+  /**
+   * Buyurtmachining erkin, ko'p qatorli rekvizitlari. To'ldirilgan bo'lsa
+   * 13-bo'lim jadvalida yuqoridagi alohida maydonlar O'RNIGA shu matn chiqadi;
+   * bo'sh bo'lsa avvalgi tuzilmali qatorlar saqlanadi.
+   */
+  customerRequisites: string;
 
   /** `Турсунбоев О.У.` — rekvizitlar va imzo qatori uchun qisqartirilgan shakl */
   customerDirectorShort: string;
@@ -53,6 +59,15 @@ export interface AgreementTokens {
   paymentModel: ServiceAgreement['paymentModel'];
   vatPayer: boolean;
 }
+
+/**
+ * Bajaruvchining direktori. `CompanySettings` da direktor ustuni yo'q, shuning
+ * uchun manba shu yer — aks holda shartnomada `Директор: —` chiqib qolardi.
+ */
+export const EXECUTOR_DIRECTOR = 'Турсунбоев Ойбек Улуғбек ўғли';
+
+/** Nizolarni ko'rib chiquvchi sud — shartnomada bo'sh qolishi mumkin emas */
+export const DEFAULT_JURISDICTION_COURT = 'Фарғона вилояти иқтисодий суди';
 
 /** `20 000 000` — uzluksiz probel, PDF'da qator o'rtasida uzilmasin */
 export function formatMoney(value: number): string {
@@ -104,6 +119,9 @@ function formatDate(iso: string): string {
  */
 export function buildTokens(a: ServiceAgreement, bhmUzs: number): AgreementTokens {
   const tariffBhm = Number(a.mainTariffBhm);
+  // Yozuvda saqlangan qiymat ustun — eski shartnomalar aynan o'z matnida
+  // qayta chiqadi; bo'sh bo'lsagina standart qiymatga tushamiz.
+  const executorDirector = a.executorDirector?.trim() || EXECUTOR_DIRECTOR;
   return {
     agreementNumber: a.agreementNumber,
     agreementDate: formatDate(a.agreementDate),
@@ -121,12 +139,15 @@ export function buildTokens(a: ServiceAgreement, bhmUzs: number): AgreementToken
     customerOked: dash(a.customerOked),
     customerPhone: dash(a.customerPhone),
     customerEmail: dash(a.customerEmail),
+    // Bu yerda `dash` ISHLATILMAYDI: bo'sh qiymat — 13-bo'limda tuzilmali
+    // qatorlarni saqlash signali (qarang: `AgreementTokens.customerRequisites`)
+    customerRequisites: a.customerRequisites?.trim() ?? '',
 
     executorName: a.executorName,
     executorInn: dash(a.executorInn),
     executorAddress: dash(a.executorAddress),
-    executorDirector: dash(a.executorDirector),
-    executorDirectorShort: abbreviateName(dash(a.executorDirector)),
+    executorDirector: executorDirector,
+    executorDirectorShort: abbreviateName(executorDirector),
     executorBankName: dash(a.executorBankName),
     executorBankAccount: dash(a.executorBankAccount),
     executorMfo: dash(a.executorMfo),
@@ -144,7 +165,7 @@ export function buildTokens(a: ServiceAgreement, bhmUzs: number): AgreementToken
     prepaidRevertDays: String(a.prepaidRevertDays),
     mainTariffBhm: String(tariffBhm),
     mainTariffUzs: formatMoney(tariffBhm * bhmUzs),
-    jurisdictionCourt: dash(a.jurisdictionCourt),
+    jurisdictionCourt: a.jurisdictionCourt?.trim() || DEFAULT_JURISDICTION_COURT,
     // Bu yerda `dash` ISHLATILMAYDI: bo'sh qiymat 2.3-bandni o'chirish signali
     brokerRegistryNumber: a.brokerRegistryNumber?.trim() ?? '',
 

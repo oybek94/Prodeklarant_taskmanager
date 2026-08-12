@@ -5,7 +5,16 @@ type Predicate = (t: AgreementTokens) => boolean;
 export type Block =
   | { kind: 'heading'; level: 1 | 2; text: string; when?: Predicate }
   | { kind: 'paragraph'; text: string; when?: Predicate }
-  | { kind: 'table'; header: string[]; widths: number[]; rows: (t: AgreementTokens) => string[][]; when?: Predicate }
+  // `borderless` — qatorlar orasidagi chiziqni olib tashlaydi. Bitta rekvizit
+  // bir necha qatorga yoyilganda har qatorga chiziq tortilishi xunuk chiqadi.
+  | {
+      kind: 'table';
+      header: string[];
+      widths: number[];
+      rows: (t: AgreementTokens) => string[][];
+      borderless?: boolean;
+      when?: Predicate;
+    }
   | { kind: 'signature'; when?: Predicate }
   | { kind: 'pageBreak'; when?: Predicate };
 

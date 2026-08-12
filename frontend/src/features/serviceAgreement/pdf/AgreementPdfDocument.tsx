@@ -50,7 +50,7 @@ export const AgreementPdfDocument: React.FC<AgreementPdfDocumentProps> = ({ temp
                   ))}
                 </View>
                 {block.rows(tokens).map((row, r) => (
-                  <View key={r} style={styles.tableRow}>
+                  <View key={r} style={block.borderless ? styles.tableRowPlain : styles.tableRow}>
                     {row.map((cell, c) => (
                       <Text key={c} style={[styles.tableCell, { width: `${block.widths[c]}%` }]}>{cell}</Text>
                     ))}

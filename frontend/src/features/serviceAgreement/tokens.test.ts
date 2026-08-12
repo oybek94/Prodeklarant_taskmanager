@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { buildTokens, formatMoney } from './tokens';
+import {
+  abbreviateName,
+  buildTokens,
+  formatMoney,
+  DEFAULT_JURISDICTION_COURT,
+  EXECUTOR_DIRECTOR,
+} from './tokens';
 import type { ServiceAgreement } from './types';
 
 const agreement: ServiceAgreement = {
@@ -8,7 +14,7 @@ const agreement: ServiceAgreement = {
   customerName: 'AGRO EXPORT MCHJ', customerInn: '305123456', customerAddress: 'Farg\'ona',
   customerDirector: 'Aliyev A.A.', customerDirectorBasis: 'Устав', customerBankName: 'Ipoteka bank',
   customerBankAccount: '20208000...', customerMfo: '00123', customerOked: '46900',
-  customerPhone: '+998901234567', customerEmail: 'a@b.uz',
+  customerPhone: '+998901234567', customerEmail: 'a@b.uz', customerRequisites: null,
   executorName: 'PRODEKLARANT MCHJ', executorInn: '311953399', executorAddress: 'Oltiariq',
   executorDirector: 'Турсунбоев О.У.', executorBankName: 'Universalbank',
   executorBankAccount: '20208000007207845001', executorMfo: '00973', executorOked: null,
@@ -53,5 +59,48 @@ describe('buildTokens', () => {
 
   it('to\'ldirilgan maydonlarni kesib chiqaradi', () => {
     expect(buildTokens({ ...agreement, customerAddress: '  Farg\'ona  ' }, 412000).customerAddress).toBe('Farg\'ona');
+  });
+
+  it('rekvizitlar bo\'sh bo\'lsa bo\'sh matn beradi (tuzilmali qatorlar saqlanadi)', () => {
+    expect(buildTokens(agreement, 412000).customerRequisites).toBe('');
+    expect(buildTokens({ ...agreement, customerRequisites: '   ' }, 412000).customerRequisites).toBe('');
+  });
+
+  it('rekvizitlar matnini qator uzilishlari bilan saqlaydi', () => {
+    const text = 'Манзил: Тошкент\nМФО: 00491';
+    expect(buildTokens({ ...agreement, customerRequisites: text }, 412000).customerRequisites).toBe(text);
+  });
+
+  it('sud ko\'rsatilmagan bo\'lsa standart sudga tushadi', () => {
+    expect(buildTokens({ ...agreement, jurisdictionCourt: null }, 412000).jurisdictionCourt)
+      .toBe(DEFAULT_JURISDICTION_COURT);
+    // Yozuvda qiymat bor bo'lsa u ustun — eski shartnoma o'z matnida qoladi
+    expect(buildTokens(agreement, 412000).jurisdictionCourt).toBe('Farg\'ona viloyati iqtisodiy sudi');
+  });
+
+  it('bajaruvchi direktori ko\'rsatilmagan bo\'lsa standart qiymatga tushadi', () => {
+    const tokens = buildTokens({ ...agreement, executorDirector: null }, 412000);
+    expect(tokens.executorDirector).toBe(EXECUTOR_DIRECTOR);
+    expect(tokens.executorDirectorShort).toBe('Турсунбоев О.У.');
+  });
+});
+
+describe('abbreviateName', () => {
+  // `ў`/`у` va `ғ`/`г` ikki xil yozilishi mumkin — ikkalasi ham qisqarishi shart
+  it.each([
+    ['Турсунбоев Ойбек Улуғбек ўғли', 'Турсунбоев О.У.'],
+    ['Турсунбоев Ойбек Улугбек угли', 'Турсунбоев О.У.'],
+    ['Karimov Aziz Baxtiyor o\'g\'li', 'Karimov A.B.'],
+    ['Иванов Иван Иванович', 'Иванов И.И.'],
+  ])('%s → %s', (full, short) => {
+    expect(abbreviateName(full)).toBe(short);
+  });
+
+  it('allaqachon qisqargan shaklga tegmaydi', () => {
+    expect(abbreviateName('Турсунбоев О.У.')).toBe('Турсунбоев О.У.');
+  });
+
+  it('bitta so\'zni o\'zgarishsiz qaytaradi', () => {
+    expect(abbreviateName('—')).toBe('—');
   });
 });

@@ -49,6 +49,8 @@ export interface ServiceAgreement {
   customerOked: string | null;
   customerPhone: string | null;
   customerEmail: string | null;
+  /** Erkin, ko'p qatorli rekvizitlar bloki — PDF'ning 13-bo'limi uchun */
+  customerRequisites: string | null;
 
   executorName: string;
   executorInn: string | null;

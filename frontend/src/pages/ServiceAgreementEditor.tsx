@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { Icon } from '@iconify/react';
 import toast from 'react-hot-toast';
 import apiClient from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
-import AgreementPreview from '../components/serviceAgreement/AgreementPreview';
 import { createAgreement, getAgreement, getNextNumber, terminateAgreement, updateAgreement } from '../features/serviceAgreement/api';
+import { downloadAgreementPdf } from '../features/serviceAgreement/downloadAgreementPdf';
 import { CURRENT_TEMPLATE_VERSION } from '../features/serviceAgreement/templates';
 import { withMainTariff } from '../features/serviceAgreement/tariffs';
 import {
@@ -21,6 +22,7 @@ const EMPTY: ServiceAgreement = {
   customerName: '', customerInn: null, customerAddress: null, customerDirector: null,
   customerDirectorBasis: 'Устав', customerBankName: null, customerBankAccount: null,
   customerMfo: null, customerOked: null, customerPhone: null, customerEmail: null,
+  customerRequisites: null,
   executorName: '', executorInn: null, executorAddress: null, executorDirector: null,
   executorBankName: null, executorBankAccount: null, executorMfo: null, executorOked: null,
   executorPhone: null, executorEmail: null,
@@ -50,6 +52,67 @@ interface ClientRequisites {
   director: string | null;
   mfo: string | null;
   oked: string | null;
+}
+
+const INPUT_CLASS =
+  'w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none transition ' +
+  'focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20';
+
+/** Yorliq + maydon. Placeholder yolg'iz qolganda to'ldirilgan maydon nomsiz ko'rinadi. */
+function Field({ label, hint, className = '', children }: {
+  label: string;
+  hint?: string;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <label className={`block ${className}`}>
+      <span className="mb-1 block text-xs font-medium text-gray-600">{label}</span>
+      {children}
+      {hint && <span className="mt-1 block text-xs text-gray-400">{hint}</span>}
+    </label>
+  );
+}
+
+function Section({ step, title, subtitle, children }: {
+  step: number;
+  title: string;
+  subtitle?: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="rounded-xl border border-gray-200 bg-white p-5">
+      <div className="mb-4 flex items-start gap-3">
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-50 text-sm font-semibold text-blue-600">
+          {step}
+        </span>
+        <div>
+          <h2 className="font-semibold leading-7 text-gray-900">{title}</h2>
+          {subtitle && <p className="text-xs text-gray-500">{subtitle}</p>}
+        </div>
+      </div>
+      {children}
+    </section>
+  );
+}
+
+/**
+ * Mijoz kartochkasidagi maydonlardan rekvizitlar matnini yig'adi. Bo'sh
+ * maydonlar tushib qoladi — shartnomada `Банк: —` kabi qatorlar qolmasin.
+ */
+function composeRequisites(c: ClientRequisites): string {
+  return [
+    ['Манзил', c.address],
+    ['ИФУТ (ОКЭД)', c.oked],
+    ['Банк', c.bankName],
+    ['Ҳ/р', c.bankAccount],
+    ['МФО', c.mfo],
+    ['Тел', c.phone],
+    ['E-mail', c.email],
+  ]
+    .filter(([, value]) => value?.trim())
+    .map(([label, value]) => `${label}: ${value?.trim()}`)
+    .join('\n');
 }
 
 export default function ServiceAgreementEditor() {
@@ -127,14 +190,18 @@ export default function ServiceAgreementEditor() {
         clientId: c.id,
         customerName: c.name,
         customerInn: c.inn,
+        customerDirector: c.director,
+        // Alohida ustunlar ham to'ldiriladi: ular shartnoma matnining boshqa
+        // bandlarida ishlatiladi va rekvizitlar matni tozalansa zaxira bo'ladi.
         customerAddress: c.address,
         customerBankName: c.bankName,
         customerBankAccount: c.bankAccount,
         customerPhone: c.phone,
         customerEmail: c.email,
-        customerDirector: c.director,
         customerMfo: c.mfo,
         customerOked: c.oked,
+        // Qo'lda yozilgan matn ustidan yozilmaydi
+        customerRequisites: prev.customerRequisites?.trim() ? prev.customerRequisites : composeRequisites(c),
       }));
     } catch {
       toast.error('Mijoz rekvizitlarini olib bo\'lmadi');
@@ -184,11 +251,8 @@ export default function ServiceAgreementEditor() {
 
       if (syncToClient && canSyncToClient) {
         // Shartnoma saqlangan — sinxronlash yiqilsa ham uni bekor qilmaymiz
-        await apiClient.patch(`/clients/${form.clientId}`, {
-          director: form.customerDirector,
-          mfo: form.customerMfo,
-          oked: form.customerOked,
-        }).catch(() => toast.error('Mijoz kartochkasi yangilanmadi'));
+        await apiClient.patch(`/clients/${form.clientId}`, { director: form.customerDirector })
+          .catch(() => toast.error('Mijoz kartochkasi yangilanmadi'));
       }
 
       toast.success('Saqlandi');
@@ -201,43 +265,65 @@ export default function ServiceAgreementEditor() {
     }
   };
 
+  const tariffUzs = bhmUzs && Number(form.mainTariffBhm)
+    ? (Number(form.mainTariffBhm) * bhmUzs).toLocaleString('ru-RU')
+    : '';
+
   return (
-    <div className="grid gap-6 p-4 sm:p-6 lg:grid-cols-2">
-      <div className="space-y-6">
+    <div className="mx-auto max-w-3xl p-4 pb-28 sm:p-6 sm:pb-28">
+      <button
+        onClick={() => navigate('/shartnomalar')}
+        className="mb-4 inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800"
+      >
+        <Icon icon="solar:alt-arrow-left-linear" className="text-lg" />
+        Shartnomalar
+      </button>
+
+      <div className="space-y-5">
         {/* Holat paneli — faqat saqlangan shartnoma uchun */}
         {id && (
-          <section className="rounded-xl border border-gray-200 p-4">
+          <section className="rounded-xl border border-gray-200 bg-white p-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <div className="font-semibold">№ {form.agreementNumber}</div>
+                <div className="text-lg font-semibold text-gray-900">№ {form.agreementNumber}</div>
                 <div className="text-xs text-gray-500">
                   {new Date(form.agreementDate).toLocaleDateString('ru-RU')} — {form.customerName}
                 </div>
               </div>
 
-              {isTerminated ? (
-                <span className="rounded-full bg-red-100 px-3 py-1 text-sm text-red-700">
-                  {STATUS_LABEL.TERMINATED}
-                </span>
-              ) : (
-                <div className="flex items-center gap-2">
-                  {/* Holat oddiy `Saqlash` bilan yoziladi; bekor qilish alohida endpoint */}
-                  <select
-                    value={form.status}
-                    onChange={(e) => set('status', e.target.value as AgreementStatus)}
-                    className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
-                  >
-                    <option value="DRAFT">{STATUS_LABEL.DRAFT}</option>
-                    <option value="ACTIVE">{STATUS_LABEL.ACTIVE}</option>
-                  </select>
-                  <button
-                    onClick={() => setTerminateOpen(true)}
-                    className="rounded-lg border border-red-200 px-3 py-2 text-sm text-red-600 hover:bg-red-50"
-                  >
-                    Bekor qilish
-                  </button>
-                </div>
-              )}
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={() => downloadAgreementPdf(form, bhmUzs)}
+                  className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                >
+                  <Icon icon="solar:file-download-bold-duotone" className="text-lg text-blue-600" />
+                  PDF yuklab olish
+                </button>
+
+                {isTerminated ? (
+                  <span className="rounded-full bg-red-100 px-3 py-1.5 text-sm text-red-700">
+                    {STATUS_LABEL.TERMINATED}
+                  </span>
+                ) : (
+                  <>
+                    {/* Holat oddiy `Saqlash` bilan yoziladi; bekor qilish alohida endpoint */}
+                    <select
+                      value={form.status}
+                      onChange={(e) => set('status', e.target.value as AgreementStatus)}
+                      className="rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                    >
+                      <option value="DRAFT">{STATUS_LABEL.DRAFT}</option>
+                      <option value="ACTIVE">{STATUS_LABEL.ACTIVE}</option>
+                    </select>
+                    <button
+                      onClick={() => setTerminateOpen(true)}
+                      className="rounded-lg border border-red-200 px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+                    >
+                      Bekor qilish
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
 
             {isTerminated && (
@@ -249,87 +335,125 @@ export default function ServiceAgreementEditor() {
           </section>
         )}
 
-        {/* 1. Mijoz va rekvizitlar */}
-        <section className="rounded-xl border border-gray-200 p-4">
-          <h2 className="mb-3 font-semibold">1. Mijoz va rekvizitlar</h2>
-          <select
-            value={form.clientId || ''}
-            onChange={(e) => pickClient(Number(e.target.value))}
-            className="mb-3 w-full rounded-lg border border-gray-300 px-3 py-2"
-          >
-            <option value="">Mijozni tanlang</option>
-            {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
+        <Section step={1} title="Mijoz va rekvizitlar" subtitle="Shartnomaga nusxa olinadi — keyin mijoz kartochkasi o'zgarsa ham bu yerdagi matn o'zgarmaydi">
+          <Field label="Mijoz" className="mb-4">
+            <select
+              value={form.clientId || ''}
+              onChange={(e) => pickClient(Number(e.target.value))}
+              className={INPUT_CLASS}
+            >
+              <option value="">Mijozni tanlang</option>
+              {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </Field>
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            <input value={form.customerName} onChange={(e) => set('customerName', e.target.value)} placeholder="Korxona nomi" className="rounded-lg border border-gray-300 px-3 py-2" />
-            <input value={form.customerInn ?? ''} onChange={(e) => set('customerInn', e.target.value)} placeholder="INN" className="rounded-lg border border-gray-300 px-3 py-2" />
-            <input value={form.customerDirector ?? ''} onChange={(e) => set('customerDirector', e.target.value)} placeholder="Direktor F.I.Sh." className="rounded-lg border border-gray-300 px-3 py-2" />
-            <input value={form.customerMfo ?? ''} onChange={(e) => set('customerMfo', e.target.value)} placeholder="MFO" className="rounded-lg border border-gray-300 px-3 py-2" />
-            <input value={form.customerOked ?? ''} onChange={(e) => set('customerOked', e.target.value)} placeholder="OKED" className="rounded-lg border border-gray-300 px-3 py-2" />
-            <input value={form.customerAddress ?? ''} onChange={(e) => set('customerAddress', e.target.value)} placeholder="Manzil" className="rounded-lg border border-gray-300 px-3 py-2" />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Korxona nomi">
+              <input value={form.customerName} onChange={(e) => set('customerName', e.target.value)} placeholder="MChJ «…»" className={INPUT_CLASS} />
+            </Field>
+            <Field label="INN (СТИР)">
+              <input value={form.customerInn ?? ''} onChange={(e) => set('customerInn', e.target.value)} placeholder="123456789" className={INPUT_CLASS} />
+            </Field>
+            <Field
+              label="Direktor F.I.Sh."
+              className="sm:col-span-2"
+              hint="To'liq yozing — shartnomada avtomat qisqaradi (Турсунбоев Ойбек Улуғбек ўғли → Турсунбоев О.У.)"
+            >
+              <input value={form.customerDirector ?? ''} onChange={(e) => set('customerDirector', e.target.value)} placeholder="Каримов Азиз Бахтиёрович" className={INPUT_CLASS} />
+            </Field>
           </div>
+
+          <Field
+            label="Rekvizitlar"
+            className="mt-4"
+            hint="Shartnomaning oxirgi bo'limiga aynan shu ko'rinishda tushadi. Har qator — alohida rekvizit."
+          >
+            <textarea
+              value={form.customerRequisites ?? ''}
+              onChange={(e) => set('customerRequisites', e.target.value)}
+              rows={10}
+              placeholder={'Манзил: Тошкент ш., Чилонзор т., 14-уй\nИФУТ (ОКЭД): 46900\nБанк: АТБ «Ипотека банк»\nҲ/р: 20208000000000000000\nМФО: 00491\nТел: +998 90 123-45-67\nE-mail: info@example.uz'}
+              className={`${INPUT_CLASS} resize-y font-mono leading-relaxed`}
+            />
+          </Field>
 
           {canSyncToClient && (
             <label className="mt-3 flex items-center gap-2 text-sm text-gray-600">
               <input type="checkbox" checked={syncToClient} onChange={(e) => setSyncToClient(e.target.checked)} />
-              Direktor, MFO va OKED ni mijoz kartochkasiga ham saqlash
+              Direktorni mijoz kartochkasiga ham saqlash
             </label>
           )}
-        </section>
+        </Section>
 
-        {/* 2. To'lov modeli */}
-        <section className="rounded-xl border border-gray-200 p-4">
-          <h2 className="mb-3 font-semibold">2. To'lov modeli</h2>
-          <div className="mb-3 flex flex-wrap gap-2">
-            {(Object.keys(PAYMENT_MODEL_LABEL) as PaymentModel[]).map((model) => (
-              <button
-                key={model}
-                onClick={() => set('paymentModel', model)}
-                className={`rounded-lg px-3 py-2 text-sm ${form.paymentModel === model ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700'}`}
-              >
-                {PAYMENT_MODEL_LABEL[model]}
-              </button>
-            ))}
-          </div>
+        <Section step={2} title="To'lov shartlari">
+          <Field label="To'lov modeli">
+            <div className="flex flex-wrap gap-2">
+              {(Object.keys(PAYMENT_MODEL_LABEL) as PaymentModel[]).map((model) => (
+                <button
+                  key={model}
+                  onClick={() => set('paymentModel', model)}
+                  className={`rounded-lg px-3 py-2 text-sm transition ${
+                    form.paymentModel === model
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  {PAYMENT_MODEL_LABEL[model]}
+                </button>
+              ))}
+            </div>
+          </Field>
 
           {form.paymentModel === 'MONTHLY' && (
-            <input type="number" min={1} max={28} value={form.monthlyDueDay ?? ''} onChange={(e) => set('monthlyDueDay', Number(e.target.value) || null)} placeholder="Oyning sanasi (1–28)" className="w-full rounded-lg border border-gray-300 px-3 py-2" />
+            <Field label="Oyning sanasi" className="mt-4">
+              <input type="number" min={1} max={28} value={form.monthlyDueDay ?? ''} onChange={(e) => set('monthlyDueDay', Number(e.target.value) || null)} placeholder="1–28" className={INPUT_CLASS} />
+            </Field>
           )}
           {form.paymentModel === 'PER_COUNT' && (
-            <div className="grid gap-3 sm:grid-cols-2">
-              <input type="number" value={form.perCountThreshold ?? ''} onChange={(e) => set('perCountThreshold', Number(e.target.value) || null)} placeholder="Necha ta ishda" className="rounded-lg border border-gray-300 px-3 py-2" />
-              <input type="number" value={form.perCountDueDays ?? ''} onChange={(e) => set('perCountDueDays', Number(e.target.value) || null)} placeholder="Necha bank kuni ichida" className="rounded-lg border border-gray-300 px-3 py-2" />
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <Field label="Necha ta ishda">
+                <input type="number" value={form.perCountThreshold ?? ''} onChange={(e) => set('perCountThreshold', Number(e.target.value) || null)} className={INPUT_CLASS} />
+              </Field>
+              <Field label="Necha bank kuni ichida">
+                <input type="number" value={form.perCountDueDays ?? ''} onChange={(e) => set('perCountDueDays', Number(e.target.value) || null)} className={INPUT_CLASS} />
+              </Field>
             </div>
           )}
           {form.paymentModel === 'PER_AMOUNT' && (
-            <div className="grid gap-3 sm:grid-cols-2">
-              <input type="number" value={form.perAmountThreshold ?? ''} onChange={(e) => set('perAmountThreshold', e.target.value || null)} placeholder="Qaysi summada (so'm)" className="rounded-lg border border-gray-300 px-3 py-2" />
-              <input type="number" value={form.perAmountDueDays ?? ''} onChange={(e) => set('perAmountDueDays', Number(e.target.value) || null)} placeholder="Necha bank kuni ichida" className="rounded-lg border border-gray-300 px-3 py-2" />
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <Field label="Qaysi summada (so'm)">
+                <input type="number" value={form.perAmountThreshold ?? ''} onChange={(e) => set('perAmountThreshold', e.target.value || null)} className={INPUT_CLASS} />
+              </Field>
+              <Field label="Necha bank kuni ichida">
+                <input type="number" value={form.perAmountDueDays ?? ''} onChange={(e) => set('perAmountDueDays', Number(e.target.value) || null)} className={INPUT_CLASS} />
+              </Field>
             </div>
           )}
-          {form.paymentModel !== 'PREPAID' && (
-            <input type="number" value={form.creditLimit ?? ''} onChange={(e) => set('creditLimit', e.target.value || null)} placeholder="Kredit limiti (so'm)" className="mt-3 w-full rounded-lg border border-gray-300 px-3 py-2" />
-          )}
-        </section>
 
-        {/* 3. Qo'shimcha shartlar */}
-        <section className="rounded-xl border border-gray-200 p-4">
-          <h2 className="mb-3 font-semibold">3. Qo'shimcha shartlar</h2>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <input value={form.mainTariffBhm} onChange={(e) => setMainTariff(e.target.value)} placeholder="BYuD tarifi (BHM)" className="rounded-lg border border-gray-300 px-3 py-2" />
-            <input value={form.jurisdictionCourt ?? ''} onChange={(e) => set('jurisdictionCourt', e.target.value)} placeholder="Sud" className="rounded-lg border border-gray-300 px-3 py-2" />
-            <input value={form.brokerRegistryNumber ?? ''} onChange={(e) => set('brokerRegistryNumber', e.target.value)} placeholder="Broker reestri raqami (bo'sh — 2.3-band tushadi)" className="rounded-lg border border-gray-300 px-3 py-2 sm:col-span-2" />
+          <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <Field label="BYuD tarifi (BHM)" hint={tariffUzs ? `≈ ${tariffUzs} so'm` : undefined}>
+              <input value={form.mainTariffBhm} onChange={(e) => setMainTariff(e.target.value)} className={INPUT_CLASS} />
+            </Field>
+            {form.paymentModel !== 'PREPAID' && (
+              <Field label="Kredit limiti (so'm)">
+                <input type="number" value={form.creditLimit ?? ''} onChange={(e) => set('creditLimit', e.target.value || null)} className={INPUT_CLASS} />
+              </Field>
+            )}
           </div>
-        </section>
-
-        <button onClick={save} disabled={saving || isTerminated} className="w-full rounded-lg bg-blue-600 py-3 text-white hover:bg-blue-700 disabled:opacity-50">
-          {saving ? 'Saqlanmoqda…' : 'Saqlash'}
-        </button>
+        </Section>
       </div>
 
-      <div className="lg:sticky lg:top-6 lg:self-start">
-        <AgreementPreview agreement={form} bhmUzs={bhmUzs} />
+      {/* Forma uzun — saqlash tugmasi doim ko'rinib tursin */}
+      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-gray-200 bg-white/95 p-3 backdrop-blur">
+        <div className="mx-auto max-w-3xl">
+          <button
+            onClick={save}
+            disabled={saving || isTerminated}
+            className="w-full rounded-lg bg-blue-600 py-3 font-medium text-white transition hover:bg-blue-700 disabled:opacity-50"
+          >
+            {saving ? 'Saqlanmoqda…' : 'Saqlash'}
+          </button>
+        </div>
       </div>
 
       {terminateOpen && (
@@ -347,7 +471,7 @@ export default function ServiceAgreementEditor() {
               onChange={(e) => setTerminationReason(e.target.value)}
               rows={3}
               placeholder="Bekor qilish sababi"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2"
+              className={INPUT_CLASS}
             />
             <div className="mt-4 flex justify-end gap-2">
               <button onClick={() => setTerminateOpen(false)} className="rounded-lg bg-gray-100 px-4 py-2 text-sm text-gray-700">

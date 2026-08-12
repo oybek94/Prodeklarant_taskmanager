@@ -16,7 +16,7 @@ const base: ServiceAgreement = {
   customerName: 'AGRO EXPORT MCHJ', customerInn: '305123456', customerAddress: 'Farg\'ona',
   customerDirector: 'Aliyev A.A.', customerDirectorBasis: 'Устав', customerBankName: 'Ipoteka bank',
   customerBankAccount: '20208', customerMfo: '00123', customerOked: '46900',
-  customerPhone: '+998901234567', customerEmail: 'a@b.uz',
+  customerPhone: '+998901234567', customerEmail: 'a@b.uz', customerRequisites: null,
   executorName: 'PRODEKLARANT MCHJ', executorInn: '311953399', executorAddress: 'Oltiariq',
   executorDirector: 'Турсунбоев О.У.', executorBankName: 'Universalbank',
   executorBankAccount: '20208000007207845001', executorMfo: '00973', executorOked: null,
@@ -98,6 +98,62 @@ describe('v2 shabloni', () => {
     expect(renderAll(base)).toContain('ишончли вакили');
     expect(renderAll({ ...base, brokerRegistryNumber: '№ 123' })).toContain('реестр');
     expect(renderAll({ ...base, vatPayer: true })).not.toContain('ҚҚС тўловчиси эмас');
+  });
+
+  describe('13-bo\'lim rekvizitlari', () => {
+    /** 13-bo'lim jadvalining qatorlarini `[bajaruvchi, buyurtmachi]` ko'rinishida beradi */
+    const requisiteRows = (agreement: ServiceAgreement): string[][] => {
+      const tokens = buildTokens(agreement, 412000);
+      const table = visibleBlocks(getTemplate('v2'), tokens)
+        .filter((block) => block.kind === 'table')
+        .at(-1);
+      if (table?.kind !== 'table') throw new Error('Rekvizitlar jadvali topilmadi');
+      return table.rows(tokens);
+    };
+
+    const withRequisites = {
+      ...base,
+      customerRequisites: 'Манзил: Тошкент ш.\nБанк: Ипотека банк\nМФО: 00491',
+    };
+
+    it('erkin matn kiritilganda uni satrma-satr chiqaradi', () => {
+      const customer = requisiteRows(withRequisites).map((row) => row[1]);
+      expect(customer).toContain('Манзил: Тошкент ш.');
+      expect(customer).toContain('Банк: Ипотека банк');
+      expect(customer).toContain('МФО: 00491');
+    });
+
+    it('erkin matn tuzilmali qatorlarning O\'RNIGA chiqadi', () => {
+      const customer = requisiteRows(withRequisites).map((row) => row[1]);
+      // Mijozning bazadagi MFO'si 00123 — u endi chiqmasligi kerak
+      expect(customer).not.toContain('МФО: 00123');
+      expect(customer).not.toContain('ИФУТ (ОКЭД): 46900');
+      // Nom, direktor va STIR baribir alohida qator bo'lib qoladi
+      expect(customer[0]).toBe('AGRO EXPORT MCHJ');
+      expect(customer[1]).toBe('Директор: Aliyev A.A.');
+      expect(customer[2]).toBe('СТИР: 305123456');
+    });
+
+    it('rekvizitlar bo\'sh bo\'lsa eski tuzilmali qatorlar saqlanadi', () => {
+      const customer = requisiteRows(base).map((row) => row[1]);
+      expect(customer).toContain('МФО: 00123');
+      expect(customer).toContain('ИФУТ (ОКЭД): 46900');
+      expect(customer).toContain('E-mail: a@b.uz');
+    });
+
+    it('bajaruvchi ustuni o\'zgarmaydi va har qatorda ikkala katak bor', () => {
+      for (const rows of [requisiteRows(base), requisiteRows(withRequisites)]) {
+        expect(rows.every((row) => row.length === 2)).toBe(true);
+        expect(rows.map((row) => row[0])).toContain('МФО: 00973');
+      }
+    });
+
+    it('uzun rekvizitlar matnida bajaruvchi qatorlari yo\'qolmaydi', () => {
+      const long = { ...base, customerRequisites: Array.from({ length: 25 }, (_, i) => `Қатор ${i}`).join('\n') };
+      const rows = requisiteRows(long);
+      expect(rows).toHaveLength(29); // 3 sarlavha + 1 bo'sh + 25 qator
+      expect(rows.map((row) => row[0])).toContain(`E-mail: ${'docs@prodeklarant.uz'}`);
+    });
   });
 
   /** Qarang: `v1.test.ts` — glifi yo'q belgi PDF'ni butunlay ishlamay qoldiradi */

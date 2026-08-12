@@ -52,6 +52,7 @@ const agreement: ServiceAgreement = {
   customerName: 'TEST MCHJ', customerInn: '123456789', customerAddress: null, customerDirector: null,
   customerDirectorBasis: 'Устав', customerBankName: null, customerBankAccount: null,
   customerMfo: null, customerOked: null, customerPhone: null, customerEmail: null,
+  customerRequisites: null,
   executorName: 'PRODEKLARANT MCHJ', executorInn: null, executorAddress: null, executorDirector: null,
   executorBankName: null, executorBankAccount: null, executorMfo: null, executorOked: null,
   executorPhone: null, executorEmail: null,
@@ -86,6 +87,21 @@ describe('renderAgreementPdf', () => {
 
     return measureLayout(layout)?.pageCount ?? 0;
   };
+
+  it('uzun erkin rekvizitlar bilan ham chiziladi', async () => {
+    // Rekvizitlar maydoniga ko'p ma'lumot yoziladi — 13-bo'lim jadvali bet
+    // chegarasidan oshib ketsa ham render yiqilmasligi kerak.
+    const long: ServiceAgreement = {
+      ...agreement,
+      templateVersion: 'v2',
+      customerRequisites: Array.from(
+        { length: 30 },
+        (_, i) => `Реквизит ${i + 1}: Тошкент шаҳри, Чилонзор тумани, 14-уй, хонадон ${i + 1}`,
+      ).join('\n'),
+    };
+    const blob = await renderAgreementPdf(long, BHM_UZS);
+    expect(blob.size).toBeGreaterThan(0);
+  }, 60_000);
 
   it('v1 (uzun, ilovali) hujjat ham chiziladi — bet raqami xatosi aynan shunda chiqardi', async () => {
     // Bet raqami xatosi 10-betdan boshlab chiqadi, shuning uchun qamrov uchun

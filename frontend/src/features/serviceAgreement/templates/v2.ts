@@ -1,7 +1,56 @@
+import type { AgreementTokens } from '../tokens';
 import type { AgreementTemplate } from './types';
 
 /** Shartnomada ko'rsatiladigan Bajaruvchi elektron pochtasi (kompaniya sozlamasidan olinmaydi) */
 const EXECUTOR_EMAIL = 'docs@prodeklarant.uz';
+
+/**
+ * 13-bo'lim jadvali. Ikki ustun mustaqil ro'yxat sifatida quriladi va qisqasi
+ * bo'sh qatorlar bilan to'ldiriladi: Buyurtmachi tomonida erkin matn bo'lishi
+ * mumkin, uning qatorlari soni Bajaruvchinikiga to'g'ri kelmaydi.
+ */
+function requisiteRows(t: AgreementTokens): string[][] {
+  const executor = [
+    t.executorName,
+    // Qisqartirilgan F.I.Sh. — to'liq ism preambulada
+    `Директор: ${t.executorDirectorShort}`,
+    `Манзил: ${t.executorAddress}`,
+    `СТИР: ${t.executorInn}`,
+    `ИФУТ (ОКЭД): ${t.executorOked}`,
+    `Банк: ${t.executorBankName}`,
+    `Ҳ/р: ${t.executorBankAccount}`,
+    `МФО: ${t.executorMfo}`,
+    `Тел: ${t.executorPhone}`,
+    `E-mail: ${EXECUTOR_EMAIL}`,
+  ];
+
+  const customer = t.customerRequisites
+    ? [
+        t.customerName,
+        `Директор: ${t.customerDirectorShort}`,
+        `СТИР: ${t.customerInn}`,
+        '',
+        // Erkin matn qanday yozilgan bo'lsa, shundayligicha — har satr alohida
+        // katak, aks holda uzun blok Bajaruvchi ustuni bilan tekislanmaydi.
+        ...t.customerRequisites.split('\n'),
+      ]
+    : [
+        // Rekvizitlar bo'sh — eski shartnomalar avvalgi tuzilmada qayta chiqadi
+        t.customerName,
+        `Директор: ${t.customerDirectorShort}`,
+        `Манзил: ${t.customerAddress}`,
+        `СТИР: ${t.customerInn}`,
+        `ИФУТ (ОКЭД): ${t.customerOked}`,
+        `Банк: ${t.customerBankName}`,
+        `Ҳ/р: ${t.customerBankAccount}`,
+        `МФО: ${t.customerMfo}`,
+        `Тел: ${t.customerPhone}`,
+        `E-mail: ${t.customerEmail}`,
+      ];
+
+  const rowCount = Math.max(executor.length, customer.length);
+  return Array.from({ length: rowCount }, (_, i) => [executor[i] ?? '', customer[i] ?? '']);
+}
 
 /**
  * `v1` ning qisqartirilgan tahriri (2026-08-06). `v1` dan farqi:
@@ -486,19 +535,10 @@ export const v2: AgreementTemplate = {
       kind: 'table',
       header: ['БАЖАРУВЧИ', 'БУЮРТМАЧИ'],
       widths: [50, 50],
-      rows: (t) => [
-        [t.executorName, t.customerName],
-        // Qisqartirilgan F.I.Sh. — to'liq ism preambulada
-        [`Директор: ${t.executorDirectorShort}`, `Директор: ${t.customerDirectorShort}`],
-        [`Манзил: ${t.executorAddress}`, `Манзил: ${t.customerAddress}`],
-        [`СТИР: ${t.executorInn}`, `СТИР: ${t.customerInn}`],
-        [`ИФУТ (ОКЭД): ${t.executorOked}`, `ИФУТ (ОКЭД): ${t.customerOked}`],
-        [`Банк: ${t.executorBankName}`, `Банк: ${t.customerBankName}`],
-        [`Ҳ/р: ${t.executorBankAccount}`, `Ҳ/р: ${t.customerBankAccount}`],
-        [`МФО: ${t.executorMfo}`, `МФО: ${t.customerMfo}`],
-        [`Тел: ${t.executorPhone}`, `Тел: ${t.customerPhone}`],
-        [`E-mail: ${EXECUTOR_EMAIL}`, `E-mail: ${t.customerEmail}`],
-      ],
+      // Buyurtmachi ustunida erkin matn bo'lishi mumkin — qatorlar soni ikki
+      // tomonda teng emas, shuning uchun har qatorga chiziq tortilmaydi.
+      borderless: true,
+      rows: requisiteRows,
     },
     { kind: 'signature' },
   ],

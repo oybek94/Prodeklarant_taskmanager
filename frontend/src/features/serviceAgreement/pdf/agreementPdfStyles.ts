@@ -32,6 +32,8 @@ export const styles = StyleSheet.create({
   table: { width: '100%', borderWidth: 0.6, borderColor: '#9ca3af', marginVertical: 4 },
   tableHeaderRow: { flexDirection: 'row', borderBottomWidth: 0.6, borderBottomColor: '#9ca3af' },
   tableRow: { flexDirection: 'row', borderBottomWidth: 0.4, borderBottomColor: '#d1d5db' },
+  /** `borderless` jadval uchun — qarang: `Block` tipidagi izoh */
+  tableRowPlain: { flexDirection: 'row' },
   tableCell: { paddingVertical: 2, paddingHorizontal: 3, fontSize: 8 },
   tableCellHeader: { paddingVertical: 2, paddingHorizontal: 3, fontSize: 8, fontWeight: 'bold' },
   signatureRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 14 },

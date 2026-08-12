@@ -157,4 +157,25 @@ router.post('/:id/terminate', requireAuth(), async (req: AuthRequest, res) => {
   res.json(updated);
 });
 
+/**
+ * Shartnomani bazadan butunlay o'chiradi — xato kiritilgan yozuvni tozalash
+ * uchun. Amal QAYTARILMAYDI, shuning uchun frontend tasdiqlash so'raydi.
+ * Haqiqatda tuzilgan shartnomani tugatish uchun `POST /:id/terminate` bor.
+ */
+router.delete('/:id', requireAuth(), async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (!Number.isFinite(id)) return res.status(400).json({ error: 'Invalid id' });
+  try {
+    await prisma.serviceAgreement.delete({ where: { id } });
+    res.status(204).end();
+  } catch (error: unknown) {
+    // P2025 — o'chiriladigan yozuv topilmadi
+    if (typeof error === 'object' && error !== null && (error as { code?: string }).code === 'P2025') {
+      return res.status(404).json({ error: 'Shartnoma topilmadi' });
+    }
+    console.error('[service-agreements] DELETE error:', error);
+    res.status(500).json({ error: 'Shartnomani o\'chirishda xatolik' });
+  }
+});
+
 export default router;

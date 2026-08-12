@@ -152,7 +152,6 @@ describe('v2 shabloni', () => {
       const customer = requisiteRows(withRequisites).map((row) => row[1]);
       // Mijozning bazadagi MFO'si 00123 — u endi chiqmasligi kerak
       expect(customer).not.toContain('МФО: 00123');
-      expect(customer).not.toContain('ИФУТ (ОКЭД): 46900');
       // Nom, direktor va STIR baribir alohida qator bo'lib qoladi
       expect(customer[0]).toBe('AGRO EXPORT MCHJ');
       expect(customer[1]).toBe('Директор: Aliyev A.A.');
@@ -162,14 +161,28 @@ describe('v2 shabloni', () => {
     it('rekvizitlar bo\'sh bo\'lsa eski tuzilmali qatorlar saqlanadi', () => {
       const customer = requisiteRows(base).map((row) => row[1]);
       expect(customer).toContain('МФО: 00123');
-      expect(customer).toContain('ИФУТ (ОКЭД): 46900');
       expect(customer).toContain('E-mail: a@b.uz');
     });
 
-    it('bajaruvchi ustuni o\'zgarmaydi va har qatorda ikkala katak bor', () => {
+    it('ИФУТ (ОКЭД) hech bir ustunda chiqmaydi', () => {
+      for (const agreement of [base, withRequisites]) {
+        expect(requisiteRows(agreement).flat().join('\n')).not.toContain('ИФУТ');
+      }
+    });
+
+    it('bajaruvchi ustunida barcha rekvizit qatori bor', () => {
       for (const rows of [requisiteRows(base), requisiteRows(withRequisites)]) {
         expect(rows.every((row) => row.length === 2)).toBe(true);
-        expect(rows.map((row) => row[0])).toContain('МФО: 00973');
+        const executor = rows.map((row) => row[0]);
+        expect(executor).toContain('PRODEKLARANT MCHJ');
+        expect(executor).toContain('Директор: Турсунбоев О.У.');
+        expect(executor).toContain('Манзил: Oltiariq');
+        expect(executor).toContain('СТИР: 311953399');
+        expect(executor).toContain('Банк: Universalbank');
+        expect(executor).toContain('Ҳ/р: 20208000007207845001');
+        expect(executor).toContain('МФО: 00973');
+        expect(executor).toContain('Тел: +998911187007');
+        expect(executor).toContain('E-mail: docs@prodeklarant.uz');
       }
     });
 

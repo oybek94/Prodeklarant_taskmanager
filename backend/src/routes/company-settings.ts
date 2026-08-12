@@ -10,11 +10,13 @@ const companySettingsSchema = z.object({
   legalAddress: z.string().min(1),
   actualAddress: z.string().min(1),
   inn: z.string().optional(),
+  director: z.string().optional(),
   phone: z.string().optional(),
   email: z.string().email().optional().or(z.literal('')),
   bankName: z.string().optional(),
   bankAddress: z.string().optional(),
   bankAccount: z.string().optional(),
+  mfo: z.string().optional(),
   swiftCode: z.string().optional(),
   correspondentBank: z.string().optional(),
   correspondentBankAddress: z.string().optional(),
@@ -33,6 +35,37 @@ router.get('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
     res.json(settings);
   } catch (error: any) {
     console.error('Error fetching company settings:', error);
+    res.status(500).json({ error: error.message || 'Xatolik yuz berdi' });
+  }
+});
+
+/**
+ * GET /company-settings/requisites — shartnomadagi «БАЖАРУВЧИ» ustuni uchun.
+ *
+ * `GET /` faqat ADMIN uchun ochiq, shartnomani esa har qanday xodim tuzadi:
+ * o'sha yerdan so'ralganda 403 qaytardi va Bajaruvchi rekvizitlari bo'sh
+ * qolardi. Shu sababli faqat hujjatga tushadigan maydonlar alohida beriladi —
+ * bank-korrespondent va SWIFT kabi qolgan sozlamalar bu yerga chiqmaydi.
+ */
+router.get('/requisites', requireAuth(), async (_req: AuthRequest, res) => {
+  try {
+    const settings = await prisma.companySettings.findFirst({
+      select: {
+        name: true,
+        inn: true,
+        director: true,
+        legalAddress: true,
+        bankName: true,
+        bankAccount: true,
+        mfo: true,
+        phone: true,
+        email: true,
+      },
+    });
+
+    res.json(settings ?? null);
+  } catch (error: any) {
+    console.error('Error fetching company requisites:', error);
     res.status(500).json({ error: error.message || 'Xatolik yuz berdi' });
   }
 });
@@ -60,11 +93,13 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
           legalAddress: data.legalAddress,
           actualAddress: data.actualAddress,
           inn: data.inn || undefined,
+          director: data.director || undefined,
           phone: data.phone || undefined,
           email: data.email || undefined,
           bankName: data.bankName || undefined,
           bankAddress: data.bankAddress || undefined,
           bankAccount: data.bankAccount || undefined,
+          mfo: data.mfo || undefined,
           swiftCode: data.swiftCode || undefined,
           correspondentBank: data.correspondentBank || undefined,
           correspondentBankAddress: data.correspondentBankAddress || undefined,
@@ -79,11 +114,13 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
           legalAddress: data.legalAddress,
           actualAddress: data.actualAddress,
           inn: data.inn || undefined,
+          director: data.director || undefined,
           phone: data.phone || undefined,
           email: data.email || undefined,
           bankName: data.bankName || undefined,
           bankAddress: data.bankAddress || undefined,
           bankAccount: data.bankAccount || undefined,
+          mfo: data.mfo || undefined,
           swiftCode: data.swiftCode || undefined,
           correspondentBank: data.correspondentBank || undefined,
           correspondentBankAddress: data.correspondentBankAddress || undefined,

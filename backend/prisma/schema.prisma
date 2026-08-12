@@ -1041,11 +1041,15 @@ model CompanySettings {
   legalAddress             String
   actualAddress            String
   inn                      String?
+  /// Direktor F.I.Sh. — shartnoma rekvizitlaridagi `Директор:` qatori
+  director                 String?
   phone                    String?
   email                    String?
   bankName                 String?
   bankAddress              String?
   bankAccount              String?
+  /// Bank MFO — shartnoma rekvizitlaridagi `МФО:` qatori
+  mfo                      String?
   swiftCode                String?
   correspondentBank        String?
   correspondentBankAddress String?

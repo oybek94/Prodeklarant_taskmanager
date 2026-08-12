@@ -60,11 +60,15 @@ export interface CompanySettings {
   legalAddress: string;
   actualAddress: string;
   inn?: string;
+  /** Direktor F.I.Sh. — shartnoma rekvizitlariga tushadi */
+  director?: string;
   phone?: string;
   email?: string;
   bankName?: string;
   bankAddress?: string;
   bankAccount?: string;
+  /** Bank MFO — shartnoma rekvizitlariga tushadi */
+  mfo?: string;
   swiftCode?: string;
   correspondentBank?: string;
   correspondentBankAddress?: string;

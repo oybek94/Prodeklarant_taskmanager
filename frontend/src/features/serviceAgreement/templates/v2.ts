@@ -16,7 +16,6 @@ function requisiteRows(t: AgreementTokens): string[][] {
     `Директор: ${t.executorDirectorShort}`,
     `Манзил: ${t.executorAddress}`,
     `СТИР: ${t.executorInn}`,
-    `ИФУТ (ОКЭД): ${t.executorOked}`,
     `Банк: ${t.executorBankName}`,
     `Ҳ/р: ${t.executorBankAccount}`,
     `МФО: ${t.executorMfo}`,
@@ -40,7 +39,6 @@ function requisiteRows(t: AgreementTokens): string[][] {
         `Директор: ${t.customerDirectorShort}`,
         `Манзил: ${t.customerAddress}`,
         `СТИР: ${t.customerInn}`,
-        `ИФУТ (ОКЭД): ${t.customerOked}`,
         `Банк: ${t.customerBankName}`,
         `Ҳ/р: ${t.customerBankAccount}`,
         `МФО: ${t.customerMfo}`,
@@ -68,6 +66,10 @@ function requisiteRows(t: AgreementTokens): string[][] {
  * (ishni boshlash muddati) olib tashlandi, 1 va 2-bo'lim qayta raqamlandi.
  * «Buyurtma-ariza» atamasi qolgan 10 ta bandda ishlatilgani uchun uning ta'rifi
  * 2.1-band boshiga ko'chirildi — aks holda hujjatda ta'riflanmagan atama qoladi.
+ *
+ * 2026-08-12 (2-tahrir): 13-bo'limdan «ИФУТ (ОКЭД)» qatori ikkala ustundan ham
+ * olib tashlandi. `executorOked`/`customerOked` tokenlari o'z joyida qoladi —
+ * ular `v1` da hamon ishlatiladi.
  *
  * MUHIM: imzolangan shartnoma aynan shu versiyada qayta chiqishi kerak.
  * Matnni o'zgartirish kerak bo'lsa — YANGI fayl (`v3.ts`) yarating, bu faylga

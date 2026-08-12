@@ -39,6 +39,19 @@ interface ClientOption {
   name: string;
 }
 
+/** `GET /company-settings/requisites` — Bajaruvchi (PRODEKLARANT) rekvizitlari */
+interface ExecutorRequisites {
+  name: string;
+  inn: string | null;
+  director: string | null;
+  legalAddress: string | null;
+  bankName: string | null;
+  bankAccount: string | null;
+  mfo: string | null;
+  phone: string | null;
+  email: string | null;
+}
+
 /** `GET /clients/:id` dan kerak bo'ladigan rekvizitlar */
 interface ClientRequisites {
   id: number;
@@ -103,7 +116,6 @@ function Section({ step, title, subtitle, children }: {
 function composeRequisites(c: ClientRequisites): string {
   return [
     ['Манзил', c.address],
-    ['ИФУТ (ОКЭД)', c.oked],
     ['Банк', c.bankName],
     ['Ҳ/р', c.bankAccount],
     ['МФО', c.mfo],
@@ -114,6 +126,45 @@ function composeRequisites(c: ClientRequisites): string {
     .map(([label, value]) => `${label}: ${value?.trim()}`)
     .join('\n');
 }
+
+/** Bo'sh maydongina Sozlamalardagi qiymat bilan to'ldiriladi */
+const orSetting = (current: string | null, value: string | null | undefined): string | null =>
+  current?.trim() ? current : value?.trim() || null;
+
+/**
+ * Bajaruvchi (PRODEKLARANT) rekvizitlarini Sozlamalardan to'ldiradi.
+ *
+ * Yangi shartnomada barcha maydon shu yerdan keladi. Saqlangan shartnomada
+ * esa faqat BO'SH qolgan maydonlar to'ldiriladi: imzolangan hujjatdagi
+ * snapshot o'zgarmasligi kerak, lekin ilgari umuman yozilmagan qatorlar
+ * (masalan МФО) PDFda `—` bo'lib qolmasligi ham kerak.
+ */
+function withExecutor(a: ServiceAgreement, c: ExecutorRequisites): ServiceAgreement {
+  return {
+    ...a,
+    executorName: a.executorName.trim() || c.name || '',
+    executorInn: orSetting(a.executorInn, c.inn),
+    executorDirector: orSetting(a.executorDirector, c.director),
+    executorAddress: orSetting(a.executorAddress, c.legalAddress),
+    executorBankName: orSetting(a.executorBankName, c.bankName),
+    executorBankAccount: orSetting(a.executorBankAccount, c.bankAccount),
+    executorMfo: orSetting(a.executorMfo, c.mfo),
+    executorPhone: orSetting(a.executorPhone, c.phone),
+    executorEmail: orSetting(a.executorEmail, c.email),
+  };
+}
+
+/** Shartnomaning 13-bo'limida chiqadigan Bajaruvchi qatorlari — nazorat uchun */
+const EXECUTOR_ROWS: [string, keyof ServiceAgreement][] = [
+  ['Номи', 'executorName'],
+  ['Директор', 'executorDirector'],
+  ['Манзил', 'executorAddress'],
+  ['СТИР', 'executorInn'],
+  ['Банк', 'executorBankName'],
+  ['Ҳ/р', 'executorBankAccount'],
+  ['МФО', 'executorMfo'],
+  ['Тел', 'executorPhone'],
+];
 
 export default function ServiceAgreementEditor() {
   const { id } = useParams();
@@ -151,33 +202,35 @@ export default function ServiceAgreementEditor() {
       .then(({ data }) => setClients(data))
       .catch(() => setClients([]));
 
-    if (id) {
-      getAgreement(Number(id)).then(setForm).catch(() => toast.error('Shartnoma topilmadi'));
-      return;
-    }
+    // Sozlama so'rovi darhol yuboriladi, lekin shartnoma yuklangandan KEYIN
+    // qo'llanadi: `setForm(agreement)` butun holatni almashtiradi va tezroq
+    // kelgan sozlama qiymatlarini bosib ketardi.
+    const settings = apiClient
+      .get<ExecutorRequisites | null>('/company-settings/requisites')
+      .then(({ data }) => data)
+      // Sozlama yo'q yoki so'rov yiqildi — maydonlar bo'sh qoladi, qolgan forma ishlaydi
+      .catch(() => null);
 
-    getNextNumber(new Date().getFullYear())
-      .then((agreementNumber) => setForm((prev) => ({ ...prev, agreementNumber })))
-      .catch(() => toast.error('Shartnoma raqamini olib bo\'lmadi'));
+    void (async () => {
+      if (id) {
+        try {
+          setForm(await getAgreement(Number(id)));
+        } catch {
+          toast.error('Shartnoma topilmadi');
+          return;
+        }
+      } else {
+        try {
+          const agreementNumber = await getNextNumber(new Date().getFullYear());
+          setForm((prev) => ({ ...prev, agreementNumber }));
+        } catch {
+          toast.error('Shartnoma raqamini olib bo\'lmadi');
+        }
+      }
 
-    // Bajaruvchi rekvizitlari — alohida so'rov: `/company-settings` faqat ADMIN
-    // uchun ochiq va bo'sh (null) qaytishi mumkin. Muvaffaqiyatsiz bo'lsa
-    // maydonlar bo'sh qoladi, shartnoma raqami esa baribir olinadi.
-    apiClient.get('/company-settings')
-      .then(({ data: company }) => {
-        if (!company) return;
-        setForm((prev) => ({
-          ...prev,
-          executorName: company.name ?? '',
-          executorInn: company.inn ?? null,
-          executorAddress: company.legalAddress ?? null,
-          executorBankName: company.bankName ?? null,
-          executorBankAccount: company.bankAccount ?? null,
-          executorPhone: company.phone ?? null,
-          executorEmail: company.email ?? null,
-        }));
-      })
-      .catch(() => { /* ADMIN emas yoki sozlama yo'q — maydonlar qo'lda to'ldiriladi */ });
+      const company = await settings;
+      if (company) setForm((prev) => withExecutor(prev, company));
+    })();
   }, [id]);
 
   /** Mijoz tanlanganda rekvizitlar ko'chiriladi — keyin ular mustaqil tahrirlanadi (snapshot) */
@@ -372,7 +425,7 @@ export default function ServiceAgreementEditor() {
               value={form.customerRequisites ?? ''}
               onChange={(e) => set('customerRequisites', e.target.value)}
               rows={10}
-              placeholder={'Манзил: Тошкент ш., Чилонзор т., 14-уй\nИФУТ (ОКЭД): 46900\nБанк: АТБ «Ипотека банк»\nҲ/р: 20208000000000000000\nМФО: 00491\nТел: +998 90 123-45-67\nE-mail: info@example.uz'}
+              placeholder={'Манзил: Тошкент ш., Чилонзор т., 14-уй\nБанк: АТБ «Ипотека банк»\nҲ/р: 20208000000000000000\nМФО: 00491\nТел: +998 90 123-45-67\nE-mail: info@example.uz'}
               className={`${INPUT_CLASS} resize-y font-mono leading-relaxed`}
             />
           </Field>
@@ -441,6 +494,33 @@ export default function ServiceAgreementEditor() {
             )}
           </div>
         </Section>
+
+        {/* Bajaruvchi ustuni qo'lda tahrirlanmaydi — manba Sozlamalar bo'limi */}
+        <section className="rounded-xl border border-gray-200 bg-white p-5">
+          <h2 className="mb-1 font-semibold leading-7 text-gray-900">Bajaruvchi rekvizitlari</h2>
+          <p className="mb-4 text-xs text-gray-500">
+            Sozlamalar → Umumiy ma'lumotlardan olinadi. Shartnomaning 13-bo'limida shu qatorlar chiqadi.
+          </p>
+
+          <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
+            {EXECUTOR_ROWS.map(([label, key]) => {
+              const value = (form[key] as string | null)?.trim();
+              return (
+                <div key={key} className="flex gap-2">
+                  <dt className="shrink-0 text-gray-500">{label}:</dt>
+                  <dd className={value ? 'text-gray-900' : 'text-red-600'}>{value || 'kiritilmagan'}</dd>
+                </div>
+              );
+            })}
+          </dl>
+
+          {EXECUTOR_ROWS.some(([, key]) => !(form[key] as string | null)?.trim()) && (
+            <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              Bo'sh qatorlar shartnomada «—» bo'lib chiqadi. Ularni Sozlamalar bo'limida to'ldiring,
+              so'ng shu sahifani yangilang.
+            </p>
+          )}
+        </section>
       </div>
 
       {/* Forma uzun — saqlash tugmasi doim ko'rinib tursin */}

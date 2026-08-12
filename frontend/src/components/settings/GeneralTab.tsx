@@ -9,8 +9,8 @@ export const GeneralTab = () => {
   const [loadingCompanySettings, setLoadingCompanySettings] = useState(true);
   const [showCompanySettingsForm, setShowCompanySettingsForm] = useState(false);
   const [companySettingsForm, setCompanySettingsForm] = useState({
-    name: '', legalAddress: '', actualAddress: '', inn: '', phone: '', email: '',
-    bankName: '', bankAddress: '', bankAccount: '', swiftCode: '', correspondentBank: '',
+    name: '', legalAddress: '', actualAddress: '', inn: '', director: '', phone: '', email: '',
+    bankName: '', bankAddress: '', bankAccount: '', mfo: '', swiftCode: '', correspondentBank: '',
     correspondentBankAddress: '', correspondentBankSwift: '',
   });
 
@@ -36,9 +36,11 @@ export const GeneralTab = () => {
         setCompanySettingsForm({
           name: response.data.name || '', legalAddress: response.data.legalAddress || '',
           actualAddress: response.data.actualAddress || '', inn: response.data.inn || '',
+          director: response.data.director || '',
           phone: response.data.phone || '', email: response.data.email || '',
           bankName: response.data.bankName || '', bankAddress: response.data.bankAddress || '',
-          bankAccount: response.data.bankAccount || '', swiftCode: response.data.swiftCode || '',
+          bankAccount: response.data.bankAccount || '', mfo: response.data.mfo || '',
+          swiftCode: response.data.swiftCode || '',
           correspondentBank: response.data.correspondentBank || '', correspondentBankAddress: response.data.correspondentBankAddress || '',
           correspondentBankSwift: response.data.correspondentBankSwift || '',
         });
@@ -139,9 +141,19 @@ export const GeneralTab = () => {
                 <div className="text-sm text-gray-800 dark:text-slate-200">{companySettingsForm.email || "Kiritilmagan"}</div>
               </div>
             </div>
+            <div className="flex gap-6">
+              <div className="flex-1">
+                <div className="text-xs text-gray-400 dark:text-slate-500 uppercase font-semibold">INN</div>
+                <div className="text-sm text-gray-800 dark:text-slate-200">{companySettingsForm.inn || "Kiritilmagan"}</div>
+              </div>
+              <div className="flex-1">
+                <div className="text-xs text-gray-400 dark:text-slate-500 uppercase font-semibold">MFO</div>
+                <div className="text-sm text-gray-800 dark:text-slate-200">{companySettingsForm.mfo || "Kiritilmagan"}</div>
+              </div>
+            </div>
             <div>
-              <div className="text-xs text-gray-400 dark:text-slate-500 uppercase font-semibold">INN</div>
-              <div className="text-sm text-gray-800 dark:text-slate-200">{companySettingsForm.inn || "Kiritilmagan"}</div>
+              <div className="text-xs text-gray-400 dark:text-slate-500 uppercase font-semibold">Direktor</div>
+              <div className="text-sm text-gray-800 dark:text-slate-200">{companySettingsForm.director || "Kiritilmagan"}</div>
             </div>
           </div>
         </div>
@@ -270,6 +282,11 @@ export const GeneralTab = () => {
                   </div>
                 </div>
                 <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">Direktor F.I.Sh.</label>
+                  <input type="text" value={companySettingsForm.director} onChange={(e) => setCompanySettingsForm({ ...companySettingsForm, director: e.target.value })} placeholder="Турсунбоев Ойбек Улуғбек ўғли" className="w-full px-3 py-2 border-2 border-gray-300 dark:border-slate-600 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none" />
+                  <p className="mt-1 text-xs text-gray-400 dark:text-slate-500">Shartnomada to'liq (preambula) va qisqargan (rekvizitlar) ko'rinishda ishlatiladi</p>
+                </div>
+                <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">Email</label>
                   <input type="email" value={companySettingsForm.email} onChange={(e) => setCompanySettingsForm({ ...companySettingsForm, email: e.target.value })} className="w-full px-3 py-2 border-2 border-gray-300 dark:border-slate-600 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none" />
                 </div>
@@ -283,9 +300,15 @@ export const GeneralTab = () => {
                     <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">Bank manzili</label>
                     <textarea value={companySettingsForm.bankAddress} onChange={(e) => setCompanySettingsForm({ ...companySettingsForm, bankAddress: e.target.value })} rows={2} className="w-full px-3 py-2 border-2 border-gray-300 dark:border-slate-600 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none" />
                   </div>
-                  <div className="mt-3">
-                    <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">Hisob raqami</label>
-                    <input type="text" value={companySettingsForm.bankAccount} onChange={(e) => setCompanySettingsForm({ ...companySettingsForm, bankAccount: e.target.value })} className="w-full px-3 py-2 border-2 border-gray-300 dark:border-slate-600 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none" />
+                  <div className="mt-3 grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">Hisob raqami</label>
+                      <input type="text" value={companySettingsForm.bankAccount} onChange={(e) => setCompanySettingsForm({ ...companySettingsForm, bankAccount: e.target.value })} className="w-full px-3 py-2 border-2 border-gray-300 dark:border-slate-600 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">MFO</label>
+                      <input type="text" value={companySettingsForm.mfo} onChange={(e) => setCompanySettingsForm({ ...companySettingsForm, mfo: e.target.value })} placeholder="00973" className="w-full px-3 py-2 border-2 border-gray-300 dark:border-slate-600 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none" />
+                    </div>
                   </div>
                   <div className="mt-3">
                     <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">SWIFT kodi</label>

@@ -10,7 +10,10 @@
 > - Bajaruvchi e-mail'i doimiy `docs@prodeklarant.uz`; sarlavha osti olib tashlandi
 > - Saqlangan himoya bandlari: Buyurtmachi kafolatlari (3.4), regress (7.2),
 >   javobgarlik chegarasi (7.4–7.5), hujjatni ushlab turish (3.2), muhr/ЭРИ
->   kalitlari (6-bo'lim), Deklarant maqomi (1.4)
+>   kalitlari (6-bo'lim)
+> - 2026-08-12: eski 1.2 (Buyurtma-ariza ta'rifi), 1.4 (Deklarant maqomi) va
+>   2.2 (ishni boshlash muddati) olib tashlandi; 1 va 2-bo'lim bandlari qayta
+>   raqamlandi. «Buyurtma-ariza» ta'rifi 2.1-band boshiga ko'chirildi
 >
 > Imzolangan v1 shartnomalari o'zgarishsiz v1 matnida qayta chiqadi.
 

@@ -87,7 +87,32 @@ describe('v2 shabloni', () => {
     expect(text).toContain('Регресс');
     expect(text).toContain('Жавобгарлик чегараси');
     expect(text).toContain('ушлаб туриш');
-    expect(text).toContain('Декларант мақоми');
+  });
+
+  it('olib tashlangan bandlar qaytib kelmaydi', () => {
+    const text = renderAll(base);
+    // 1.4 (Deklarant maqomi) va eski 2.2 (ish boshlash muddati)
+    expect(text).not.toContain('Декларант мақоми');
+    expect(text).not.toContain('иш кунидан кечиктирмай');
+    // Bandlar uzluksiz raqamlangan
+    expect(text).toContain('1.2. Бажарувчи хизматларни');
+    expect(text).toContain('2.2. Ҳужжатлар тўлиқ бўлмаган');
+    expect(text).toContain('2.3. Бажарувчи Буюртмачининг топшириқлари');
+    // Band raqami har doim qator boshida — «11.3.» kabi mosliklar hisobga olinmaydi
+    expect(text).not.toContain('\n1.3.');
+    expect(text).not.toContain('\n1.4.');
+    expect(text).not.toContain('\n2.4.');
+  });
+
+  it('ishlatiladigan atamalar shartnomada ta\'riflangan', () => {
+    const text = renderAll(base);
+    // «Буюртма-ариза» 3.4, 4.5, 6.2, 6.3, 11.3 va 11.4 da ishlatiladi — ta'rif
+    // eski 1.2 bilan birga yo'qolmasligi kerak
+    expect(text).toContain('Буюртма-ариза** билан белгиланади');
+    const definedAt = text.indexOf('Буюртма-ариза** билан белгиланади');
+    expect(definedAt).toBeGreaterThan(-1);
+    // Ta'rif atama birinchi ishlatilishidan oldin turishi kerak
+    expect(definedAt).toBeLessThan(text.indexOf('ҳар бир Буюртма-ариза юборилиши билан'));
   });
 
   it('to\'lov modeli va shartli bandlar v1 dagidek ishlaydi', () => {

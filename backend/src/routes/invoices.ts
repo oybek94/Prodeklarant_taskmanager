@@ -1281,8 +1281,10 @@ router.post('/', requireAuth('ADMIN', 'MANAGER', 'DEKLARANT'), async (req: AuthR
     const currentClientId = task?.clientId || clientId;
     let resolvedContractId: number | undefined = contractId ?? undefined;
     if (resolvedContractId == null && contractNumber && String(contractNumber).trim() && currentClientId) {
+      // Bir xil raqamli bir nechta shartnoma bo'lishi mumkin — eng oxirgisini (katta ID) tanlaymiz
       const contractByNumber = await prisma.contract.findFirst({
         where: { clientId: currentClientId, contractNumber: String(contractNumber).trim() },
+        orderBy: { id: 'desc' },
         select: { id: true },
       });
       if (contractByNumber) resolvedContractId = contractByNumber.id;

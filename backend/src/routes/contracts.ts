@@ -1,4 +1,5 @@
 import { Router, Response } from 'express';
+import { Prisma } from '@prisma/client';
 import { prisma } from '../prisma';
 import { requireAuth, AuthRequest } from '../middleware/auth';
 import { z } from 'zod';
@@ -232,17 +233,8 @@ router.post('/', requireAuth(), async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ error: 'Mijoz topilmadi' });
     }
 
-    // Shartnoma raqami unique bo'lishi kerak (bir xil mijozda)
-    const existingContract = await prisma.contract.findFirst({
-      where: {
-        clientId: data.clientId,
-        contractNumber: data.contractNumber
-      }
-    });
-
-    if (existingContract) {
-      return res.status(400).json({ error: 'Bu shartnoma raqami allaqachon mavjud' });
-    }
+    // Shartnoma raqami va sanasi takrorlanishi mumkin — har bir shartnoma o'z ichki ID si bilan ajratiladi.
+    // Shu sababli bu yerda raqam bo'yicha unique tekshiruv qilinmaydi.
 
     // Build contract data object conditionally to avoid TypeScript errors
     // TODO: Regenerate Prisma client after schema changes
@@ -433,20 +425,7 @@ router.put('/:id', requireAuth(), async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ error: 'Shartnoma topilmadi' });
     }
 
-    // Shartnoma raqami unique bo'lishi kerak (bir xil mijozda, lekin joriy shartnoma bundan mustasno)
-    if (data.contractNumber !== existingContract.contractNumber) {
-      const duplicateContract = await prisma.contract.findFirst({
-        where: {
-          clientId: data.clientId,
-          contractNumber: data.contractNumber,
-          id: { not: id }
-        }
-      });
-
-      if (duplicateContract) {
-        return res.status(400).json({ error: 'Bu shartnoma raqami allaqachon mavjud' });
-      }
-    }
+    // Shartnoma raqami va sanasi takrorlanishi mumkin — unique tekshiruv yo'q (ID bo'yicha ajratiladi)
 
     // Build contract data object conditionally to avoid TypeScript errors
     // TODO: Regenerate Prisma client after schema changes
@@ -606,6 +585,82 @@ router.put('/:id', requireAuth(), async (req: AuthRequest, res: Response) => {
     res.json(updatedContract);
   } catch (error: any) {
     console.error('Error updating contract:', error);
+    res.status(500).json({ error: error.message || 'Xatolik yuz berdi' });
+  }
+});
+
+// Dublikat qilishda ko'chirilmaydigan maydonlar — yangi yozuv o'z ID va vaqt belgilariga ega bo'ladi
+const NON_COPYABLE_CONTRACT_FIELDS = ['id', 'createdAt', 'updatedAt'] as const;
+// Json maydonlar: null qiymatni Prisma `DbNull` sifatida kutadi
+const JSON_CONTRACT_FIELDS: string[] = ['specification', 'files'];
+
+const duplicateContractSchema = z.object({
+  // Ko'rsatilmasa asl shartnoma raqami/sanasi saqlanadi (takrorlanishi mumkin, ID bilan ajratiladi)
+  contractNumber: z.string().min(1).optional(),
+  contractDate: z.string().optional(),
+  clientId: z.number().optional(),
+}).transform(deepNormalizeStrings);
+
+// POST /contracts/:id/duplicate - Shartnomani barcha maydonlari bilan nusxalash
+router.post('/:id/duplicate', requireAuth(), async (req: AuthRequest, res: Response) => {
+  try {
+    const id = parseInt(req.params.id);
+    if (!Number.isFinite(id)) {
+      return res.status(400).json({ error: 'Noto\'g\'ri shartnoma ID' });
+    }
+
+    const parsed = duplicateContractSchema.safeParse(req.body ?? {});
+    if (!parsed.success) {
+      return res.status(400).json({ error: parsed.error.flatten() });
+    }
+    const overrides = parsed.data;
+
+    const source = await prisma.contract.findUnique({ where: { id } });
+    if (!source) {
+      return res.status(404).json({ error: 'Shartnoma topilmadi' });
+    }
+
+    // Boshqa mijozga ko'chirilayotgan bo'lsa, o'sha mijoz mavjudligini tekshiramiz
+    const targetClientId = overrides.clientId ?? source.clientId;
+    if (targetClientId !== source.clientId) {
+      const targetClient = await prisma.client.findUnique({ where: { id: targetClientId } });
+      if (!targetClient) {
+        return res.status(404).json({ error: 'Mijoz topilmadi' });
+      }
+    }
+
+    // Barcha maydonlarni ko'chiramiz: ID va vaqt belgilaridan tashqari hammasi saqlanadi.
+    // Json maydonlar (`specification`, `files`) uchun null qiymat Prisma'da `DbNull` bo'lishi
+    // kerak, oddiy `null` esa xatoga olib keladi — shuning uchun ularni alohida ishlaymiz.
+    const contractData: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(source)) {
+      if ((NON_COPYABLE_CONTRACT_FIELDS as readonly string[]).includes(key)) continue;
+      if (value === null && JSON_CONTRACT_FIELDS.includes(key)) {
+        contractData[key] = Prisma.DbNull;
+        continue;
+      }
+      contractData[key] = value;
+    }
+
+    contractData.clientId = targetClientId;
+    if (overrides.contractNumber) contractData.contractNumber = overrides.contractNumber;
+    if (overrides.contractDate) contractData.contractDate = new Date(overrides.contractDate);
+
+    const duplicated = await prisma.contract.create({
+      data: contractData as any,
+      include: {
+        client: {
+          select: {
+            id: true,
+            name: true,
+          }
+        }
+      }
+    });
+
+    res.status(201).json(duplicated);
+  } catch (error: any) {
+    console.error('Error duplicating contract:', error);
     res.status(500).json({ error: error.message || 'Xatolik yuz berdi' });
   }
 });

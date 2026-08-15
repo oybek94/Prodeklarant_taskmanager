@@ -82,6 +82,7 @@ const ClientDetail = () => {
   const [loading, setLoading] = useState(true);
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [loadingContracts, setLoadingContracts] = useState(true);
+  const [duplicatingContractId, setDuplicatingContractId] = useState<number | null>(null);
   /** Xizmat shartnomalari (`ServiceAgreement`) — yuqoridagi `Contract` tashqi savdo kontrakti */
   const [agreements, setAgreements] = useState<ServiceAgreement[]>([]);
   const [showContractForm, setShowContractForm] = useState(false);
@@ -649,6 +650,28 @@ const ClientDetail = () => {
     }
   };
 
+  /**
+   * Shartnomani barcha maydonlari bilan nusxalaydi. Raqam va sana ham saqlanadi —
+   * nusxa asl shartnomadan faqat ichki ID bilan farq qiladi.
+   */
+  const handleDuplicateContract = async (contract: Contract) => {
+    if (duplicatingContractId != null) return;
+    if (!confirm(`№ ${contract.contractNumber} (ID: ${contract.id}) shartnomasidan nusxa olinsinmi?`)) return;
+
+    try {
+      setDuplicatingContractId(contract.id);
+      const response = await apiClient.post(`/contracts/${contract.id}/duplicate`);
+      const created = response.data as { id: number };
+      await loadContracts();
+      alert(`Shartnoma nusxalandi. Yangi shartnoma ID: ${created.id}`);
+    } catch (error: any) {
+      console.error('Error duplicating contract:', error);
+      alert(error.response?.data?.error || 'Shartnomadan nusxa olishda xatolik yuz berdi');
+    } finally {
+      setDuplicatingContractId(null);
+    }
+  };
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('uz-UZ');
   };
@@ -809,8 +832,13 @@ const ClientDetail = () => {
             {contracts.map((contract) => (
               <div key={contract.id} className="bg-gray-50 rounded-xl p-4 space-y-3 border border-gray-100">
                 <div className="flex justify-between items-start">
-                  <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-[10px] font-bold">
-                    #{contract.contractNumber}
+                  <span className="flex items-center gap-1.5">
+                    <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded text-[10px] font-bold">
+                      #{contract.contractNumber}
+                    </span>
+                    <span className="px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded text-[10px] font-semibold">
+                      ID: {contract.id}
+                    </span>
                   </span>
                   <span className="text-[11px] text-gray-500 font-medium">
                     {formatDate(contract.contractDate)}
@@ -829,6 +857,17 @@ const ClientDetail = () => {
                     <Icon icon="solar:pen-bold-duotone" className="w-5 h-5" />
                   </button>
                   <button
+                    onClick={() => handleDuplicateContract(contract)}
+                    disabled={duplicatingContractId != null}
+                    className="p-2 text-emerald-600 bg-emerald-50 rounded-lg disabled:opacity-50"
+                    title="Nusxa olish"
+                  >
+                    <Icon
+                      icon={duplicatingContractId === contract.id ? 'solar:refresh-bold-duotone' : 'solar:copy-bold-duotone'}
+                      className={`w-5 h-5 ${duplicatingContractId === contract.id ? 'animate-spin' : ''}`}
+                    />
+                  </button>
+                  <button
                     onClick={() => handleDeleteContract(contract.id)}
                     className="p-2 text-red-600 bg-red-50 rounded-lg"
                   >
@@ -843,6 +882,7 @@ const ClientDetail = () => {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Shartnoma raqami</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sana</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Sotuvchi</th>
@@ -853,6 +893,7 @@ const ClientDetail = () => {
               <tbody className="bg-white divide-y divide-gray-200">
                 {contracts.map((contract) => (
                   <tr key={contract.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-blue-600">{contract.id}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{contract.contractNumber}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{formatDate(contract.contractDate)}</td>
                     <td className="px-6 py-4 text-sm text-gray-900">{contract.sellerName}</td>
@@ -866,6 +907,18 @@ const ClientDetail = () => {
                           title="Tahrirlash"
                         >
                           <Icon icon="solar:pen-bold-duotone" className="w-4 h-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDuplicateContract(contract)}
+                          disabled={duplicatingContractId != null}
+                          className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-emerald-600 hover:bg-emerald-100 transition-colors disabled:opacity-50"
+                          title="Nusxa olish"
+                        >
+                          <Icon
+                            icon={duplicatingContractId === contract.id ? 'solar:refresh-bold-duotone' : 'solar:copy-bold-duotone'}
+                            className={`w-4 h-4 ${duplicatingContractId === contract.id ? 'animate-spin' : ''}`}
+                          />
                         </button>
                         <button
                           type="button"

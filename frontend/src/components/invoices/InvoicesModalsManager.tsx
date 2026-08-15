@@ -168,7 +168,7 @@ export const InvoicesModalsManager: React.FC<InvoicesModalsManagerProps> = ({
                       <option value="">Shartnoma tanlang</option>
                       {contracts.map((contract) => (
                         <option key={contract.id} value={contract.id}>
-                          {contract.contractNumber} - {contract.buyerName} ({new Date(contract.contractDate).toLocaleDateString('uz-UZ')})
+                          {contract.contractNumber} - {contract.buyerName} ({new Date(contract.contractDate).toLocaleDateString('uz-UZ')}) [ID: {contract.id}]
                         </option>
                       ))}
                     </select>

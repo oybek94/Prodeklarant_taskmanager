@@ -142,7 +142,7 @@ export const InvoiceHeader: React.FC<InvoiceHeaderProps> = React.memo(({
                 <option value="">Shartnoma tanlang...</option>
                 {contracts.map(contract => (
                   <option key={contract.id} value={contract.id}>
-                    {contract.contractNumber} от {formatDate(contract.contractDate)}
+                    {contract.contractNumber} от {formatDate(contract.contractDate)} (ID: {contract.id})
                   </option>
                 ))}
               </select>

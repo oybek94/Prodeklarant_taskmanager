@@ -192,6 +192,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
   const [contracts, setContracts] = useState<any[]>([]);
   const [loadingContracts, setLoadingContracts] = useState(false);
   const [editingContractId, setEditingContractId] = useState<number | null>(null);
+  const [duplicatingContractId, setDuplicatingContractId] = useState<number | null>(null);
   const [contractModalTab, setContractModalTab] = useState<'main' | 'spec' | 'terms' | 'customs' | 'files'>('main');
   const [clientModalTab, setClientModalTab] = useState<'overview' | 'contracts' | 'tasks' | 'transactions'>('overview');
   const [showTransactionModal, setShowTransactionModal] = useState(false);
@@ -978,6 +979,33 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
     } catch (error: any) {
       console.error('Error deleting contract:', error);
       alert(error.response?.data?.error || 'Shartnoma o\'chirishda xatolik yuz berdi');
+    }
+  };
+
+  /**
+   * Shartnomani barcha maydonlari bilan nusxalaydi. Raqam va sana ham saqlanadi —
+   * nusxa asl shartnomadan faqat ichki ID bilan farq qiladi.
+   */
+  const handleDuplicateContract = async (contract: { id: number; contractNumber: string }) => {
+    if (duplicatingContractId != null) return;
+    if (!confirm(`№ ${contract.contractNumber} (ID: ${contract.id}) shartnomasidan nusxa olinsinmi?`)) {
+      return;
+    }
+    try {
+      setDuplicatingContractId(contract.id);
+      const response = await apiClient.post(`/contracts/${contract.id}/duplicate`);
+      const created = response.data as { id: number };
+      if (selectedClient) {
+        await loadContracts(selectedClient.id);
+        await loadClientDetail(selectedClient.id);
+      }
+      await loadClients();
+      alert(`Shartnoma nusxalandi. Yangi shartnoma ID: ${created.id}`);
+    } catch (error: any) {
+      console.error('Error duplicating contract:', error);
+      alert(error.response?.data?.error || 'Shartnomadan nusxa olishda xatolik yuz berdi');
+    } finally {
+      setDuplicatingContractId(null);
     }
   };
 
@@ -2085,8 +2113,13 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                     {contracts.map((contract) => (
                       <div key={contract.id} className="bg-white dark:bg-slate-900 rounded-xl p-4 border border-gray-100 dark:border-slate-800 shadow-sm space-y-3">
                         <div className="flex justify-between items-start">
-                          <span className="px-2 py-0.5 bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-gray-300 rounded text-[10px] font-bold border border-gray-200/50 dark:border-slate-700/50">
-                            #{contract.contractNumber}
+                          <span className="flex items-center gap-1.5">
+                            <span className="px-2 py-0.5 bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-gray-300 rounded text-[10px] font-bold border border-gray-200/50 dark:border-slate-700/50">
+                              #{contract.contractNumber}
+                            </span>
+                            <span className="px-1.5 py-0.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded text-[10px] font-semibold">
+                              ID: {contract.id}
+                            </span>
                           </span>
                           <span className="text-[11px] text-gray-500 dark:text-gray-400 font-medium">
                             {new Date(contract.contractDate).toLocaleDateString('uz-UZ')}
@@ -2105,6 +2138,17 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                             <Icon icon="solar:pen-bold-duotone" className="w-4 h-4" />
                           </button>
                           <button
+                            onClick={() => handleDuplicateContract(contract)}
+                            disabled={duplicatingContractId != null}
+                            className="p-2 text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20 dark:text-emerald-400 rounded-lg disabled:opacity-50"
+                            title="Nusxa olish"
+                          >
+                            <Icon
+                              icon={duplicatingContractId === contract.id ? 'solar:refresh-bold-duotone' : 'solar:copy-bold-duotone'}
+                              className={`w-4 h-4 ${duplicatingContractId === contract.id ? 'animate-spin' : ''}`}
+                            />
+                          </button>
+                          <button
                             onClick={() => handleDeleteContract(contract.id)}
                             className="p-2 text-rose-600 bg-rose-50 dark:bg-rose-900/20 dark:text-rose-400 rounded-lg"
                           >
@@ -2120,6 +2164,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                       <table className="min-w-full divide-y divide-gray-200 dark:divide-slate-700/50">
                         <thead className="bg-gray-50/80 dark:bg-slate-800/80 backdrop-blur-sm">
                           <tr>
+                            <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">ID</th>
                             <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Shartnoma raqami</th>
                             <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Sana</th>
                             <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Sotuvchi</th>
@@ -2130,6 +2175,9 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                         <tbody className="bg-white dark:bg-slate-900 divide-y divide-gray-100 dark:divide-slate-800">
                           {contracts.map((contract) => (
                             <tr key={contract.id} className="hover:bg-blue-50/50 dark:hover:bg-slate-800 transition-colors group">
+                              <td className="px-5 py-4 whitespace-nowrap text-sm font-semibold text-blue-600 dark:text-blue-400">
+                                {contract.id}
+                              </td>
                               <td className="px-5 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
                                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-md bg-gray-100 dark:bg-slate-800/80 text-gray-800 dark:text-gray-200 border border-gray-200/50 dark:border-slate-700/50">
                                   {contract.contractNumber}
@@ -2149,6 +2197,18 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                                     title="Tahrirlash"
                                   >
                                     <Icon icon="solar:pen-bold-duotone" className="w-4 h-4" />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDuplicateContract(contract)}
+                                    disabled={duplicatingContractId != null}
+                                    className="p-1.5 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 rounded-lg transition-colors ring-1 ring-transparent hover:ring-emerald-200 dark:hover:ring-emerald-800 disabled:opacity-50"
+                                    title="Nusxa olish"
+                                  >
+                                    <Icon
+                                      icon={duplicatingContractId === contract.id ? 'solar:refresh-bold-duotone' : 'solar:copy-bold-duotone'}
+                                      className={`w-4 h-4 ${duplicatingContractId === contract.id ? 'animate-spin' : ''}`}
+                                    />
                                   </button>
                                   <button
                                     type="button"

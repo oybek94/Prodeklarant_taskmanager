@@ -1,5 +1,10 @@
 import toast from 'react-hot-toast';
-import { PdfMissingGlyphError, describeMissingGlyphs } from '../../components/invoice/pdf/pdfGlyphCheck';
+import {
+  PdfMissingGlyphError,
+  describeMissingGlyphs,
+  PdfDroppedTextError,
+  describeDroppedText,
+} from '../../components/invoice/pdf/pdfGlyphCheck';
 import { renderAgreementPdf } from './pdf/renderAgreementPdf';
 import type { ServiceAgreement } from './types';
 
@@ -26,6 +31,11 @@ export async function downloadAgreementPdf(agreement: ServiceAgreement, bhmUzs: 
     // yuridik kuchga ega emas, shuning uchun yuklash to'xtatiladi.
     if (error instanceof PdfMissingGlyphError) {
       toast.error(describeMissingGlyphs(error.missing), { id: toastId, duration: 20000 });
+      return;
+    }
+    // Chizilgan matn manbaga mos kelmadi — hujjatdan harf yo'qolgan
+    if (error instanceof PdfDroppedTextError) {
+      toast.error(describeDroppedText(error.lines), { id: toastId, duration: 20000 });
       return;
     }
     toast.error('PDF yaratishda xatolik', { id: toastId });

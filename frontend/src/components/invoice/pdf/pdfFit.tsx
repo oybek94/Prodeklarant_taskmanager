@@ -11,8 +11,14 @@ import {
   calcSealHeight,
 } from './pdfScale';
 import { measureLayout, type PdfLayoutNode, type PdfLayoutMeasure } from './pdfLayout';
-import { findMissingGlyphs, PdfMissingGlyphError } from './pdfGlyphCheck';
+import {
+  findMissingGlyphs,
+  findDroppedText,
+  PdfMissingGlyphError,
+  PdfDroppedTextError,
+} from './pdfGlyphCheck';
 import { deepNormalizeStrings } from '../../../utils/textNormalize';
+import { resetPdfFontGlyphCache } from '../../pdf/fontGlyphCache';
 
 /**
  * Shrift o'lchamini HAQIQIY layout bo'yicha tanlash.
@@ -59,6 +65,11 @@ type FitProps = Omit<InvoicePDFDocumentProps, 'scaleOverride' | 'onRender'>;
 
 /** `scale` berilmasa `estimateScale` heuristikasi ishlatiladi */
 const renderOnce = async (props: FitProps, scale?: number) => {
+  // Oldingi render qoldirgan buzuq glif keshi bo'lmasin (qarang: fontGlyphCache.ts).
+  // Bu quvur bitta yuklab olishda bir necha marta render qiladi, shuning uchun
+  // tozalash HAR bir render oldidan bajariladi.
+  resetPdfFontGlyphCache();
+
   let layout: PdfLayoutNode | undefined;
   const doc = (
     <InvoicePDFDocument
@@ -68,6 +79,13 @@ const renderOnce = async (props: FitProps, scale?: number) => {
     />
   );
   const blob = await pdf(doc).toBlob();
+
+  // Matn yo'qolishi masshtabga emas, shrift keshining holatiga bog'liq — ya'ni
+  // istalgan urinishda paydo bo'lishi mumkin. Shuning uchun tekshiruv aynan shu
+  // yerda: `renderOnce` dan qaytgan HAR bir blob tekshirilgan bo'ladi.
+  const dropped = findDroppedText(layout);
+  if (dropped.length > 0) throw new PdfDroppedTextError(dropped);
+
   return { blob, measure: measureLayout(layout), layout };
 };
 

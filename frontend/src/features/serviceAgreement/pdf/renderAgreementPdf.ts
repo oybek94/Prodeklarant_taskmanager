@@ -5,8 +5,14 @@ import { getTemplate } from '../templates';
 import { buildTokens } from '../tokens';
 import type { ServiceAgreement } from '../types';
 import { deepNormalizeStrings } from '../../../utils/textNormalize';
-import { findMissingGlyphs, PdfMissingGlyphError } from '../../../components/invoice/pdf/pdfGlyphCheck';
+import {
+  findMissingGlyphs,
+  findDroppedText,
+  PdfMissingGlyphError,
+  PdfDroppedTextError,
+} from '../../../components/invoice/pdf/pdfGlyphCheck';
 import type { PdfLayoutNode } from '../../../components/invoice/pdf/pdfLayout';
+import { resetPdfFontGlyphCache } from '../../../components/pdf/fontGlyphCache';
 
 /**
  * Shartnoma PDF'ini yaratadi.
@@ -17,6 +23,9 @@ import type { PdfLayoutNode } from '../../../components/invoice/pdf/pdfLayout';
  * (qarang: components/invoice/pdf/pdfGlyphCheck.ts).
  */
 export async function renderAgreementPdf(agreement: ServiceAgreement, bhmUzs: number): Promise<Blob> {
+  // Oldingi PDF qoldirgan buzuq glif keshi harf yo'qotmasin (qarang: fontGlyphCache.ts)
+  resetPdfFontGlyphCache();
+
   const clean = deepNormalizeStrings(agreement);
   const tokens = deepNormalizeStrings(buildTokens(clean, bhmUzs));
   const template = getTemplate(clean.templateVersion);
@@ -32,6 +41,9 @@ export async function renderAgreementPdf(agreement: ServiceAgreement, bhmUzs: nu
 
   const missing = findMissingGlyphs(layout);
   if (missing.length > 0) throw new PdfMissingGlyphError(missing);
+
+  const dropped = findDroppedText(layout);
+  if (dropped.length > 0) throw new PdfDroppedTextError(dropped);
 
   return blob;
 }

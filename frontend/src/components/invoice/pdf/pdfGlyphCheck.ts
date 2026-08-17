@@ -138,6 +138,45 @@ export const findMissingGlyphs = (layout: PdfLayoutNode | undefined): MissingGly
 };
 
 /**
+ * Chizilgan matn manba matniga TENG ekanini tekshiradi.
+ *
+ * `findMissingGlyphs` faqat glif CHIQQAN belgilarni ko'radi — belgi umuman
+ * glifsiz qolib ketsa (masalan buzuq glif keshi tufayli, qarang:
+ * `components/pdf/fontGlyphCache.ts`) u tekshiruvdan o'tib ketadi. Bu tekshiruv
+ * teskari tomondan ishlaydi: qatorning `string` i bilan gliflardan tiklangan
+ * matn solishtiriladi.
+ *
+ * Bo'shliqlar va yumshoq defis (U+00AD) hisobga olinmaydi: qator oxiridagi
+ * bo'shliq layout bosqichida kesiladi, yumshoq defis esa so'z ko'chirish uchun
+ * `@react-pdf` tomonidan QO'SHILADI — ikkalasi ham harf yo'qolishi emas.
+ *
+ * @returns yo'qolgan matnli qatorlar (bo'sh massiv — hammasi joyida)
+ */
+export const findDroppedText = (layout: PdfLayoutNode | undefined): string[] => {
+  const strip = (text: string): string => text.replace(/[\s\u00AD]/gu, '');
+  const dropped: string[] = [];
+
+  for (const textNode of collectTextNodes(layout)) {
+    for (const line of textNode.lines || []) {
+      const expected = strip(line.string || '');
+      if (!expected) continue;
+
+      let actual = '';
+      for (const run of line.runs || []) {
+        for (const glyph of run.glyphs || []) {
+          actual += String.fromCodePoint(...mergeSurrogates(glyph.codePoints || []));
+        }
+      }
+
+      if (strip(actual) !== expected) dropped.push(toSnippet(line.string || ''));
+      if (dropped.length >= MAX_REPORTED) return dropped;
+    }
+  }
+
+  return dropped;
+};
+
+/**
  * PDF yaratish to'xtatilganini bildiradi: hujjatda chizib bo'lmaydigan belgi bor.
  * Noto'g'ri hujjat chiqib ketgandan ko'ra yaratmaslik xavfsizroq.
  */
@@ -150,6 +189,32 @@ export class PdfMissingGlyphError extends Error {
     this.missing = missing;
   }
 }
+
+/**
+ * PDF yaratish to'xtatilganini bildiradi: chizilgan matn manbaga mos kelmadi —
+ * ya'ni harf yo'qolgan. Bu foydalanuvchi matnining aybi EMAS, chizish quvuridagi
+ * nosozlik (qarang: `components/pdf/fontGlyphCache.ts` — glif keshi).
+ */
+export class PdfDroppedTextError extends Error {
+  readonly lines: string[];
+
+  constructor(lines: string[]) {
+    super(`PDF'da ${lines.length} ta qatordan matn yo'qoldi`);
+    this.name = 'PdfDroppedTextError';
+    this.lines = lines;
+  }
+}
+
+/** Foydalanuvchiga ko'rsatiladigan tushunarli xabar */
+export const describeDroppedText = (lines: string[]): string =>
+  [
+    "PDF yaratilmadi — chizishda matn to'liq chiqmadi.",
+    '',
+    ...lines.map((line) => `• «${line}»`),
+    '',
+    "Bu dasturning ichki nosozligi, matningizda xato yo'q.",
+    "Sahifani yangilab (F5) qaytadan urinib ko'ring va muammo takrorlansa xabar bering.",
+  ].join('\n');
 
 /** Foydalanuvchiga ko'rsatiladigan tushunarli xabar */
 export const describeMissingGlyphs = (missing: MissingGlyph[]): string => {

@@ -43,7 +43,12 @@ import axios from 'axios';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas-pro';
 import { renderFittedInvoicePdf } from '../components/invoice/pdf/pdfFit';
-import { PdfMissingGlyphError, describeMissingGlyphs } from '../components/invoice/pdf/pdfGlyphCheck';
+import {
+  PdfMissingGlyphError,
+  describeMissingGlyphs,
+  PdfDroppedTextError,
+  describeDroppedText,
+} from '../components/invoice/pdf/pdfGlyphCheck';
 import { buildPdfTranslatableTexts } from '../components/invoice/pdf/pdfTranslatableTexts';
 import type { PdfLang } from '../components/invoice/pdf/pdfI18n';
 import Tasks from './Tasks';
@@ -635,6 +640,12 @@ const Invoice = () => {
       // xatosi hisoblanadi. Shuning uchun yuklab olish to'xtatiladi.
       if (err instanceof PdfMissingGlyphError) {
         toast.error(describeMissingGlyphs(err.missing), { id: toastId, duration: 20000 });
+        return;
+      }
+      // Chizishda matn manbaga mos kelmadi — hujjatdan harf yo'qolgan. Sabab
+      // foydalanuvchi matnida emas, chizish quvurida (qarang: pdf/fontGlyphCache.ts).
+      if (err instanceof PdfDroppedTextError) {
+        toast.error(describeDroppedText(err.lines), { id: toastId, duration: 20000 });
         return;
       }
       // Tarjima bosqichi alohida ko'rsatiladi: sabab boshqa (server/AI), va

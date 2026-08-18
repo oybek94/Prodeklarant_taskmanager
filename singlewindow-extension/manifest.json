@@ -8,6 +8,7 @@
     "*://*.singlewindow.uz/*", 
     "*://singlewindow.uz/*",
     "*://app.expertiza.uz/*",
+    "*://cabinet.karantin.uz/*",
     "http://localhost/*",
     "https://*.prodeklarant.uz/*",
     "https://prodeklarant.uz/*"
@@ -24,7 +25,7 @@
   },
   "content_scripts": [
     {
-      "matches": ["*://*.singlewindow.uz/*", "*://singlewindow.uz/*", "*://app.expertiza.uz/*"],
+      "matches": ["*://*.singlewindow.uz/*", "*://singlewindow.uz/*", "*://app.expertiza.uz/*", "*://cabinet.karantin.uz/*"],
       "js": ["content.js"]
     }
   ]

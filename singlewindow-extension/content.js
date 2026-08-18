@@ -1,4 +1,26 @@
+// Har bir amal faqat o'z saytida ishlaydi. Kengaytma uchta saytga ulangani
+// uchun bu tekshiruvsiz, masalan, "Fito Zayavka" karantin.uz da bosilsa
+// fillForm() o'nlab "maydon topilmadi" ogohlantirishini yozib chiqadi.
+const ACTION_HOSTS = {
+    fill_form: { host: "singlewindow.uz", label: "Fito Zayavka" },
+    check_products: { host: "singlewindow.uz", label: "Ma'lumotlarni tekshirish" },
+    fill_st1_form: { host: "app.expertiza.uz", label: "ST-1 Zayavka" },
+    fill_karantin_fss: { host: "cabinet.karantin.uz", label: "Ichki FSS" },
+};
+
+function wrongSiteMessage(action) {
+    const rule = ACTION_HOSTS[action];
+    if (!rule || location.hostname.includes(rule.host)) return null;
+    return `"${rule.label}" faqat ${rule.host} saytida ishlaydi.`;
+}
+
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    const wrongSite = wrongSiteMessage(request.action);
+    if (wrongSite) {
+        sendResponse({ success: false, errorMsg: wrongSite });
+        return true;
+    }
+
     if (request.action === "fill_form") {
         const data = request.data;
         if (data) {
@@ -16,6 +38,15 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         // ST-1 faqat app.expertiza.uz da to'ldiriladi. Eski
         // application.expertiza.uz ishlatilmaydi va qo'llab-quvvatlanmaydi.
         fillAppExpertizaSt1(data)
+            .then((warnings) => sendResponse({ success: true, warnings }))
+            .catch((err) => sendResponse({ success: false, errorMsg: String(err && err.message || err) }));
+    } else if (request.action === "fill_karantin_fss") {
+        const data = request.data;
+        if (!data) {
+            sendResponse({ success: false, errorMsg: "Ma'lumotlar kelmadi!" });
+            return true;
+        }
+        fillKarantinIchkiFss(data)
             .then((warnings) => sendResponse({ success: true, warnings }))
             .catch((err) => sendResponse({ success: false, errorMsg: String(err && err.message || err) }));
     } else if (request.action === "check_products") {
@@ -674,4 +705,439 @@ function checkData(data) {
     });
 
     return { success: true, errors: errorsCount };
+}
+
+// ---------------------------------------------------------------------------
+// cabinet.karantin.uz — "Ichki Fitosanitariya sertifikati" ariza oynasi
+// ---------------------------------------------------------------------------
+// Sayt React + antd. Bu yerdagi maydonlarning ko'pchiligida `name` yo'q,
+// shuning uchun ular ustidagi <label> matni bo'yicha topiladi. antd Select
+// ro'yxatlari virtual (rc-virtual-list) — bir vaqtda ~10 ta variant chiziladi,
+// shu bois kerakli variant topilmaguncha ro'yxat pastga suriladi.
+//
+// DIQQAT: bu saytda Escape "Oynani yopish!" tasdig'ini ochadi va tasdiqlansa
+// KIRITILGAN HAMMA MA'LUMOT o'chadi. Shuning uchun ochiq dropdownlar Escape
+// bilan emas, selektorni qayta bosish orqali yopiladi.
+
+// Invoysda bo'lmagan, har safar bir xil takrorlanadigan tanlovlar.
+// Ro'yxatdagi yozuvni sayt lotin/kirill aralash chizadi ("Водий TIF"),
+// shuning uchun qabul qilinadigan yozilishlar sanab o'tiladi.
+const KARANTIN_DEFAULTS = {
+    responsibleName: "Турсунбоев О.У.",
+    marketType: "Eksport",
+    regionalOffice: ["Farg`ona viloyati", "Farg'ona viloyati", "Fargona viloyati"],
+    destinationRegion: ["Farg`ona viloyati", "Farg'ona viloyati", "Fargona viloyati"],
+    customsPost: ["Водий TIF", "Водий ТИФ", "Vodiy TIF"],
+    packagingType: "Oddiy qadoq",
+    productSource: "Yetishtirilgan hudud asosida",
+    productLevel: "Tuman darajasida",
+    unit: "kg",
+};
+
+// Shartnomadagi "yetib boradigan davlat" erkin matn (ruscha yoki lotincha),
+// saytdagi ro'yxat esa faqat o'zbekcha lotinda. Bu yerda sanalmagan nomlar
+// to'g'ridan-to'g'ri ro'yxat bilan solishtiriladi.
+const KARANTIN_COUNTRY_ALIASES = {
+    "россия": "Rossiya", "российская федерация": "Rossiya", "russia": "Rossiya",
+    "казахстан": "Qozog'iston", "kazakhstan": "Qozog'iston", "qozogiston": "Qozog'iston",
+    "кыргызстан": "Qirg'iziston", "киргизия": "Qirg'iziston", "kyrgyzstan": "Qirg'iziston",
+    "таджикистан": "Tojikiston", "tajikistan": "Tojikiston",
+    "туркменистан": "Turkmaniston", "turkmenistan": "Turkmaniston",
+    "беларусь": "Belorussiya", "белоруссия": "Belorussiya", "belarus": "Belorussiya",
+    "украина": "Ukraina", "ukraine": "Ukraina",
+    "китай": "Xitoy", "china": "Xitoy",
+    "турция": "Turkiya", "turkey": "Turkiya",
+    "афганистан": "Afg'oniston", "afghanistan": "Afg'oniston",
+    "монголия": "Mongoliya", "mongolia": "Mongoliya",
+    "грузия": "Gruziya", "georgia": "Gruziya",
+    "азербайджан": "Ozarbayjon", "azerbaijan": "Ozarbayjon",
+    "армения": "Armaniston", "armenia": "Armaniston",
+    "молдова": "Moldova", "молдова, республика": "Moldova",
+    "иран": "Eron", "иран (исламская республика)": "Eron", "iran": "Eron",
+    "пакистан": "Pokiston", "pakistan": "Pokiston",
+    "индия": "Hindiston", "india": "Hindiston",
+    "германия": "Germaniya", "germany": "Germaniya",
+    "латвия": "Latviya", "latvia": "Latviya",
+    "литва": "Litva", "lithuania": "Litva",
+    "эстония": "Estoniya", "estonia": "Estoniya",
+    "польша": "Polsha", "poland": "Polsha",
+    "вьетнам": "Vietnam",
+    "южная корея": "Janubiy Korea", "корея, республика": "Janubiy Korea", "south korea": "Janubiy Korea",
+    "саудовская аравия": "Saudiya Arabistoni",
+    "израиль": "Isroil", "israel": "Isroil",
+    "египет": "Misr", "egypt": "Misr",
+    "нидерланды": "Niderlandiya", "netherlands": "Niderlandiya",
+    "франция": "Fransiya", "france": "Fransiya",
+    "италия": "Italiya", "italy": "Italiya",
+    "испания": "Ispaniya", "spain": "Ispaniya",
+    "швеция": "Shvetsiya", "румыния": "Ruminiya", "сербия": "Serbiya",
+    "норвегия": "Norvegiya", "словакия": "Slovakiya",
+    "япония": "Yaponiya", "japan": "Yaponiya",
+    "сингапур": "Singapur", "малайзия": "Malayziya",
+    "бельгия": "Belgiya", "болгария": "Bolgariya", "венгрия": "Vengriya",
+    "греция": "Gretsiya", "дания": "Daniya",
+    "узбекистан": "O'zbekiston", "uzbekistan": "O'zbekiston",
+};
+
+// Ikki tomonda kirill alifbosi bir xil emas: Prodeklarantdagi tuman nomlari
+// ruscha harflar bilan ("ОЛТИАРИК ТУМАНИ"), karantin.uz da esa o'zbek kirilida
+// ("Олтиариқ тумани"). Solishtirishdan oldin қ/ғ/ў/ҳ ruscha juftiga keltiriladi.
+function karantinNorm(str) {
+    return String(str == null ? '' : str)
+        .toLowerCase()
+        .replace(/қ/g, 'к').replace(/ғ/g, 'г').replace(/ў/g, 'у')
+        .replace(/ҳ/g, 'х').replace(/ҷ/g, 'ж').replace(/ё/g, 'е')
+        .replace(/[’'`´ʻʼ‘]/g, "'")
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+// Ariza oynasi. Sarlavha o'rniga ichidagi maydon nomi bo'yicha topiladi —
+// sayt sarlavhani oddiy div bilan chizadi, `.ant-modal-title` yo'q.
+function karantinModal() {
+    return [...document.querySelectorAll('.ant-modal')]
+        .find(el => el.offsetParent !== null && el.innerText.includes('Ariza beruvchi')) || null;
+}
+
+// Maydon konteynerini <label> matni bo'yicha topadi. Label va maydonning o'zi
+// bitta `ant-space` ichidagi qo'shni elementlar.
+function karantinWrap(labelText, root, exact) {
+    const scope = root || karantinModal();
+    if (!scope) return null;
+    const wanted = karantinNorm(labelText);
+    const label = [...scope.querySelectorAll('label')].find(el => {
+        const text = karantinNorm(el.innerText.replace(/\*\s*$/, ''));
+        return exact ? text === wanted : text.startsWith(wanted);
+    });
+    if (!label) return null;
+    const item = label.closest('.ant-space-item');
+    return item ? item.nextElementSibling : null;
+}
+
+// React `_valueTracker` ni eski qiymatga qaytarmasak, React hech narsa
+// o'zgarmagan deb hisoblaydi va qiymat birinchi qayta chizishda yo'qoladi.
+function karantinSetInput(el, value) {
+    if (!el) return false;
+    const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set;
+    const previous = el.value;
+    if (nativeSetter) nativeSetter.call(el, value); else el.value = value;
+    if (el._valueTracker) el._valueTracker.setValue(previous);
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    return true;
+}
+
+function karantinSetInputByName(name, value, root) {
+    const scope = root || karantinModal();
+    const el = scope && scope.querySelector(`[name="${name}"]`);
+    return el ? karantinSetInput(el, value) : false;
+}
+
+// `container` — ichida bitta antd Select bo'lgan istalgan element
+async function karantinOpenSelect(container) {
+    const select = container.querySelector('.ant-select');
+    const selector = container.querySelector('.ant-select-selector');
+    if (!select || !selector) return false;
+    for (let attempt = 0; attempt < 4; attempt++) {
+        if (select.classList.contains('ant-select-open')) return true;
+        selector.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+        await delay(300);
+    }
+    return select.classList.contains('ant-select-open');
+}
+
+// Escape bu saytda oynani yopish tasdig'ini chaqiradi, shuning uchun ro'yxat
+// faqat selektorni qayta bosish orqali yopiladi
+async function karantinCloseSelect(container) {
+    const select = container.querySelector('.ant-select');
+    if (select && select.classList.contains('ant-select-open')) {
+        container.querySelector('.ant-select-selector').dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+        await delay(200);
+    }
+}
+
+// Ochiq antd Select ro'yxatidan kerakli variantni topib bosadi.
+// Ro'yxat virtual — 250 ta davlatning faqat ~10 tasi chizilgan bo'ladi,
+// shuning uchun moslik topilmaguncha ro'yxat suriladi.
+async function karantinChooseInOpenSelect(container, wanted, label) {
+    const targets = (Array.isArray(wanted) ? wanted : [wanted]).map(karantinNorm).filter(Boolean);
+    if (targets.length === 0) return `${label}: qiymat yo'q`;
+
+    const input = container.querySelector('input');
+    const list = input && document.getElementById(`${input.id}_list`);
+    if (!list) return `${label}: ro'yxat topilmadi`;
+    const dropdown = list.closest('.ant-select-dropdown');
+    const holder = dropdown.querySelector('.rc-virtual-list-holder');
+
+    const findMatch = () => {
+        const items = [...dropdown.querySelectorAll('.ant-select-item-option')];
+        let index = items.findIndex(el => targets.includes(karantinNorm(el.innerText)));
+        if (index === -1) index = items.findIndex(el => targets.some(t => karantinNorm(el.innerText).startsWith(t)));
+        return index === -1 ? null : items[index];
+    };
+
+    let match = null;
+    for (let step = 0; step < 40; step++) {
+        match = findMatch();
+        if (match || !holder) break;
+        const before = holder.scrollTop;
+        holder.scrollTop = before + holder.clientHeight * 0.8;
+        holder.dispatchEvent(new Event('scroll', { bubbles: true }));
+        await delay(120);
+        if (holder.scrollTop <= before) break;
+    }
+
+    if (!match) {
+        await karantinCloseSelect(container);
+        return `${label}: "${Array.isArray(wanted) ? wanted[0] : wanted}" ro'yxatda topilmadi`;
+    }
+
+    match.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    match.click();
+    await delay(300);
+    return null;
+}
+
+// <label> li maydonlar uchun (formadagi asosiy ro'yxatlar)
+async function karantinPickOption(labelText, wanted, options) {
+    const opts = options || {};
+    const container = karantinWrap(labelText, opts.root, opts.exact);
+    if (!container) return `"${labelText}" maydoni topilmadi`;
+    if (!container.querySelector('.ant-select')) return `"${labelText}" ro'yxat emas`;
+    if (!(await karantinOpenSelect(container))) return `${labelText}: ro'yxat ochilmadi`;
+    return karantinChooseInOpenSelect(container, wanted, labelText);
+}
+
+// Yozuvi <label> emas, oddiy <span> bo'lgan ro'yxatlar uchun:
+// "Mahsulot ma'lumotlari" (.product-header__input-type) va
+// "To'ldirish darajasi" (.product-mode-field)
+async function karantinPickOptionIn(container, wanted, label) {
+    if (!container || !container.querySelector('.ant-select')) return `${label}: ro'yxat topilmadi`;
+    if (!(await karantinOpenSelect(container))) return `${label}: ro'yxat ochilmadi`;
+    return karantinChooseInOpenSelect(container, wanted, label);
+}
+
+// antd DatePicker. Matn ko'rinishi YYYY-MM-DD; matn yozilganda panel o'sha oyga
+// o'tadi, so'ng kerakli katak bosiladi — Enter bilan tasdiqlash bu qurilishda
+// ishonchsiz (qiymat o'chib ketadi).
+async function karantinSetDate(labelText, isoDate, root) {
+    const container = karantinWrap(labelText, root);
+    if (!container) return `"${labelText}" maydoni topilmadi`;
+    const el = container.querySelector('input');
+    if (!el) return `"${labelText}" sana maydoni topilmadi`;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(isoDate || ''))) return `${labelText}: sana formati noto'g'ri`;
+
+    el.focus();
+    el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    el.click();
+    await delay(350);
+    karantinSetInput(el, isoDate);
+    await delay(500);
+
+    const panel = document.querySelector('.ant-picker-dropdown:not(.ant-picker-dropdown-hidden)');
+    const cell = panel && panel.querySelector(`td[title="${isoDate}"]`);
+    if (!cell) return `${labelText}: sana katagi topilmadi`;
+    (cell.querySelector('.ant-picker-cell-inner') || cell).click();
+    await delay(350);
+    return el.value === isoDate ? null : `${labelText}: sana yozilmadi`;
+}
+
+// "Mahsulot" maydoni oddiy input emas — bosilganda TIF TN bo'yicha qidiriladigan
+// jadvalli oyna ochiladi, mahsulot o'sha jadvaldan tanlanadi.
+async function karantinPickProduct(card, tnved, name) {
+    const container = karantinWrap('Mahsulot', card, true);
+    const trigger = container && container.querySelector('input');
+    if (!trigger) return "Mahsulot maydoni topilmadi";
+
+    const query = String(tnved || name || '').trim();
+    if (!query) return "Mahsulot: TIF TN ham, nomi ham yo'q";
+
+    // Har bir mahsulot kartasi O'ZINING tanlash oynasini yaratadi va yopilgandan
+    // keyin ham uni DOMda qoldiradi — hammasi bir xil "ko'rinadigan" bo'lib
+    // turadi. Shu sababli oynani "birinchi topilgani" bo'yicha emas, YANGI
+    // qo'shilgani bo'yicha aniqlaymiz.
+    const allPickers = () => [...document.querySelectorAll('.ant-modal')].filter(el => el.querySelector('table'));
+    const before = new Set(allPickers());
+
+    trigger.click();
+
+    let picker = null;
+    for (let attempt = 0; attempt < 15 && !picker; attempt++) {
+        await delay(200);
+        picker = allPickers().find(el => !before.has(el)) || null;
+    }
+    // Karta oynasi allaqachon yaratilgan bo'lsa (qayta to'ldirish) — oxirgisi
+    if (!picker) picker = allPickers().pop() || null;
+    if (!picker) return "Mahsulot tanlash oynasi ochilmadi";
+
+    // Oyna ochiq qolsa formaning qolgan qismini to'sib qo'yadi
+    const closePicker = async () => {
+        const closeBtn = picker.querySelector('.ant-modal-close');
+        if (closeBtn) { closeBtn.click(); await delay(400); }
+    };
+
+    const search = picker.querySelector('input');
+    if (!search) { await closePicker(); return "Mahsulot qidiruv maydoni topilmadi"; }
+    karantinSetInput(search, query);
+    await delay(1500);
+
+    const rows = [...picker.querySelectorAll('tbody tr')].filter(row => row.querySelectorAll('td').length >= 3);
+    // Jadvalning 2-ustuni — TIF TN. To'liq kod bo'yicha faqat aniq moslik olinadi:
+    // aks holda jimgina boshqa mahsulot tanlanib qolishi mumkin. Kod qisqa yoki
+    // nom bo'yicha qidirilganda esa birinchi qator olinadi.
+    const isFullCode = /^\d{8,}$/.test(query);
+    const exact = rows.find(row => row.querySelectorAll('td')[1].innerText.trim() === query);
+    const target = exact || (isFullCode ? null : rows[0]);
+    if (!target) {
+        await closePicker();
+        return `Mahsulot: "${query}" ro'yxatdan topilmadi`;
+    }
+
+    target.click();
+    await delay(600);
+    if (trigger.value) return null;
+    await closePicker();
+    return `Mahsulot: "${query}" tanlanmadi`;
+}
+
+function karantinResolveCountry(value) {
+    if (!value) return null;
+    const alias = KARANTIN_COUNTRY_ALIASES[karantinNorm(value)];
+    return alias ? [alias, value] : [value];
+}
+
+// Bir xil TIF TN li qatorlar bitta mahsulotga birlashtiriladi (netto qo'shiladi) —
+// aks holda arizada bir xil mahsulot bir necha marta takrorlanib qoladi
+function karantinGroupItems(items) {
+    const grouped = [];
+    const byCode = new Map();
+    (items || []).forEach(item => {
+        const key = String(item.tnved || item.name || '').trim();
+        if (!key) return;
+        const net = Number(item.net) || 0;
+        const existing = byCode.get(key);
+        if (existing) {
+            existing.net += net;
+        } else {
+            const row = { tnved: item.tnved, name: item.name, net };
+            byCode.set(key, row);
+            grouped.push(row);
+        }
+    });
+    return grouped;
+}
+
+async function fillKarantinIchkiFss(data) {
+    const warnings = [];
+    const modal = karantinModal();
+    if (!modal) {
+        throw new Error("Ariza oynasi ochilmagan. Avval \"Ariza berish\" tugmasini bosing.");
+    }
+
+    const push = (err) => { if (err) warnings.push(err); };
+
+    // 1. Ro'yxatlar birinchi to'ldiriladi: variant tanlanganda React formani
+    //    qayta chizadi va oldin yozilgan matnli maydonlarni tozalab yuboradi
+    push(await karantinPickOption('Hududiy boshqarma', KARANTIN_DEFAULTS.regionalOffice));
+    push(await karantinPickOption('Ichki bozorga yoki eksportga', KARANTIN_DEFAULTS.marketType));
+    push(await karantinPickOption('Mahsulot yetib boradigan hudud', KARANTIN_DEFAULTS.destinationRegion));
+    push(await karantinPickOption('TIF', KARANTIN_DEFAULTS.customsPost));
+    push(await karantinPickOption('Qadoq turi', KARANTIN_DEFAULTS.packagingType));
+
+    const country = karantinResolveCountry(data.DESTINATION_COUNTRY);
+    if (country) {
+        push(await karantinPickOption('Importer davlat nomi', country));
+    } else {
+        warnings.push("Importer davlat nomi: shartnomada davlat ko'rsatilmagan");
+    }
+
+    // 2. Shartnoma sanasi. Ochiq qolgan sana paneli keyingi bosishni yutadi,
+    //    shuning uchun mahsulotlardan oldin tugatiladi.
+    if (data.EXP_CVNT_DT) {
+        push(await karantinSetDate('Importer-eksportyor kontrakt sanasi', String(data.EXP_CVNT_DT).split('T')[0]));
+    } else {
+        warnings.push("Kontrakt sanasi: qiymat yo'q");
+    }
+
+    // 3. Matnli maydonlar
+    const textFields = {
+        applicant_responsible_name: KARANTIN_DEFAULTS.responsibleName,
+        importer_name: toSingleLine(data.IMPPN_NM || ''),
+        importer_exporter_contract_number: String(data.EXP_CTDC_NO || '').trim(),
+    };
+    for (const [name, value] of Object.entries(textFields)) {
+        if (!value) { warnings.push(`${name}: qiymat yo'q`); continue; }
+        if (!karantinSetInputByName(name, value, modal)) warnings.push(`Maydon topilmadi: ${name}`);
+    }
+
+    // 4. Mahsulot(lar)
+    const items = karantinGroupItems(data.items);
+    if (items.length === 0) {
+        warnings.push("Invoysda mahsulot qatori yo'q");
+    } else {
+        push(await karantinPickOptionIn(
+            modal.querySelector('.product-header__input-type'),
+            KARANTIN_DEFAULTS.productSource,
+            "Mahsulot ma'lumotlari",
+        ));
+
+        for (let index = 0; index < items.length; index++) {
+            let cards = [...modal.querySelectorAll('.product-card')];
+            if (index >= cards.length) {
+                const addBtn = [...modal.querySelectorAll('button')]
+                    .find(btn => karantinNorm(btn.innerText).includes("mahsulot qo'shish"));
+                if (!addBtn) { warnings.push(`#${index + 1} mahsulot: qo'shish tugmasi topilmadi`); break; }
+                addBtn.click();
+                await delay(700);
+                cards = [...modal.querySelectorAll('.product-card')];
+            }
+            const card = cards[index];
+            if (!card) { warnings.push(`#${index + 1} mahsulot kartasi topilmadi`); continue; }
+
+            // Daraja tanlanmaguncha kartaning qolgan maydonlari chizilmaydi
+            const levelError = await karantinPickOptionIn(
+                card.querySelector('.product-mode-field'),
+                KARANTIN_DEFAULTS.productLevel,
+                `#${index + 1} to'ldirish darajasi`,
+            );
+            if (levelError) { warnings.push(levelError); continue; }
+            await delay(400);
+
+            if (data.vehicleNumber) {
+                if (!karantinSetInputByName(`products.${index}.transport_number`, toSingleLine(data.vehicleNumber), modal)) {
+                    warnings.push(`#${index + 1} mahsulot: transport raqami yozilmadi`);
+                }
+            } else {
+                warnings.push(`#${index + 1} mahsulot: transport raqami yo'q`);
+            }
+
+            if (data.EXPPN_REGN_TP_NM) {
+                push(await karantinPickOption('Mahsulot yetishtirilgan tuman', data.EXPPN_REGN_TP_NM, { root: card }));
+            } else {
+                warnings.push(`#${index + 1} mahsulot: dasturda tuman tanlanmagan`);
+            }
+
+            push(await karantinPickProduct(card, items[index].tnved, items[index].name));
+
+            const net = Number(items[index].net) || 0;
+            if (net > 0) {
+                if (!karantinSetInputByName(`products.${index}.quantity`, String(net), modal)) {
+                    warnings.push(`#${index + 1} mahsulot: miqdori yozilmadi`);
+                }
+            } else {
+                warnings.push(`#${index + 1} mahsulot: netto vazn yo'q`);
+            }
+
+            push(await karantinPickOption("O'lchov birligi", KARANTIN_DEFAULTS.unit, { root: card }));
+        }
+    }
+
+    // 5. Ro'yxat tanlashlari formani qayta chizganda matnli maydonlar tozalanib
+    //    ketishi mumkin — oxirida tekshirib, kerak bo'lsa qaytadan yoziladi
+    for (const [name, value] of Object.entries(textFields)) {
+        if (!value) continue;
+        const el = modal.querySelector(`[name="${name}"]`);
+        if (el && el.value !== value) karantinSetInput(el, value);
+    }
+
+    return warnings;
 }

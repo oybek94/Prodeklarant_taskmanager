@@ -57,8 +57,9 @@ function sendToContentScript(action, mockData, statusDiv) {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         if (tabs && tabs[0]) {
             const url = tabs[0].url;
-            if (!url.includes('singlewindow.uz') && !url.includes('app.expertiza.uz')) {
-                statusDiv.textContent = "Bu kengaytma faqat singlewindow.uz yoki app.expertiza.uz saytida ishlaydi.";
+            const supportedHosts = ['singlewindow.uz', 'app.expertiza.uz', 'cabinet.karantin.uz'];
+            if (!supportedHosts.some((host) => url.includes(host))) {
+                statusDiv.textContent = "Bu kengaytma faqat " + supportedHosts.join(', ') + " saytlarida ishlaydi.";
                 statusDiv.style.color = "#ef4444";
                 return;
             }
@@ -71,7 +72,7 @@ function sendToContentScript(action, mockData, statusDiv) {
                     statusDiv.textContent = "Xatolik! Sayt to'liq yuklanganini tekshiring.";
                     statusDiv.style.color = "#ef4444";
                 } else if (response && response.success) {
-                    if (action === "fill_form" || action === "fill_st1_form") {
+                    if (action === "fill_form" || action === "fill_st1_form" || action === "fill_karantin_fss") {
                         const warnings = response.warnings || [];
                         if (warnings.length > 0) {
                             // To'ldirilmagan maydonlar jim qolmasligi kerak — ayniqsa
@@ -92,7 +93,7 @@ function sendToContentScript(action, mockData, statusDiv) {
                         }
                     }
                 } else {
-                    if (action === "check_products" && response && response.errorMsg) {
+                    if (response && response.errorMsg) {
                         statusDiv.textContent = response.errorMsg;
                     } else {
                         statusDiv.textContent = "Noma'lum xatolik yuz berdi.";
@@ -116,6 +117,13 @@ document.getElementById('fillSt1Btn').addEventListener('click', async () => {
     const mockData = await getProdeklarantData(statusDiv);
     if (!mockData) return;
     sendToContentScript("fill_st1_form", mockData, statusDiv);
+});
+
+document.getElementById('fillKarantinBtn').addEventListener('click', async () => {
+    const statusDiv = document.getElementById('status');
+    const mockData = await getProdeklarantData(statusDiv);
+    if (!mockData) return;
+    sendToContentScript("fill_karantin_fss", mockData, statusDiv);
 });
 
 document.getElementById('checkDataBtn').addEventListener('click', async () => {

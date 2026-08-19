@@ -4,6 +4,8 @@ import type { PackagingTypeItem } from '../../types/settings';
 import { UNIT_OPTIONS, DEFAULT_COLUMN_LABELS } from './types';
 import { formatNumber, formatNumberFixed, formatUnitPrice, numberToWordsRu, getCurrencySymbol, sumItemTotals } from './invoiceUtils';
 import { InvoiceWeightSummary } from './InvoiceWeightSummary';
+import InvoiceFieldHint from './InvoiceFieldHint';
+import type { InvoiceFieldHintKey } from '../../constants/invoiceFieldHints';
 import { ExportPriceCalculator } from './ExportPriceCalculator';
 import { InvoiceItemRow } from './InvoiceItemRow';
 import { useTableKeyboardNav } from './hooks/useTableKeyboardNav';
@@ -276,6 +278,9 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = React.memo(({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderedVisibleColumns]);
 
+  /** Ustun sarlavhasi yonidagi "i" — PDF rejimida chizilmaydi */
+  const headerHint = (field: InvoiceFieldHintKey) => (isPdfMode ? null : <InvoiceFieldHint field={field} />);
+
   const renderTableHeader = (py: string) => {
     const uniqueUnits = Array.from(new Set(items.map(i => i.unit).filter(Boolean)));
     let unitPriceLabel = columnLabels.unitPrice || 'Цена за ед.изм.';
@@ -295,79 +300,79 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = React.memo(({
             case 'index':
               return (
                 <th key={key} className={`px-2 ${py} text-center text-xs font-semibold w-12`} style={{ verticalAlign: 'top' }}>
-                  {columnLabels.index}
+                  <span className="inline-flex items-center gap-1">{columnLabels.index}{headerHint('colIndex')}</span>
                 </th>
               );
             case 'tnved':
               return (
                 <th key={key} className={`px-2 ${py} text-left text-xs font-semibold`} style={{ verticalAlign: 'top' }}>
-                  {columnLabels.tnved}
+                  <span className="inline-flex items-center gap-1">{columnLabels.tnved}{headerHint('colTnved')}</span>
                 </th>
               );
             case 'plu':
               return (
                 <th key={key} className={`px-2 ${py} text-left text-xs font-semibold`} style={{ verticalAlign: 'top' }}>
-                  {columnLabels.plu}
+                  <span className="inline-flex items-center gap-1">{columnLabels.plu}{headerHint('colPlu')}</span>
                 </th>
               );
             case 'name':
               return (
                 <th key={key} className={`px-2 ${py} text-left text-xs font-semibold`} style={{ verticalAlign: 'top' }}>
-                  {columnLabels.name}
+                  <span className="inline-flex items-center gap-1">{columnLabels.name}{headerHint('colName')}</span>
                 </th>
               );
             case 'unit':
               return (
                 <th key={key} className={`px-2 ${py} text-center text-xs font-semibold`} style={{ verticalAlign: 'top' }}>
-                  {columnLabels.unit}
+                  <span className="inline-flex items-center gap-1">{columnLabels.unit}{headerHint('colUnit')}</span>
                 </th>
               );
             case 'package':
               return (
                 <th key={key} className={`px-2 ${py} text-left text-xs font-semibold`} style={{ verticalAlign: 'top' }}>
-                  {columnLabels.package}
+                  <span className="inline-flex items-center gap-1">{columnLabels.package}{headerHint('colPackage')}</span>
                 </th>
               );
             case 'quantity':
               return (
                 <th key={key} className={`px-2 ${py} text-right text-xs font-semibold`} style={{ verticalAlign: 'top' }}>
-                  {columnLabels.quantity}
+                  <span className="inline-flex items-center gap-1">{columnLabels.quantity}{headerHint('colQuantity')}</span>
                 </th>
               );
             case 'shtCount':
               return (
                 <th key={key} className={`px-2 ${py} text-right text-xs font-semibold`} style={{ verticalAlign: 'top' }}>
-                  шт
+                  <span className="inline-flex items-center gap-1">шт{headerHint('colShtCount')}</span>
                 </th>
               );
             case 'packagesCount':
               return (
                 <th key={key} className={`px-2 ${py} text-right text-xs font-semibold`} style={{ verticalAlign: 'top' }}>
-                  {columnLabels.packagesCount}
+                  <span className="inline-flex items-center gap-1">{columnLabels.packagesCount}{headerHint('colPackagesCount')}</span>
                 </th>
               );
             case 'gross':
               return (
                 <th key={key} className={`px-2 ${py} text-right text-xs font-semibold`} style={{ verticalAlign: 'top' }}>
-                  {columnLabels.gross}
+                  <span className="inline-flex items-center gap-1">{columnLabels.gross}{headerHint('colGross')}</span>
                 </th>
               );
             case 'net':
               return (
                 <th key={key} className={`px-2 ${py} text-right text-xs font-semibold`} style={{ verticalAlign: 'top' }}>
-                  {columnLabels.net}
+                  <span className="inline-flex items-center gap-1">{columnLabels.net}{headerHint('colNet')}</span>
                 </th>
               );
             case 'unitPrice':
               return (
                 <th key={key} className={`px-2 ${py} text-right text-xs font-semibold`} style={{ verticalAlign: 'top' }}>
-                  {unitPriceLabel}
+                  <span className="inline-flex items-center gap-1">{unitPriceLabel}{headerHint('colUnitPrice')}</span>
                 </th>
               );
             case 'total':
               return (
                 <th key={key} className={`px-2 ${py} text-right text-xs font-semibold`} style={{ verticalAlign: 'top' }}>
-                  {totalColumnLabel}
+                  <span className="inline-flex items-center gap-1">{totalColumnLabel}{headerHint('colTotal')}</span>
                 </th>
               );
             case 'actions':

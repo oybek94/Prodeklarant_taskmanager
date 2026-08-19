@@ -3,6 +3,7 @@ import type { ViewTab, Contract } from './types';
 import { resolveUploadUrl } from './types';
 import DateInput from '../DateInput';
 import { formatDate } from './invoiceUtils';
+import InvoiceFieldHint from './InvoiceFieldHint';
 
 interface InvoiceHeaderProps {
   viewTab: ViewTab;
@@ -97,6 +98,7 @@ export const InvoiceHeader: React.FC<InvoiceHeaderProps> = React.memo(({
             ) : (
               <>
                 <span className="text-base md:text-lg font-bold text-gray-700 whitespace-nowrap shrink-0">Инвойс №:</span>
+                <InvoiceFieldHint field="invoiceNumber" />
                 <div className="flex flex-col">
                   <input
                     type="text"
@@ -121,6 +123,7 @@ export const InvoiceHeader: React.FC<InvoiceHeaderProps> = React.memo(({
                 </div>
 
                 <span className="text-base md:text-lg text-gray-700">г.</span>
+                <InvoiceFieldHint field="invoiceDate" />
               </>
             )}
           </div>
@@ -134,18 +137,21 @@ export const InvoiceHeader: React.FC<InvoiceHeaderProps> = React.memo(({
                   : ''}
               </span>
             ) : (
-              <select
-                value={selectedContractId}
-                onChange={(e) => handleContractSelect(e.target.value)}
-                className="flex-1 min-w-0 px-2 py-1 border border-gray-300 rounded text-base md:text-lg font-semibold"
-              >
-                <option value="">Shartnoma tanlang...</option>
-                {contracts.map(contract => (
-                  <option key={contract.id} value={contract.id}>
-                    {contract.contractNumber} от {formatDate(contract.contractDate)} (ID: {contract.id})
-                  </option>
-                ))}
-              </select>
+              <>
+                <InvoiceFieldHint field="contractSelect" />
+                <select
+                  value={selectedContractId}
+                  onChange={(e) => handleContractSelect(e.target.value)}
+                  className="flex-1 min-w-0 px-2 py-1 border border-gray-300 rounded text-base md:text-lg font-semibold"
+                >
+                  <option value="">Shartnoma tanlang...</option>
+                  {contracts.map(contract => (
+                    <option key={contract.id} value={contract.id}>
+                      {contract.contractNumber} от {formatDate(contract.contractDate)} (ID: {contract.id})
+                    </option>
+                  ))}
+                </select>
+              </>
             )}
 
           </div>

@@ -2,6 +2,7 @@ import React from 'react';
 import type { InvoiceItem } from './types';
 import type { PackagingTypeItem } from '../../types/settings';
 import { formatNumber, isTareInRange, suggestPackagingTypes } from './invoiceUtils';
+import InvoiceFieldHint from './InvoiceFieldHint';
 
 interface InvoiceWeightSummaryProps {
   items: InvoiceItem[];
@@ -33,7 +34,10 @@ export const InvoiceWeightSummary = React.memo(function InvoiceWeightSummary({ i
 
   return (
     <div className="mt-4 flex flex-wrap gap-4">
-      <div className="p-3 bg-gray-100 rounded-lg border border-gray-200 text-sm w-1/2">
+      <div className="relative p-3 bg-gray-100 rounded-lg border border-gray-200 text-sm w-1/2">
+        <span className="absolute top-1.5 right-1.5">
+          <InvoiceFieldHint field="weightSummary" />
+        </span>
         <div className="flex flex-wrap gap-x-6 gap-y-1">
           <span>
             <strong>Maks. og&apos;irlik (кг):</strong> {formatNumber(maxWeight)}
@@ -51,7 +55,10 @@ export const InvoiceWeightSummary = React.memo(function InvoiceWeightSummary({ i
           )}
         </div>
       </div>
-      <div className="p-3 bg-gray-100 rounded-lg border border-gray-200 text-sm flex-1 min-w-0">
+      <div className="relative p-3 bg-gray-100 rounded-lg border border-gray-200 text-sm flex-1 min-w-0">
+        <span className="absolute top-1.5 right-1.5">
+          <InvoiceFieldHint field="tareCheck" />
+        </span>
         {(() => {
           const grouped = items.reduce((acc, item) => {
             const key = `${item.tnvedCode || ''}_${item.name || ''}`;

@@ -1,6 +1,7 @@
 import React from 'react';
 import { CopyIconButton } from '../CopyIconButton';
 import type { Contract } from './types';
+import InvoiceFieldHint from './InvoiceFieldHint';
 
 interface InvoicePartiesProps {
   selectedContractId: string;
@@ -26,8 +27,9 @@ export const InvoiceParties: React.FC<InvoicePartiesProps> = React.memo(({
 
       <div className="md:pr-4">
 
-        <h3 className="font-semibold text-gray-800 mb-2">
+        <h3 className="flex items-center gap-1.5 font-semibold text-gray-800 mb-2">
           {isSellerShipper ? 'Продавец/Грузоотправитель' : 'Продавец'}
+          <InvoiceFieldHint field="sellerParty" />
         </h3>
 
         <div className="text-[15px] text-black space-y-1">
@@ -199,8 +201,9 @@ export const InvoiceParties: React.FC<InvoicePartiesProps> = React.memo(({
 
       <div className="md:pl-4">
 
-        <h3 className="font-semibold text-gray-800 mb-2">
+        <h3 className="flex items-center gap-1.5 font-semibold text-gray-800 mb-2">
           {isBuyerConsignee ? 'Покупатель/Грузополучатель' : 'Покупатель'}
+          <InvoiceFieldHint field="buyerParty" />
         </h3>
 
         <div className="text-[15px] text-black space-y-1">

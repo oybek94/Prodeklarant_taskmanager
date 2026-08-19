@@ -1,5 +1,6 @@
 import React from 'react';
 import type { ViewTab } from './types';
+import InvoiceFieldHint from './InvoiceFieldHint';
 
 interface InvoiceNotesProps {
   viewTab: ViewTab;
@@ -18,7 +19,10 @@ export const InvoiceNotes: React.FC<InvoiceNotesProps> = React.memo(({
 
   return (
     <div className="mb-8">
-      <label className="block text-sm font-semibold text-gray-700 mb-2">Особые примечания</label>
+      <div className="flex items-center gap-1.5 mb-2">
+        <label className="block text-sm font-semibold text-gray-700">Особые примечания</label>
+        {!isPdfMode && <InvoiceFieldHint field="notes" />}
+      </div>
       {isPdfMode || viewTab === 'packing' ? (
         <div 
           className="w-full text-sm text-gray-900 whitespace-pre-wrap border border-gray-300 rounded-lg"

@@ -1,4 +1,6 @@
 import { useMemo, useState } from 'react';
+import InvoiceFieldHint from './InvoiceFieldHint';
+import type { InvoiceFieldHintKey } from '../../constants/invoiceFieldHints';
 import { motion } from 'framer-motion';
 import { Icon } from '@iconify/react';
 import type { Contract, CustomField, ViewTab, InvoiceFormData } from './types';
@@ -123,6 +125,7 @@ export function AdditionalInfoModal({
         return (
           <FieldWithVisibility
             label="Место отгрузки груза:"
+            hint="shipmentPlace"
             fieldKey="shipmentPlace"
             value={form.shipmentPlace}
             onChange={(v) => setForm({ ...form, shipmentPlace: v })}
@@ -135,6 +138,7 @@ export function AdditionalInfoModal({
         return (
           <FieldWithVisibility
             label="Место назначения:"
+            hint="destination"
             fieldKey="destination"
             value={form.destination}
             onChange={(v) => setForm({ ...form, destination: v })}
@@ -147,6 +151,7 @@ export function AdditionalInfoModal({
         return (
           <FieldWithVisibility
             label="Происхождение товара:"
+            hint="origin"
             fieldKey="origin"
             value={form.origin !== undefined ? form.origin : 'Республика Узбекистан'}
             onChange={(v) => setForm({ ...form, origin: v })}
@@ -159,6 +164,7 @@ export function AdditionalInfoModal({
         return (
           <FieldWithVisibility
             label="Производитель:"
+            hint="manufacturer"
             fieldKey="manufacturer"
             value={form.manufacturer}
             onChange={(v) => setForm({ ...form, manufacturer: v })}
@@ -171,6 +177,7 @@ export function AdditionalInfoModal({
         return (
           <FieldWithVisibility
             label="Номер заказа:"
+            hint="orderNumber"
             fieldKey="orderNumber"
             value={form.orderNumber}
             onChange={(v) => setForm({ ...form, orderNumber: v })}
@@ -183,6 +190,7 @@ export function AdditionalInfoModal({
         return (
           <FieldWithVisibility
             label="Глобальный идентификационный номер GS1 (GLN):"
+            hint="gln"
             fieldKey="gln"
             value={form.gln}
             onChange={(v) => setForm({ ...form, gln: v })}
@@ -196,6 +204,7 @@ export function AdditionalInfoModal({
         return (
           <FieldWithVisibility
             label="Температура:"
+            hint="temperature"
             fieldKey="temperature"
             value={form.temperature || ''}
             onChange={(v) => setForm({ ...form, temperature: v })}
@@ -210,6 +219,7 @@ export function AdditionalInfoModal({
           <FieldBlock
             inline
             label="Урожай:"
+            hint="harvestYear"
             actions={
               <>
                 <EyeToggle visible={isAdditionalInfoVisible('harvestYear')} onToggle={() => toggleAdditionalInfoVisible('harvestYear')} />
@@ -272,6 +282,7 @@ export function AdditionalInfoModal({
             {/* Условия поставки */}
             <FieldBlock
               label="Условия поставки:"
+              hint="deliveryTerms"
               required
               actions={<EyeToggle visible={isAdditionalInfoVisible('deliveryTerms')} onToggle={() => toggleAdditionalInfoVisible('deliveryTerms')} />}
             >
@@ -392,6 +403,7 @@ export function AdditionalInfoModal({
               return (
                 <FieldBlock
                   label="Место там. очистки:"
+                  hint="customsAddress"
                   actions={<EyeToggle visible={isAdditionalInfoVisible('customsAddress')} onToggle={() => toggleAdditionalInfoVisible('customsAddress')} />}
                 >
                   {options.length > 0 && (
@@ -453,6 +465,7 @@ export function AdditionalInfoModal({
               <FieldBlock
                 compact
                 label="Номер автотранспорта:"
+                hint="vehicleNumber"
                 required
                 actions={<EyeToggle visible={isAdditionalInfoVisible('vehicleNumber')} onToggle={() => toggleAdditionalInfoVisible('vehicleNumber')} />}
               >
@@ -470,7 +483,7 @@ export function AdditionalInfoModal({
                   className={inputCompactCls}
                 />
               </FieldBlock>
-              <FieldBlock compact label="Примечание:">
+              <FieldBlock compact label="Примечание:" hint="vehicleWeight">
                 <input
                   type="number"
                   min={0}
@@ -491,13 +504,13 @@ export function AdditionalInfoModal({
             </div>
 
             <div className="grid grid-cols-3 gap-2.5">
-              <FieldBlock compact label="Yuk tortuvchi">
+              <FieldBlock compact label="Yuk tortuvchi" hint="loaderWeight">
                 <input type="number" min={0} step="any" value={form.loaderWeight} onChange={(e) => setForm({ ...form, loaderWeight: e.target.value })} className={inputCompactCls + ' text-right'} placeholder="кг" />
               </FieldBlock>
-              <FieldBlock compact label="Pritsep">
+              <FieldBlock compact label="Pritsep" hint="trailerWeight">
                 <input type="number" min={0} step="any" value={form.trailerWeight} onChange={(e) => setForm({ ...form, trailerWeight: e.target.value })} className={inputCompactCls + ' text-right'} placeholder="кг" />
               </FieldBlock>
-              <FieldBlock compact label="Poddon">
+              <FieldBlock compact label="Poddon" hint="palletWeight">
                 <input
                   type="number"
                   min={0}
@@ -518,10 +531,10 @@ export function AdditionalInfoModal({
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-              <FieldBlock compact label="TIR №:">
+              <FieldBlock compact label="TIR №:" hint="tirNumber">
                 <input type="text" value={form.tirNumber} onChange={(e) => setForm({ ...form, tirNumber: e.target.value })} className={inputCompactCls} />
               </FieldBlock>
-              <FieldBlock compact label="SMR №:">
+              <FieldBlock compact label="SMR №:" hint="smrNumber">
                 <input type="text" value={form.smrNumber} onChange={(e) => setForm({ ...form, smrNumber: e.target.value })} className={inputCompactCls} />
               </FieldBlock>
             </div>
@@ -711,6 +724,7 @@ function FieldBlock({
   children,
   inline,
   compact,
+  hint,
 }: {
   label: string;
   required?: boolean;
@@ -718,14 +732,19 @@ function FieldBlock({
   children: React.ReactNode;
   inline?: boolean;
   compact?: boolean;
+  /** Maydon yonidagi "i" tugmasi uchun yordam kaliti */
+  hint?: InvoiceFieldHintKey;
 }) {
   if (inline) {
     return (
       <div className="flex items-center gap-2.5">
-        <label className="w-44 shrink-0 text-xs font-medium text-gray-600 leading-tight" title={label}>
-          {label}
-          {required && <span className="text-red-500 ml-0.5">*</span>}
-        </label>
+        <div className="w-44 shrink-0 flex items-center gap-1">
+          <label className="min-w-0 text-xs font-medium text-gray-600 leading-tight" title={label}>
+            {label}
+            {required && <span className="text-red-500 ml-0.5">*</span>}
+          </label>
+          {hint && <InvoiceFieldHint field={hint} />}
+        </div>
         <div className="flex-1 min-w-0">{children}</div>
         {actions && (
           <div className="flex items-center gap-1 shrink-0">
@@ -739,10 +758,13 @@ function FieldBlock({
   return (
     <div>
       <div className={`flex items-start justify-between gap-2 ${compact ? 'mb-0.5' : 'mb-1'}`}>
-        <label className={`font-medium leading-snug min-w-0 ${compact ? 'text-xs text-gray-600' : 'text-sm text-gray-700'}`}>
-          {label}
-          {required && <span className="text-red-500 ml-0.5">*</span>}
-        </label>
+        <div className="flex items-center gap-1 min-w-0">
+          <label className={`font-medium leading-snug min-w-0 ${compact ? 'text-xs text-gray-600' : 'text-sm text-gray-700'}`}>
+            {label}
+            {required && <span className="text-red-500 ml-0.5">*</span>}
+          </label>
+          {hint && <InvoiceFieldHint field={hint} />}
+        </div>
         {actions && (
           <div className="flex items-center gap-1 shrink-0">
             {actions}
@@ -792,6 +814,7 @@ function FieldWithVisibility({
   toggleVisible,
   isVisible,
   placeholder,
+  hint,
 }: {
   label: string;
   fieldKey: string;
@@ -801,11 +824,13 @@ function FieldWithVisibility({
   toggleVisible: (key: string) => void;
   isVisible: (key: string) => boolean;
   placeholder?: string;
+  hint?: InvoiceFieldHintKey;
 }) {
   return (
     <FieldBlock
       inline
       label={label}
+      hint={hint}
       actions={
         <>
           <EyeToggle visible={isVisible(fieldKey)} onToggle={() => toggleVisible(fieldKey)} />

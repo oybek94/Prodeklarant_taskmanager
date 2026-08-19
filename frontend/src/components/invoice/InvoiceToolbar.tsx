@@ -192,37 +192,6 @@ export const InvoiceToolbar: React.FC<InvoiceToolbarProps> = React.memo(({
         )}
 
         <div className="ml-auto flex flex-wrap items-center justify-end gap-1.5">
-          {/* Eslatma — shartnoma bo'yicha eslatmani qo'shish yoki ko'rsatish.
-              Eslatma mavjud bo'lsa tugma amber rangda va yonida nuqta turadi;
-              panel o'zi 15 soniyadan keyin yashirinadi, shundan keyin uni
-              faqat shu tugma qaytaradi. */}
-          {reminderAvailable && (
-            <button
-              type="button"
-              onClick={onToggleReminder}
-              className={
-                hasReminder
-                  ? `${ACTION_BTN} border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100${reminderOpen ? ' ring-2 ring-amber-400/40' : ''}`
-                  : ACTION_BTN
-              }
-              title={
-                hasReminder
-                  ? reminderOpen
-                    ? 'Eslatmani yashirish'
-                    : 'Eslatmani ko‘rsatish'
-                  : 'Shartnoma uchun eslatma qo‘shish — u shu shartnomadagi barcha invoyslarda chiqadi'
-              }
-              aria-pressed={hasReminder ? reminderOpen : undefined}
-            >
-              <Icon
-                icon={hasReminder ? 'solar:notes-bold-duotone' : 'solar:notes-minimalistic-linear'}
-                className="h-4 w-4"
-              />
-              <span className="hidden sm:inline">Eslatma</span>
-              {hasReminder && <span className="h-1.5 w-1.5 rounded-full bg-amber-500" aria-hidden="true" />}
-            </button>
-          )}
-
           {/* Matndan to'ldirish — faqat invoys "Tayyor" bo'lgunicha: keyin
               maydonlarni AI bilan qayta yozishning ma'nosi yo'q */}
           {!invoysStageReady && (
@@ -466,6 +435,38 @@ export const InvoiceToolbar: React.FC<InvoiceToolbarProps> = React.memo(({
               aria-label="PDF shrift o'lchamlari"
             >
               <Icon icon="solar:text-field-linear" className="h-4 w-4" />
+            </button>
+          )}
+
+          {/* Eslatma — shartnoma bo'yicha eslatmani qo'shish yoki ko'rsatish.
+              Faqat ikonka: shrift o'lchami tugmasi bilan bir guruhda turadi.
+              Eslatma mavjud bo'lsa tugma amber rangda va burchagida nuqta
+              turadi; panel 15 soniyadan keyin o'zi yashirinadi, shundan keyin
+              uni faqat shu tugma qaytaradi. */}
+          {reminderAvailable && (
+            <button
+              type="button"
+              onClick={onToggleReminder}
+              className={`${ACTION_BTN} relative px-2${
+                hasReminder ? ' border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100' : ''
+              }${hasReminder && reminderOpen ? ' ring-2 ring-amber-400/40' : ''}`}
+              title={
+                hasReminder
+                  ? reminderOpen
+                    ? 'Eslatmani yashirish'
+                    : 'Eslatmani ko‘rsatish'
+                  : 'Shartnoma uchun eslatma qo‘shish — u shu shartnomadagi barcha invoyslarda chiqadi'
+              }
+              aria-label={hasReminder ? 'Eslatma' : 'Eslatma qo‘shish'}
+              aria-pressed={hasReminder ? reminderOpen : undefined}
+            >
+              <Icon
+                icon={hasReminder ? 'solar:notes-bold-duotone' : 'solar:notes-minimalistic-linear'}
+                className="h-4 w-4"
+              />
+              {hasReminder && (
+                <span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-amber-500" aria-hidden="true" />
+              )}
             </button>
           )}
 

@@ -677,8 +677,48 @@ const Invoice = () => {
     } catch (error) {
       console.error(error);
       toast.error("Xatolik yuz berdi");
+      throw error;
     }
   };
+
+  /* ── Eslatma paneli ─────────────────────────────────────────────────────
+     Eslatma shartnomada saqlanadi, ya'ni bir marta qo'shilsa o'sha
+     shartnomadagi BARCHA invoyslarda chiqadi. Invoys ochilganda panel bir
+     marta o'zi ko'rinadi va 15 soniyadan keyin yashirinadi; keyin uni faqat
+     toolbar'dagi "Eslatma" tugmasi qaytaradi. Eslatmasi yo'q shartnomalarda
+     panel umuman render qilinmaydi. */
+  const clientRequirements = task?.client?.requirements;
+  const hasReminder = Boolean(selectedContract?.requirements?.trim() || clientRequirements?.trim());
+  const [reminderOpen, setReminderOpen] = useState(false);
+  const [reminderAutoHide, setReminderAutoHide] = useState(false);
+  const [reminderStartInEdit, setReminderStartInEdit] = useState(false);
+  // Qaysi shartnoma uchun panel avtomatik ko'rsatilgani — qayta ko'rsatmaslik uchun
+  const reminderAutoShownFor = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!hasReminder) return;
+    const key = selectedContractId || 'client';
+    if (reminderAutoShownFor.current === key) return;
+    reminderAutoShownFor.current = key;
+    setReminderStartInEdit(false);
+    setReminderAutoHide(true);
+    setReminderOpen(true);
+  }, [hasReminder, selectedContractId]);
+
+  const handleCloseReminder = useCallback(() => setReminderOpen(false), []);
+
+  const handleToggleReminder = useCallback(() => {
+    if (reminderOpen) {
+      setReminderOpen(false);
+      return;
+    }
+    // Foydalanuvchi o'zi ochdi — endi avtomatik yashirish yo'q
+    setReminderAutoHide(false);
+    setReminderStartInEdit(!hasReminder);
+    setReminderOpen(true);
+  }, [reminderOpen, hasReminder]);
+
+  const canEditReminder = canEditEffective && Boolean(selectedContractId);
 
   if (loading) {
     return (
@@ -762,6 +802,10 @@ const Invoice = () => {
           onOpenPdfFontSizes={() => setShowPdfFontSizeModal(true)}
           canEditEffective={canEditEffective}
           needsErrorReport={sertifikatStageCompleted && canEdit && !taskHasErrors}
+          hasReminder={hasReminder}
+          reminderOpen={reminderOpen}
+          onToggleReminder={handleToggleReminder}
+          reminderAvailable={hasReminder || canEditReminder}
         />
 
         {/* Invoice form + Requirements note side panel */}
@@ -950,14 +994,18 @@ const Invoice = () => {
 
       </div>
 
-      {/* Requirements floating note — fixed position, draggable */}
-      {(selectedContract || task?.client?.requirements) && (
+      {/* Eslatma — suzuvchi, tortib ko'chiriladigan panel */}
+      {(hasReminder || reminderOpen) && (
         <ContractRequirementsNote
           requirements={selectedContract?.requirements}
-          clientRequirements={task?.client?.requirements}
+          clientRequirements={clientRequirements}
           contractNumber={selectedContract?.contractNumber}
           clientName={task?.client?.name}
-          onUpdateRequirements={canEditEffective ? handleUpdateContractRequirements : undefined}
+          onUpdateRequirements={canEditReminder ? handleUpdateContractRequirements : undefined}
+          open={reminderOpen}
+          onClose={handleCloseReminder}
+          autoHide={reminderAutoHide}
+          startInEdit={reminderStartInEdit}
         />
       )}
 

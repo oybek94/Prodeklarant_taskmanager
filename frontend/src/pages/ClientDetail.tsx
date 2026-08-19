@@ -4,6 +4,7 @@ import { Icon } from '@iconify/react';
 import apiClient from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import EmptyValue from '../components/common/EmptyValue';
+import ContractFieldHint from '../components/contracts/ContractFieldHint';
 import CurrencyDisplay from '../components/CurrencyDisplay';
 import DateInput from '../components/DateInput';
 import { useIsMobile } from '../utils/useIsMobile';
@@ -1252,7 +1253,10 @@ const ClientDetail = () => {
                     <h4 className="font-semibold text-gray-700 mb-3">Shartnoma ma'lumotlari</h4>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Shartnoma raqami *</label>
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <label className="block text-sm font-medium text-gray-700">Shartnoma raqami *</label>
+                          <ContractFieldHint field="contractNumber" />
+                        </div>
                         <input
                           type="text"
                           value={contractForm.contractNumber}
@@ -1261,7 +1265,10 @@ const ClientDetail = () => {
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Shartnoma sanasi *</label>
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <label className="block text-sm font-medium text-gray-700">Shartnoma sanasi *</label>
+                          <ContractFieldHint field="contractDate" />
+                        </div>
                         <DateInput
                           value={contractForm.contractDate}
                           onChange={(value) => setContractForm({ ...contractForm, contractDate: value })}
@@ -1269,7 +1276,10 @@ const ClientDetail = () => {
                         />
                       </div>
                       <div className="col-span-2">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Eksport davlati *</label>
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <label className="block text-sm font-medium text-gray-700">Eksport davlati *</label>
+                          <ContractFieldHint field="destinationCountry" />
+                        </div>
                         <select
                           value={contractForm.destinationCountry}
                           onChange={(e) => setContractForm({ ...contractForm, destinationCountry: e.target.value })}
@@ -1314,7 +1324,10 @@ const ClientDetail = () => {
                 <h4 className="font-semibold text-gray-700 mb-3">Sotuvchi ma'lumotlari *</h4>
                 <div className="space-y-3">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Nomi *</label>
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <label className="block text-sm font-medium text-gray-700">Nomi *</label>
+                      <ContractFieldHint field="sellerName" />
+                    </div>
                     <input
                       type="text"
                       value={contractForm.sellerName}
@@ -1323,7 +1336,10 @@ const ClientDetail = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Yuridik manzil *</label>
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <label className="block text-sm font-medium text-gray-700">Yuridik manzil *</label>
+                      <ContractFieldHint field="sellerLegalAddress" />
+                    </div>
                     <textarea
                       value={contractForm.sellerLegalAddress}
                       onChange={(e) => setContractForm({ ...contractForm, sellerLegalAddress: e.target.value })}
@@ -1332,7 +1348,10 @@ const ClientDetail = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Qolgan rekvizitlar</label>
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <label className="block text-sm font-medium text-gray-700">Qolgan rekvizitlar</label>
+                      <ContractFieldHint field="sellerDetails" />
+                    </div>
                     <textarea
                       value={contractForm.sellerDetails}
                       onChange={(e) => setContractForm({ ...contractForm, sellerDetails: e.target.value })}
@@ -1353,7 +1372,10 @@ const ClientDetail = () => {
                 <h4 className="font-semibold text-gray-700 mb-3">Sotib oluvchi ma'lumotlari *</h4>
                 <div className="space-y-3">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Nomi *</label>
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <label className="block text-sm font-medium text-gray-700">Nomi *</label>
+                      <ContractFieldHint field="buyerName" />
+                    </div>
                     <input
                       type="text"
                       value={contractForm.buyerName}
@@ -1362,7 +1384,10 @@ const ClientDetail = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Manzil *</label>
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <label className="block text-sm font-medium text-gray-700">Manzil *</label>
+                      <ContractFieldHint field="buyerAddress" />
+                    </div>
                     <textarea
                       value={contractForm.buyerAddress}
                       onChange={(e) => setContractForm({ ...contractForm, buyerAddress: e.target.value })}
@@ -1371,7 +1396,10 @@ const ClientDetail = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Qolgan rekvizitlar</label>
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <label className="block text-sm font-medium text-gray-700">Qolgan rekvizitlar</label>
+                      <ContractFieldHint field="buyerDetails" />
+                    </div>
                     <textarea
                       value={contractForm.buyerDetails}
                       onChange={(e) => setContractForm({ ...contractForm, buyerDetails: e.target.value })}
@@ -1392,7 +1420,10 @@ const ClientDetail = () => {
                 <h4 className="font-semibold text-gray-700 mb-3">Yuk jo'natuvchi ma'lumotlari (ixtiyoriy)</h4>
                 <div className="space-y-3">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Nomi</label>
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <label className="block text-sm font-medium text-gray-700">Nomi</label>
+                      <ContractFieldHint field="shipperName" />
+                    </div>
                     <input
                       type="text"
                       value={contractForm.shipperName}
@@ -1401,7 +1432,10 @@ const ClientDetail = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Manzil</label>
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <label className="block text-sm font-medium text-gray-700">Manzil</label>
+                      <ContractFieldHint field="shipperAddress" />
+                    </div>
                     <textarea
                       value={contractForm.shipperAddress}
                       onChange={(e) => setContractForm({ ...contractForm, shipperAddress: e.target.value })}
@@ -1410,7 +1444,10 @@ const ClientDetail = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Qolgan rekvizitlar</label>
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <label className="block text-sm font-medium text-gray-700">Qolgan rekvizitlar</label>
+                      <ContractFieldHint field="shipperDetails" />
+                    </div>
                     <textarea
                       value={contractForm.shipperDetails}
                       onChange={(e) => setContractForm({ ...contractForm, shipperDetails: e.target.value })}
@@ -1431,7 +1468,10 @@ const ClientDetail = () => {
                 <h4 className="font-semibold text-gray-700 mb-3">Yuk qabul qiluvchi ma'lumotlari (ixtiyoriy)</h4>
                 <div className="space-y-3">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Nomi</label>
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <label className="block text-sm font-medium text-gray-700">Nomi</label>
+                      <ContractFieldHint field="consigneeName" />
+                    </div>
                     <input
                       type="text"
                       value={contractForm.consigneeName}
@@ -1440,7 +1480,10 @@ const ClientDetail = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Manzil</label>
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <label className="block text-sm font-medium text-gray-700">Manzil</label>
+                      <ContractFieldHint field="consigneeAddress" />
+                    </div>
                     <textarea
                       value={contractForm.consigneeAddress}
                       onChange={(e) => setContractForm({ ...contractForm, consigneeAddress: e.target.value })}
@@ -1449,7 +1492,10 @@ const ClientDetail = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Qolgan rekvizitlar</label>
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <label className="block text-sm font-medium text-gray-700">Qolgan rekvizitlar</label>
+                      <ContractFieldHint field="consigneeDetails" />
+                    </div>
                     <textarea
                       value={contractForm.consigneeDetails}
                       onChange={(e) => setContractForm({ ...contractForm, consigneeDetails: e.target.value })}
@@ -1474,7 +1520,10 @@ const ClientDetail = () => {
                   <h4 className="font-semibold text-gray-700 mb-3">Qo'shimcha ma'lumotlar</h4>
                 <div className="space-y-3">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Yetkazib berish sharti</label>
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <label className="block text-sm font-medium text-gray-700">Yetkazib berish sharti</label>
+                      <ContractFieldHint field="deliveryTerms" />
+                    </div>
                     <input
                       type="text"
                       value={contractForm.deliveryTerms}
@@ -1484,7 +1533,10 @@ const ClientDetail = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">To'lov usuli</label>
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <label className="block text-sm font-medium text-gray-700">To'lov usuli</label>
+                      <ContractFieldHint field="paymentMethod" />
+                    </div>
                     <input
                       type="text"
                       value={contractForm.paymentMethod}
@@ -1493,9 +1545,12 @@ const ClientDetail = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Глобальный идентификационный номер GS1 (GLN)
-                    </label>
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <label className="block text-sm font-medium text-gray-700">
+                        Глобальный идентификационный номер GS1 (GLN)
+                      </label>
+                      <ContractFieldHint field="gln" />
+                    </div>
                     <input
                       type="text"
                       value={contractForm.gln}
@@ -1505,9 +1560,12 @@ const ClientDetail = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Руководитель Поставщика
-                    </label>
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <label className="block text-sm font-medium text-gray-700">
+                        Руководитель Поставщика
+                      </label>
+                      <ContractFieldHint field="supplierDirector" />
+                    </div>
                     <input
                       type="text"
                       value={contractForm.supplierDirector}
@@ -1517,9 +1575,12 @@ const ClientDetail = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Товар отпустил
-                    </label>
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <label className="block text-sm font-medium text-gray-700">
+                        Товар отпустил
+                      </label>
+                      <ContractFieldHint field="goodsReleasedBy" />
+                    </div>
                     <input
                       type="text"
                       value={contractForm.goodsReleasedBy}
@@ -1529,9 +1590,12 @@ const ClientDetail = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Имзо (PNG/JPG)
-                    </label>
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <label className="block text-sm font-medium text-gray-700">
+                        Имзо (PNG/JPG)
+                      </label>
+                      <ContractFieldHint field="signatureUrl" />
+                    </div>
                     <input
                       type="file"
                       accept="image/png,image/jpeg"
@@ -1567,9 +1631,12 @@ const ClientDetail = () => {
                     )}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Muhr (PNG/JPG)
-                    </label>
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <label className="block text-sm font-medium text-gray-700">
+                        Muhr (PNG/JPG)
+                      </label>
+                      <ContractFieldHint field="sealUrl" />
+                    </div>
                     <input
                       type="file"
                       accept="image/png,image/jpeg"
@@ -1605,9 +1672,12 @@ const ClientDetail = () => {
                     )}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Kompaniya logotipi (PNG/JPG)
-                    </label>
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <label className="block text-sm font-medium text-gray-700">
+                        Kompaniya logotipi (PNG/JPG)
+                      </label>
+                      <ContractFieldHint field="companyLogoUrl" />
+                    </div>
                     <input
                       type="file"
                       accept="image/png,image/jpeg"
@@ -1654,9 +1724,12 @@ const ClientDetail = () => {
                   <h4 className="font-semibold text-gray-700 mb-3">Shartnoma fayllari</h4>
                 <div className="space-y-3">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Fayllarni yuklash (ko'p fayl yuklash mumkin)
-                    </label>
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <label className="block text-sm font-medium text-gray-700">
+                        Fayllarni yuklash (ko'p fayl yuklash mumkin)
+                      </label>
+                      <ContractFieldHint field="files" />
+                    </div>
                     <input
                       type="file"
                       multiple

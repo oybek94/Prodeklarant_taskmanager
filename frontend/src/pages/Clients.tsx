@@ -12,6 +12,7 @@ import { formatCurrencyForRole, type Role, shouldShowExchangeRate } from '../uti
 import { formatDateOnly } from '../utils/dateFormatting';
 import { getDefaultTnvedProducts } from '../utils/tnvedProducts';
 import EmptyValue, { formatEmpty } from '../components/common/EmptyValue';
+import ContractFieldHint from '../components/contracts/ContractFieldHint';
 import Tasks from './Tasks';
 import { EXPORT_COUNTRIES } from '../constants/countries';
 
@@ -2518,7 +2519,10 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                     <h4 className="font-semibold text-gray-700 mb-3">Shartnoma ma'lumotlari</h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Shartnoma raqami *</label>
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <label className="block text-sm font-medium text-gray-700">Shartnoma raqami *</label>
+                          <ContractFieldHint field="contractNumber" />
+                        </div>
                         <input
                           type="text"
                           value={contractForm.contractNumber}
@@ -2528,7 +2532,10 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Shartnoma sanasi *</label>
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <label className="block text-sm font-medium text-gray-700">Shartnoma sanasi *</label>
+                          <ContractFieldHint field="contractDate" />
+                        </div>
                         <DateInput
                           value={contractForm.contractDate}
                           onChange={(value) => setContractFormAndRef({ ...contractForm, contractDate: value })}
@@ -2537,7 +2544,10 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Shartnoma valyutasi</label>
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <label className="block text-sm font-medium text-gray-700">Shartnoma valyutasi</label>
+                          <ContractFieldHint field="contractCurrency" />
+                        </div>
                         <select
                           value={contractForm.contractCurrency || 'USD'}
                           onChange={(e) => setContractFormAndRef({ ...contractForm, contractCurrency: e.target.value })}
@@ -2549,7 +2559,10 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                         </select>
                       </div>
                       <div className="md:col-span-2">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Email manzillar</label>
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <label className="block text-sm font-medium text-gray-700">Email manzillar</label>
+                          <ContractFieldHint field="emails" />
+                        </div>
                         <input
                           type="text"
                           value={contractForm.emails}
@@ -2568,7 +2581,10 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                     <div className="space-y-3">
                       <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3 items-end">
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Korxona nomi *</label>
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <label className="block text-sm font-medium text-gray-700">Korxona nomi *</label>
+                            <ContractFieldHint field="sellerName" />
+                          </div>
                           <input
                             type="text"
                             value={contractForm.sellerName}
@@ -2578,7 +2594,10 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                           />
                         </div>
                         <div className="sm:w-40">
-                          <label className="block text-sm font-medium text-gray-700 mb-1">INN</label>
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <label className="block text-sm font-medium text-gray-700">INN</label>
+                            <ContractFieldHint field="sellerInn" />
+                          </div>
                           <input
                             type="text"
                             value={contractForm.sellerInn}
@@ -2589,7 +2608,10 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                         </div>
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Yuridik manzili *</label>
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <label className="block text-sm font-medium text-gray-700">Yuridik manzili *</label>
+                          <ContractFieldHint field="sellerLegalAddress" />
+                        </div>
                         <textarea
                           rows={2}
                           value={contractForm.sellerLegalAddress}
@@ -2599,7 +2621,10 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Qolgan rekvizitlar</label>
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <label className="block text-sm font-medium text-gray-700">Qolgan rekvizitlar</label>
+                          <ContractFieldHint field="sellerDetails" />
+                        </div>
                         <textarea
                           rows={3}
                           value={contractForm.sellerDetails}
@@ -2609,7 +2634,10 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">GLN kod</label>
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <label className="block text-sm font-medium text-gray-700">GLN kod</label>
+                          <ContractFieldHint field="gln" />
+                        </div>
                         <input
                           type="text"
                           value={contractForm.gln}
@@ -2619,7 +2647,10 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Директор</label>
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <label className="block text-sm font-medium text-gray-700">Директор</label>
+                          <ContractFieldHint field="supplierDirector" />
+                        </div>
                         <input
                           type="text"
                           value={contractForm.supplierDirector}
@@ -2630,7 +2661,10 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Imzo (PNG/JPG)</label>
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <label className="block text-sm font-medium text-gray-700">Imzo (PNG/JPG)</label>
+                            <ContractFieldHint field="sellerSignatureUrl" />
+                          </div>
                           <input
                             type="file"
                             accept="image/png,image/jpeg"
@@ -2657,7 +2691,10 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                           )}
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Muhr (PNG/JPG)</label>
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <label className="block text-sm font-medium text-gray-700">Muhr (PNG/JPG)</label>
+                            <ContractFieldHint field="sellerSealUrl" />
+                          </div>
                           <input
                             type="file"
                             accept="image/png,image/jpeg"
@@ -2692,7 +2729,10 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                     <h4 className="font-semibold text-gray-700 mb-3">Sotib oluvchi ma'lumotlari</h4>
                     <div className="space-y-3">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Korxona nomi *</label>
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <label className="block text-sm font-medium text-gray-700">Korxona nomi *</label>
+                          <ContractFieldHint field="buyerName" />
+                        </div>
                         <input
                           type="text"
                           value={contractForm.buyerName}
@@ -2702,7 +2742,10 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Davlati *</label>
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <label className="block text-sm font-medium text-gray-700">Davlati *</label>
+                          <ContractFieldHint field="destinationCountry" />
+                        </div>
                         <select
                           value={contractForm.destinationCountry}
                           onChange={(e) => setContractFormAndRef({ ...contractForm, destinationCountry: e.target.value })}
@@ -2727,7 +2770,10 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                         </select>
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Yuridik manzili *</label>
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <label className="block text-sm font-medium text-gray-700">Yuridik manzili *</label>
+                          <ContractFieldHint field="buyerAddress" />
+                        </div>
                         <textarea
                           rows={2}
                           value={contractForm.buyerAddress}
@@ -2737,7 +2783,10 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Qolgan rekvizitlar</label>
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <label className="block text-sm font-medium text-gray-700">Qolgan rekvizitlar</label>
+                          <ContractFieldHint field="buyerDetails" />
+                        </div>
                         <textarea
                           rows={3}
                           value={contractForm.buyerDetails}
@@ -2747,7 +2796,10 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Директор</label>
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <label className="block text-sm font-medium text-gray-700">Директор</label>
+                          <ContractFieldHint field="buyerDirector" />
+                        </div>
                         <input
                           type="text"
                           value={contractForm.buyerDirector}
@@ -2758,7 +2810,10 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Imzo (PNG/JPG)</label>
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <label className="block text-sm font-medium text-gray-700">Imzo (PNG/JPG)</label>
+                            <ContractFieldHint field="buyerSignatureUrl" />
+                          </div>
                           <input
                             type="file"
                             accept="image/png,image/jpeg"
@@ -2785,7 +2840,10 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                           )}
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Muhr (PNG/JPG)</label>
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <label className="block text-sm font-medium text-gray-700">Muhr (PNG/JPG)</label>
+                            <ContractFieldHint field="buyerSealUrl" />
+                          </div>
                           <input
                             type="file"
                             accept="image/png,image/jpeg"
@@ -2832,7 +2890,10 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                       <div className="space-y-3">
                         <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3 items-end">
                           <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Korxona nomi</label>
+                            <div className="flex items-center gap-1.5 mb-1">
+                              <label className="block text-sm font-medium text-gray-700">Korxona nomi</label>
+                              <ContractFieldHint field="shipperName" />
+                            </div>
                             <input
                               type="text"
                               value={contractForm.shipperName}
@@ -2841,7 +2902,10 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                             />
                           </div>
                           <div className="sm:w-40">
-                            <label className="block text-sm font-medium text-gray-700 mb-1">INN</label>
+                            <div className="flex items-center gap-1.5 mb-1">
+                              <label className="block text-sm font-medium text-gray-700">INN</label>
+                              <ContractFieldHint field="shipperInn" />
+                            </div>
                             <input
                               type="text"
                               value={contractForm.shipperInn}
@@ -2852,7 +2916,10 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                           </div>
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Yuridik manzili</label>
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <label className="block text-sm font-medium text-gray-700">Yuridik manzili</label>
+                            <ContractFieldHint field="shipperAddress" />
+                          </div>
                           <textarea
                             rows={2}
                             value={contractForm.shipperAddress}
@@ -2861,7 +2928,10 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Qolgan rekvizitlar</label>
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <label className="block text-sm font-medium text-gray-700">Qolgan rekvizitlar</label>
+                            <ContractFieldHint field="shipperDetails" />
+                          </div>
                           <textarea
                             rows={3}
                             value={contractForm.shipperDetails}
@@ -2890,7 +2960,10 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                     {hasConsignee && (
                       <div className="space-y-3">
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Korxona nomi</label>
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <label className="block text-sm font-medium text-gray-700">Korxona nomi</label>
+                            <ContractFieldHint field="consigneeName" />
+                          </div>
                           <input
                             type="text"
                             value={contractForm.consigneeName}
@@ -2899,7 +2972,10 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Yuridik manzili</label>
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <label className="block text-sm font-medium text-gray-700">Yuridik manzili</label>
+                            <ContractFieldHint field="consigneeAddress" />
+                          </div>
                           <textarea
                             rows={2}
                             value={contractForm.consigneeAddress}
@@ -2908,7 +2984,10 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Qolgan rekvizitlar</label>
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <label className="block text-sm font-medium text-gray-700">Qolgan rekvizitlar</label>
+                            <ContractFieldHint field="consigneeDetails" />
+                          </div>
                           <textarea
                             rows={3}
                             value={contractForm.consigneeDetails}
@@ -2918,7 +2997,10 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Директор</label>
+                          <div className="flex items-center gap-1.5 mb-1">
+                            <label className="block text-sm font-medium text-gray-700">Директор</label>
+                            <ContractFieldHint field="consigneeDirector" />
+                          </div>
                           <input
                             type="text"
                             value={contractForm.consigneeDirector}
@@ -2929,7 +3011,10 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
                           <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Imzo (PNG/JPG)</label>
+                            <div className="flex items-center gap-1.5 mb-1">
+                              <label className="block text-sm font-medium text-gray-700">Imzo (PNG/JPG)</label>
+                              <ContractFieldHint field="consigneeSignatureUrl" />
+                            </div>
                             <input
                               type="file"
                               accept="image/png,image/jpeg"
@@ -2956,7 +3041,10 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                             )}
                           </div>
                           <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Muhr (PNG/JPG)</label>
+                            <div className="flex items-center gap-1.5 mb-1">
+                              <label className="block text-sm font-medium text-gray-700">Muhr (PNG/JPG)</label>
+                              <ContractFieldHint field="consigneeSealUrl" />
+                            </div>
                             <input
                               type="file"
                               accept="image/png,image/jpeg"
@@ -2992,7 +3080,10 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                     <h4 className="font-semibold text-gray-700 mb-3">Direktor ma'lumotlari</h4>
                     <div className="space-y-2">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Direktor F.I.O. *</label>
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <label className="block text-sm font-medium text-gray-700">Direktor F.I.O. *</label>
+                          <ContractFieldHint field="supplierDirector" />
+                        </div>
                         <input
                           type="text"
                           value={contractForm.supplierDirector}
@@ -3002,7 +3093,10 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Товар отпустил:</label>
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <label className="block text-sm font-medium text-gray-700">Товар отпустил:</label>
+                          <ContractFieldHint field="goodsReleasedBy" />
+                        </div>
                         <input
                           type="text"
                           value={contractForm.goodsReleasedBy}
@@ -3018,7 +3112,10 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                   <div>
                     <h4 className="font-semibold text-gray-700 mb-3 mt-4">Kompaniya logotipi</h4>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Logotip (PNG/JPG)</label>
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <label className="block text-sm font-medium text-gray-700">Logotip (PNG/JPG)</label>
+                        <ContractFieldHint field="companyLogoUrl" />
+                      </div>
                       <input
                         type="file"
                         accept="image/png,image/jpeg"
@@ -3054,6 +3151,17 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                   <div>
                     <h4 className="font-semibold text-gray-700 mb-3">Условия поставки / Rastamojka</h4>
                     <p className="text-sm text-gray-500 mb-2">Har bir qatorda chap ustun — Условия поставки, o‘ng ustun — Rastamojka (juft, bir-biriga bog‘langan).</p>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="flex-1 min-w-0 inline-flex items-center gap-1.5 text-xs font-medium text-gray-600">
+                        Условия поставки
+                        <ContractFieldHint field="deliveryTerms" />
+                      </span>
+                      <span className="flex-1 min-w-0 inline-flex items-center gap-1.5 text-xs font-medium text-gray-600">
+                        Rastamojka
+                        <ContractFieldHint field="customsAddress" />
+                      </span>
+                      <span className="w-8 shrink-0" />
+                    </div>
                     <div className="space-y-2">
                       {(() => {
                         const delivery = contractForm.deliveryTerms;
@@ -3138,7 +3246,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
               {contractModalTab === 'customs' && (
                 <>
                   <div>
-                    <h4 className="font-semibold text-gray-700 mb-3">Shaxar / Адрес растаможки</h4>
+                    <h4 className="flex items-center gap-1.5 font-semibold text-gray-700 mb-3">Shaxar / Адрес растаможки<ContractFieldHint field="customsAddress" /></h4>
                     <div className="space-y-2">
                       {contractForm.customsAddress.map((value, index) => {
                         const address = value || '';
@@ -3193,12 +3301,12 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                       <table className="min-w-full border border-gray-300 rounded-lg text-sm">
                         <thead>
                           <tr className="bg-gray-100">
-                            <th className="px-2 py-2 text-left font-medium text-gray-700 border-b w-24">Спецификация №</th>
-                            <th className="px-2 py-2 text-left font-medium text-gray-700 border-b w-20">Товар №</th>
-                            <th className="px-2 py-2 text-left font-medium text-gray-700 border-b w-28">TNVED kod</th>
-                            <th className="px-2 py-2 text-left font-medium text-gray-700 border-b">Mahsulot nomi</th>
-                            <th className="px-2 py-2 text-left font-medium text-gray-700 border-b">Botanik nomi</th>
-                            <th className="px-2 py-2 text-right font-medium text-gray-700 border-b w-28">ЦЕНА</th>
+                            <th className="px-2 py-2 text-left font-medium text-gray-700 border-b w-24"><span className="inline-flex items-center gap-1">Спецификация №<ContractFieldHint field="specNumber" /></span></th>
+                            <th className="px-2 py-2 text-left font-medium text-gray-700 border-b w-20"><span className="inline-flex items-center gap-1">Товар №<ContractFieldHint field="productNumber" /></span></th>
+                            <th className="px-2 py-2 text-left font-medium text-gray-700 border-b w-28"><span className="inline-flex items-center gap-1">TNVED kod<ContractFieldHint field="tnvedCode" /></span></th>
+                            <th className="px-2 py-2 text-left font-medium text-gray-700 border-b"><span className="inline-flex items-center gap-1">Mahsulot nomi<ContractFieldHint field="productName" /></span></th>
+                            <th className="px-2 py-2 text-left font-medium text-gray-700 border-b"><span className="inline-flex items-center gap-1">Botanik nomi<ContractFieldHint field="botanicalName" /></span></th>
+                            <th className="px-2 py-2 text-right font-medium text-gray-700 border-b w-28"><span className="inline-flex items-center gap-1">ЦЕНА<ContractFieldHint field="unitPrice" /></span></th>
                             <th className="px-2 py-2 w-10 border-b"></th>
                           </tr>
                         </thead>
@@ -3354,9 +3462,12 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                     <h4 className="font-semibold text-gray-700 mb-3">Shartnoma fayllari</h4>
                     <div className="space-y-3">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Fayllarni yuklash (ko'p fayl yuklash mumkin)
-                        </label>
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <label className="block text-sm font-medium text-gray-700">
+                            Fayllarni yuklash (ko'p fayl yuklash mumkin)
+                          </label>
+                          <ContractFieldHint field="files" />
+                        </div>
                         <input
                           type="file"
                           multiple

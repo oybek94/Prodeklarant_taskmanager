@@ -6,6 +6,7 @@ const ACTION_HOSTS = {
     check_products: { host: "singlewindow.uz", label: "Ma'lumotlarni tekshirish" },
     fill_st1_form: { host: "app.expertiza.uz", label: "ST-1 Zayavka" },
     fill_karantin_fss: { host: "cabinet.karantin.uz", label: "Ichki FSS" },
+    fill_cargo_byud: { host: "cargo.customs.uz", label: "BYUD (1-qadam)" },
 };
 
 function wrongSiteMessage(action) {
@@ -47,6 +48,15 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             return true;
         }
         fillKarantinIchkiFss(data)
+            .then((warnings) => sendResponse({ success: true, warnings }))
+            .catch((err) => sendResponse({ success: false, errorMsg: String(err && err.message || err) }));
+    } else if (request.action === "fill_cargo_byud") {
+        const data = request.data;
+        if (!data) {
+            sendResponse({ success: false, errorMsg: "Ma'lumotlar kelmadi!" });
+            return true;
+        }
+        fillCargoByud(data)
             .then((warnings) => sendResponse({ success: true, warnings }))
             .catch((err) => sendResponse({ success: false, errorMsg: String(err && err.message || err) }));
     } else if (request.action === "check_products") {
@@ -1138,6 +1148,266 @@ async function fillKarantinIchkiFss(data) {
         const el = modal.querySelector(`[name="${name}"]`);
         if (el && el.value !== value) karantinSetInput(el, value);
     }
+
+    return warnings;
+}
+
+// ---------------------------------------------------------------------------
+// cargo.customs.uz (Экспорт (3-қадам), 1-qadam "Умумий маълумотлар")
+// ---------------------------------------------------------------------------
+
+// Har safar bir xil bo'lgani uchun doimiy qilib qo'yilgan qiymatlar.
+const CARGO_DEFAULTS = {
+    paymentMethodCode: '50',       // Тўлов усули: 50 - Экспорт факти бўйича
+    borderCustomsPost: '27009',    // Чегара божхона пости: "С. Нажимов" чегара пости
+    g54Address: 'Ферганская обл., Алтыарыкский район',
+    g54Email: 'docs@prodeklarant.uz',
+    customsValueTotal: '4000',     // Ҳаражатлар суммаси
+    customsValueCurrency: '840',   // Валюта тури: 840 - АҚШ доллари
+};
+
+// 1-qadam paneli. Boshqa qadam yoki boshqa sahifa ochiq bo'lsa topilmaydi.
+function cargoStep1() {
+    const pane = document.getElementById('AutodeclEk');
+    return pane && pane.offsetParent !== null ? pane : null;
+}
+
+async function cargoWaitFor(check, timeoutMs) {
+    const deadline = Date.now() + (timeoutMs || 4000);
+    while (Date.now() < deadline) {
+        const result = check();
+        if (result) return result;
+        await delay(150);
+    }
+    return null;
+}
+
+// Sayt bootstrap-select ishlatadi. Content script sahifaning jQuery'siga kira
+// olmaydi (izolyatsiyalangan olam), shuning uchun `selectpicker('refresh')`
+// o'rniga chizilgan ro'yxatdagi bandning o'ziga click qilinadi.
+async function cargoPickOption(selectId, wanted, label) {
+    const select = document.getElementById(selectId);
+    if (!select) return `${label}: maydon topilmadi`;
+
+    // Avval kod bo'yicha aniq moslik, keyingina matn bo'yicha — aks holda
+    // "840" kabi kod boshqa variantning nomi ichidan topilib qolishi mumkin
+    const target = normalizeOptionText(wanted);
+    const options = [...select.options];
+    let index = options.findIndex((opt) => opt.value && normalizeOptionText(opt.value) === target);
+    if (index < 0) {
+        index = options.findIndex((opt) => {
+            if (!opt.value) return false;
+            const text = opt.getAttribute('data-content') || opt.text;
+            return normalizeOptionText(text).includes(target);
+        });
+    }
+    if (index < 0) return `${label}: "${wanted}" ro'yxatda yo'q`;
+    if (select.selectedIndex === index) return null;
+
+    return await cargoClickOption(select, index, label);
+}
+
+// Ro'yxatdagi birinchi bo'sh bo'lmagan variantni tanlaydi
+async function cargoPickFirstOption(selectId, label) {
+    const select = document.getElementById(selectId);
+    if (!select) return `${label}: maydon topilmadi`;
+    if (select.value) return null;
+
+    const index = [...select.options].findIndex((opt) => opt.value);
+    if (index < 0) return `${label}: ro'yxat bo'sh`;
+
+    return await cargoClickOption(select, index, label);
+}
+
+async function cargoClickOption(select, index, label) {
+    const wrap = select.closest('.bootstrap-select');
+    if (!wrap) return `${label}: ro'yxat chizilmagan`;
+    const toggle = wrap.querySelector('button.dropdown-toggle');
+    if (!toggle) return `${label}: ro'yxat ochilmadi`;
+
+    toggle.click();
+    // Ro'yxat `container: 'body'` bilan chizilgan bo'lsa wrap ichida bo'lmaydi
+    const menu = await cargoWaitFor(
+        () => (wrap.querySelector('.dropdown-menu li a.dropdown-item')
+            ? wrap.querySelector('.dropdown-menu')
+            : document.querySelector('.dropdown-menu.show')),
+        3000,
+    );
+    if (!menu) return `${label}: ro'yxat ochilmadi`;
+
+    // bootstrap-select bandlarni select.options bilan bir xil tartibda chizadi
+    const items = menu.querySelectorAll('li a.dropdown-item');
+    let item = items[index];
+    if (!item || !cargoSameOption(item, select.options[index])) {
+        const option = select.options[index];
+        const target = normalizeOptionText(option.getAttribute('data-content') || option.text);
+        item = [...items].find((el) => normalizeOptionText(el.innerText) === target);
+    }
+    if (!item) {
+        toggle.click();
+        return `${label}: ro'yxatdan band topilmadi`;
+    }
+
+    item.click();
+    await delay(300);
+    if (select.selectedIndex !== index) return `${label}: tanlanmadi`;
+    return null;
+}
+
+function cargoSameOption(item, option) {
+    if (!option) return false;
+    const text = option.getAttribute('data-content') || option.text;
+    return normalizeOptionText(item.innerText) === normalizeOptionText(text);
+}
+
+function cargoWriteValue(el, value) {
+    const prototype = el.tagName.toLowerCase() === 'textarea'
+        ? window.HTMLTextAreaElement.prototype
+        : window.HTMLInputElement.prototype;
+    const nativeSetter = Object.getOwnPropertyDescriptor(prototype, 'value')?.set;
+    if (nativeSetter) nativeSetter.call(el, value); else el.value = value;
+}
+
+// Inputmask ostidagi maydonlar (masalan `TOTAL_VALUE`, class="decimal") butun
+// qiymat bir yo'la yozilsa uni buzib tashlaydi: "4000" -> "40". Shuning uchun
+// oddiy yozuv natijasi tekshiriladi va mos kelmasa harfma-harf teriladi.
+async function cargoSetInput(el, value) {
+    if (!el) return false;
+    const text = String(value);
+
+    cargoWriteValue(el, text);
+    triggerEvents(el);
+    if (el.value === text) return true;
+
+    cargoWriteValue(el, '');
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    await delay(120);
+    for (const char of text) {
+        cargoWriteValue(el, el.value + char);
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        await delay(120);
+    }
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+    return el.value === text;
+}
+
+async function cargoSetInputById(id, value, warnings, label) {
+    const el = document.getElementById(id);
+    if (!el) { warnings.push(`${label}: maydon topilmadi`); return false; }
+    if (!value) { warnings.push(`${label}: qiymat yo'q`); return false; }
+    const ok = await cargoSetInput(el, value);
+    if (!ok) warnings.push(`${label}: "${value}" o'rniga "${el.value}" yozildi`);
+    return ok;
+}
+
+// "+" tugmasini bosib modalni ochadi
+async function cargoOpenModal(onclickPart, modalId, label) {
+    const button = document.querySelector(`button[onclick*="${onclickPart}"]`);
+    if (!button) throw new Error(`${label}: "+" tugmasi topilmadi`);
+    button.click();
+    const modal = await cargoWaitFor(
+        () => {
+            const el = document.getElementById(modalId);
+            return el && el.classList.contains('show') ? el : null;
+        },
+        5000,
+    );
+    if (!modal) throw new Error(`${label}: oyna ochilmadi`);
+    await delay(400);
+    return modal;
+}
+
+async function cargoSaveModal(modal, onclickPart, label, warnings) {
+    const button = [...modal.querySelectorAll('button')]
+        .find((el) => (el.getAttribute('onclick') || '').includes(onclickPart));
+    if (!button) { warnings.push(`${label}: saqlash tugmasi topilmadi`); return; }
+    button.click();
+    const closed = await cargoWaitFor(() => !modal.classList.contains('show'), 6000);
+    if (!closed) warnings.push(`${label}: oyna yopilmadi, qiymatlarni tekshiring`);
+    await delay(400);
+}
+
+// 54-grafa: "Декларацияловчи шахс ҳақида маълумотлар" oynasi.
+// ФИО, телефон, ЖШШИР va sana saytning o'zi to'ldiradi — ularga tegilmaydi.
+async function cargoFillG54(data, warnings) {
+    const existing = document.getElementById('G54_ID');
+    if (existing && existing.value) {
+        warnings.push("54-grafa allaqachon tanlangan — o'zgartirilmadi");
+        return;
+    }
+
+    const modal = await cargoOpenModal('win1G54Ek', 'ModalWin54Id', '54-grafa');
+
+    await cargoSetInputById('G54ADDRESS', CARGO_DEFAULTS.g54Address, warnings, '54-grafa Жой');
+    await cargoSetInputById('G54_EMAIL', CARGO_DEFAULTS.g54Email, warnings, '54-grafa Электрон почта');
+    await cargoSetInputById('G54_NO', String(data.EXP_CTDC_NO || '').trim(), warnings, '54-grafa Битим рақами');
+    await cargoSetInputById('G54_NO_DATE', String(data.EXP_CVNT_DT || '').split('T')[0], warnings, '54-grafa Битим санаси');
+
+    const byudNo = cargoByudNumber(data.INVOICE_ID);
+    if (byudNo) {
+        await cargoSetInputById('G54_IDNUMBERS_NO', byudNo, warnings, '54-grafa БЮД рақами');
+    } else {
+        warnings.push("54-grafa БЮД рақами: invoys ID si yo'q");
+    }
+
+    // Saytning o'zi to'ldiradigan maydonlar bo'sh qolsa saqlashda xato chiqadi
+    const autoFilled = [['FULLNAME', 'ФИО'], ['G54_PHONE', 'Телефон'], ['g54IdNumbersPinfl', 'ЖШШИР']];
+    for (const [id, label] of autoFilled) {
+        const el = document.getElementById(id);
+        if (el && !el.value) warnings.push(`54-grafa ${label}: sayt to'ldirmadi, qo'lda yozing`);
+    }
+
+    await cargoSaveModal(modal, 'saveFromG54', '54-grafa', warnings);
+
+    const saved = document.getElementById('G54_ID');
+    if (saved && !saved.value) warnings.push('54-grafa: saqlangandan keyin ham tanlanmadi');
+}
+
+// Invoys ID si — takrorlanmas tartib raqam sifatida 6 xonaga to'ldiriladi
+function cargoByudNumber(invoiceId) {
+    const id = Number(invoiceId);
+    if (!Number.isFinite(id) || id <= 0) return null;
+    return String(id).padStart(6, '0');
+}
+
+async function cargoFillCustomsValue(warnings) {
+    const existing = document.getElementById('CUSTOMS_VALUE_NAME');
+    if (existing && existing.value.trim()) {
+        warnings.push("Божхона қиймати allaqachon kiritilgan — o'zgartirilmadi");
+        return;
+    }
+
+    const modal = await cargoOpenModal('win1CustomsValue', 'ModalWin1CustomsValue', 'Божхона қиймати');
+
+    await cargoSetInputById('TOTAL_VALUE', CARGO_DEFAULTS.customsValueTotal, warnings, 'Ҳаражатлар суммаси');
+
+    const currencyError = await cargoPickOption('CURRENCY_TYPE', CARGO_DEFAULTS.customsValueCurrency, 'Валюта тури');
+    if (currencyError) warnings.push(currencyError);
+
+    // Чегарагача айириш
+    const operation = document.getElementById('OPERATION_TYPE_2');
+    if (operation) forceCheck(operation); else warnings.push('Чегарагача айириш: maydon topilmadi');
+
+    await cargoSaveModal(modal, "editCustomsValue('1')", 'Божхона қиймати', warnings);
+
+    const saved = document.getElementById('CUSTOMS_VALUE_NAME');
+    if (saved && !saved.value.trim()) warnings.push('Божхона қиймати: saqlangandan keyin ham bo\'sh');
+}
+
+async function fillCargoByud(data) {
+    const warnings = [];
+    if (!cargoStep1()) {
+        throw new Error('Декларация 1-қадам ("Умумий маълумотлар") ochilmagan.');
+    }
+
+    const push = (err) => { if (err) warnings.push(err); };
+
+    push(await cargoPickOption('G20', CARGO_DEFAULTS.paymentMethodCode, 'Тўлов усули'));
+    push(await cargoPickOption('G29', CARGO_DEFAULTS.borderCustomsPost, 'Чегара божхона пости'));
+    push(await cargoPickFirstOption('G50_ID', 'Ишонч билдирилган шахс'));
+
+    await cargoFillG54(data, warnings);
+    await cargoFillCustomsValue(warnings);
 
     return warnings;
 }

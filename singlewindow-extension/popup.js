@@ -57,7 +57,7 @@ function sendToContentScript(action, mockData, statusDiv) {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         if (tabs && tabs[0]) {
             const url = tabs[0].url;
-            const supportedHosts = ['singlewindow.uz', 'app.expertiza.uz', 'cabinet.karantin.uz'];
+            const supportedHosts = ['singlewindow.uz', 'app.expertiza.uz', 'cabinet.karantin.uz', 'cargo.customs.uz'];
             if (!supportedHosts.some((host) => url.includes(host))) {
                 statusDiv.textContent = "Bu kengaytma faqat " + supportedHosts.join(', ') + " saytlarida ishlaydi.";
                 statusDiv.style.color = "#ef4444";
@@ -72,7 +72,7 @@ function sendToContentScript(action, mockData, statusDiv) {
                     statusDiv.textContent = "Xatolik! Sayt to'liq yuklanganini tekshiring.";
                     statusDiv.style.color = "#ef4444";
                 } else if (response && response.success) {
-                    if (action === "fill_form" || action === "fill_st1_form" || action === "fill_karantin_fss") {
+                    if (action === "fill_form" || action === "fill_st1_form" || action === "fill_karantin_fss" || action === "fill_cargo_byud") {
                         const warnings = response.warnings || [];
                         if (warnings.length > 0) {
                             // To'ldirilmagan maydonlar jim qolmasligi kerak — ayniqsa
@@ -124,6 +124,13 @@ document.getElementById('fillKarantinBtn').addEventListener('click', async () =>
     const mockData = await getProdeklarantData(statusDiv);
     if (!mockData) return;
     sendToContentScript("fill_karantin_fss", mockData, statusDiv);
+});
+
+document.getElementById('fillCargoBtn').addEventListener('click', async () => {
+    const statusDiv = document.getElementById('status');
+    const mockData = await getProdeklarantData(statusDiv);
+    if (!mockData) return;
+    sendToContentScript("fill_cargo_byud", mockData, statusDiv);
 });
 
 document.getElementById('checkDataBtn').addEventListener('click', async () => {

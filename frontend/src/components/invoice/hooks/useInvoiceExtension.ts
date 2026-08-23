@@ -16,6 +16,7 @@ export function useInvoiceExtension(
   items: InvoiceItem[],
   contracts: Contract[],
   selectedContractId: string,
+  invoiceId?: number,
 ) {
   useEffect(() => {
     const handleExtensionRequest = (event: MessageEvent) => {
@@ -51,6 +52,9 @@ export function useInvoiceExtension(
         : `${selectedContract?.consigneeAddress || ''} п/п. ${selectedContract?.buyerName || ''} ${selectedContract?.buyerAddress || ''}`.replace(/\s+/g, ' ').trim();
 
       const exportData = {
+        // cargo.customs.uz 54-grafasidagi "БЮДга берилган рақам" shu ID dan
+        // 6 xonali qilib olinadi — takrorlanmasligi shart
+        INVOICE_ID: invoiceId ?? null,
         EXPPN_NM: exppnNm,
         EXPPN_ADDR: exppnAddr,
         EXPPN_ADDR_CLEAN: exppnAddrClean,
@@ -83,5 +87,5 @@ export function useInvoiceExtension(
       window.removeEventListener('message', handleExtensionRequest);
       sessionStorage.removeItem('current_export_invoice');
     };
-  }, [form, items, contracts, selectedContractId]);
+  }, [form, items, contracts, selectedContractId, invoiceId]);
 }

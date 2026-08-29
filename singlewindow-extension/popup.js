@@ -72,7 +72,7 @@ function sendToContentScript(action, mockData, statusDiv) {
                     statusDiv.textContent = "Xatolik! Sayt to'liq yuklanganini tekshiring.";
                     statusDiv.style.color = "#ef4444";
                 } else if (response && response.success) {
-                    if (action === "fill_form" || action === "fill_st1_form" || action === "fill_karantin_fss" || action === "fill_cargo_byud") {
+                    if (action === "fill_form" || action === "fill_st1_form" || action === "fill_karantin_fss" || action === "fill_cargo_byud" || action === "fill_cargo_step2") {
                         const warnings = response.warnings || [];
                         if (warnings.length > 0) {
                             // To'ldirilmagan maydonlar jim qolmasligi kerak — ayniqsa
@@ -131,6 +131,14 @@ document.getElementById('fillCargoBtn').addEventListener('click', async () => {
     const mockData = await getProdeklarantData(statusDiv);
     if (!mockData) return;
     sendToContentScript("fill_cargo_byud", mockData, statusDiv);
+});
+
+document.getElementById('fillCargoStep2Btn').addEventListener('click', async () => {
+    const statusDiv = document.getElementById('status');
+    const mockData = await getProdeklarantData(statusDiv);
+    if (!mockData) return;
+
+    sendToContentScript("fill_cargo_step2", mockData, statusDiv);
 });
 
 document.getElementById('checkDataBtn').addEventListener('click', async () => {

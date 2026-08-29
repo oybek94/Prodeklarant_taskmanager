@@ -7,6 +7,7 @@ const ACTION_HOSTS = {
     fill_st1_form: { host: "app.expertiza.uz", label: "ST-1 Zayavka" },
     fill_karantin_fss: { host: "cabinet.karantin.uz", label: "Ichki FSS" },
     fill_cargo_byud: { host: "cargo.customs.uz", label: "BYUD (1-qadam)" },
+    fill_cargo_step2: { host: "cargo.customs.uz", label: "BYUD (2-qadam)" },
 };
 
 function wrongSiteMessage(action) {
@@ -57,6 +58,15 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             return true;
         }
         fillCargoByud(data)
+            .then((warnings) => sendResponse({ success: true, warnings }))
+            .catch((err) => sendResponse({ success: false, errorMsg: String(err && err.message || err) }));
+    } else if (request.action === "fill_cargo_step2") {
+        const data = request.data;
+        if (!data) {
+            sendResponse({ success: false, errorMsg: "Ma'lumotlar kelmadi!" });
+            return true;
+        }
+        fillCargoStep2(data)
             .then((warnings) => sendResponse({ success: true, warnings }))
             .catch((err) => sendResponse({ success: false, errorMsg: String(err && err.message || err) }));
     } else if (request.action === "check_products") {
@@ -1193,14 +1203,16 @@ async function cargoPickOption(selectId, wanted, label) {
     // "840" kabi kod boshqa variantning nomi ichidan topilib qolishi mumkin
     const target = normalizeOptionText(wanted);
     const options = [...select.options];
+    const labelOf = (opt) => {
+        const text = opt.getAttribute('data-content') || opt.text;
+        // Variantlar "643 - Россия" ko'rinishida; kod prefiksisiz nomni ham olamiz
+        return normalizeOptionText(String(text).replace(/<[^>]*>/g, ''));
+    };
+    const nameOf = (opt) => labelOf(opt).replace(/^\d+\s*-\s*/, '').trim();
+
     let index = options.findIndex((opt) => opt.value && normalizeOptionText(opt.value) === target);
-    if (index < 0) {
-        index = options.findIndex((opt) => {
-            if (!opt.value) return false;
-            const text = opt.getAttribute('data-content') || opt.text;
-            return normalizeOptionText(text).includes(target);
-        });
-    }
+    if (index < 0) index = options.findIndex((opt) => opt.value && nameOf(opt) === target);
+    if (index < 0) index = options.findIndex((opt) => opt.value && labelOf(opt).includes(target));
     if (index < 0) return `${label}: "${wanted}" ro'yxatda yo'q`;
     if (select.selectedIndex === index) return null;
 
@@ -1245,13 +1257,31 @@ async function cargoClickOption(select, index, label) {
     }
     if (!item) {
         toggle.click();
-        return `${label}: ro'yxatdan band topilmadi`;
+        return cargoForceSelect(select, index, toggle, label);
     }
 
     item.click();
     await delay(300);
-    if (select.selectedIndex !== index) return `${label}: tanlanmadi`;
+    if (select.selectedIndex !== index) return cargoForceSelect(select, index, toggle, label);
     return null;
+}
+
+// Chizilgan ro'yxat `select` bilan mos kelmay qolsa (sayt yangi variant qo'shib,
+// bootstrap-select'ni yangilamagan bo'lsa) — qiymat to'g'ridan-to'g'ri yoziladi.
+// Sayt jQuery bilan tinglagani uchun oddiy `change` eventi yetarli, faqat
+// tugmadagi matnni o'zimiz yangilashimiz kerak.
+function cargoForceSelect(select, index, toggle, label) {
+    const option = select.options[index];
+    if (!option) return `${label}: variant topilmadi`;
+
+    const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value')?.set;
+    if (nativeSetter) nativeSetter.call(select, option.value); else select.value = option.value;
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+
+    const inner = toggle && toggle.querySelector('.filter-option-inner-inner');
+    if (inner) inner.textContent = (option.getAttribute('data-content') || option.text).trim();
+
+    return select.value === option.value ? null : `${label}: tanlanmadi`;
 }
 
 function cargoSameOption(item, option) {
@@ -1336,6 +1366,9 @@ async function cargoFillG54(data, warnings) {
         return;
     }
 
+    // Saqlangan yozuvni keyin ro'yxatdan ajratib olish uchun eski holat
+    const before = existing ? [...existing.options].map((opt) => opt.value).filter(Boolean) : [];
+
     const modal = await cargoOpenModal('win1G54Ek', 'ModalWin54Id', '54-grafa');
 
     await cargoSetInputById('G54ADDRESS', CARGO_DEFAULTS.g54Address, warnings, '54-grafa Жой');
@@ -1359,8 +1392,25 @@ async function cargoFillG54(data, warnings) {
 
     await cargoSaveModal(modal, 'saveFromG54', '54-grafa', warnings);
 
-    const saved = document.getElementById('G54_ID');
-    if (saved && !saved.value) warnings.push('54-grafa: saqlangandan keyin ham tanlanmadi');
+    // Sayt yangi yozuvni ro'yxatga qo'shadi, lekin O'ZI tanlamaydi — tanlash shart
+    const added = await cargoWaitFor(() => {
+        const select = document.getElementById('G54_ID');
+        if (!select) return null;
+        const option = [...select.options].find((opt) => opt.value && !before.includes(opt.value));
+        return option ? { select, value: option.value } : null;
+    }, 8000);
+
+    if (!added) {
+        const select = document.getElementById('G54_ID');
+        if (select && select.value) return; // sayt o'zi tanlagan bo'lsa
+        warnings.push("54-grafa: yangi yozuv ro'yxatga qo'shilmadi");
+        return;
+    }
+    if (added.select.value === added.value) return;
+
+    const index = [...added.select.options].findIndex((opt) => opt.value === added.value);
+    const error = await cargoClickOption(added.select, index, '54-grafa');
+    if (error) warnings.push(error);
 }
 
 // Invoys ID si — takrorlanmas tartib raqam sifatida 6 xonaga to'ldiriladi
@@ -1408,6 +1458,233 @@ async function fillCargoByud(data) {
 
     await cargoFillG54(data, warnings);
     await cargoFillCustomsValue(warnings);
+
+    return warnings;
+}
+
+// ---------------------------------------------------------------------------
+// cargo.customs.uz — 2-qadam "Юк тўғрисида маълумот"
+// Hozircha faqat "Транспорт тўғрисида маълумотлар" varag'i. Qolgan varaqlar
+// (товар, ҳужжатлар) keyingi bosqichda qo'shiladi.
+// ---------------------------------------------------------------------------
+
+function cargoStep2() {
+    const pane = document.getElementById('win2CargoInformation');
+    return pane && pane.querySelector('#tabTransport') ? pane : null;
+}
+
+// 2-qadamning ichki varaqlari oddiy bootstrap tab
+async function cargoSwitchTab(href, label) {
+    const link = [...document.querySelectorAll('#win2CargoInformation .nav-link')]
+        .find((el) => el.getAttribute('href') === href);
+    if (!link) return `${label}: varaq topilmadi`;
+    link.click();
+    const pane = await cargoWaitFor(() => {
+        const el = document.querySelector(href);
+        return el && el.classList.contains('active') ? el : null;
+    }, 4000);
+    if (!pane) return `${label}: varaq ochilmadi`;
+    await delay(500);
+    return null;
+}
+
+// Saytdagi davlatlar ro'yxati aralash yozilgan: bir qismi ruscha (Россия,
+// Беларусь, Украина), bir qismi o'zbek kirilida (Қозоғистон, Хитой, Полша).
+// Prodeklarantda esa inglizcha ham, ruscha ham uchraydi ("Russia", "РОССИЯ").
+// Shuning uchun nom emas, ISO raqamli kod bo'yicha tanlanadi.
+const CARGO_COUNTRY_CODES = {
+    russia: '643', россия: '643', русия: '643',
+    belarus: '112', беларус: '112', белоруссия: '112',
+    kazakhstan: '398', казахстан: '398', козогистон: '398', qozogiston: '398',
+    poland: '616', полша: '616',
+    kyrgyzstan: '417', киргизия: '417', кыргызстан: '417', киргизистон: '417',
+    tajikistan: '762', таджикистан: '762', тожикистон: '762',
+    turkmenistan: '795', туркмения: '795', туркманистон: '795',
+    uzbekistan: '860', узбекистан: '860', узбекистон: '860',
+    ukraine: '804', украина: '804',
+    georgia: '268', грузия: '268',
+    azerbaijan: '031', азербайджан: '031', озарбайжон: '031',
+    armenia: '051', армения: '051', арманистон: '051',
+    china: '156', китай: '156', хитой: '156',
+    turkey: '792', турция: '792', туркия: '792',
+    uae: '784', оаэ: '784', баа: '784',
+    czechia: '203', чехия: '203',
+    mongolia: '496', монголия: '496',
+    latvia: '428', латвия: '428',
+    lithuania: '440', литва: '440',
+    estonia: '233', эстония: '233',
+    germany: '276', германия: '276',
+    italy: '380', италия: '380',
+    netherlands: '528', нидерланды: '528', нидерландия: '528',
+    india: '356', индия: '356', хиндистон: '356',
+    vietnam: '704', вьетнам: '704',
+    thailand: '764', таиланд: '764', тайланд: '764',
+    malaysia: '458', малайзия: '458',
+};
+
+// "ПОЛЬША" va "Полша", "Қозоғистон" va "Козогистон" bir xil kalitga tushsin
+function cargoCountryKey(value) {
+    return String(value == null ? '' : value)
+        .toLowerCase()
+        .replace(/ё/g, 'е')
+        .replace(/қ/g, 'к').replace(/ғ/g, 'г').replace(/ў/g, 'у').replace(/ҳ/g, 'х')
+        .replace(/[ьъ']/g, '')
+        .replace(/[^a-zа-я0-9]/g, '');
+}
+
+function cargoResolveCountry(value) {
+    return CARGO_COUNTRY_CODES[cargoCountryKey(value)] || null;
+}
+
+// Invoysdagi "Номер автотранспорта" ikki qismdan iborat: "40232BAA/402332BA".
+// Birinchisi — tortuvchi, ikkinchisi — tirkama.
+function cargoSplitVehicleNumber(value) {
+    const parts = String(value || '')
+        .split('/')
+        .map((part) => part.replace(/\s+/g, '').trim())
+        .filter(Boolean);
+    return { truck: parts[0] || '', trailer: parts[1] || '' };
+}
+
+// Fayl biriktirish oynasi ochilib, foydalanuvchi uni yopgunicha kutiladi.
+// Kutish uzoq bo'lgani uchun holat sahifaning o'zida ko'rsatiladi.
+async function cargoWaitForUserModal(label, warnings) {
+    // "Файл бириктириш" tugmasi Е-АРХИВ oynasini ochadi. Aynan shu oynani
+    // kuzatamiz — tirkama oynasi ham ochiq turgani uchun umumiy `.modal.show`
+    // bo'yicha qidirish noto'g'ri oynani tanlab qo'yadi.
+    const opened = await cargoWaitFor(() => {
+        const arxiv = document.getElementById('eArxivFile');
+        return arxiv && arxiv.classList.contains('show') ? arxiv : null;
+    }, 8000);
+    if (!opened) {
+        warnings.push(`${label}: fayl oynasi ochilmadi`);
+        return false;
+    }
+    cargoToast(`${label}: faylni biriktiring — oyna yopilgach davom etaman`);
+    const closed = await cargoWaitFor(
+        () => (!opened.classList.contains('show') ? true : null),
+        5 * 60 * 1000,
+    );
+    if (!closed) {
+        warnings.push(`${label}: oyna yopilmadi, kutish tugadi`);
+        return false;
+    }
+    await delay(800);
+    return true;
+}
+
+// Popup kutish paytida yopilib ketadi — holatni sahifada ko'rsatamiz
+let cargoToastTimer = null;
+
+function cargoToast(text) {
+    let box = document.getElementById('prodeklarant-cargo-toast');
+    if (!box) {
+        box = document.createElement('div');
+        box.id = 'prodeklarant-cargo-toast';
+        box.style.cssText = [
+            'position:fixed', 'top:16px', 'right:16px', 'z-index:2147483647',
+            'max-width:320px', 'padding:12px 14px', 'border-radius:8px',
+            'background:#0f172a', 'color:#fff', 'font:14px/1.4 Arial, sans-serif',
+            'box-shadow:0 6px 20px rgba(0,0,0,.3)',
+        ].join(';');
+        document.body.appendChild(box);
+    }
+    box.textContent = text;
+    clearTimeout(cargoToastTimer);
+    cargoToastTimer = setTimeout(() => box.remove(), 20000);
+}
+
+async function cargoFillTransport(data, warnings) {
+    const tabError = await cargoSwitchTab('#tabTransport', 'Транспорт варағи');
+    if (tabError) { warnings.push(tabError); return; }
+
+    const { truck, trailer } = cargoSplitVehicleNumber(data.vehicleNumber);
+    if (!truck) { warnings.push("Транспорт: invoysda mashina raqami yo'q"); return; }
+
+    // 1. Давлат рақами — raqamning birinchi qismi
+    const plateInput = document.getElementById('G21NO');
+    if (!plateInput) { warnings.push('Транспорт: Давлат рақами maydoni topilmadi'); return; }
+    await cargoSetInput(plateInput, truck);
+
+    // 2. Lupa — sayt raqam bo'yicha VIN, model, vazn, tashuvchi va haydovchini topadi
+    const search = document.querySelector('#tabTransport button[onclick*="getG21noEks"]');
+    if (!search) {
+        warnings.push('Транспорт: qidiruv (lupa) tugmasi topilmadi');
+    } else {
+        // Maydonlar oldindan to'la bo'lishi mumkin, shuning uchun "to'ldi" emas,
+        // "o'zgardi yoki bo'shdan to'ldi" holatini kutamiz
+        const fieldValue = (id) => ((document.getElementById(id) || {}).value || '').trim();
+        const beforeVin = fieldValue('T_VIN');
+        const beforeModel = fieldValue('G21DET');
+        search.click();
+        await cargoWaitFor(() => {
+            const vin = fieldValue('T_VIN');
+            const model = fieldValue('G21DET');
+            if (!vin && !model) return null;
+            if (!beforeVin && !beforeModel) return true;
+            return vin !== beforeVin || model !== beforeModel ? true : null;
+        }, 15000);
+        if (!fieldValue('T_VIN') && !fieldValue('G21DET')) {
+            warnings.push('Транспорт: qidiruv mashina maʼlumotini keltirmadi');
+        }
+        await delay(800);
+    }
+
+    // 3. Юк ташиш тугалланадиган мамлакат — shartnomadagi davlat
+    const country = String(data.DESTINATION_COUNTRY || '').trim();
+    if (!country) {
+        warnings.push("Юк ташиш тугалланадиган мамлакат: shartnomada davlat ko'rsatilmagan");
+    } else {
+        const countryError = await cargoPickOption(
+            'COUNTRY_END',
+            cargoResolveCountry(country) || country,
+            'Юк ташиш тугалланадиган мамлакат',
+        );
+        if (countryError) warnings.push(countryError);
+    }
+
+    // 4. Тиркама ва контейнер рақами — alohida oyna
+    if (!trailer) {
+        warnings.push("Тиркама: mashina raqamining ikkinchi qismi yo'q");
+        return;
+    }
+    await cargoFillTrailer(trailer, warnings);
+}
+
+async function cargoFillTrailer(trailer, warnings) {
+    const opener = document.getElementById('TRAILER_CONTAINER_NO');
+    if (!opener) { warnings.push('Тиркама: maydon topilmadi'); return; }
+    opener.click();
+
+    const modal = await cargoWaitFor(() => {
+        const el = document.getElementById('exampleModalWin2');
+        return el && el.classList.contains('show') ? el : null;
+    }, 6000);
+    if (!modal) { warnings.push('Тиркама: oyna ochilmadi'); return; }
+    await delay(500);
+
+    const numberInput = document.getElementById('TR_NUMBER');
+    if (!numberInput) { warnings.push('Тиркама: Давлат рақами maydoni topilmadi'); return; }
+    await cargoSetInput(numberInput, trailer);
+
+    // Тиркама техник паспорти — fayl biriktirilishini foydalanuvchidan kutamiz
+    const trailerDoc = modal.querySelector('button[onclick*="eArxivEk(210"]');
+    if (!trailerDoc) {
+        warnings.push('Тиркама: техник паспорт tugmasi topilmadi');
+        return;
+    }
+    trailerDoc.click();
+    await cargoWaitForUserModal('Тиркама техник паспорти', warnings);
+    cargoToast('Тиркама маълумотлари тайёр — "Қўшиш" ни босинг');
+}
+
+async function fillCargoStep2(data) {
+    const warnings = [];
+    if (!cargoStep2()) {
+        throw new Error('Декларация 2-қадам ("Юк тўғрисида маълумот") ochilmagan.');
+    }
+
+    await cargoFillTransport(data, warnings);
 
     return warnings;
 }

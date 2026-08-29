@@ -6,6 +6,7 @@ const ACTION_HOSTS = {
     check_products: { host: "singlewindow.uz", label: "Ma'lumotlarni tekshirish" },
     fill_st1_form: { host: "app.expertiza.uz", label: "ST-1 Zayavka" },
     fill_karantin_fss: { host: "cabinet.karantin.uz", label: "Ichki FSS" },
+    fill_fumigatsiya: { host: "cabinet.karantin.uz", label: "Fumigatsiya" },
     fill_cargo_byud: { host: "cargo.customs.uz", label: "BYUD (1-qadam)" },
     fill_cargo_step2: { host: "cargo.customs.uz", label: "BYUD (2-qadam)" },
 };
@@ -16,11 +17,88 @@ function wrongSiteMessage(action) {
     return `"${rule.label}" faqat ${rule.host} saytida ishlaydi.`;
 }
 
+// ---------------------------------------------------------------------------
+// Xavfsizlik: saytda ochiq korxona invoysdagi eksportyorga mos keladimi?
+// ---------------------------------------------------------------------------
+// Saytga A korxona nomidan kirib, B korxonaning invoysi bo'yicha ariza yuborib
+// yuborilgan holat bo'lgan. Takrorlanmasligi uchun to'ldirishdan OLDIN saytdagi
+// ochiq korxonaning STIR/INN i invoysdagi eksportyornikiga solishtiriladi;
+// mos kelmasa hech narsa to'ldirilmaydi va sababi aytiladi.
+//
+// Yuk jo'natuvchi sotuvchidan boshqa korxona bo'lsa, saytda AYNAN yuk
+// jo'natuvchi ochiq bo'lishi kerak — `EXPPN_INN` allaqachon shunga qarab
+// keladi (Prodeklarant tomonida hisoblanadi).
+
+function innDigits(value) {
+    return String(value == null ? '' : value).replace(/\D/g, '');
+}
+
+// Saytda ochiq korxonaning INN i. Topilmasa bo'sh qaytaradi — bunda to'ldirish
+// jim o'tkazib yuborilmaydi, balki bekor qilinadi.
+function siteCompanyInn() {
+    if (location.hostname.includes('cabinet.karantin.uz')) {
+        // 1) Ochiq ariza oynasidagi STIR — aynan yuboriladigan qiymat
+        const modal = karantinModal() || fumigatsiyaModal();
+        if (modal) {
+            const byName = modal.querySelector('[name="applicant_tin"]');
+            if (byName && innDigits(byName.value)) return innDigits(byName.value);
+            // Fumigatsiya oynasida maydonlarda `name` yo'q — yorliq bo'yicha
+            const label = [...modal.querySelectorAll('label')]
+                .find(el => karantinNorm(el.innerText).startsWith('stir'));
+            const field = label && label.parentElement.querySelector('input');
+            if (field && innDigits(field.value)) return innDigits(field.value);
+        }
+        // 2) Yuqoridagi foydalanuvchi bloki — oyna ochilmagan bo'lsa ham turadi
+        const badge = document.querySelector('.navbar-component .user .text h3');
+        return badge ? innDigits(badge.textContent) : '';
+    }
+    return '';
+}
+
+// Mos kelmasa xato tashlaydi va chaqiruvchi to'ldirishni umuman boshlamaydi
+function assertSiteCompanyMatches(data) {
+    if (!data) {
+        throw new Error("TO'LDIRILMADI: Prodeklarantda invoys ochilmagan — qaysi korxona nomidan ariza berilayotganini tekshirib bo'lmadi.");
+    }
+    const role = data.EXPPN_INN_ROLE === 'shipper' ? "yuk jo'natuvchi" : "sotuvchi";
+    const name = data.EXPPN_NM || '?';
+    const expected = innDigits(data.EXPPN_INN);
+
+    if (!expected) {
+        throw new Error(`TO'LDIRILMADI: shartnomada ${role} ("${name}") INN i ko'rsatilmagan — saytdagi korxona bilan solishtirib bo'lmadi. Shartnomaga INN ni kiriting.`);
+    }
+    const actual = siteCompanyInn();
+    if (!actual) {
+        throw new Error("TO'LDIRILMADI: saytda ochiq korxonaning STIR/INN i topilmadi — tekshirib bo'lmadi.");
+    }
+    if (actual !== expected) {
+        throw new Error(`TO'LDIRILMADI: saytga ${actual} INN li korxona nomidan kirilgan, invoysdagi ${role} esa "${name}" (INN ${expected}). To'g'ri korxona nomidan kiring.`);
+    }
+}
+
+// Tekshiruv talab qiladigan amallar. `check_products` bu ro'yxatda yo'q —
+// u faqat o'qiydi, saytga hech narsa yozmaydi.
+// TODO: singlewindow.uz va app.expertiza.uz uchun `siteCompanyInn()` da o'qish
+// yo'li aniqlangach, `fill_form` va `fill_st1_form` ham qo'shiladi.
+const COMPANY_CHECKED_ACTIONS = new Set([
+    'fill_karantin_fss',
+    'fill_fumigatsiya',
+]);
+
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     const wrongSite = wrongSiteMessage(request.action);
     if (wrongSite) {
         sendResponse({ success: false, errorMsg: wrongSite });
         return true;
+    }
+
+    if (COMPANY_CHECKED_ACTIONS.has(request.action)) {
+        try {
+            assertSiteCompanyMatches(request.data);
+        } catch (err) {
+            sendResponse({ success: false, errorMsg: String(err && err.message || err) });
+            return true;
+        }
     }
 
     if (request.action === "fill_form") {
@@ -49,6 +127,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             return true;
         }
         fillKarantinIchkiFss(data)
+            .then((warnings) => sendResponse({ success: true, warnings }))
+            .catch((err) => sendResponse({ success: false, errorMsg: String(err && err.message || err) }));
+    } else if (request.action === "fill_fumigatsiya") {
+        // Maydonlar doimiy qiymatlardan iborat, lekin yuqoridagi korxona
+        // tekshiruvi uchun invoys ma'lumoti (EXPPN_INN) kerak bo'ladi
+        fillFumigatsiya()
             .then((warnings) => sendResponse({ success: true, warnings }))
             .catch((err) => sendResponse({ success: false, errorMsg: String(err && err.message || err) }));
     } else if (request.action === "fill_cargo_byud") {
@@ -1321,6 +1405,123 @@ async function fillKarantinIchkiFss(data) {
         if (!value) continue;
         const el = modal.querySelector(`[name="${name}"]`);
         if (el && !karantinSameValue(name, el.value, value)) karantinSetInput(el, value);
+    }
+
+    return warnings;
+}
+
+// ---------------------------------------------------------------------------
+// cabinet.karantin.uz — "Fumigatsiya" → "Ariza berish" oynasi
+// ---------------------------------------------------------------------------
+// Ichki FSS oynasidan farqli o'laroq bu forma oddiy HTML: har bir maydon
+// `<div><label>…</label><input|select></div>` ko'rinishida, antd Select ham,
+// virtual ro'yxat ham yo'q. Maydonlarda `name` yo'q — yorliq matni bo'yicha
+// topiladi. Barcha qiymatlar doimiy, invoysdan hech narsa olinmaydi.
+const FUMIGATSIYA_DEFAULTS = {
+    phone: "+998911187007",
+    customerName: "Турсунбоев О.У.",
+    region: "Farg`ona viloyati",
+    // Sayt o'zbek kirilida yozadi ("Олтиариқ"), karantinNorm қ→к keltiradi
+    district: "Олтиарик тумани",
+    tradeType: "Eksport",
+    objectType: "Yogoch mahsulotlari",
+};
+
+// "Yashil yo'lak" ma'lumot oynasi ham `.ant-modal` — ariza oynasi ichidagi
+// maydon nomi bo'yicha ajratiladi
+function fumigatsiyaModal() {
+    return [...document.querySelectorAll('.ant-modal')]
+        .find(el => el.offsetParent !== null
+            && !/-leave/.test(el.className)
+            && el.innerText.includes("Buyurtma beruvchi")) || null;
+}
+
+function fumigatsiyaField(labelText) {
+    const modal = fumigatsiyaModal();
+    if (!modal) return null;
+    const wanted = karantinNorm(labelText);
+    const label = [...modal.querySelectorAll('label')]
+        .find(el => karantinNorm(el.innerText).startsWith(wanted));
+    return label ? label.parentElement.querySelector('input, select') : null;
+}
+
+// `<select>` React tomonidan boshqariladi: qiymat native setter bilan yoziladi,
+// so'ng `change` yuboriladi (matnli maydonlardagidek `input` emas).
+// Variant ID lari o'zgarib turishi mumkin, shuning uchun matni bo'yicha topiladi.
+function fumigatsiyaSetSelect(el, optionText, label) {
+    const wanted = karantinNorm(optionText);
+    const option = [...el.options].find(o => karantinNorm(o.text) === wanted)
+        || [...el.options].find(o => karantinNorm(o.text).startsWith(wanted));
+    if (!option) return `${label}: "${optionText}" ro'yxatda yo'q`;
+
+    const setter = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value')?.set;
+    const previous = el.value;
+    if (setter) setter.call(el, option.value); else el.value = option.value;
+    if (el._valueTracker) el._valueTracker.setValue(previous);
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+    return null;
+}
+
+async function fillFumigatsiya() {
+    const warnings = [];
+    if (!fumigatsiyaModal()) {
+        throw new Error("Ariza oynasi ochilmagan. Avval \"Ariza berish\" tugmasini bosing (\"Yashil yo'lak\" oynasi chiqsa, uni yoping).");
+    }
+
+    const push = (err) => { if (err) warnings.push(err); };
+    const setText = (label, value) => {
+        const el = fumigatsiyaField(label);
+        if (!el) return `${label}: maydon topilmadi`;
+        karantinSetInput(el, value);
+        return null;
+    };
+    const setList = (label, value) => {
+        const el = fumigatsiyaField(label);
+        if (!el) return `${label}: maydon topilmadi`;
+        return fumigatsiyaSetSelect(el, value, label);
+    };
+
+    push(setText('Telefon raqam', FUMIGATSIYA_DEFAULTS.phone));
+    push(setText('Buyurtma beruvchi', FUMIGATSIYA_DEFAULTS.customerName));
+    push(setList('Viloyat', FUMIGATSIYA_DEFAULTS.region));
+
+    // Tuman ro'yxati viloyat tanlangandan keyin serverdan yuklanadi —
+    // "Tanlang" dan boshqa variant paydo bo'lgunicha kutiladi
+    let districtReady = false;
+    for (let attempt = 0; attempt < 40 && !districtReady; attempt++) {
+        await delay(200);
+        const el = fumigatsiyaField('Tuman');
+        districtReady = !!(el && el.options.length > 1);
+    }
+    if (districtReady) {
+        push(setList('Tuman', FUMIGATSIYA_DEFAULTS.district));
+        await delay(300);
+    } else {
+        warnings.push("Tuman: ro'yxat yuklanmadi");
+    }
+
+    push(setList('Export/Import/Mahalliy', FUMIGATSIYA_DEFAULTS.tradeType));
+    await delay(300);
+    push(setList('Zararsizlantiriladigan', FUMIGATSIYA_DEFAULTS.objectType));
+    await delay(400);
+
+    // Ro'yxat tanlanganda React formani qayta chizadi — qiymatlar joyida
+    // qolganini oxirida tekshiramiz
+    const expected = [
+        ['Telefon raqam', FUMIGATSIYA_DEFAULTS.phone],
+        ['Buyurtma beruvchi', FUMIGATSIYA_DEFAULTS.customerName],
+        ['Viloyat', FUMIGATSIYA_DEFAULTS.region],
+        ['Tuman', FUMIGATSIYA_DEFAULTS.district],
+        ['Export/Import/Mahalliy', FUMIGATSIYA_DEFAULTS.tradeType],
+        ['Zararsizlantiriladigan', FUMIGATSIYA_DEFAULTS.objectType],
+    ];
+    for (const [label, value] of expected) {
+        const el = fumigatsiyaField(label);
+        if (!el) continue;
+        const current = el.tagName === 'SELECT' ? (el.selectedOptions[0] || {}).text : el.value;
+        if (karantinNorm(current) !== karantinNorm(value)) {
+            warnings.push(`${label}: yozilmadi (hozir "${current || ''}")`);
+        }
     }
 
     return warnings;

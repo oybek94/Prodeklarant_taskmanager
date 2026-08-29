@@ -17,6 +17,7 @@ export function useInvoiceExtension(
   contracts: Contract[],
   selectedContractId: string,
   invoiceId?: number,
+  clientInn?: string,
 ) {
   useEffect(() => {
     const handleExtensionRequest = (event: MessageEvent) => {
@@ -27,6 +28,14 @@ export function useInvoiceExtension(
 
       const isSellerShipper = !selectedContract?.shipperName || selectedContract.shipperName.trim() === selectedContract.sellerName.trim();
       const exppnNm = isSellerShipper ? (selectedContract?.sellerName || '') : (selectedContract?.shipperName || selectedContract?.sellerName || '');
+      // Kengaytma ariza to'ldirishdan oldin saytda ochiq korxonaning INN ini shu
+      // qiymat bilan solishtiradi. Yuk jo'natuvchi sotuvchidan boshqa korxona
+      // bo'lsa, saytda AYNAN yuk jo'natuvchi ochiq bo'lishi kerak — shu sababli
+      // bunday holatda sotuvchining INN iga qaytilmaydi (aks holda tekshiruv
+      // ma'nosini yo'qotadi).
+      const exppnInn = (isSellerShipper
+        ? (selectedContract?.sellerInn || clientInn || '')
+        : (selectedContract?.shipperInn || '')).trim();
       const exppnAddr = isSellerShipper 
         ? (selectedContract?.sellerLegalAddress || '') 
         : [selectedContract?.shipperAddress || '', `п/п ${selectedContract?.sellerName || ''}`].filter(Boolean).join('. ');
@@ -60,6 +69,9 @@ export function useInvoiceExtension(
         EXPPN_ADDR_CLEAN: exppnAddrClean,
         ST1_GRZ_ADDR: st1GrzAddr,
         EXPPN_REGN_TP_NM: form.fssRegionName || '',
+        EXPPN_INN: exppnInn,
+        // Xato xabarida kimning INN i kutilganini aytish uchun
+        EXPPN_INN_ROLE: isSellerShipper ? 'seller' : 'shipper',
         IMPPN_NM: imppnNm,
         IMPPN_ADDR: imppnAddr,
         IMPPN_ADDR_ST1: imppnAddrSt1,

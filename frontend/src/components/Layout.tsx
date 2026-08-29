@@ -349,7 +349,7 @@ const Layout = () => {
 
     // Savdo va CRM
     ...((user?.role === 'ADMIN' || user?.role === 'SELLER') ? [{ path: '/crm', label: 'CRM', icon: 'solar:chart-bold-duotone', group: 'Savdo va CRM' }] : []),
-    ...((user?.role === 'ADMIN' || user?.role === 'SELLER') ? [{ path: '/leads', label: 'Lidlar', icon: 'solar:target-bold-duotone', group: 'Savdo va CRM' }] : []),
+    { path: '/leads', label: 'Lidlar', icon: 'solar:target-bold-duotone', group: 'Savdo va CRM' },
     ...(user?.role !== 'SELLER' ? [{ path: '/clients', label: 'Mijozlar', icon: 'solar:users-group-rounded-bold-duotone', group: 'Savdo va CRM' }] : []),
     { path: '/shartnomalar', label: 'Shartnomalar', icon: 'solar:documents-bold-duotone', group: 'Savdo va CRM' },
     

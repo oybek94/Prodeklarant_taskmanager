@@ -72,7 +72,7 @@ function sendToContentScript(action, mockData, statusDiv) {
                     statusDiv.textContent = "Xatolik! Sayt to'liq yuklanganini tekshiring.";
                     statusDiv.style.color = "#ef4444";
                 } else if (response && response.success) {
-                    if (action === "fill_form" || action === "fill_st1_form" || action === "fill_karantin_fss" || action === "fill_cargo_byud" || action === "fill_cargo_step2") {
+                    if (action === "fill_form" || action === "fill_st1_form" || action === "fill_karantin_fss" || action === "fill_fumigatsiya" || action === "fill_cargo_byud" || action === "fill_cargo_step2") {
                         const warnings = response.warnings || [];
                         if (warnings.length > 0) {
                             // To'ldirilmagan maydonlar jim qolmasligi kerak — ayniqsa
@@ -124,6 +124,16 @@ document.getElementById('fillKarantinBtn').addEventListener('click', async () =>
     const mockData = await getProdeklarantData(statusDiv);
     if (!mockData) return;
     sendToContentScript("fill_karantin_fss", mockData, statusDiv);
+});
+
+// Fumigatsiya arizasidagi maydonlar butunlay doimiy qiymatlardan iborat, lekin
+// invoys baribir kerak: saytda ochiq korxona invoysdagi eksportyorga mos
+// kelishini tekshirmasdan ariza to'ldirilmaydi
+document.getElementById('fillFumigatsiyaBtn').addEventListener('click', async () => {
+    const statusDiv = document.getElementById('status');
+    const mockData = await getProdeklarantData(statusDiv);
+    if (!mockData) return;
+    sendToContentScript("fill_fumigatsiya", mockData, statusDiv);
 });
 
 document.getElementById('fillCargoBtn').addEventListener('click', async () => {

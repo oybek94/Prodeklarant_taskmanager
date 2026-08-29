@@ -744,6 +744,9 @@ function checkData(data) {
 // shuning uchun qabul qilinadigan yozilishlar sanab o'tiladi.
 const KARANTIN_DEFAULTS = {
     responsibleName: "Турсунбоев О.У.",
+    // Maydon korxonaning ro'yxatdagi raqami bilan oldindan to'ladi, lekin
+    // arizada har doim mas'ul xodimning raqami turishi kerak
+    applicantPhone: "+998911187007",
     marketType: "Eksport",
     regionalOffice: ["Farg`ona viloyati", "Farg'ona viloyati", "Fargona viloyati"],
     destinationRegion: ["Farg`ona viloyati", "Farg'ona viloyati", "Fargona viloyati"],
@@ -812,6 +815,58 @@ function karantinNorm(str) {
         .trim();
 }
 
+// "Importerlar" ro'yxatida bitta korxona ikki xil yozuvda uchraydi
+// ("OOO AVALON-TORG" va "ООО Авалон-Торг"), shartnomadagi nom esa odatda
+// kirillcha. Saytdagi qidiruvning O'ZI transliteratsiyani biladi (кирилча
+// "ФЕДЭК" so'rovi "LLC FEDEK-1974" ni topadi) — quyidagi jadval faqat topilgan
+// qatorning haqiqatan ham o'sha korxona ekanini tekshirish uchun kerak.
+const KARANTIN_TRANSLIT = {
+    'а': 'a', 'б': 'b', 'в': 'v', 'г': 'g', 'ғ': 'g', 'д': 'd', 'е': 'e', 'ё': 'e',
+    'ж': 'zh', 'з': 'z', 'и': 'i', 'й': 'y', 'к': 'k', 'қ': 'q', 'л': 'l', 'м': 'm',
+    'н': 'n', 'о': 'o', 'п': 'p', 'р': 'r', 'с': 's', 'т': 't', 'у': 'u', 'ў': 'u',
+    'ф': 'f', 'х': 'kh', 'ҳ': 'h', 'ц': 'ts', 'ч': 'ch', 'ҷ': 'j', 'ш': 'sh',
+    'щ': 'shch', 'ъ': '', 'ы': 'y', 'ь': '', 'э': 'e', 'ю': 'yu', 'я': 'ya',
+};
+
+// Tashkiliy-huquqiy shakl ikki tomonda har xil yoziladi va nomning boshida ham,
+// oxirida ham turishi mumkin ("ООО Лампочка" ↔ "LAMPOCHKA LLC")
+const KARANTIN_LEGAL_FORMS = new Set([
+    'ooo', 'oao', 'zao', 'ao', 'pao', 'nao', 'ip', 'chp', 'pe', 'too', 'tov', 'odo',
+    'mchj', 'mchz', 'mchzh', 'xk', 'llc', 'llp', 'ltd', 'ltda', 'plc', 'jsc',
+    'inc', 'corp', 'co', 'company', 'gmbh', 'sarl', 'srl', 'spa', 'ag', 'jv', 'fe',
+]);
+
+function karantinTranslit(str) {
+    return String(str == null ? '' : str)
+        .toLowerCase()
+        .replace(/[Ѐ-ӿ]/g, ch => (KARANTIN_TRANSLIT[ch] !== undefined ? KARANTIN_TRANSLIT[ch] : ch));
+}
+
+// Korxona nomining "o'zagi": lotinga o'tkazilgan, huquqiy shakli va tinish
+// belgilari olib tashlangan ko'rinishi. "ООО «ФЕДЭК-1974»" va "LLC FEDEK-1974"
+// bir xil kalit beradi.
+function karantinCompanyKey(value) {
+    const words = karantinTranslit(value).replace(/[^a-z0-9]+/g, ' ').trim().split(' ').filter(Boolean);
+    const core = words.filter(word => !KARANTIN_LEGAL_FORMS.has(word));
+    return (core.length ? core : words).join('');
+}
+
+// Qidiruv so'rovlari: avval to'liq nom (huquqiy shaklisiz), keyin alohida
+// so'zlar — eng uzuni birinchi, chunki u eng o'ziga xos qismi bo'ladi.
+function karantinImporterQueries(name) {
+    const words = String(name == null ? '' : name)
+        .replace(/[«»„“”"'`]/g, ' ')
+        .split(/[\s,.;:()\/\\]+/)
+        .filter(word => {
+            const key = karantinTranslit(word).replace(/[^a-z0-9]+/g, '');
+            return key.length >= 2 && !KARANTIN_LEGAL_FORMS.has(key);
+        });
+    if (words.length === 0) return [];
+    const queries = [words.join(' ')];
+    [...words].sort((a, b) => b.length - a.length).forEach(word => queries.push(word));
+    return [...new Set(queries)].slice(0, 4);
+}
+
 // Ariza oynasi. Sarlavha o'rniga ichidagi maydon nomi bo'yicha topiladi —
 // sayt sarlavhani oddiy div bilan chizadi, `.ant-modal-title` yo'q.
 function karantinModal() {
@@ -844,6 +899,13 @@ function karantinSetInput(el, value) {
     if (el._valueTracker) el._valueTracker.setValue(previous);
     el.dispatchEvent(new Event('input', { bubbles: true }));
     return true;
+}
+
+// Telefon maydoniga maska qo'yilgan: "+998911187007" yozilsa, maydonda
+// "+998 91 118 70 07" turadi — tekshirishda faqat raqamlar solishtiriladi.
+function karantinSameValue(name, current, wanted) {
+    if (name !== 'applicant_phone') return current === wanted;
+    return String(current).replace(/\D/g, '') === String(wanted).replace(/\D/g, '');
 }
 
 function karantinSetInputByName(name, value, root) {
@@ -975,7 +1037,10 @@ async function karantinPickProduct(card, tnved, name) {
     // keyin ham uni DOMda qoldiradi — hammasi bir xil "ko'rinadigan" bo'lib
     // turadi. Shu sababli oynani "birinchi topilgani" bo'yicha emas, YANGI
     // qo'shilgani bo'yicha aniqlaymiz.
-    const allPickers = () => [...document.querySelectorAll('.ant-modal')].filter(el => el.querySelector('table'));
+    // "Importerlar" oynasida ham jadval bor — u mahsulot oynasi bilan
+    // adashtirilmasligi kerak (ayniqsa quyidagi "oxirgisini ol" zaxira yo'lida)
+    const allPickers = () => [...document.querySelectorAll('.ant-modal')]
+        .filter(el => el.querySelector('table') && !karantinNorm(el.innerText).startsWith('importerlar'));
     const before = new Set(allPickers());
 
     trigger.click();
@@ -1017,6 +1082,100 @@ async function karantinPickProduct(card, tnved, name) {
     if (trigger.value) return null;
     await closePicker();
     return `Mahsulot: "${query}" tanlanmadi`;
+}
+
+// "Importer nomi" — "Importer davlat nomi" tanlangunicha oddiy matn maydoni,
+// tanlangandan keyin esa faqat-o'qish maydoniga aylanadi va bosilganda
+// "Importerlar" jadvali ochiladi. Ro'yxatdan tanlanmasa ariza yuborilmaydi,
+// shuning uchun matn yozib qo'yish yetarli emas.
+async function karantinPickImporter(modal, name) {
+    const trigger = modal.querySelector('[name="importer_name"]');
+    if (!trigger) return "Importer nomi maydoni topilmadi";
+    if (!String(name || '').trim()) return "Importer nomi: shartnomada qiymat yo'q";
+
+    // Davlat tanlanmagan bo'lsa maydon hamon oddiy input bo'lib qoladi
+    if (!trigger.readOnly) {
+        karantinSetInput(trigger, toSingleLine(name));
+        return "Importer nomi: avval davlat tanlanishi kerak, ro'yxatdan tanlanmadi";
+    }
+
+    // Mahsulot oynalaridan farqli o'laroq bu oyna bitta va DOMda qayta
+    // ishlatiladi — "yangi qo'shilgani" bo'yicha emas, sarlavhasi bo'yicha
+    // topiladi. Yopilish animatsiyasi ("ant-zoom-leave") tugamay qolsa oyna
+    // ko'rinib turadi, lekin React uni yopiq deb biladi: qidiruvga yozilgan
+    // matn darhol eski qiymatiga qaytariladi. Shuning uchun bunday holat
+    // "ochiq" deb hisoblanmaydi va oyna qaytadan ochiladi.
+    const importerPicker = () => [...document.querySelectorAll('.ant-modal')]
+        .find(el => el.offsetParent !== null
+            && !/-leave/.test(el.className)
+            && el.querySelector('table')
+            && karantinNorm(el.innerText).startsWith('importerlar')) || null;
+
+    let picker = importerPicker();
+    if (!picker) {
+        trigger.click();
+        for (let attempt = 0; attempt < 15 && !picker; attempt++) {
+            await delay(200);
+            picker = importerPicker();
+        }
+    }
+    if (!picker) return "Importerlar oynasi ochilmadi";
+
+    // Oyna ochiq qolsa formaning qolgan qismini to'sib qo'yadi
+    const closePicker = async () => {
+        if (picker.offsetParent === null || /-leave/.test(picker.className)) return;
+        const btn = picker.querySelector('.ant-modal-close');
+        if (btn) { btn.click(); await delay(400); }
+    };
+
+    const inputs = [...picker.querySelectorAll('input')];
+    const search = inputs.find(el => /qidirish/i.test(el.placeholder || '')) || inputs[0];
+    if (!search) { await closePicker(); return "Importerlar: qidiruv maydoni topilmadi"; }
+
+    // Ustunlar: № va nomi. Nom katagida ikkinchi qator "Reg №: ..." bo'ladi.
+    const rowName = (row) => {
+        const cell = row.querySelectorAll('td')[1];
+        return cell ? cell.innerText.split('\n')[0].trim() : '';
+    };
+
+    const wantedKey = karantinCompanyKey(name);
+    let lastSeen = [];
+
+    for (const query of karantinImporterQueries(name)) {
+        karantinSetInput(search, query);
+        await delay(1500);
+
+        const rows = [...picker.querySelectorAll('tbody tr')].filter(row => row.querySelectorAll('td').length >= 2);
+        if (rows.length === 0) continue;
+        lastSeen = rows.map(rowName);
+
+        const exact = rows.filter(row => karantinCompanyKey(rowName(row)) === wantedKey);
+        // Bitta korxona ro'yxatga ikki marta (lotin va kirill) kiritilgan
+        // bo'lishi mumkin — qaysi yozuv to'g'riligini dastur hal qila olmaydi.
+        // Oyna qidiruv natijasi bilan ochiq qoldiriladi: foydalanuvchi kerakli
+        // qatorni bir bosishda tanlaydi (qolgan maydonlar to'ldirilaveradi).
+        if (exact.length > 1) {
+            return `Importer "${name}": ${exact.length} ta bir xil variant bor — ochiq oynadan qo'lda tanlang`;
+        }
+        const target = exact[0] || (rows.length === 1 ? rows[0] : null);
+        if (!target) continue;
+
+        // Maydonda oldingi qiymat turgan bo'lishi mumkin, shuning uchun
+        // "bo'sh emas" emas, "aynan tanlangan qator" ekani tekshiriladi
+        const chosen = rowName(target);
+        target.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+        target.click();
+        await delay(800);
+        await closePicker();
+        if (karantinNorm(trigger.value) === karantinNorm(chosen)) return null;
+        return `Importer "${name}" tanlanmadi`;
+    }
+
+    // Bu yerda ham oyna ochiq qoladi — nom ro'yxatdagidan farq qilsa,
+    // to'g'ri yozuvni faqat foydalanuvchi topa oladi
+    return lastSeen.length
+        ? `Importer "${name}" aniq topilmadi (${lastSeen.slice(0, 3).join('; ')}) — ochiq oynadan qo'lda tanlang`
+        : `Importer "${name}" ro'yxatda topilmadi — ochiq oynadan qo'lda qidiring`;
 }
 
 function karantinResolveCountry(value) {
@@ -1070,6 +1229,10 @@ async function fillKarantinIchkiFss(data) {
         warnings.push("Importer davlat nomi: shartnomada davlat ko'rsatilmagan");
     }
 
+    // Davlat tanlangandan keyingina "Importer nomi" ro'yxatli maydonga aylanadi
+    await delay(400);
+    push(await karantinPickImporter(modal, data.IMPPN_NM));
+
     // 2. Shartnoma sanasi. Ochiq qolgan sana paneli keyingi bosishni yutadi,
     //    shuning uchun mahsulotlardan oldin tugatiladi.
     if (data.EXP_CVNT_DT) {
@@ -1079,9 +1242,10 @@ async function fillKarantinIchkiFss(data) {
     }
 
     // 3. Matnli maydonlar
+    // `importer_name` bu yerda yo'q — u ro'yxatdan tanlanadi (karantinPickImporter)
     const textFields = {
+        applicant_phone: KARANTIN_DEFAULTS.applicantPhone,
         applicant_responsible_name: KARANTIN_DEFAULTS.responsibleName,
-        importer_name: toSingleLine(data.IMPPN_NM || ''),
         importer_exporter_contract_number: String(data.EXP_CTDC_NO || '').trim(),
     };
     for (const [name, value] of Object.entries(textFields)) {
@@ -1156,7 +1320,7 @@ async function fillKarantinIchkiFss(data) {
     for (const [name, value] of Object.entries(textFields)) {
         if (!value) continue;
         const el = modal.querySelector(`[name="${name}"]`);
-        if (el && el.value !== value) karantinSetInput(el, value);
+        if (el && !karantinSameValue(name, el.value, value)) karantinSetInput(el, value);
     }
 
     return warnings;

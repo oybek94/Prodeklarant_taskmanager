@@ -2012,30 +2012,6 @@ function cargoSplitVehicleNumber(value) {
 
 // Fayl biriktirish oynasi ochilib, foydalanuvchi uni yopgunicha kutiladi.
 // Kutish uzoq bo'lgani uchun holat sahifaning o'zida ko'rsatiladi.
-async function cargoWaitForUserModal(label, warnings) {
-    // "Файл бириктириш" tugmasi Е-АРХИВ oynasini ochadi. Aynan shu oynani
-    // kuzatamiz — tirkama oynasi ham ochiq turgani uchun umumiy `.modal.show`
-    // bo'yicha qidirish noto'g'ri oynani tanlab qo'yadi.
-    const opened = await cargoWaitFor(() => {
-        const arxiv = document.getElementById('eArxivFile');
-        return arxiv && arxiv.classList.contains('show') ? arxiv : null;
-    }, 8000);
-    if (!opened) {
-        warnings.push(`${label}: fayl oynasi ochilmadi`);
-        return false;
-    }
-    cargoToast(`${label}: faylni biriktiring — oyna yopilgach davom etaman`);
-    const closed = await cargoWaitFor(
-        () => (!opened.classList.contains('show') ? true : null),
-        5 * 60 * 1000,
-    );
-    if (!closed) {
-        warnings.push(`${label}: oyna yopilmadi, kutish tugadi`);
-        return false;
-    }
-    await delay(800);
-    return true;
-}
 
 // Popup kutish paytida yopilib ketadi — holatni sahifada ko'rsatamiz
 let cargoToastTimer = null;
@@ -2056,6 +2032,50 @@ function cargoToast(text) {
     box.textContent = text;
     clearTimeout(cargoToastTimer);
     cargoToastTimer = setTimeout(() => box.remove(), 20000);
+}
+
+// Техник паспорт faylini biriktirish.
+//
+// Fayl tanlash muloqotini kod ocha olmaydi — Chrome unga foydalanuvchi
+// bosishini talab qiladi (aks holda istalgan sayt kompyuterdan fayl o'g'irlagan
+// bo'lardi). Shuning uchun ish taqsimlanadi: oynani biz ochamiz, faylni
+// foydalanuvchi tanlaydi, "Сақлаш" ni yana biz bosamiz.
+async function cargoAttachVehicleDoc(root, onclickPart, label, warnings) {
+    const opener = root.querySelector(`button[onclick*="${onclickPart}"]`);
+    if (!opener) { warnings.push(`${label}: biriktirish tugmasi topilmadi`); return false; }
+    opener.click();
+
+    const modal = await cargoWaitFor(() => {
+        const el = document.getElementById('eArxivFile');
+        return el && el.classList.contains('show') ? el : null;
+    }, 8000);
+    if (!modal) { warnings.push(`${label}: fayl oynasi ochilmadi`); return false; }
+    await delay(400);
+
+    cargoToast(`${label}: "Ҳужжат файли" ni bosib tex.pdf ni tanlang — "Сақлаш" ni o'zim bosaman`);
+
+    // Foydalanuvchi oynani o'zi yopib qo'yishi ham mumkin — o'shanda aralashmaymiz
+    const outcome = await cargoWaitFor(() => {
+        if (!modal.classList.contains('show')) return 'closed';
+        const chosen = [...modal.querySelectorAll('input[type="file"]')]
+            .some((el) => el.files && el.files.length > 0);
+        return chosen ? 'file' : null;
+    }, 5 * 60 * 1000);
+
+    if (!outcome) { warnings.push(`${label}: fayl tanlanmadi, kutish tugadi`); return false; }
+    if (outcome === 'closed') { await delay(600); return true; }
+
+    const save = [...modal.querySelectorAll('button')].find((el) => {
+        const text = (el.textContent || '').trim().toLowerCase();
+        return text.includes('сақлаш') || text.includes('сохранить') || text.includes('saqlash');
+    });
+    if (!save) { warnings.push(`${label}: "Сақлаш" tugmasi topilmadi — qo'lda bosing`); return false; }
+    save.click();
+
+    const closed = await cargoWaitFor(() => (!modal.classList.contains('show') ? true : null), 20000);
+    if (!closed) { warnings.push(`${label}: saqlangandan keyin oyna yopilmadi`); return false; }
+    await delay(600);
+    return true;
 }
 
 async function cargoFillTransport(data, warnings) {
@@ -2094,7 +2114,15 @@ async function cargoFillTransport(data, warnings) {
         await delay(800);
     }
 
-    // 3. Юк ташиш тугалланадиган мамлакат — shartnomadagi davlat
+    // 3. Транспорт воситаси техник паспорти — fayl foydalanuvchidan
+    await cargoAttachVehicleDoc(
+        document.getElementById('tabTransport') || document,
+        'eArxivEk(209',
+        'Транспорт воситаси техник паспорти',
+        warnings,
+    );
+
+    // 4. Юк ташиш тугалланадиган мамлакат — shartnomadagi davlat
     const country = String(data.DESTINATION_COUNTRY || '').trim();
     if (!country) {
         warnings.push("Юк ташиш тугалланадиган мамлакат: shartnomada davlat ko'rsatilmagan");
@@ -2107,12 +2135,62 @@ async function cargoFillTransport(data, warnings) {
         if (countryError) warnings.push(countryError);
     }
 
-    // 4. Тиркама ва контейнер рақами — alohida oyna
+    // 5. Тиркама ва контейнер рақами — alohida oyna
     if (!trailer) {
         warnings.push("Тиркама: mashina raqamining ikkinchi qismi yo'q");
         return;
     }
     await cargoFillTrailer(trailer, warnings);
+}
+
+// O'chirish tasdiqlash oynasi chiqqan bo'lsa "ha" ni bosadi. Native `confirm()`
+// bu yerga yetib kelmaydi — u butun sahifani to'xtatadi va foydalanuvchi o'zi
+// javob bergach kod davom etadi.
+function cargoConfirmDialog() {
+    const swal = document.querySelector('.swal2-confirm');
+    if (swal && swal.offsetParent !== null) { swal.click(); return true; }
+
+    // Tirkama va fayl oynalarining o'zi ham `.modal.show` — ular tasdiqlash emas
+    const dialogs = [...document.querySelectorAll('.modal.show')]
+        .filter((el) => el.id !== 'exampleModalWin2' && el.id !== 'eArxivFile');
+    for (const dialog of dialogs) {
+        const yes = [...dialog.querySelectorAll('button')].find((el) => {
+            const text = (el.textContent || '').trim().toLowerCase();
+            return text === 'ҳа' || text === 'да' || text === 'ha' || text === 'ok'
+                || text.includes('тасдиқ') || text.includes('подтверд');
+        });
+        if (yes) { yes.click(); return true; }
+    }
+    return false;
+}
+
+// Oynada oldingi BYUD dan qolgan tirkama turishi mumkin. Yangisini ustiga
+// qo'shsak ikkita bo'lib ketadi, shuning uchun avval ro'yxat tozalanadi.
+// Yon foyda: qatorlardagi `eArxivEk(210` tugmalari ham yo'qoladi, shunda
+// texnik pasport tugmasi aniq formaniki bo'ladi.
+async function cargoClearTrailers(warnings) {
+    const rows = () => [...document.querySelectorAll('#exampleTREK tbody tr')]
+        .filter((tr) => tr.querySelector('button[onclick*="deleteTrailerEk("]'));
+
+    for (let guard = 0; guard < 20; guard += 1) {
+        const before = rows().length;
+        if (before === 0) return true;
+
+        rows()[0].querySelector('button[onclick*="deleteTrailerEk("]').click();
+        let gone = await cargoWaitFor(() => (rows().length < before ? true : null), 6000);
+
+        if (!gone && cargoConfirmDialog()) {
+            gone = await cargoWaitFor(() => (rows().length < before ? true : null), 6000);
+        }
+        if (!gone) {
+            warnings.push("Тиркама: eski yozuvni o'chirib bo'lmadi — qo'lda o'chiring");
+            return false;
+        }
+        await delay(300);
+    }
+
+    warnings.push("Тиркама: eski yozuvlar tugamadi");
+    return false;
 }
 
 async function cargoFillTrailer(trailer, warnings) {
@@ -2127,18 +2205,16 @@ async function cargoFillTrailer(trailer, warnings) {
     if (!modal) { warnings.push('Тиркама: oyna ochilmadi'); return; }
     await delay(500);
 
+    // Tozalanmasa yangisi eskisining ustiga qo'shiladi — bunda to'ldirmagan
+    // ma'qul, aks holda BYUD da ikkita tirkama qolib ketadi
+    if (!(await cargoClearTrailers(warnings))) return;
+
     const numberInput = document.getElementById('TR_NUMBER');
     if (!numberInput) { warnings.push('Тиркама: Давлат рақами maydoni topilmadi'); return; }
     await cargoSetInput(numberInput, trailer);
 
-    // Тиркама техник паспорти — fayl biriktirilishini foydalanuvchidan kutamiz
-    const trailerDoc = modal.querySelector('button[onclick*="eArxivEk(210"]');
-    if (!trailerDoc) {
-        warnings.push('Тиркама: техник паспорт tugmasi topilmadi');
-        return;
-    }
-    trailerDoc.click();
-    await cargoWaitForUserModal('Тиркама техник паспорти', warnings);
+    // Тиркама техник паспорти — faylni foydalanuvchi tanlaydi, saqlashni biz bosamiz
+    await cargoAttachVehicleDoc(modal, 'eArxivEk(210', 'Тиркама техник паспорти', warnings);
     cargoToast('Тиркама маълумотлари тайёр — "Қўшиш" ни босинг');
 }
 

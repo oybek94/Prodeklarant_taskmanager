@@ -2095,23 +2095,14 @@ async function cargoFillTransport(data, warnings) {
     if (!search) {
         warnings.push('Транспорт: qidiruv (lupa) tugmasi topilmadi');
     } else {
-        // Maydonlar oldindan to'la bo'lishi mumkin, shuning uchun "to'ldi" emas,
-        // "o'zgardi yoki bo'shdan to'ldi" holatini kutamiz
-        const fieldValue = (id) => ((document.getElementById(id) || {}).value || '').trim();
-        const beforeVin = fieldValue('T_VIN');
-        const beforeModel = fieldValue('G21DET');
         search.click();
-        await cargoWaitFor(() => {
-            const vin = fieldValue('T_VIN');
-            const model = fieldValue('G21DET');
-            if (!vin && !model) return null;
-            if (!beforeVin && !beforeModel) return true;
-            return vin !== beforeVin || model !== beforeModel ? true : null;
-        }, 15000);
+        // Sayt maydonlarni shu vaqt ichida to'ldiradi
+        await delay(2000);
+
+        const fieldValue = (id) => ((document.getElementById(id) || {}).value || '').trim();
         if (!fieldValue('T_VIN') && !fieldValue('G21DET')) {
             warnings.push('Транспорт: qidiruv mashina maʼlumotini keltirmadi');
         }
-        await delay(800);
     }
 
     // 3. Транспорт воситаси техник паспорти — fayl foydalanuvchidan
@@ -2193,6 +2184,16 @@ async function cargoClearTrailers(warnings) {
     return false;
 }
 
+// Oyna tugmasini yozuvi bo'yicha topadi. `exact` bo'lsa aynan mos kelishi
+// kerak — "OK" kabi qisqa yozuvlar boshqa tugmaga tushib ketmasligi uchun.
+function cargoModalButton(root, variants, exact) {
+    return [...root.querySelectorAll('button')].find((el) => {
+        if (el.disabled || el.offsetParent === null) return false;
+        const text = (el.textContent || '').trim().toLowerCase();
+        return variants.some((variant) => (exact ? text === variant : text.includes(variant)));
+    }) || null;
+}
+
 async function cargoFillTrailer(trailer, warnings) {
     const opener = document.getElementById('TRAILER_CONTAINER_NO');
     if (!opener) { warnings.push('Тиркама: maydon topilmadi'); return; }
@@ -2209,13 +2210,40 @@ async function cargoFillTrailer(trailer, warnings) {
     // ma'qul, aks holda BYUD da ikkita tirkama qolib ketadi
     if (!(await cargoClearTrailers(warnings))) return;
 
+    // 1. Давлат рақами — sayt shu raqam bo'yicha VIN ni o'zi topib qo'yadi
     const numberInput = document.getElementById('TR_NUMBER');
     if (!numberInput) { warnings.push('Тиркама: Давлат рақами maydoni topilmadi'); return; }
     await cargoSetInput(numberInput, trailer);
+    numberInput.dispatchEvent(new Event('blur', { bubbles: true }));
+    await delay(2000);
 
-    // Тиркама техник паспорти — faylni foydalanuvchi tanlaydi, saqlashni biz bosamiz
+    // 2. Техник паспорт — faylni foydalanuvchi tanlaydi, saqlashni biz bosamiz
     await cargoAttachVehicleDoc(modal, 'eArxivEk(210', 'Тиркама техник паспорти', warnings);
-    cargoToast('Тиркама маълумотлари тайёр — "Қўшиш" ни босинг');
+
+    // 3. "Қўшиш" — yozuvni jadvalga qo'shadi
+    const add = cargoModalButton(modal, ['қўшиш', 'кўшиш', "qo'shish", 'добавить']);
+    if (!add) { warnings.push("Тиркама: «Қўшиш» tugmasi topilmadi — qo'lda bosing"); return; }
+    add.click();
+
+    // 4. Jadvalda ko'ringanini tasdiqlab, keyin oynani yopamiz
+    const wanted = contractKey(trailer);
+    const added = await cargoWaitFor(() => {
+        const row = [...document.querySelectorAll('#exampleTREK tbody tr')]
+            .find((tr) => contractKey(tr.textContent).includes(wanted));
+        return row ? true : null;
+    }, 15000);
+    if (!added) {
+        warnings.push("Тиркама: jadvalda yangi qator ko'rinmadi — «OK» bosilmadi");
+        return;
+    }
+
+    // 5. "OK" — oynani yopadi
+    const ok = cargoModalButton(modal, ['ok', 'ок'], true);
+    if (!ok) { warnings.push("Тиркама: «OK» tugmasi topilmadi — qo'lda bosing"); return; }
+    ok.click();
+
+    const closed = await cargoWaitFor(() => (!modal.classList.contains('show') ? true : null), 10000);
+    if (!closed) warnings.push('Тиркама: oyna yopilmadi');
 }
 
 async function fillCargoStep2(data) {

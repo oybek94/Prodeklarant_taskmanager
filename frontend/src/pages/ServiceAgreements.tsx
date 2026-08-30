@@ -137,6 +137,7 @@ export default function ServiceAgreements() {
             <thead className="bg-gray-50 text-left text-xs uppercase tracking-wide text-gray-500">
               <tr>
                 <th className="px-4 py-3 font-medium">Korxona</th>
+                <th className="px-4 py-3 font-medium">INN</th>
                 <th className="px-4 py-3 font-medium">№ / Sana</th>
                 <th className="px-4 py-3 font-medium">Tarif</th>
                 <th className="px-4 py-3 font-medium">Kredit limiti</th>
@@ -155,8 +156,8 @@ export default function ServiceAgreements() {
                     <Link to={`/shartnomalar/${a.id}`} className="font-medium text-gray-900 hover:text-blue-600">
                       {a.customerName}
                     </Link>
-                    <div className="text-xs text-gray-500">INN: {a.customerInn || '—'}</div>
                   </td>
+                  <td className="px-4 py-3 tabular-nums text-gray-700">{a.customerInn || '—'}</td>
                   <td className="px-4 py-3">
                     <div className="tabular-nums">{a.agreementNumber}</div>
                     <div className="text-xs text-gray-500">

@@ -75,6 +75,14 @@ const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3001;
 // Sekin so'rovlarni o'lchash — barcha boshqa middleware'lardan oldin turishi shart
 app.use(requestTiming());
 
+// Ichki tizim — qidiruv tizimlari indeksiga tushmasligi shart.
+// Header meta-teg'dan kuchliroq: JSON/PDF/rasm kabi HTML bo'lmagan
+// javoblarga ham amal qiladi va bot JS'ni render qilishini kutmaydi.
+app.use((_req, res, next) => {
+  res.setHeader('X-Robots-Tag', 'noindex, nofollow, noarchive, nosnippet, noimageindex');
+  next();
+});
+
 // CORS sozlamalari
 const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',').map(origin => origin.trim()) || [
   'http://localhost:5173',

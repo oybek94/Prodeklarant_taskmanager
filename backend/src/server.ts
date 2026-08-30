@@ -145,9 +145,11 @@ app.get('/api/secure-uploads/*path', requireAuth(), (req, res) => {
   }
 
   // Path traversal hujumidan himoya
+  // Trailing separator bilan tekshiramiz — aks holda "uploads-secret" kabi
+  // yonma-yon papka ham prefiks bo'yicha o'tib ketishi mumkin edi.
   const absolutePath = path.resolve(path.join(uploadsRootDir, relativePath));
 
-  if (!absolutePath.startsWith(uploadsRootDir)) {
+  if (absolutePath !== uploadsRootDir && !absolutePath.startsWith(uploadsRootDir + path.sep)) {
     return res.status(403).json({ error: 'Ruxsat berilmagan yo\'l' });
   }
 

@@ -148,8 +148,15 @@ router.get('/media/stream/:mediaId/segments/:segmentPath', async (req, res) => {
     if (!media || !media.hlsManifestKey) return res.status(404).json({ error: 'Media or segments not found' });
 
     // Assume segments are relative to manifest directory
-    const manifestDir = path.dirname(path.join(uploadsRoot, media.hlsManifestKey));
-    const segmentFullPath = path.join(manifestDir, segmentPath);
+    const manifestDir = path.resolve(path.dirname(path.join(uploadsRoot, media.hlsManifestKey)));
+    const segmentFullPath = path.resolve(manifestDir, segmentPath);
+
+    // Path traversal himoyasi: yechilgan yo'l manifest papkasidan tashqariga
+    // chiqmasligi shart (aks holda ../../.env kabi ixtiyoriy fayl o'qiladi)
+    if (segmentFullPath !== manifestDir && !segmentFullPath.startsWith(manifestDir + path.sep)) {
+      return res.status(403).json({ error: 'Invalid segment path' });
+    }
+
     if (!fs.existsSync(segmentFullPath)) return res.status(404).json({ error: 'Segment not found' });
 
     const stat = fs.statSync(segmentFullPath);

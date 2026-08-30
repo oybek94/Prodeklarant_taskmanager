@@ -79,30 +79,49 @@ router.get('/completed-summary', requireAuth(), async (req: AuthRequest, res) =>
 
     const completedStatuses = ['TAYYOR', 'YAKUNLANDI'];
 
-    const loadTaskIds = async () => {
-      const tasks = await prisma.task.findMany({
-        where: baseTaskWhere,
-        select: { id: true },
-      });
-      return tasks.map((task) => task.id);
-    };
+    // Kesh: bir xil filtr uchun 5 daqiqa (dashboard bir vaqtda ko'p endpoint yuklaydi)
+    const cacheKey = `dashboard:completed-summary:${branchId || ''}:${employeeId || ''}:${clientId || ''}`;
+    const cachedSummary = appCache.get(cacheKey);
+    if (cachedSummary) {
+      return res.json(cachedSummary);
+    }
 
-    const completedTasks = await prisma.task.findMany({
-      where: {
-        ...baseTaskWhere,
-        status: { in: completedStatuses },
-      },
-      select: {
-        id: true,
-        status: true,
-        updatedAt: true,
-        stages: {
-          where: { name: { in: ['Deklaratsiya', 'Pochta'] }, status: 'TAYYOR' },
-          select: { name: true, completedAt: true },
-          orderBy: { completedAt: 'desc' },
+    // Davr diapazonlarini oldindan hisoblaymiz — DB so'rovlarini shu oralik bilan cheklaymiz
+    const periods = ['today', 'week', 'month', 'year'] as const;
+    const rangeMap = new Map<typeof periods[number], ReturnType<typeof buildRangePair>>();
+    for (const period of periods) {
+      rangeMap.set(period, buildRangePair(period));
+    }
+
+    const allRanges = Array.from(rangeMap.values()).flatMap((pair) => [pair.current, pair.previous]);
+    const minStart = allRanges.reduce((min, range) => (range.start < min ? range.start : min), allRanges[0].start);
+    const maxEnd = allRanges.reduce((max, range) => (range.end > max ? range.end : max), allRanges[0].end);
+
+    // Mustaqil ikki so'rovni parallel yuboramiz; ichma-ich stages'ni faqat
+    // kerakli sana oralig'i bilan cheklaymiz (barcha tarixni yuklamaslik uchun).
+    const [completedTasks, taskIds] = await Promise.all([
+      prisma.task.findMany({
+        where: {
+          ...baseTaskWhere,
+          status: { in: completedStatuses },
         },
-      },
-    });
+        select: {
+          id: true,
+          status: true,
+          updatedAt: true,
+          stages: {
+            where: {
+              name: { in: ['Deklaratsiya', 'Pochta'] },
+              status: 'TAYYOR',
+              completedAt: { gte: minStart, lte: maxEnd },
+            },
+            select: { name: true, completedAt: true },
+            orderBy: { completedAt: 'desc' },
+          },
+        },
+      }),
+      prisma.task.findMany({ where: baseTaskWhere, select: { id: true } }).then((tasks) => tasks.map((t) => t.id)),
+    ]);
 
     const getCompletionDate = (task: typeof completedTasks[number]) => {
       if (task.status === 'TAYYOR') {
@@ -126,17 +145,6 @@ router.get('/completed-summary', requireAuth(), async (req: AuthRequest, res) =>
       date: getCompletionDate(task),
     }));
 
-    const periods = ['today', 'week', 'month', 'year'] as const;
-    const rangeMap = new Map<typeof periods[number], ReturnType<typeof buildRangePair>>();
-    for (const period of periods) {
-      rangeMap.set(period, buildRangePair(period));
-    }
-
-    const allRanges = Array.from(rangeMap.values()).flatMap((pair) => [pair.current, pair.previous]);
-    const minStart = allRanges.reduce((min, range) => (range.start < min ? range.start : min), allRanges[0].start);
-    const maxEnd = allRanges.reduce((max, range) => (range.end > max ? range.end : max), allRanges[0].end);
-
-    const taskIds = await loadTaskIds();
     const archivedDocs = taskIds.length > 0
       ? await prisma.archiveDocument.findMany({
         where: {
@@ -297,6 +305,7 @@ router.get('/completed-summary', requireAuth(), async (req: AuthRequest, res) =>
       series: result.today.series,
     };
 
+    appCache.set(cacheKey, result, CACHE_TTL.DASHBOARD_STATS);
     res.json(result);
   } catch (error: any) {
     console.error('Error fetching completed summary:', error);
@@ -329,33 +338,20 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
       where.stages = { some: { assignedTo: parseInt(workerId as string) } };
     }
 
-    // Tasks by status
-    const tasksByStatus = await prisma.task.groupBy({
-      by: ['status'],
-      where,
-      _count: true,
-    });
-
-    // New tasks (today)
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const newTasks = await prisma.task.count({
-      where: { ...where, createdAt: { gte: today } },
-    });
 
-    // Completed tasks
-    const completedTasks = await prisma.task.count({
-      where: { ...where, status: 'TAYYOR' },
-    });
-
-    // Process statistics (stages)
-    const processStats = await prisma.taskStage.groupBy({
-      by: ['status'],
-      where: {
-        task: where,
-      },
-      _count: true,
-    });
+    // Bu 4 ta so'rov bir-biriga bog'liq emas — ketma-ket emas, parallel yuboriladi
+    const [tasksByStatus, newTasks, completedTasks, processStats] = await Promise.all([
+      // Tasks by status
+      prisma.task.groupBy({ by: ['status'], where, _count: true }),
+      // New tasks (today)
+      prisma.task.count({ where: { ...where, createdAt: { gte: today } } }),
+      // Completed tasks
+      prisma.task.count({ where: { ...where, status: 'TAYYOR' } }),
+      // Process statistics (stages)
+      prisma.taskStage.groupBy({ by: ['status'], where: { task: where }, _count: true }),
+    ]);
 
     // Helper function to calculate worker ranking for a date range
     const calculateWorkerRanking = async (startDate: Date, endDate: Date, includeMedalXp = false) => {

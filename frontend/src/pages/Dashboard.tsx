@@ -46,7 +46,6 @@ const Dashboard = () => {
     statsError,
     chartData,
     loading,
-    exchangeRate,
     premiumStats,
     completedSummary,
     loadingCompletedSummary,
@@ -86,7 +85,6 @@ const Dashboard = () => {
               loadPendingDeleteErrors={loadPendingDeleteErrors}
               setShowUnratedModal={setShowUnratedModal}
               myMedals={myMedals}
-              exchangeRate={exchangeRate}
               setShowRanksModal={setShowRanksModal}
             />
           </div>

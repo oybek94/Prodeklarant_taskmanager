@@ -15,8 +15,6 @@ export const useDashboardStats = (period: 'weekly' | 'monthly' | 'yearly') => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const [exchangeRate, setExchangeRate] = useState<number | null>(null);
-  const [loadingExchangeRate, setLoadingExchangeRate] = useState(false);
   const [premiumStats, setPremiumStats] = useState<any>(null);
   const [completedSummary, setCompletedSummary] = useState<CompletedSummary | null>(null);
   const [loadingCompletedSummary, setLoadingCompletedSummary] = useState(true);
@@ -82,56 +80,6 @@ export const useDashboardStats = (period: 'weekly' | 'monthly' | 'yearly') => {
     }
   };
 
-  const loadExchangeRate = async () => {
-    try {
-      setLoadingExchangeRate(true);
-      const now = new Date();
-      const todayUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-      const todayStr = todayUTC.toISOString().split('T')[0];
-
-      try {
-        const fetchResponse = await apiClient.post('/finance/exchange-rates/fetch');
-        if (fetchResponse.data?.rate) {
-          const rate = parseFloat(fetchResponse.data.rate);
-          setExchangeRate(rate);
-          return;
-        }
-      } catch (fetchError: any) {
-        console.warn('[ExchangeRate] initial fetch failed, falling back:', fetchError?.message);
-      }
-
-      const response = await apiClient.get(`/finance/exchange-rates/for-date?date=${todayStr}`).catch((error) => {
-        if (error.response?.status === 404) {
-          return error.response;
-        }
-        throw error;
-      });
-      if (response?.data?.rate !== undefined && response?.data?.rate !== null) {
-        const rate = parseFloat(response.data.rate);
-
-        if (response.data.fallback) {
-          try {
-            const fetchResponse = await apiClient.post('/finance/exchange-rates/fetch');
-            if (fetchResponse.data?.rate) {
-              const newRate = parseFloat(fetchResponse.data.rate);
-              setExchangeRate(newRate);
-              return;
-            }
-          } catch (fetchError: any) {
-            console.warn('[ExchangeRate] fallback fetch failed:', fetchError?.message);
-          }
-        }
-
-        setExchangeRate(rate);
-      } else {
-        console.warn('[Dashboard] No rate in response:', response?.data);
-      }
-    } catch (error: any) {
-      console.error('[Dashboard] Error loading exchange rate:', error);
-    } finally {
-      setLoadingExchangeRate(false);
-    }
-  };
 
   const loadStats = async (signal?: AbortSignal) => {
     try {
@@ -221,7 +169,6 @@ export const useDashboardStats = (period: 'weekly' | 'monthly' | 'yearly') => {
     loadStats(controller.signal);
     loadChartData(controller.signal);
     loadRecentTasks(controller.signal);
-    loadExchangeRate();
     return () => controller.abort();
   }, [period]);
 
@@ -296,8 +243,6 @@ export const useDashboardStats = (period: 'weekly' | 'monthly' | 'yearly') => {
     chartData,
     tasks,
     loading,
-    exchangeRate,
-    loadingExchangeRate,
     premiumStats,
     completedSummary,
     loadingCompletedSummary,

@@ -277,6 +277,10 @@ model TaskStage {
   @@index([completedAt])
   @@index([assignedToId, status])
   @@index([taskId, status])
+  // Dashboard ranking so'rovi uchun: status='TAYYOR' + completedAt oralig'i,
+  // hamda har xodim bo'yicha yakunlangan bosqichlar (assignedToId + completedAt)
+  @@index([status, completedAt])
+  @@index([assignedToId, completedAt])
 }
 
 model TaskError {

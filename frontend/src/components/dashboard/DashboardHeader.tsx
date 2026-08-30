@@ -11,13 +11,11 @@ interface DashboardHeaderProps {
   unratedErrors: any[];
   setShowUnratedModal: (show: boolean) => void;
   myMedals: UserMedal[];
-  exchangeRate: number | null;
   setShowRanksModal: (show: boolean) => void;
   pendingDeleteErrors?: any[];
   loadPendingDeleteErrors?: () => void;
 }
 
-const formatUzs = (value: number) => value.toLocaleString('uz-UZ');
 
 export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   user,
@@ -25,7 +23,6 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   unratedErrors,
   setShowUnratedModal,
   myMedals,
-  exchangeRate,
   setShowRanksModal,
   pendingDeleteErrors,
   loadPendingDeleteErrors = () => {}
@@ -156,25 +153,6 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                   <div>
                     <p className="text-[10px] font-black tracking-widest text-gray-400 dark:text-gray-500 uppercase mb-1">Joriy Unvon</p>
                     <p className="text-sm sm:text-base font-extrabold text-gray-800 dark:text-gray-100 leading-tight">{userRank.title}</p>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Exchange Rate Widget */}
-            {exchangeRate && (
-              <div className="flex flex-col justify-center p-5 bg-white/70 dark:bg-gray-800/60 rounded-[24px] border border-white/80 dark:border-white/10 shadow-[0_4px_20px_-5px_rgba(0,0,0,0.05)] backdrop-blur-xl hover:shadow-md transition-all">
-                <div className="flex flex-col items-center text-center gap-3">
-                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-50 to-teal-100 dark:from-emerald-900/30 dark:to-teal-900/30 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shadow-inner">
-                    <Icon icon="solar:transfer-horizontal-bold-duotone" className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-black tracking-widest text-gray-400 dark:text-gray-500 uppercase mb-1">Valyuta Kursi</p>
-                    <div className="flex items-baseline justify-center gap-1.5">
-                      <span className="text-base font-bold text-gray-800 dark:text-gray-200">1$</span>
-                      <span className="text-sm text-gray-400">=</span>
-                      <span className="text-lg font-black text-emerald-600 dark:text-emerald-400">{formatUzs(exchangeRate)}</span>
-                    </div>
                   </div>
                 </div>
               </div>

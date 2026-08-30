@@ -152,10 +152,9 @@ describe('v2 shabloni', () => {
       const customer = requisiteRows(withRequisites).map((row) => row[1]);
       // Mijozning bazadagi MFO'si 00123 — u endi chiqmasligi kerak
       expect(customer).not.toContain('МФО: 00123');
-      // Nom, direktor va STIR baribir alohida qator bo'lib qoladi
+      // Nom va STIR baribir alohida qator bo'lib qoladi
       expect(customer[0]).toBe('AGRO EXPORT MCHJ');
-      expect(customer[1]).toBe('Директор: Aliyev A.A.');
-      expect(customer[2]).toBe('СТИР: 305123456');
+      expect(customer[1]).toBe('СТИР: 305123456');
     });
 
     it('rekvizitlar bo\'sh bo\'lsa eski tuzilmali qatorlar saqlanadi', () => {
@@ -170,12 +169,18 @@ describe('v2 shabloni', () => {
       }
     });
 
+    // Direktor F.I.Sh. preambulada va imzo joyida qoladi — rekvizitlar jadvalida emas
+    it('«Директор» qatori hech bir ustunda chiqmaydi', () => {
+      for (const agreement of [base, withRequisites]) {
+        expect(requisiteRows(agreement).flat().join('\n')).not.toContain('Директор');
+      }
+    });
+
     it('bajaruvchi ustunida barcha rekvizit qatori bor', () => {
       for (const rows of [requisiteRows(base), requisiteRows(withRequisites)]) {
         expect(rows.every((row) => row.length === 2)).toBe(true);
         const executor = rows.map((row) => row[0]);
         expect(executor).toContain('PRODEKLARANT MCHJ');
-        expect(executor).toContain('Директор: Турсунбоев О.У.');
         expect(executor).toContain('Манзил: Oltiariq');
         expect(executor).toContain('СТИР: 311953399');
         expect(executor).toContain('Банк: Universalbank');
@@ -189,7 +194,7 @@ describe('v2 shabloni', () => {
     it('uzun rekvizitlar matnida bajaruvchi qatorlari yo\'qolmaydi', () => {
       const long = { ...base, customerRequisites: Array.from({ length: 25 }, (_, i) => `Қатор ${i}`).join('\n') };
       const rows = requisiteRows(long);
-      expect(rows).toHaveLength(29); // 3 sarlavha + 1 bo'sh + 25 qator
+      expect(rows).toHaveLength(28); // 2 sarlavha + 1 bo'sh + 25 qator
       expect(rows.map((row) => row[0])).toContain(`E-mail: ${'docs@prodeklarant.uz'}`);
     });
   });

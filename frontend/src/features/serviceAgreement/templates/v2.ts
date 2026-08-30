@@ -12,8 +12,6 @@ const EXECUTOR_EMAIL = 'docs@prodeklarant.uz';
 function requisiteRows(t: AgreementTokens): string[][] {
   const executor = [
     t.executorName,
-    // Qisqartirilgan F.I.Sh. — to'liq ism preambulada
-    `Директор: ${t.executorDirectorShort}`,
     `Манзил: ${t.executorAddress}`,
     `СТИР: ${t.executorInn}`,
     `Банк: ${t.executorBankName}`,
@@ -26,7 +24,6 @@ function requisiteRows(t: AgreementTokens): string[][] {
   const customer = t.customerRequisites
     ? [
         t.customerName,
-        `Директор: ${t.customerDirectorShort}`,
         `СТИР: ${t.customerInn}`,
         '',
         // Erkin matn qanday yozilgan bo'lsa, shundayligicha — har satr alohida
@@ -36,7 +33,6 @@ function requisiteRows(t: AgreementTokens): string[][] {
     : [
         // Rekvizitlar bo'sh — eski shartnomalar avvalgi tuzilmada qayta chiqadi
         t.customerName,
-        `Директор: ${t.customerDirectorShort}`,
         `Манзил: ${t.customerAddress}`,
         `СТИР: ${t.customerInn}`,
         `Банк: ${t.customerBankName}`,
@@ -70,6 +66,11 @@ function requisiteRows(t: AgreementTokens): string[][] {
  * 2026-08-12 (2-tahrir): 13-bo'limdan «ИФУТ (ОКЭД)» qatori ikkala ustundan ham
  * olib tashlandi. `executorOked`/`customerOked` tokenlari o'z joyida qoladi —
  * ular `v1` da hamon ishlatiladi.
+ *
+ * 2026-08-30: 13-bo'limdan «Директор» qatori ham ikkala ustundan olib
+ * tashlandi (ОКЭД bilan bir xil tartibda). Hujjatda ma'lumot yo'qolmaydi:
+ * to'liq F.I.Sh. preambulada, qisqartirilgani esa imzo blokida qoladi
+ * (`AgreementPdfDocument` → `*DirectorShort`).
  *
  * MUHIM: imzolangan shartnoma aynan shu versiyada qayta chiqishi kerak.
  * Matnni o'zgartirish kerak bo'lsa — YANGI fayl (`v3.ts`) yarating, bu faylga

@@ -12,6 +12,7 @@ import { useClickOutside } from '../hooks/useClickOutside';
 import { useInvoiceSocket } from '../components/invoice/hooks/useInvoiceSocket';
 import { useInvoiceColumns, findActiveCustomColumnKey } from '../components/invoice/hooks/useInvoiceColumns';
 import { useInvoiceExtension } from '../components/invoice/hooks/useInvoiceExtension';
+import { useInvoiceServiceAgreement } from '../components/invoice/hooks/useInvoiceServiceAgreement';
 import { useInvoiceNumberCheck } from '../components/invoice/hooks/useInvoiceNumberCheck';
 import { useProductOptions } from '../components/invoice/hooks/useProductOptions';
 import { useInvoiceDownloads } from '../components/invoice/hooks/useInvoiceDownloads';
@@ -271,7 +272,8 @@ const Invoice = () => {
     removeItem,
     applyMassNetWeightFormula,
   } = useInvoiceItems({ selectedContractSpec, invoiceProductOptions, tareRules });
-  useInvoiceExtension(form, items, contracts, selectedContractId, invoice?.id, task?.client?.inn);
+  const serviceAgreement = useInvoiceServiceAgreement(task?.client?.id);
+  useInvoiceExtension(form, items, contracts, selectedContractId, invoice?.id, task?.client?.inn, serviceAgreement);
 
 
   // task stages effect removed, handled by useInvoiceStages

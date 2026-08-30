@@ -2,95 +2,211 @@
 <html lang="uz">
 <head>
   <meta charset="UTF-8">
-  <title>AutoFill Form</title>
+  <title>To'ldirgich</title>
   <style>
+    /* Rang tizimi: fitosanitariya sertifikati qog'ozining to'q yashil shtampi —
+       bitta urg'u rangi, qolgani qog'oz va siyoh. */
+    :root {
+      --paper: #F6F6F3;
+      --card: #FFFFFF;
+      --ink: #14171A;
+      --muted: #71757B;
+      --rule: #E4E4DF;
+      --stamp: #1B5E4A;
+      --stamp-press: #154738;
+      --alert: #A6321F;
+      --warn: #8A5A00;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --paper: #15171A;
+        --card: #1C1F23;
+        --ink: #E8E8E4;
+        --muted: #9AA0A6;
+        --rule: #2A2E33;
+        --stamp: #2E8B6C;
+        --stamp-press: #3AA07E;
+        --alert: #E0705C;
+        --warn: #D9A441;
+      }
+    }
+
+    * { box-sizing: border-box; }
+
     body {
-      width: 300px;
-      padding: 15px;
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      background-color: #f8fafc;
-      color: #0f172a;
+      width: 340px;
       margin: 0;
+      padding: 14px;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
+      font-size: 13px;
+      line-height: 1.4;
     }
-    h3 {
-      margin-top: 0;
-      margin-bottom: 15px;
-      color: #1e293b;
-      text-align: center;
-      font-size: 18px;
-    }
-    button {
-      width: 100%;
-      padding: 12px;
-      background-color: #3b82f6;
-      color: white;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      font-size: 15px;
+
+    .eyebrow {
+      margin: 0 0 7px;
+      font-size: 10px;
       font-weight: 600;
-      transition: background-color 0.2s;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
     }
-    button:hover {
-      background-color: #2563eb;
+
+    .eyebrow:empty,
+    .eyebrow[hidden] { display: none; }
+
+    /* Faol sayt: oq kartochka, tugmalar bosiladigan holatda */
+    .group {
+      background: var(--card);
+      border: 1px solid var(--rule);
+      border-radius: 10px;
+      padding: 11px;
     }
-    button:active {
-      transform: scale(0.98);
+
+    .group__host {
+      display: block;
+      margin-bottom: 9px;
+      font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+      font-size: 12px;
+      color: var(--ink);
     }
-    #checkDataBtn {
-      margin-top: 10px;
-      background-color: #10b981;
+
+    .group__actions {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
     }
-    #fillKarantinBtn {
-      margin-top: 10px;
-      background-color: #0f766e;
+
+    .btn {
+      width: 100%;
+      min-height: 36px;
+      padding: 8px 12px;
+      border: 1px solid transparent;
+      border-radius: 7px;
+      font: inherit;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background-color 0.12s, border-color 0.12s;
     }
-    #fillKarantinBtn:hover {
-      background-color: #115e59;
+
+    /* Saytga YOZADIGAN amallar */
+    .btn--fill {
+      background: var(--stamp);
+      color: #FFFFFF;
     }
-    #fillCargoBtn {
-      margin-top: 10px;
-      background-color: #b45309;
+
+    .btn--fill:hover { background: var(--stamp-press); }
+
+    /* Faqat O'QIYDIGAN amal — shakli boshqacha, chunki ishi ham boshqacha */
+    .btn--read {
+      background: var(--card);
+      border-color: var(--rule);
+      color: var(--ink);
     }
-    #fillCargoBtn:hover {
-      background-color: #92400e;
+
+    .btn--read:hover { border-color: var(--stamp); }
+
+    .btn:active { transform: translateY(1px); }
+
+    .btn:focus-visible {
+      outline: 2px solid var(--stamp);
+      outline-offset: 2px;
     }
-    #fillCargoStep2Btn {
-      margin-top: 10px;
-      background-color: #c2410c;
+
+    /* Boshqa saytlar: kartochka emas, oddiy ro'yxat — bosilmaydi */
+    .away {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 7px 0;
+      border-top: 1px solid var(--rule);
+      color: var(--muted);
     }
-    #fillCargoStep2Btn:hover {
-      background-color: #9a3412;
+
+    .away__host {
+      font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+      font-size: 11px;
+      white-space: nowrap;
     }
-    #checkDataBtn:hover {
-      background-color: #059669;
+
+    .away__items {
+      min-width: 0;
+      font-size: 11px;
+      text-align: right;
     }
-    #fillSt1Btn {
-      margin-top: 10px;
-      background-color: #8b5cf6;
+
+    #here:empty { display: none; }
+
+    #elsewhere-title { margin-top: 16px; }
+
+    .status {
+      margin-top: 14px;
+      padding-left: 9px;
+      border-left: 2px solid var(--rule);
+      font-size: 12px;
+      line-height: 1.45;
+      overflow-wrap: anywhere;
+      color: var(--muted);
     }
-    #fillSt1Btn:hover {
-      background-color: #7c3aed;
-    }
-    #status {
-      margin-top: 15px;
-      text-align: center;
-      font-size: 14px;
-      font-weight: 500;
-      min-height: 20px;
+
+    .status:empty { display: none; }
+    .status--error { color: var(--alert); border-left-color: var(--alert); }
+    .status--warn  { color: var(--warn);  border-left-color: var(--warn); }
+    .status--ok    { color: var(--stamp); border-left-color: var(--stamp); }
+
+    @media (prefers-reduced-motion: reduce) {
+      .btn { transition: none; }
+      .btn:active { transform: none; }
     }
   </style>
 </head>
 <body>
-  <h3>Fito to'ldirgich</h3>
-  <button id="fillFormBtn">Fito Zayavka</button>
-  <button id="fillSt1Btn">ST-1 Zayavka</button>
-  <button id="fillKarantinBtn">Ichki FSS (karantin.uz)</button>
-  <button id="fillFumigatsiyaBtn">Fumigatsiya (karantin.uz)</button>
-  <button id="fillCargoBtn">BYUD 1-qadam (cargo.customs.uz)</button>
-  <button id="fillCargoStep2Btn">BYUD 2-qadam (transport, tovar, hujjat)</button>
-  <button id="checkDataBtn">Ma'lumotlarni tekshirish</button>
-  <div id="status"></div>
+  <p class="eyebrow" id="here-title" hidden>Siz shu yerdasiz</p>
+  <div id="here"></div>
+
+  <p class="eyebrow" id="elsewhere-title" hidden>Boshqa saytlarda</p>
+  <div id="elsewhere"></div>
+
+  <!-- Guruhlar shu yerda tug'iladi va yashirin turadi; popup.js ularni aktiv
+       sayt bo'yicha "shu yerda" va "boshqa saytlarda" ga ajratadi. Tugmalar
+       sahifa yuklanishidayoq DOM da bo'lishi shart — popup.js ularni id bo'yicha
+       topadi. -->
+  <div id="stage" hidden>
+    <section class="group" data-host="singlewindow.uz">
+      <span class="group__host">singlewindow.uz</span>
+      <div class="group__actions">
+        <button class="btn btn--fill" id="fillFormBtn">Fito zayavka</button>
+        <button class="btn btn--read" id="checkDataBtn">Ma'lumotlarni tekshirish</button>
+      </div>
+    </section>
+
+    <section class="group" data-host="app.expertiza.uz">
+      <span class="group__host">app.expertiza.uz</span>
+      <div class="group__actions">
+        <button class="btn btn--fill" id="fillSt1Btn">ST-1 zayavka</button>
+      </div>
+    </section>
+
+    <section class="group" data-host="cabinet.karantin.uz">
+      <span class="group__host">cabinet.karantin.uz</span>
+      <div class="group__actions">
+        <button class="btn btn--fill" id="fillKarantinBtn">Ichki FSS</button>
+        <button class="btn btn--fill" id="fillFumigatsiyaBtn">Fumigatsiya</button>
+      </div>
+    </section>
+
+    <section class="group" data-host="cargo.customs.uz">
+      <span class="group__host">cargo.customs.uz</span>
+      <div class="group__actions">
+        <button class="btn btn--fill" id="fillCargoBtn">BYUD — 1-qadam</button>
+        <button class="btn btn--fill" id="fillCargoStep2Btn">BYUD — 2-qadam</button>
+      </div>
+    </section>
+  </div>
+
+  <div class="status" id="status"></div>
   <script src="popup.js"></script>
 </body>
 </html>

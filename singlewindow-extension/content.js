@@ -35,7 +35,20 @@ function innDigits(value) {
 
 // Saytda ochiq korxonaning INN i. Topilmasa bo'sh qaytaradi — bunda to'ldirish
 // jim o'tkazib yuborilmaydi, balki bekor qilinadi.
-function siteCompanyInn() {
+async function siteCompanyInn() {
+    if (location.hostname.includes('singlewindow.uz')) {
+        // Zayavka formasida "ariza beruvchi" STIR i — sayt o'zi qo'yadi va
+        // tahrirlanmaydi, ya'ni tizimga kirilgan korxonaning aynan o'zi
+        const field = document.querySelector('[name="APLC_TXPR_UNIQ_NO"]');
+        return field ? innDigits(field.value) : '';
+    }
+    if (location.hostname.includes('app.expertiza.uz')) {
+        // 1) Ariza 1-qadamidagi STIR maydoni — sayt o'zi to'ldirib qo'yadi
+        const field = document.querySelector('[name="tin"]');
+        if (field && innDigits(field.value)) return innDigits(field.value);
+        // 2) ST-1 esa 2-qadamda to'ldiriladi, u yerda bu maydon DOM da yo'q
+        return await expertizaCompanyInn();
+    }
     if (location.hostname.includes('cabinet.karantin.uz')) {
         // 1) Ochiq ariza oynasidagi STIR — aynan yuboriladigan qiymat
         const modal = karantinModal() || fumigatsiyaModal();
@@ -55,8 +68,27 @@ function siteCompanyInn() {
     return '';
 }
 
+// app.expertiza.uz da kirilgan korxona sahifaning o'zida (2-qadamda) ko'rinmaydi,
+// shuning uchun saytning o'z API sidan so'raladi — sahifa ham aynan shu
+// chaqiruvni qiladi, token esa localStorage da turadi.
+async function expertizaCompanyInn() {
+    const token = localStorage.getItem('token');
+    if (!token) return '';
+    try {
+        const res = await fetch('https://api.expertiza.uz/api/v1/companies/me?_f=json&_l=uz', {
+            headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
+        });
+        if (!res.ok) return '';
+        const body = await res.json();
+        return innDigits(body && body.data && body.data.tin);
+    } catch (err) {
+        console.warn("[AutoFill] app.expertiza.uz korxonasini aniqlab bo'lmadi:", err);
+        return '';
+    }
+}
+
 // Mos kelmasa xato tashlaydi va chaqiruvchi to'ldirishni umuman boshlamaydi
-function assertSiteCompanyMatches(data) {
+async function assertSiteCompanyMatches(data) {
     if (!data) {
         throw new Error("TO'LDIRILMADI: Prodeklarantda invoys ochilmagan — qaysi korxona nomidan ariza berilayotganini tekshirib bo'lmadi.");
     }
@@ -67,23 +99,80 @@ function assertSiteCompanyMatches(data) {
     if (!expected) {
         throw new Error(`TO'LDIRILMADI: shartnomada ${role} ("${name}") INN i ko'rsatilmagan — saytdagi korxona bilan solishtirib bo'lmadi. Shartnomaga INN ni kiriting.`);
     }
-    const actual = siteCompanyInn();
+    const actual = await siteCompanyInn();
     if (!actual) {
         throw new Error("TO'LDIRILMADI: saytda ochiq korxonaning STIR/INN i topilmadi — tekshirib bo'lmadi.");
     }
     if (actual !== expected) {
-        throw new Error(`TO'LDIRILMADI: saytga ${actual} INN li korxona nomidan kirilgan, invoysdagi ${role} esa "${name}" (INN ${expected}). To'g'ri korxona nomidan kiring.`);
+        throw new Error(`TO'LDIRILMADI: Siz boshqa korxona klyuchidan kirib olgansiz yoki boshqa invoys ochilib turibdi. Saytda ${actual} INN li korxona, invoysda ${role} "${name}" (INN ${expected}).`);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Xavfsizlik: saytda ochiq BYUD invoysdagi shartnomaga tegishlimi?
+// ---------------------------------------------------------------------------
+// cargo.customs.uz da bir vaqtning o'zida bir nechta deklaratsiya ochiq bo'lishi
+// mumkin. Noto'g'ri BYUD ustida to'ldirish boshlansa, 54-grafaga begona
+// shartnoma raqami va BYUD raqami yozilib ketadi.
+
+// Ajratuvchilar va "№" kabi belgilar hisobga olinmaydi: "№ 18/08/26" va
+// "18-08-26" bir xil shartnoma deb qaraladi
+function contractKey(value) {
+    return String(value == null ? '' : value)
+        .toUpperCase()
+        .replace(/[^0-9A-ZА-ЯЁ]/g, '');
+}
+
+// 1-qadamning pastki qismidagi "Шартнома рақами" — sayt o'zi qo'yadi va
+// tahrirlanmaydi, ya'ni ochiq deklaratsiyaning aynan shartnomasi
+function cargoContractNo() {
+    const field = document.getElementById('CONTRACTNO');
+    return field ? field.value.trim() : '';
+}
+
+function assertContractMatches(data) {
+    if (!data) {
+        throw new Error("TO'LDIRILMADI: Prodeklarantda invoys ochilmagan — shartnoma raqamini solishtirib bo'lmadi.");
+    }
+    const expected = String(data.EXP_CTDC_NO || '').trim();
+    if (!contractKey(expected)) {
+        throw new Error("TO'LDIRILMADI: invoysda shartnoma raqami ko'rsatilmagan — saytdagi bilan solishtirib bo'lmadi.");
+    }
+    const actual = cargoContractNo();
+    if (!contractKey(actual)) {
+        throw new Error("TO'LDIRILMADI: saytda shartnoma raqami topilmadi — tekshirib bo'lmadi. 1-qadam (\"Умумий маълумотлар\") ochiqligini tekshiring.");
+    }
+    if (contractKey(actual) !== contractKey(expected)) {
+        throw new Error(`TO'LDIRILMADI: Saytda boshqa BYUD ochiq yoki Prodeklarantda boshqa invoys ochilib turibdi. Saytda shartnoma ${actual}, invoysda ${expected}.`);
     }
 }
 
 // Tekshiruv talab qiladigan amallar. `check_products` bu ro'yxatda yo'q —
 // u faqat o'qiydi, saytga hech narsa yozmaydi.
-// TODO: singlewindow.uz va app.expertiza.uz uchun `siteCompanyInn()` da o'qish
-// yo'li aniqlangach, `fill_form` va `fill_st1_form` ham qo'shiladi.
+// cargo.customs.uz ataylab yo'q: BYUD ni deklarant o'z akkaunti bilan to'ldiradi,
+// saytdagi korxona eksportyor bo'lishi shart emas.
 const COMPANY_CHECKED_ACTIONS = new Set([
+    'fill_form',
+    'fill_st1_form',
     'fill_karantin_fss',
     'fill_fumigatsiya',
 ]);
+
+// Shartnoma raqami tekshiriladigan amallar
+const CONTRACT_CHECKED_ACTIONS = new Set([
+    'fill_cargo_byud',
+]);
+
+// To'ldirishdan oldingi barcha tekshiruvlar. Biri ham o'tmasa amal umuman
+// boshlanmaydi — saytga yarim yozib qo'yishdan ko'ra hech narsa qilmagan afzal.
+async function preflight(request) {
+    if (COMPANY_CHECKED_ACTIONS.has(request.action)) {
+        await assertSiteCompanyMatches(request.data);
+    }
+    if (CONTRACT_CHECKED_ACTIONS.has(request.action)) {
+        assertContractMatches(request.data);
+    }
+}
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     const wrongSite = wrongSiteMessage(request.action);
@@ -92,15 +181,15 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         return true;
     }
 
-    if (COMPANY_CHECKED_ACTIONS.has(request.action)) {
-        try {
-            assertSiteCompanyMatches(request.data);
-        } catch (err) {
-            sendResponse({ success: false, errorMsg: String(err && err.message || err) });
-            return true;
-        }
-    }
+    // Tekshiruv tarmoqqa chiqishi mumkin (app.expertiza.uz), shuning uchun amal
+    // faqat u tugagach boshlanadi
+    preflight(request)
+        .then(() => runAction(request, sendResponse))
+        .catch((err) => sendResponse({ success: false, errorMsg: String(err && err.message || err) }));
+    return true;
+});
 
+function runAction(request, sendResponse) {
     if (request.action === "fill_form") {
         const data = request.data;
         if (data) {
@@ -113,7 +202,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         const data = request.data;
         if (!data) {
             sendResponse({ success: false, errorMsg: "Ma'lumotlar kelmadi!" });
-            return true;
+            return;
         }
         // ST-1 faqat app.expertiza.uz da to'ldiriladi. Eski
         // application.expertiza.uz ishlatilmaydi va qo'llab-quvvatlanmaydi.
@@ -124,7 +213,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         const data = request.data;
         if (!data) {
             sendResponse({ success: false, errorMsg: "Ma'lumotlar kelmadi!" });
-            return true;
+            return;
         }
         fillKarantinIchkiFss(data)
             .then((warnings) => sendResponse({ success: true, warnings }))
@@ -139,7 +228,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         const data = request.data;
         if (!data) {
             sendResponse({ success: false, errorMsg: "Ma'lumotlar kelmadi!" });
-            return true;
+            return;
         }
         fillCargoByud(data)
             .then((warnings) => sendResponse({ success: true, warnings }))
@@ -148,7 +237,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         const data = request.data;
         if (!data) {
             sendResponse({ success: false, errorMsg: "Ma'lumotlar kelmadi!" });
-            return true;
+            return;
         }
         fillCargoStep2(data)
             .then((warnings) => sendResponse({ success: true, warnings }))
@@ -163,8 +252,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             sendResponse({ success: false, errorMsg: "Ma'lumotlar kelmadi!" });
         }
     }
-    return true; // add return true for async if needed in future
-});
+}
 
 function fillForm(data) {
     // 1. Birinchi navbatda avtoToldr chekvoksini bosish
@@ -1539,6 +1627,7 @@ const CARGO_DEFAULTS = {
     g54Email: 'docs@prodeklarant.uz',
     customsValueTotal: '4000',     // Ҳаражатлар суммаси
     customsValueCurrency: '840',   // Валюта тури: 840 - АҚШ доллари
+    g54Phone: '+998911187007',     // 54-grafa Телефон рақами
 };
 
 // 1-qadam paneli. Boshqa qadam yoki boshqa sahifa ochiq bo'lsa topilmaydi.
@@ -1738,8 +1827,18 @@ async function cargoFillG54(data, warnings) {
 
     await cargoSetInputById('G54ADDRESS', CARGO_DEFAULTS.g54Address, warnings, '54-grafa Жой');
     await cargoSetInputById('G54_EMAIL', CARGO_DEFAULTS.g54Email, warnings, '54-grafa Электрон почта');
-    await cargoSetInputById('G54_NO', String(data.EXP_CTDC_NO || '').trim(), warnings, '54-grafa Битим рақами');
-    await cargoSetInputById('G54_NO_DATE', String(data.EXP_CVNT_DT || '').split('T')[0], warnings, '54-grafa Битим санаси');
+    await cargoSetInputById('G54_PHONE', CARGO_DEFAULTS.g54Phone, warnings, '54-grafa Телефон рақами');
+
+    // "Битим" bu yerda tashqi savdo shartnomasi emas, mijoz bilan tuzilgan
+    // XIZMAT shartnomasi (Prodeklarant → Shartnomalar). Topilmasa bo'sh
+    // qoldiriladi: begona raqam yozib qo'yishdan ko'ra ogohlantirgan afzal.
+    const agreementNo = String(data.SERVICE_AGREEMENT_NO || '').trim();
+    if (agreementNo) {
+        await cargoSetInputById('G54_NO', agreementNo, warnings, '54-grafa Битим рақами');
+        await cargoSetInputById('G54_NO_DATE', String(data.SERVICE_AGREEMENT_DT || '').split('T')[0], warnings, '54-grafa Битим санаси');
+    } else {
+        warnings.push('54-grafa Битим рақами: bu mijoz bilan amaldagi xizmat shartnomasi topilmadi (Shartnomalar sahifasiga qarang)');
+    }
 
     const byudNo = cargoByudNumber(data.INVOICE_ID);
     if (byudNo) {
@@ -1749,7 +1848,7 @@ async function cargoFillG54(data, warnings) {
     }
 
     // Saytning o'zi to'ldiradigan maydonlar bo'sh qolsa saqlashda xato chiqadi
-    const autoFilled = [['FULLNAME', 'ФИО'], ['G54_PHONE', 'Телефон'], ['g54IdNumbersPinfl', 'ЖШШИР']];
+    const autoFilled = [['FULLNAME', 'ФИО'], ['g54IdNumbersPinfl', 'ЖШШИР']];
     for (const [id, label] of autoFilled) {
         const el = document.getElementById(id);
         if (el && !el.value) warnings.push(`54-grafa ${label}: sayt to'ldirmadi, qo'lda yozing`);

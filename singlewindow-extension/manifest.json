@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Fito to'ldirgich",
-  "version": "1.0",
-  "description": "Автоматически заполняет формы экспорта на singlewindow.uz",
+  "name": "Prodeklarant",
+  "version": "2.0",
+  "description": "Prodeklarant invoysidan singlewindow.uz, app.expertiza.uz, cabinet.karantin.uz va cargo.customs.uz arizalarini to'ldiradi",
   "permissions": ["storage", "activeTab", "scripting"],
   "host_permissions": [
     "*://*.singlewindow.uz/*", 
@@ -22,7 +22,7 @@
   "action": {
     "default_icon": "icon.png",
     "default_popup": "popup.html",
-    "default_title": "Заполнить форму"
+    "default_title": "Prodeklarant to'ldirgich"
   },
   "content_scripts": [
     {

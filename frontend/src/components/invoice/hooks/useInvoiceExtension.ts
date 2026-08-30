@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import type { InvoiceItem, Contract } from '../types';
+import type { InvoiceServiceAgreement } from './useInvoiceServiceAgreement';
 
 interface ExtensionForm {
   [key: string]: any;
@@ -18,6 +19,7 @@ export function useInvoiceExtension(
   selectedContractId: string,
   invoiceId?: number,
   clientInn?: string,
+  serviceAgreement?: InvoiceServiceAgreement | null,
 ) {
   useEffect(() => {
     const handleExtensionRequest = (event: MessageEvent) => {
@@ -79,6 +81,10 @@ export function useInvoiceExtension(
         // shartnomadagi davlat nomi shu ro'yxatga moslashtiriladi
         DESTINATION_COUNTRY: selectedContract?.destinationCountry || '',
         EXP_CTDC_NO: (selectedContract?.contractNumber || form.contractNumber || form.invoiceNumber) || '',
+        // BYUD 54-grafasi ("Битим рақами") tashqi savdo shartnomasini emas,
+        // mijoz bilan tuzilgan xizmat shartnomasini so'raydi
+        SERVICE_AGREEMENT_NO: serviceAgreement?.number || '',
+        SERVICE_AGREEMENT_DT: serviceAgreement?.date || '',
         EXP_CVNT_DT: (selectedContract?.contractDate ? String(selectedContract.contractDate).split('T')[0] : (form.date ? String(form.date).split('T')[0] : '')) || '',
         vehicleNumber: form.vehicleNumber || '',
         items: items.map(item => ({
@@ -99,5 +105,5 @@ export function useInvoiceExtension(
       window.removeEventListener('message', handleExtensionRequest);
       sessionStorage.removeItem('current_export_invoice');
     };
-  }, [form, items, contracts, selectedContractId, invoiceId]);
+  }, [form, items, contracts, selectedContractId, invoiceId, clientInn, serviceAgreement]);
 }

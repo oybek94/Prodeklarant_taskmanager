@@ -3,7 +3,6 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Icon } from '@iconify/react';
 import toast from 'react-hot-toast';
 import apiClient from '../lib/api';
-import { useAuth } from '../contexts/AuthContext';
 import { createAgreement, getAgreement, getNextNumber, terminateAgreement, updateAgreement } from '../features/serviceAgreement/api';
 import { downloadAgreementPdf } from '../features/serviceAgreement/downloadAgreementPdf';
 import { CURRENT_TEMPLATE_VERSION } from '../features/serviceAgreement/templates';
@@ -16,8 +15,28 @@ import {
   type ServiceAgreement,
 } from '../features/serviceAgreement/types';
 
+/**
+ * Sana UTC bo'yicha saqlanadi: PDF ham shunday chizadi (`tokens.ts` —
+ * `formatDate` UTC komponentlarini oladi). Mahalliy vaqt saqlansa Toshkent
+ * (+5) uchun ISO'ga o'tkazishda sana bir kun orqaga siljib ketardi.
+ */
+function todayIsoDate(): string {
+  const now = new Date();
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T00:00:00.000Z`;
+}
+
+/** ISO → `yyyy-mm-dd` (`input[type="date"]` uchun) */
+function toDateInput(iso: string): string {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? '' : d.toISOString().slice(0, 10);
+}
+
+/** `yyyy-mm-dd` → UTC yarim tunidagi ISO; maydon tozalansa bo'sh matn */
+const fromDateInput = (value: string): string => (value ? `${value}T00:00:00.000Z` : '');
+
 const EMPTY: ServiceAgreement = {
-  id: 0, clientId: 0, agreementNumber: '', agreementDate: new Date().toISOString(),
+  id: 0, clientId: 0, agreementNumber: '', agreementDate: todayIsoDate(),
   templateVersion: CURRENT_TEMPLATE_VERSION, status: 'DRAFT', terminatedAt: null, terminationReason: null,
   customerName: '', customerInn: null, customerAddress: null, customerDirector: null,
   customerDirectorBasis: 'Устав', customerBankName: null, customerBankAccount: null,
@@ -28,7 +47,7 @@ const EMPTY: ServiceAgreement = {
   executorPhone: null, executorEmail: null,
   paymentModel: 'PREPAID', monthlyDueDay: null, perCountThreshold: null, perCountDueDays: null,
   perAmountThreshold: null, perAmountDueDays: null, creditLimit: null, prepaidRevertDays: 10,
-  mainTariffBhm: '3', tariffs: [{ name: 'Электрон БЮД расмийлаштириш', unit: '1 БЮД', bhm: 3 }],
+  mainTariffBhm: '2', tariffs: [{ name: 'Электрон БЮД расмийлаштириш', unit: '1 БЮД', bhm: 2 }],
   vatPayer: false, jurisdictionCourt: null, brokerRegistryNumber: null,
   signingPlace: 'Олтиариқ тумани', includeSeal: true,
 };
@@ -169,18 +188,15 @@ const EXECUTOR_ROWS: [string, keyof ServiceAgreement][] = [
 export default function ServiceAgreementEditor() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
   const [form, setForm] = useState<ServiceAgreement>(EMPTY);
   const [clients, setClients] = useState<ClientOption[]>([]);
   const [bhmUzs, setBhmUzs] = useState(0);
   const [saving, setSaving] = useState(false);
-  const [syncToClient, setSyncToClient] = useState(false);
+  // Yangi shartnomada raqam serverdan keladi — kelguncha maydon bo'sh turadi
+  const [numberLoading, setNumberLoading] = useState(!id);
   const [terminateOpen, setTerminateOpen] = useState(false);
   const [terminationReason, setTerminationReason] = useState('');
   const [terminating, setTerminating] = useState(false);
-
-  // Mijoz kartochkasini yangilash faqat ADMIN uchun ochiq (PATCH /clients/:id)
-  const canSyncToClient = user?.role === 'ADMIN';
 
   // Bekor qilingan shartnoma faqat o'qish uchun — matni o'zgarmasligi kerak
   const isTerminated = form.status === 'TERMINATED';
@@ -224,7 +240,9 @@ export default function ServiceAgreementEditor() {
           const agreementNumber = await getNextNumber(new Date().getFullYear());
           setForm((prev) => ({ ...prev, agreementNumber }));
         } catch {
-          toast.error('Shartnoma raqamini olib bo\'lmadi');
+          toast.error('Shartnoma raqamini olib bo\'lmadi — raqamni qo\'lda kiriting');
+        } finally {
+          setNumberLoading(false);
         }
       }
 
@@ -282,6 +300,8 @@ export default function ServiceAgreementEditor() {
 
   const save = async () => {
     if (isTerminated) return toast.error('Bekor qilingan shartnoma tahrirlanmaydi');
+    if (!form.agreementNumber.trim()) return toast.error('Shartnoma raqamini kiriting');
+    if (!form.agreementDate) return toast.error('Shartnoma sanasini kiriting');
     if (!form.clientId) return toast.error('Mijozni tanlang');
     if (!form.customerName.trim()) return toast.error('Korxona nomi kerak');
     if (form.paymentModel === 'MONTHLY' && !form.monthlyDueDay) return toast.error('Oyning sanasini kiriting');
@@ -301,12 +321,6 @@ export default function ServiceAgreementEditor() {
       const saved = id
         ? await updateAgreement(Number(id), payload)
         : await createAgreement(payload);
-
-      if (syncToClient && canSyncToClient) {
-        // Shartnoma saqlangan — sinxronlash yiqilsa ham uni bekor qilmaymiz
-        await apiClient.patch(`/clients/${form.clientId}`, { director: form.customerDirector })
-          .catch(() => toast.error('Mijoz kartochkasi yangilanmadi'));
-      }
 
       toast.success('Saqlandi');
       navigate(`/shartnomalar/${saved.id}`);
@@ -388,7 +402,32 @@ export default function ServiceAgreementEditor() {
           </section>
         )}
 
-        <Section step={1} title="Mijoz va rekvizitlar" subtitle="Shartnomaga nusxa olinadi — keyin mijoz kartochkasi o'zgarsa ham bu yerdagi matn o'zgarmaydi">
+        <Section
+          step={1}
+          title="Shartnoma raqami va sanasi"
+          subtitle="Raqam avtomatik beriladi, sana bugungi kun bilan to'ldiriladi — kerak bo'lsa qo'lda o'zgartiring"
+        >
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Shartnoma raqami" hint={numberLoading ? 'Raqam olinmoqda…' : undefined}>
+              <input
+                value={form.agreementNumber}
+                onChange={(e) => set('agreementNumber', e.target.value)}
+                placeholder={`${new Date().getFullYear()}/001`}
+                className={INPUT_CLASS}
+              />
+            </Field>
+            <Field label="Shartnoma sanasi">
+              <input
+                type="date"
+                value={toDateInput(form.agreementDate)}
+                onChange={(e) => set('agreementDate', fromDateInput(e.target.value))}
+                className={INPUT_CLASS}
+              />
+            </Field>
+          </div>
+        </Section>
+
+        <Section step={2} title="Mijoz va rekvizitlar" subtitle="Shartnomaga nusxa olinadi — keyin mijoz kartochkasi o'zgarsa ham bu yerdagi matn o'zgarmaydi">
           <Field label="Mijoz" className="mb-4">
             <select
               value={form.clientId || ''}
@@ -429,16 +468,9 @@ export default function ServiceAgreementEditor() {
               className={`${INPUT_CLASS} resize-y font-mono leading-relaxed`}
             />
           </Field>
-
-          {canSyncToClient && (
-            <label className="mt-3 flex items-center gap-2 text-sm text-gray-600">
-              <input type="checkbox" checked={syncToClient} onChange={(e) => setSyncToClient(e.target.checked)} />
-              Direktorni mijoz kartochkasiga ham saqlash
-            </label>
-          )}
         </Section>
 
-        <Section step={2} title="To'lov shartlari">
+        <Section step={3} title="To'lov shartlari">
           <Field label="To'lov modeli">
             <div className="flex flex-wrap gap-2">
               {(Object.keys(PAYMENT_MODEL_LABEL) as PaymentModel[]).map((model) => (

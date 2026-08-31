@@ -1,7 +1,8 @@
 # order-bot
 
-Gmail'ga kelgan X5/RVI zakaz xatlaridan kerakli maydonlarni ajratib, Telegramga
-tayyor ko'rinishda yuboradi.
+Gmail'ga kelgan zakaz xatlaridan kerakli maydonlarni ajratib, Telegramga tayyor
+ko'rinishda yuboradi. Ikki oqimni biladi: **X5/RVI** (jadval xat tanasida) va
+**Магнит / GrandTrade** (har zakazning PDF blankasi ilovada).
 
 Xat kelishi bilan (IMAP IDLE, bir necha soniya ichida) shunday xabar keladi:
 
@@ -147,7 +148,8 @@ Gmail ──IMAP IDLE──▶ watcher ──▶ parser ──▶ formatter ─�
 
 | Holat | Natija |
 |---|---|
-| Xatda zakaz jadvali yo'q | Jim, faqat log |
+| Xatda na zakaz jadvali, na GT PDF bor | Jim, faqat log |
+| Ilovada `GT-raqam.pdf` bor | Har GT uchun alohida xabar + fayllar |
 | Jadval bor, o'qildi | To'liq xabar + «Bajarildi» tugmasi |
 | Jadval bor, lekin qator o'qilmadi | ⚠️ ogohlantirish + xat mavzusi + «Bajarildi» tugmasi |
 
@@ -169,18 +171,71 @@ tugmalar ishlayveradi. Kim bosgani yozilmaydi.
 > `npm run dev`) bir vaqtda ishlasa Telegram **409 Conflict** beradi va tugmalar
 > ishlamay qoladi. Logda bu haqda aniq xabar chiqadi.
 
-## Cheklov: ilovadagi zakazlar
+## Магнит / GrandTrade oqimi
 
-Bot **xat tanasidagi** jadval bilan ishlaydi. Bu X5/RVI (`idm_rvi@x5.ru`) formatidagi
-zakazlarni qamrab oladi — tekshirilgan va ishlaydi.
+X5 dan tashqari bot **Магнит / GrandTrade** zakazlarini ham yuboradi. Ular boshqacha
+keladi: har zakazning o'z `GT-<raqam>.pdf` blankasi ilovada, xat tanasida esa kichik
+jadval turadi:
 
-Ammo hamma zakaz shu ko'rinishda kelmaydi. Masalan **Магнит / GrandTrade** zakazlari
-(mavzu: `Магнит, 32нед- GT-769931 - новый заказ-...`) xat tanasida jadval
-saqlamaydi — ma'lumot `GT-769931.pdf` va `GT box UZ.xlsx` ilovalarida bo'ladi.
-Bunday xatlarda bot **jim turadi**.
+| заказ | Место ТО | Товар для указания в заказе | Место прибытия |
+|---|---|---|---|
+| GT-773210 | Оренбург | Свежий столовый виноград... | РЦ ГТ ПроФреш Санкт-Петербург |
+| GT-773211 | Оренбург | Свежий столовый виноград... | РЦ Киров 10000 кг |
+| GT-773211 | Оренбург | Свежий столовый виноград... | РЦ Зеленодольск 10000 кг |
 
-Agar bu zakazlar ham kerak bo'lsa, ilovalarni (PDF/Excel) o'qish alohida ish sifatida
-qo'shilishi kerak.
+**Xat qanday tanilagi:** ilovalar orasida `GT-<raqam>.pdf` bo'lsa. Jo'natuvchiga
+bog'liq emas.
+
+**Har GT raqamga bitta xabar** yuboriladi. Bitta zakaz bir nechta РЦ ga ketsa
+(yuqorida `GT-773211`), ular bitta xabarda raqamlangan ro'yxat bo'ladi:
+
+```
+🟠 Магнит — GT-773211
+
+Место ТО: Оренбург
+Товар: Свежий столовый виноград Дамский палец / Fresh table Grape
+Место прибытия:
+  1) РЦ Киров 10000 кг
+  2) РЦ Зеленодольск 10000 кг
+
+Хат: Fwd: Магнит, 35 нед -GT-773210 GT-773211- ...
+Hujjatlar: GT-773211.pdf, Инструкция к 13гр CMR.xlsx, Адреса РЦ Магнит.xlsx
+Yuborilmagan ilovalar: GT box UZ.xlsx, Pallet sticker SAMPLE.DOC
+```
+
+Matndan keyin fayllar **shu xabarga javob qilib** yuboriladi — har zakaz Telegramda
+o'z ipiga yig'iladi va aralashib ketmaydi.
+
+**Qaysi fayllar biriktiriladi:**
+
+| Fayl | Aniqlash qoidasi (nomda, kichik harfda) |
+|---|---|
+| Zakaz blankasi | nomi butunlay `GT-<raqam>.pdf` — faqat shu zakazga |
+| CMR yo'riqnomasi | `инструкц` + `cmr` |
+| РЦ manzillari | `адрес` + `рц` |
+| Invoys | `инвойс` yoki `invoice` |
+| Qadoqlash varag'i | `упаковочн` yoki `packing` |
+
+Umumiy hujjatlar **har bir GT xabarida takrorlanadi** — har xabar o'zicha to'liq
+bo'lsin, boshqasiga qarash shart bo'lmasin. Agar hujjat nomida GT raqami bo'lsa
+(`Инвойс GT-773211.pdf`), u umumiy emas — faqat o'sha zakazga biriktiriladi.
+
+Ro'yxatga kirmagan ilovalar yuborilmaydi, lekin **nomlari xabarda ko'rsatiladi**.
+
+**Yetishmayotgan ma'lumot jim o'tmaydi.** Zakazlar ro'yxati PDF'lar va jadval
+qatorlarining birlashmasidan olinadi, shuning uchun:
+
+| Holat | Natija |
+|---|---|
+| PDF bor, jadvalda qator yo'q | Xabar yuboriladi + `⚠️ xat jadvalida bu zakaz uchun qator yo'q` |
+| Jadvalda bor, PDF yo'q | Xabar yuboriladi + `⚠️ GT-xxxxx.pdf ilovada yo'q` |
+
+### Cheklov
+
+Bot faqat **yangi zakaz xatiga** javob beradi (ichida `GT-<raqam>.pdf` bo'lgan).
+Инвойс va Упаковочный лист ko'pincha keyinroq, xuddi shu mavzudagi javob xatlarida
+keladi — bunday xatlarda bot jim turadi. Ular faqat zakaz xatining o'zida bo'lsa
+biriktiriladi.
 
 ## Test
 
@@ -196,6 +251,10 @@ colspan, jadvalsiz xat, xabar formati va uzun xabarni bo'lish.
 Telegram tomonini `test/telegram.test.ts` qamrab oladi: HTML ekranlash
 (`&`, `«»`, `№`), tugma markupi va ikki yo'nalishli chizish/qaytarish.
 
+Магнит oqimi `test/gt.test.ts` da: jadvalni topish, bir GT ning bir nechta РЦ sini
+yig'ish, fayllarni to'g'ri zakazga taqsimlash (boshqa zakazning PDF i tushmasligi),
+yetishmayotgan PDF/qator holatlari va xabar formati.
+
 ## Tuzilma
 
 ```
@@ -203,11 +262,17 @@ src/
   config.ts            .env o'qish + Zod validatsiya
   mail/watcher.ts      IMAP IDLE, qayta ulanish, zaxira tekshiruv
   parse/headers.ts     sarlavha → kanonik kalit
-  parse/table.ts       HTML → OrderPosition[]
+  parse/table.ts       HTML → OrderPosition[]  (X5)
+  parse/gt-table.ts    HTML → GtTableRow[]     (Магнит)
+  parse/gt-attachments.ts  ilovalarni turkumlash
+  parse/gt-orders.ts   qator + ilova → GtOrder[]
   format/message.ts    OrderPosition[] → Telegram matni
+  format/gt-message.ts GtOrder → Telegram matni
+  flows/gt.ts          Магнит xatini qayta ishlash
   telegram/api.ts      Bot API chaqiruvi (qayta urinish, 429/409)
   telegram/markup.ts   matn ekranlash, chizish, tugma
   telegram/send.ts     xabar yuborish (tugma bilan)
+  telegram/document.ts fayllarni albom bo'lib yuborish
   telegram/updates.ts  tugma bosilishini tinglash va holatni almashtirish
   state/seen.ts        Message-ID xotirasi
   scripts/             chat-id, check-mail, dump-fixture

@@ -89,10 +89,11 @@ describe('statusKeyboard', () => {
 });
 
 describe('sendMessage', () => {
-  it('HTML rejimida va tugma bilan yuboradi', async () => {
-    const sent = await sendMessage('T', '-100123', ORDER_TEXT);
+  it('HTML rejimida, tugma bilan yuboradi va message_id qaytaradi', async () => {
+    const messageId = await sendMessage('T', '-100123', ORDER_TEXT);
 
-    expect(sent).toBe(true);
+    // Fayllarni shu xabarga javob qilib biriktirish uchun message_id kerak.
+    expect(messageId).toBe(1);
     expect(calls).toHaveLength(1);
     expect(calls[0]!.method).toBe('sendMessage');
     expect(calls[0]!.payload).toMatchObject({

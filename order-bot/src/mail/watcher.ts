@@ -3,12 +3,19 @@ import { simpleParser } from 'mailparser';
 import type { ImapConfig } from '../config.js';
 import { log } from '../logger.js';
 
+export type MailAttachment = {
+  filename: string;
+  content: Buffer;
+  contentType: string;
+};
+
 export type IncomingMail = {
   messageId: string;
   subject: string;
   from: string;
   date: Date;
   html: string;
+  attachments: MailAttachment[];
 };
 
 type Handler = (mail: IncomingMail) => Promise<void>;
@@ -204,12 +211,23 @@ const toIncomingMail = async (source: Buffer): Promise<IncomingMail | null> => {
     const html =
       typeof parsed.html === 'string' ? parsed.html : (parsed.textAsHtml ?? '');
 
+    // Nomsiz ilovalar (inline rasm, imzo) kerak emas — ular nom bo'yicha
+    // turkumlanmaydi va zakazga bog'lanmaydi.
+    const attachments: MailAttachment[] = parsed.attachments
+      .filter((item) => typeof item.filename === 'string' && item.filename.trim() !== '')
+      .map((item) => ({
+        filename: item.filename as string,
+        content: item.content,
+        contentType: item.contentType ?? 'application/octet-stream',
+      }));
+
     return {
       messageId: parsed.messageId ?? `no-id-${parsed.date?.getTime() ?? Date.now()}`,
       subject: parsed.subject ?? '(mavzusiz)',
       from: parsed.from?.text ?? '(noma\'lum)',
       date: parsed.date ?? new Date(),
       html,
+      attachments,
     };
   } catch (error) {
     log.error('Xatni parse qilib bo\'lmadi:', error);

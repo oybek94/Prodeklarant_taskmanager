@@ -6,6 +6,8 @@ import { formatOrderMessage } from './format/message.js';
 import { sendMessages } from './telegram/send.js';
 import { SeenStore } from './state/seen.js';
 import { pollUpdates } from './telegram/updates.js';
+import { hasOrderPdf } from './parse/gt-attachments.js';
+import { handleGtMail } from './flows/gt.js';
 
 const main = async () => {
   const config = loadConfig();
@@ -21,9 +23,16 @@ const main = async () => {
     const result = extractOrderPositions(mail.html);
 
     if (result.status === 'no-table') {
-      // Zakaz jadvali yo'q — bot jim turadi.
-      log.info(`Jadvalsiz xat, o'tkazildi: ${mail.subject}`);
       seen.add(mail.messageId);
+
+      // X5 jadvali yo'q — bu Магнит zakaz xati bo'lishi mumkin.
+      if (hasOrderPdf(mail.attachments)) {
+        await handleGtMail(config, mail);
+        return;
+      }
+
+      // Zakaz jadvali ham, GT PDF ham yo'q — bot jim turadi.
+      log.info(`Jadvalsiz xat, o'tkazildi: ${mail.subject}`);
       return;
     }
 

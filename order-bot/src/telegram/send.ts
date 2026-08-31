@@ -8,13 +8,16 @@ import { renderText, statusKeyboard } from './markup.js';
  * Matn HTML rejimida ketadi (bajarilgan xabar ustidan chizish uchun kerak),
  * shuning uchun `renderText` uni avval ekranlaydi. Har xabar tagida
  * «✅ Bajarildi» tugmasi turadi.
+ *
+ * Yuborilgan xabarning `message_id` sini qaytaradi — fayllarni shu xabarga
+ * javob qilib biriktirish uchun kerak. Yuborilmasa `null`.
  */
 export const sendMessage = async (
   token: string,
   chatId: string,
   text: string,
-): Promise<boolean> => {
-  const result = await callTelegram(token, 'sendMessage', {
+): Promise<number | null> => {
+  const result = await callTelegram<{ message_id?: number }>(token, 'sendMessage', {
     chat_id: chatId,
     text: renderText(text, false),
     parse_mode: 'HTML',
@@ -24,9 +27,9 @@ export const sendMessage = async (
 
   if (result === null) {
     log.error('Telegramga xabar yuborilmadi.');
-    return false;
+    return null;
   }
-  return true;
+  return result.message_id ?? null;
 };
 
 /** Bir nechta xabarni ketma-ket yuboradi (tartib saqlanadi). */
@@ -37,8 +40,8 @@ export const sendMessages = async (
 ): Promise<boolean> => {
   let allSent = true;
   for (const text of texts) {
-    const sent = await sendMessage(token, chatId, text);
-    if (!sent) allSent = false;
+    const messageId = await sendMessage(token, chatId, text);
+    if (messageId === null) allSent = false;
   }
   return allSent;
 };

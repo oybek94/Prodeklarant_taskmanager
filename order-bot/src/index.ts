@@ -5,6 +5,7 @@ import { extractOrderPositions } from './parse/table.js';
 import { formatOrderMessage } from './format/message.js';
 import { sendMessages } from './telegram/send.js';
 import { SeenStore } from './state/seen.js';
+import { pollUpdates } from './telegram/updates.js';
 
 const main = async () => {
   const config = loadConfig();
@@ -54,6 +55,11 @@ const main = async () => {
   };
 
   log.info('order-bot ishga tushdi');
+
+  // Tugma bosilishlari pochta kuzatuvi bilan yonma-yon tinglanadi.
+  // pollUpdates hech qachon tugamaydi va xatolarni o'zi yutadi.
+  void pollUpdates(config.ORDER_BOT_TOKEN);
+
   await watchMailbox(config, handleMail);
 };
 

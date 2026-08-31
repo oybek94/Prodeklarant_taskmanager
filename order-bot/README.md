@@ -21,6 +21,9 @@ PLU: 3644102
 Bir xatda bir nechta tovar bo'lsa, umumiy sarlavha bir marta yoziladi va
 pozitsiyalar `1.`, `2.` deb raqamlanadi.
 
+Har bir xabar tagida **«✅ Bajarildi»** tugmasi turadi — pastdagi
+[«Bajarildi» tugmasi](#bajarildi-tugmasi) bo'limiga qarang.
+
 **Zakaz jadvali yo'q xatlar haqida bot xabar bermaydi** — oddiy yozishmalar sizni
 bezovta qilmaydi.
 
@@ -124,8 +127,10 @@ pm2 save
 
 ```
 Gmail ──IMAP IDLE──▶ watcher ──▶ parser ──▶ formatter ──▶ Telegram
-                        │                        │
-                    seen.json          (jadval yo'q → jim)
+                        │                        │              ▲
+                    seen.json          (jadval yo'q → jim)      │
+                                                                │
+                    tugma bosildi ──▶ updates (getUpdates) ─────┘
 ```
 
 - **Jadval aniqlash.** Xatning HTML qismidagi har bir `<table>` ko'riladi;
@@ -143,8 +148,26 @@ Gmail ──IMAP IDLE──▶ watcher ──▶ parser ──▶ formatter ─�
 | Holat | Natija |
 |---|---|
 | Xatda zakaz jadvali yo'q | Jim, faqat log |
-| Jadval bor, o'qildi | To'liq xabar |
-| Jadval bor, lekin qator o'qilmadi | ⚠️ ogohlantirish + xat mavzusi |
+| Jadval bor, o'qildi | To'liq xabar + «Bajarildi» tugmasi |
+| Jadval bor, lekin qator o'qilmadi | ⚠️ ogohlantirish + xat mavzusi + «Bajarildi» tugmasi |
+
+## «Bajarildi» tugmasi
+
+Qaysi zakaz ishlangan-ishlanmaganini ko'rish uchun har bir xabar tagida tugma
+turadi:
+
+- **✅ Bajarildi** bosilsa — xabar matni butunlay ~~chizib~~ qo'yiladi va tugma
+  **↩️ Bajarilmadi** ga almashadi.
+- **↩️ Bajarilmadi** bosilsa — xabar asl holiga qaytadi.
+
+Holat **xabarning o'zida** saqlanadi, alohida fayl yoki bazada emas. Shuning
+uchun bot qayta ishga tushsa yoki server o'chib yonsa ham eski xabarlardagi
+tugmalar ishlayveradi. Kim bosgani yozilmaydi.
+
+> **Muhim: bir vaqtda faqat bitta nusxa.** Tugmalarni tinglash uchun bot
+> `getUpdates` long-polling qiladi. Ikki nusxa (masalan serverdagi pm2 va lokal
+> `npm run dev`) bir vaqtda ishlasa Telegram **409 Conflict** beradi va tugmalar
+> ishlamay qoladi. Logda bu haqda aniq xabar chiqadi.
 
 ## Cheklov: ilovadagi zakazlar
 
@@ -170,6 +193,9 @@ o'z o'rnida) va quyidagilarni qamrab oladi: maydonlarning to'g'ri ajratilishi,
 `Склад` ↔ `Адрес склада` va `ETA` ↔ `ETA DC` chalkashmasligi, ko'p pozitsiya,
 colspan, jadvalsiz xat, xabar formati va uzun xabarni bo'lish.
 
+Telegram tomonini `test/telegram.test.ts` qamrab oladi: HTML ekranlash
+(`&`, `«»`, `№`), tugma markupi va ikki yo'nalishli chizish/qaytarish.
+
 ## Tuzilma
 
 ```
@@ -179,7 +205,10 @@ src/
   parse/headers.ts     sarlavha → kanonik kalit
   parse/table.ts       HTML → OrderPosition[]
   format/message.ts    OrderPosition[] → Telegram matni
-  telegram/send.ts     sendMessage (qayta urinish bilan)
+  telegram/api.ts      Bot API chaqiruvi (qayta urinish, 429/409)
+  telegram/markup.ts   matn ekranlash, chizish, tugma
+  telegram/send.ts     xabar yuborish (tugma bilan)
+  telegram/updates.ts  tugma bosilishini tinglash va holatni almashtirish
   state/seen.ts        Message-ID xotirasi
   scripts/             chat-id, check-mail, dump-fixture
 ```

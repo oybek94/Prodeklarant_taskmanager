@@ -2,7 +2,7 @@ import { Prisma, PrismaClient, Currency } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 import { getExchangeRate } from './exchange-rate';
 
-const SEASON_SPLIT_DATE = new Date('2026-02-14T19:00:00.000Z'); // 15 February 2026 00:00 UZT
+export const SEASON_SPLIT_DATE = new Date('2026-02-14T19:00:00.000Z'); // 15 February 2026 00:00 UZT
 const ERROR_SPLIT_DATE = new Date('2026-02-14T19:00:00.000Z'); // 15 February 2026 00:00 UZT
 
 /**
@@ -100,7 +100,7 @@ export async function calculateTotalEarned(
  * konvertatsiya qilamiz. Kurs saqlanmagan bo'lsa 0 qaytaramiz: taxminiy kurs bilan
  * hisoblagandan ko'ra qarzni o'zgartirmaslik xavfsizroq.
  */
-function getPaidAmountIn(
+export function getPaidAmountIn(
   payment: {
     paidAmountUsd: Decimal | null;
     paidAmountUzs: Decimal | null;

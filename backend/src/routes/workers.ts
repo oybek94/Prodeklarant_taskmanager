@@ -2,6 +2,10 @@ import { Router } from 'express';
 import { prisma } from '../prisma';
 import { requireAuth, AuthRequest } from '../middleware/auth';
 import { getWorkerPaymentReport } from '../services/worker-payment';
+import {
+  calculatePreviousYearDebtTotals,
+  getLegacyPaidUsdByWorker,
+} from '../services/previous-year-debt';
 
 const router = Router();
 
@@ -139,7 +143,16 @@ router.get('/:id/previous-year-debt', requireAuth(), async (req, res) => {
       console.log('All previous year debts for worker:', allDebts);
     }
 
-    res.json(debt || null);
+    if (!debt) return res.json(null);
+
+    // Snapshot'dan keyin tizim orqali qilingan o'tgan mavsum to'lovlarini hisobga olamiz
+    const paidByWorker = await getLegacyPaidUsdByWorker([debt.workerId]);
+    const totals = calculatePreviousYearDebtTotals(
+      debt,
+      paidByWorker.get(debt.workerId) ?? 0
+    );
+
+    res.json({ ...debt, ...totals });
   } catch (error: any) {
     console.error('Error loading previous year debt:', error);
     res.status(500).json({ error: error.message || 'Xatolik yuz berdi' });
@@ -625,7 +638,15 @@ router.get('/previous-year-debts', requireAuth(), async (req: AuthRequest, res) 
       },
     });
 
-    res.json(debts);
+    // Snapshot'dan keyin tizim orqali qilingan o'tgan mavsum to'lovlarini hisobga olamiz
+    const paidByWorker = await getLegacyPaidUsdByWorker(debts.map((d) => d.workerId));
+
+    res.json(
+      debts.map((debt) => ({
+        ...debt,
+        ...calculatePreviousYearDebtTotals(debt, paidByWorker.get(debt.workerId) ?? 0),
+      }))
+    );
   } catch (error: any) {
     console.error('Error loading previous year debts:', error);
     res.status(500).json({ error: error.message || 'Xatolik yuz berdi' });

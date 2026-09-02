@@ -133,6 +133,14 @@ export const PreviousYearDebtModal: React.FC<PreviousYearDebtModalProps> = React
                         To'langan: <CurrencyDisplay amount={Number(debt.totalPaid)} originalCurrency="USD" /> |
                         Qarz: <CurrencyDisplay amount={Number(debt.balance)} originalCurrency="USD" />
                       </div>
+                      {Number(debt.paidFromPayments) > 0 && (
+                        <div className="text-xs text-gray-500 mt-0.5">
+                          Shundan tizim orqali to'langan:{' '}
+                          <CurrencyDisplay amount={Number(debt.paidFromPayments)} originalCurrency="USD" />
+                          {' '}(qo'lda yozilgani:{' '}
+                          <CurrencyDisplay amount={Number(debt.initialTotalPaid)} originalCurrency="USD" />)
+                        </div>
+                      )}
                     </div>
                     <div className="text-xs text-gray-500">{debt.year} yil</div>
                   </div>

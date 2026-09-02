@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { AuthRequest, requireAuth } from '../middleware/auth';
 import { Prisma, Currency, ExchangeSource } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
-import { getLatestExchangeRate } from '../services/exchange-rate';
+import { getLatestExchangeRate, getExchangeRate } from '../services/exchange-rate';
 import { validateMonetaryFields, calculateAmountUzs } from '../services/monetary-validation';
 import { applySelfSalaryRestrictions, canWorkerDeleteTransaction } from './transactions.guards';
 
@@ -382,18 +382,31 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
   if (data.type === 'SALARY' && !data.workerId) {
     return res.status(400).json({ error: 'workerId required for SALARY' });
   }
-  // Transaksiyalar faqat UZS'da yuritiladi (eski USD yozuvlar o'z holicha qoladi)
-  if (data.currency !== 'UZS') {
+  // Transaksiyalar faqat UZS'da yuritiladi (legacy maosh to'lovlari bundan mustasno)
+  if (data.currency !== 'UZS' && !(data.type === 'SALARY' && data.isLegacyPayment)) {
     return res.status(400).json({ error: 'Transaksiyalar faqat UZS valyutasida bo\'lishi mumkin' });
   }
 
-  const originalCurrency: Currency = 'UZS';
+  const originalCurrency: Currency = (data.currency as Currency) || 'UZS';
 
   const originalAmount = new Decimal(data.amount);
   const exchangeSource: ExchangeSource = (data.exchangeSource as ExchangeSource) || 'CBU';
 
-  // UZS -> UZS bo'lgani uchun kurs har doim 1
-  const exchangeRate = new Decimal(1);
+  let exchangeRate: Decimal;
+  if (originalCurrency === 'USD') {
+    if (data.exchangeRate) {
+      exchangeRate = new Decimal(data.exchangeRate);
+    } else {
+      try {
+        const fetchedRate = await getExchangeRate(data.date, 'USD', 'UZS');
+        exchangeRate = new Decimal(fetchedRate);
+      } catch (err) {
+        exchangeRate = new Decimal(12800);
+      }
+    }
+  } else {
+    exchangeRate = new Decimal(1);
+  }
 
   // Calculate converted UZS amount
   const amountUzs = calculateAmountUzs(originalAmount, originalCurrency, exchangeRate);
@@ -552,18 +565,31 @@ router.put('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
   if (data.type === 'SALARY' && !data.workerId) {
     return res.status(400).json({ error: 'workerId required for SALARY' });
   }
-  // Transaksiyalar faqat UZS'da yuritiladi. Eski USD yozuv tahrirlansa ham UZS'ga o'tadi.
-  if (data.currency !== 'UZS') {
+  // Transaksiyalar faqat UZS'da yuritiladi (legacy maosh to'lovlari bundan mustasno)
+  if (data.currency !== 'UZS' && !(data.type === 'SALARY' && data.isLegacyPayment)) {
     return res.status(400).json({ error: 'Transaksiyalar faqat UZS valyutasida bo\'lishi mumkin' });
   }
 
-  const originalCurrency: Currency = 'UZS';
+  const originalCurrency: Currency = (data.currency as Currency) || 'UZS';
 
   const originalAmount = new Decimal(data.amount);
   const exchangeSource: ExchangeSource = (data.exchangeSource as ExchangeSource) || 'CBU';
 
-  // UZS -> UZS bo'lgani uchun kurs har doim 1
-  const exchangeRate = new Decimal(1);
+  let exchangeRate: Decimal;
+  if (originalCurrency === 'USD') {
+    if (oldTransaction.exchangeRate) {
+      exchangeRate = new Decimal(oldTransaction.exchangeRate);
+    } else {
+      try {
+        const fetchedRate = await getExchangeRate(data.date, 'USD', 'UZS');
+        exchangeRate = new Decimal(fetchedRate);
+      } catch (err) {
+        exchangeRate = new Decimal(12800);
+      }
+    }
+  } else {
+    exchangeRate = new Decimal(1);
+  }
 
   const amountUzs = calculateAmountUzs(originalAmount, originalCurrency, exchangeRate);
 

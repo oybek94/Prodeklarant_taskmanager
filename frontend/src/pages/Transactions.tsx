@@ -337,7 +337,7 @@ const Transactions = () => {
       const payload: any = {
         type: form.type,
         amount: parseFloat(form.amount),
-        currency: 'UZS',
+        currency: form.currency || 'UZS',
         comment: form.comment,
         date: new Date(form.date),
       };
@@ -422,7 +422,7 @@ const Transactions = () => {
       const payload: any = {
         type: form.type,
         amount: parseFloat(form.amount),
-        currency: 'UZS',
+        currency: form.currency || 'UZS',
         paymentMethod: form.paymentMethod || undefined,
         comment: form.comment,
         date: new Date(form.date),

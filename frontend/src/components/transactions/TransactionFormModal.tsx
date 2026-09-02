@@ -212,7 +212,14 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = React.m
                     type="checkbox"
                     id="isLegacyPayment"
                     checked={form.isLegacyPayment}
-                    onChange={(e) => setForm({ ...form, isLegacyPayment: e.target.checked })}
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      setForm({ 
+                        ...form, 
+                        isLegacyPayment: checked,
+                        currency: checked ? 'USD' : 'UZS' 
+                      });
+                    }}
                     className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
                   />
                   <label htmlFor="isLegacyPayment" className="text-sm font-medium text-gray-700 cursor-pointer">
@@ -254,20 +261,21 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = React.m
             />
           </div>
 
-          {/* Transaksiyalar faqat UZS'da kiritiladi — valyuta tanlash yo'q */}
           <MonetaryInput
             amount={form.amount}
-            currency="UZS"
+            currency={form.currency || 'UZS'}
             date={form.date}
             onAmountChange={(value) => {
               setForm({ ...form, amount: value });
               setMonetaryErrors({ ...monetaryErrors, amount: undefined });
             }}
-            onCurrencyChange={() => {}}
+            onCurrencyChange={(curr) => {
+              setForm({ ...form, currency: curr as 'USD' | 'UZS' });
+            }}
             label="Summa"
             required
             showLabels={true}
-            currencyRules={{ fixed: 'UZS' }}
+            currencyRules={form.type === 'SALARY' && form.isLegacyPayment ? undefined : { fixed: 'UZS' }}
             errors={monetaryErrors}
           />
 

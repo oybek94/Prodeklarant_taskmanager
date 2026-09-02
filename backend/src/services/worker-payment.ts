@@ -289,6 +289,7 @@ export async function createWorkerPayment(
   let paymentInTargetCurrency = new Decimal(0);
 
   if (isLegacyPayment) {
+    paymentInTargetCurrency = paidAmountUsd;
     const legacyDebtUsd = new Decimal(user.legacyDebtUsd || 0);
     const legacyTotalPaidUsd = await calculateTotalPaid(workerId, 'USD', true, { endDate: paymentDate }, client);
     const legacyRemaining = legacyDebtUsd.minus(legacyTotalPaidUsd);

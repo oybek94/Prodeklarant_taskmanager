@@ -19,6 +19,9 @@ interface TransactionFormModalProps {
   onSubmit: (e: React.FormEvent) => void;
   onClose: () => void;
   isEditing: boolean;
+  /** Admin bo'lmagan xodim faqat o'zi olgan pulni (SALARY) qo'sha oladi */
+  isAdmin: boolean;
+  currentUserName: string;
 }
 
 export const TransactionFormModal: React.FC<TransactionFormModalProps> = React.memo(({
@@ -36,6 +39,8 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = React.m
   onSubmit,
   onClose,
   isEditing,
+  isAdmin,
+  currentUserName,
 }) => {
   const [monetaryErrors, setMonetaryErrors] = useState<MonetaryValidationErrors>({});
 
@@ -65,7 +70,11 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = React.m
       >
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-semibold text-gray-800">
-            {isEditing ? 'Transactionni tahrirlash' : 'Yangi transaction'}
+            {isEditing
+              ? 'Transactionni tahrirlash'
+              : isAdmin
+                ? 'Yangi transaction'
+                : 'Olgan pulimni qo\'shish'}
           </h2>
           <button
             onClick={onClose}
@@ -75,6 +84,16 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = React.m
           </button>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
+          {!isAdmin && (
+            <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-3">
+              <p className="text-sm font-medium text-indigo-900">{currentUserName}</p>
+              <p className="text-xs text-indigo-700 mt-0.5">
+                Bu yozuv sizning ish haqingizdan olingan pul sifatida qayd etiladi
+              </p>
+            </div>
+          )}
+
+          {isAdmin && (
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
             <div className="grid grid-cols-3 gap-2">
@@ -110,8 +129,9 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = React.m
               </button>
             </div>
           </div>
+          )}
 
-          {form.type === 'INCOME' && (
+          {form.type === 'INCOME' && isAdmin && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Mijoz</label>
               <select
@@ -130,7 +150,7 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = React.m
             </div>
           )}
 
-          {form.type === 'EXPENSE' && (
+          {form.type === 'EXPENSE' && isAdmin && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Xarajat kategoriyasi
@@ -169,7 +189,7 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = React.m
             </div>
           )}
 
-          {form.type === 'SALARY' && (
+          {form.type === 'SALARY' && isAdmin && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Ishchi</label>
               <select
@@ -203,7 +223,7 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = React.m
             </div>
           )}
 
-          {(form.type === 'EXPENSE' || form.type === 'SALARY') && (
+          {(form.type === 'EXPENSE' || form.type === 'SALARY') && isAdmin && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Virtual Karta (ixtiyoriy)

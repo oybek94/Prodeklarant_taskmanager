@@ -6,6 +6,7 @@ import { Prisma, Currency, ExchangeSource } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 import { getLatestExchangeRate } from '../services/exchange-rate';
 import { validateMonetaryFields, calculateAmountUzs } from '../services/monetary-validation';
+import { applySelfSalaryRestrictions, canWorkerDeleteTransaction } from './transactions.guards';
 
 const router = Router();
 
@@ -357,11 +358,19 @@ router.get('/worker-stats', requireAuth('ADMIN'), async (req: AuthRequest, res) 
   }
 });
 
-router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
+router.post('/', requireAuth(), async (req: AuthRequest, res) => {
   const parsed = baseSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
   const data = parsed.data;
+
+  // Admin bo'lmagan xodim faqat o'ziga tegishli ish haqi yozuvini qo'sha oladi
+  if (req.user?.role !== 'ADMIN') {
+    if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+    const restrictionError = applySelfSalaryRestrictions(data, req.user.id);
+    if (restrictionError) return res.status(403).json({ error: restrictionError });
+  }
+
   // Validation by type
   // INCOME uchun clientId majburiy, lekin konvertatsiya uchun istisno (comment'da "Konvertatsiya" bo'lsa)
   if (data.type === 'INCOME' && !data.clientId && !data.comment?.includes('Konvertatsiya')) {
@@ -701,16 +710,26 @@ router.put('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
   res.json(workerPaymentWarning ? { ...result, workerPaymentWarning } : result);
 });
 
-router.delete('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
+router.delete('/:id', requireAuth(), async (req: AuthRequest, res) => {
   const id = Number(req.params.id);
-  
+
   // Eski transaction'ni olish
   const transaction = await prisma.transaction.findUnique({
     where: { id },
   });
-  
+
   if (!transaction) {
     return res.status(404).json({ error: 'Transaction topilmadi' });
+  }
+
+  // Admin bo'lmagan xodim faqat o'zi bugun qo'shgan yozuvini o'chira oladi
+  if (req.user?.role !== 'ADMIN') {
+    if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+    if (!canWorkerDeleteTransaction(transaction, req.user.id)) {
+      return res.status(403).json({
+        error: 'Faqat bugun o\'zingiz qo\'shgan yozuvni o\'chira olasiz',
+      });
+    }
   }
 
   // Transaction o'chirish va balansni qaytarish

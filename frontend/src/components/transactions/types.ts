@@ -6,6 +6,7 @@ export interface Transaction {
   paymentMethod?: 'CASH' | 'CARD';
   comment?: string;
   date: string;
+  createdAt?: string;
   client?: { id: number; name: string };
   worker?: { id: number; name: string };
   expenseCategory?: string;

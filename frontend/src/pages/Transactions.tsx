@@ -294,6 +294,17 @@ const Transactions = () => {
     }
   }, []);
 
+  // Admin bo'lmagan xodim uchun forma har doim "o'zim olgan pul" (SALARY) rejimida
+  useEffect(() => {
+    if (isAdmin || !user) return;
+    const workerId = user.id.toString();
+    setForm(prev =>
+      prev.type === 'SALARY' && prev.workerId === workerId
+        ? prev
+        : { ...prev, type: 'SALARY', workerId }
+    );
+  }, [isAdmin, user]);
+
   useEffect(() => {
     loadTransactions();
   }, [loadTransactions]);
@@ -331,7 +342,12 @@ const Transactions = () => {
         date: new Date(form.date),
       };
 
-      if (form.type === 'INCOME') {
+      if (!isAdmin) {
+        // Xodim faqat o'zi olgan pulni yozadi — tur va ishchi majburlanadi
+        if (!user) return;
+        payload.type = 'SALARY';
+        payload.workerId = user.id;
+      } else if (form.type === 'INCOME') {
         if (!form.clientId) { alert('Mijozni tanlang'); return; }
         payload.clientId = parseInt(form.clientId);
       } else if (form.type === 'EXPENSE') {
@@ -343,7 +359,7 @@ const Transactions = () => {
         payload.isLegacyPayment = form.isLegacyPayment;
       }
 
-      if (form.virtualCardId) {
+      if (isAdmin && form.virtualCardId) {
         payload.virtualCardId = parseInt(form.virtualCardId);
       }
 
@@ -353,17 +369,22 @@ const Transactions = () => {
       }
       handleCloseNewTransaction();
       setForm({
-        type: 'INCOME', amount: '', currency: 'UZS', exchangeRate: '', paymentMethod: '',
-        comment: '', date: new Date().toISOString().split('T')[0], clientId: '', workerId: '',
+        type: isAdmin ? 'INCOME' : 'SALARY', amount: '', currency: 'UZS', exchangeRate: '', paymentMethod: '',
+        comment: '', date: new Date().toISOString().split('T')[0], clientId: '',
+        workerId: isAdmin ? '' : (user?.id.toString() ?? ''),
         expenseCategory: '', virtualCardId: '', isLegacyPayment: false,
       });
       await loadTransactions();
       setNewExpenseCategory('');
-      if (isAdmin) await loadMonthlyStats();
+      if (isAdmin) {
+        await loadMonthlyStats();
+      } else if (user) {
+        await loadWorkerStatsForUser(user.id);
+      }
     } catch (error: any) {
       alert(error.response?.data?.error || 'Xatolik yuz berdi');
     }
-  }, [form, handleCloseNewTransaction, loadTransactions, loadMonthlyStats, isAdmin]);
+  }, [form, user, handleCloseNewTransaction, loadTransactions, loadMonthlyStats, loadWorkerStatsForUser, isAdmin]);
 
   const handleEdit = useCallback((transaction: Transaction) => {
     setEditingTransaction(transaction);
@@ -440,17 +461,33 @@ const Transactions = () => {
     }
   }, [editingTransaction, form, handleCloseEditTransaction, loadTransactions, loadMonthlyStats, isAdmin]);
 
+  // Admin hammasini tahrirlaydi; xodim faqat o'zi bugun qo'shgan yozuvini o'chira oladi
+  const canEdit = useCallback((_t: Transaction) => isAdmin, [isAdmin]);
+
+  const canDelete = useCallback((t: Transaction) => {
+    if (isAdmin) return true;
+    if (!user || t.type !== 'SALARY' || t.worker?.id !== user.id) return false;
+    if (!t.createdAt) return false;
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    return new Date(t.createdAt) >= startOfToday;
+  }, [isAdmin, user]);
+
   const handleDelete = useCallback(async (id: number) => {
     if (!confirm('Bu transactionni o\'chirishni xohlaysizmi?')) return;
 
     try {
       await apiClient.delete(`/transactions/${id}`);
       await loadTransactions();
-      if (isAdmin) await loadMonthlyStats();
+      if (isAdmin) {
+        await loadMonthlyStats();
+      } else if (user) {
+        await loadWorkerStatsForUser(user.id);
+      }
     } catch (error: any) {
       alert(error.response?.data?.error || 'Xatolik yuz berdi');
     }
-  }, [loadTransactions, loadMonthlyStats, isAdmin]);
+  }, [loadTransactions, loadMonthlyStats, loadWorkerStatsForUser, user, isAdmin]);
 
   const handleSavePreviousYearDebt = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
@@ -504,6 +541,8 @@ const Transactions = () => {
           newExpenseCategory={newExpenseCategory}
           setNewExpenseCategory={setNewExpenseCategory}
           onAddExpenseCategory={handleAddExpenseCategory}
+          isAdmin={isAdmin}
+          currentUserName={user?.name ?? ''}
           onSubmit={handleSubmit}
           onClose={handleCloseNewTransaction}
           isEditing={false}
@@ -523,6 +562,8 @@ const Transactions = () => {
           newExpenseCategory={newExpenseCategory}
           setNewExpenseCategory={setNewExpenseCategory}
           onAddExpenseCategory={handleAddExpenseCategory}
+          isAdmin={isAdmin}
+          currentUserName={user?.name ?? ''}
           onSubmit={handleUpdate}
           onClose={handleCloseEditTransaction}
           isEditing={true}
@@ -536,7 +577,8 @@ const Transactions = () => {
       ) : isMobile ? (
         <TransactionsMobileList
           paginatedTransactions={transactions}
-          isAdmin={isAdmin}
+          canEdit={canEdit}
+          canDelete={canDelete}
           onEdit={handleEdit}
           onDelete={handleDelete}
         />
@@ -548,7 +590,8 @@ const Transactions = () => {
           transactionsTotalCount={transactionsTotalCount}
           transactionsPage={transactionsPage}
           TRANSACTIONS_PAGE_SIZE={TRANSACTIONS_PAGE_SIZE}
-          isAdmin={isAdmin}
+          canEdit={canEdit}
+          canDelete={canDelete}
           onEdit={handleEdit}
           onDelete={handleDelete}
           onPageChange={handlePageChange}

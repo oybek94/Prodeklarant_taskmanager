@@ -6,14 +6,16 @@ import { formatDateTime } from '../../utils/dateFormatting';
 
 interface TransactionsMobileListProps {
   paginatedTransactions: Transaction[];
-  isAdmin: boolean;
+  canEdit: (transaction: Transaction) => boolean;
+  canDelete: (transaction: Transaction) => boolean;
   onEdit: (transaction: Transaction) => void;
   onDelete: (id: number) => void;
 }
 
 export const TransactionsMobileList: React.FC<TransactionsMobileListProps> = React.memo(({
   paginatedTransactions,
-  isAdmin,
+  canEdit,
+  canDelete,
   onEdit,
   onDelete,
 }) => {
@@ -74,21 +76,21 @@ export const TransactionsMobileList: React.FC<TransactionsMobileListProps> = Rea
                 </span>
               )}
               
-              {isAdmin && (
-                <>
-                  <button
-                    onClick={() => onEdit(t)}
-                    className="w-8 h-8 flex items-center justify-center rounded-lg bg-gray-50 dark:bg-slate-800 text-gray-400 border border-gray-100 dark:border-slate-700 active:scale-95 transition-all"
-                  >
-                    <Icon icon="solar:pen-bold-duotone" className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => onDelete(t.id)}
-                    className="w-8 h-8 flex items-center justify-center rounded-lg bg-rose-50 dark:bg-rose-900/20 text-rose-500 border border-rose-100 dark:border-rose-800/50 active:scale-95 transition-all"
-                  >
-                    <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4" />
-                  </button>
-                </>
+              {canEdit(t) && (
+                <button
+                  onClick={() => onEdit(t)}
+                  className="w-8 h-8 flex items-center justify-center rounded-lg bg-gray-50 dark:bg-slate-800 text-gray-400 border border-gray-100 dark:border-slate-700 active:scale-95 transition-all"
+                >
+                  <Icon icon="solar:pen-bold-duotone" className="w-4 h-4" />
+                </button>
+              )}
+              {canDelete(t) && (
+                <button
+                  onClick={() => onDelete(t.id)}
+                  className="w-8 h-8 flex items-center justify-center rounded-lg bg-rose-50 dark:bg-rose-900/20 text-rose-500 border border-rose-100 dark:border-rose-800/50 active:scale-95 transition-all"
+                >
+                  <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4" />
+                </button>
               )}
             </div>
           </div>

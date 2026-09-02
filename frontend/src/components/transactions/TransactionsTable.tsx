@@ -11,7 +11,8 @@ interface TransactionsTableProps {
   transactionsTotalCount: number;
   transactionsPage: number;
   TRANSACTIONS_PAGE_SIZE: number;
-  isAdmin: boolean;
+  canEdit: (transaction: Transaction) => boolean;
+  canDelete: (transaction: Transaction) => boolean;
   onEdit: (transaction: Transaction) => void;
   onDelete: (id: number) => void;
   onPageChange: (page: number) => void;
@@ -24,7 +25,8 @@ export const TransactionsTable: React.FC<TransactionsTableProps> = React.memo(({
   transactionsTotalCount,
   transactionsPage,
   TRANSACTIONS_PAGE_SIZE,
-  isAdmin,
+  canEdit,
+  canDelete,
   onEdit,
   onDelete,
   onPageChange,
@@ -138,22 +140,26 @@ export const TransactionsTable: React.FC<TransactionsTableProps> = React.memo(({
                     </div>
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap text-center text-sm font-medium">
-                    {isAdmin ? (
+                    {canEdit(t) || canDelete(t) ? (
                       <div className="flex items-center justify-center gap-2">
-                        <button
-                          onClick={() => onEdit(t)}
-                          className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-blue-500 hover:text-blue-700 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 shadow-sm ring-1 ring-blue-200/60 dark:ring-blue-800/60 transition-all hover:shadow hover:shadow-blue-500/20"
-                          title="O'zgartirish"
-                        >
-                          <Icon icon="solar:pen-bold-duotone" className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => onDelete(t.id)}
-                          className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-rose-500 hover:text-rose-700 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/30 shadow-sm ring-1 ring-rose-200/60 dark:ring-rose-800/60 transition-all hover:shadow hover:shadow-rose-500/20"
-                          title="O'chirish"
-                        >
-                          <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4" />
-                        </button>
+                        {canEdit(t) && (
+                          <button
+                            onClick={() => onEdit(t)}
+                            className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-blue-500 hover:text-blue-700 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 shadow-sm ring-1 ring-blue-200/60 dark:ring-blue-800/60 transition-all hover:shadow hover:shadow-blue-500/20"
+                            title="O'zgartirish"
+                          >
+                            <Icon icon="solar:pen-bold-duotone" className="w-4 h-4" />
+                          </button>
+                        )}
+                        {canDelete(t) && (
+                          <button
+                            onClick={() => onDelete(t.id)}
+                            className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-rose-500 hover:text-rose-700 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/30 shadow-sm ring-1 ring-rose-200/60 dark:ring-rose-800/60 transition-all hover:shadow hover:shadow-rose-500/20"
+                            title="O'chirish"
+                          >
+                            <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4" />
+                          </button>
+                        )}
                       </div>
                     ) : (
                       <span className="text-gray-400 dark:text-slate-500 text-xs">-</span>

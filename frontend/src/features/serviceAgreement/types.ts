@@ -1,6 +1,19 @@
 export type PaymentModel = 'PREPAID' | 'MONTHLY' | 'PER_COUNT' | 'PER_AMOUNT';
 export type AgreementStatus = 'DRAFT' | 'ACTIVE' | 'TERMINATED';
 
+/**
+ * Narx qanday belgilanishi. `BHM` — BHM ga nisbatan koeffitsient (narx BHM
+ * o'zgarganda avtomatik qayta hisoblanadi), `FIXED` — so'mdagi qat'iy summa
+ * (BHM o'zgarishi ta'sir qilmaydi). Shartnoma matni ham shu tanlovga qarab
+ * o'zgaradi, shuning uchun qiymat butun hujjatga taalluqli.
+ */
+export type PricingMode = 'BHM' | 'FIXED';
+
+export const PRICING_MODE_LABEL: Record<PricingMode, string> = {
+  BHM: 'BHM koeffitsienti',
+  FIXED: 'Qat\'iy summa (so\'m)',
+};
+
 /** Model → shartnoma matnidagi harf (5.5.1-band jadvali) */
 export const PAYMENT_MODEL_LETTER: Record<PaymentModel, 'A' | 'B' | 'C' | 'D'> = {
   PREPAID: 'A',
@@ -26,6 +39,13 @@ export interface TariffRow {
   name: string;
   unit: string;
   bhm: number;
+  /**
+   * So'mdagi qat'iy narx — faqat `pricingMode === 'FIXED'` shartnomalarda
+   * o'qiladi. `bhm` bilan bir vaqtda to'lgan bo'lishi mumkin (rejim
+   * almashtirilganda eski qiymat o'chirilmaydi), qaysi biri hujjatga
+   * chiqishini rejim hal qiladi.
+   */
+  uzs?: number;
 }
 
 export interface ServiceAgreement {
@@ -71,7 +91,10 @@ export interface ServiceAgreement {
   perAmountDueDays: number | null;
   creditLimit: string | null;
   prepaidRevertDays: number;
+  pricingMode: PricingMode;
   mainTariffBhm: string;
+  /** BYuD uchun so'mdagi qat'iy narx — `pricingMode === 'FIXED'` da majburiy */
+  mainTariffUzs: string | null;
   tariffs: TariffRow[];
   vatPayer: boolean;
   jurisdictionCourt: string | null;
@@ -90,9 +113,11 @@ export interface AgreementListResponse {
 /** Formadan yuboriladigan ma'lumot — server default beradigan maydonlar ixtiyoriy */
 export type AgreementInput = Omit<
   ServiceAgreement,
-  'id' | 'terminatedAt' | 'terminationReason' | 'perAmountThreshold' | 'creditLimit' | 'mainTariffBhm'
+  | 'id' | 'terminatedAt' | 'terminationReason' | 'perAmountThreshold' | 'creditLimit'
+  | 'mainTariffBhm' | 'mainTariffUzs'
 > & {
   perAmountThreshold?: number;
   creditLimit?: number;
   mainTariffBhm: number;
+  mainTariffUzs?: number;
 };

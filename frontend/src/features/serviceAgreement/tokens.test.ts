@@ -21,7 +21,8 @@ const agreement: ServiceAgreement = {
   executorPhone: '+998911187007', executorEmail: 'oybek@prodeklarant.uz',
   paymentModel: 'MONTHLY', monthlyDueDay: 10, perCountThreshold: null, perCountDueDays: null,
   perAmountThreshold: null, perAmountDueDays: null, creditLimit: '20000000', prepaidRevertDays: 10,
-  mainTariffBhm: '3', tariffs: [{ name: 'Elektron BYuD', unit: '1 BYuD', bhm: 3 }],
+  pricingMode: 'BHM', mainTariffBhm: '3', mainTariffUzs: null,
+  tariffs: [{ name: 'Elektron BYuD', unit: '1 BYuD', bhm: 3 }],
   vatPayer: false, jurisdictionCourt: 'Farg\'ona viloyati iqtisodiy sudi',
   brokerRegistryNumber: null, signingPlace: 'Олтиариқ тумани', includeSeal: true,
 };
@@ -46,6 +47,22 @@ describe('buildTokens', () => {
 
   it('tarifni BHM dan so\'mga aylantiradi', () => {
     expect(buildTokens(agreement, 412000).mainTariffUzs).toBe('1 236 000');
+  });
+
+  it('FIXED rejimida so\'mdagi qat\'iy narxni beradi, BHM ga ko\'paytirmaydi', () => {
+    const fixed = { ...agreement, pricingMode: 'FIXED' as const, mainTariffUzs: '1000000' };
+    expect(buildTokens(fixed, 412000).mainTariffUzs).toBe(formatMoney(1_000_000));
+    expect(buildTokens(fixed, 412000).pricingMode).toBe('FIXED');
+  });
+
+  it('FIXED rejimida BHM o\'zgarsa narx o\'zgarmaydi', () => {
+    const fixed = { ...agreement, pricingMode: 'FIXED' as const, mainTariffUzs: '1000000' };
+    expect(buildTokens(fixed, 999999).mainTariffUzs).toBe(formatMoney(1_000_000));
+  });
+
+  it('FIXED rejimida narx kiritilmagan bo\'lsa 0 beradi', () => {
+    const fixed = { ...agreement, pricingMode: 'FIXED' as const, mainTariffUzs: null };
+    expect(buildTokens(fixed, 412000).mainTariffUzs).toBe('0');
   });
 
   it('kredit limitini formatlaydi', () => {

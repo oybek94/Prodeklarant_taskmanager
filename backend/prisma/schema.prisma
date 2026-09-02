@@ -159,7 +159,11 @@ model ServiceAgreement {
   perAmountDueDays     Int?
   creditLimit          Decimal?     @db.Decimal(18, 2)
   prepaidRevertDays    Int          @default(10)
+  pricingMode          PricingMode  @default(BHM)
   mainTariffBhm        Decimal      @db.Decimal(6, 2)
+  // So'mdagi qat'iy BYuD narxi — faqat pricingMode = FIXED da ishlatiladi.
+  // mainTariffBhm ga sig'maydi: u Decimal(6,2), 1 000 000 undan katta.
+  mainTariffUzs        Decimal?     @db.Decimal(18, 2)
   tariffs              Json         @default("[]")
   vatPayer             Boolean      @default(false)
   jurisdictionCourt    String?
@@ -1560,4 +1564,11 @@ enum PaymentModel {
   MONTHLY
   PER_COUNT
   PER_AMOUNT
+}
+
+/// Narx qanday belgilanadi: BHM ga nisbatan koeffitsient (BHM o'zgarganda
+/// narx avtomatik qayta hisoblanadi) yoki so'mdagi qat'iy summa.
+enum PricingMode {
+  BHM
+  FIXED
 }

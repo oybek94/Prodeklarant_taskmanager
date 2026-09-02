@@ -1,4 +1,4 @@
-import type { AgreementTokens } from '../tokens';
+import { formatMoney, type AgreementTokens } from '../tokens';
 import type { AgreementTemplate } from './types';
 
 /** Shartnomada ko'rsatiladigan Bajaruvchi elektron pochtasi (kompaniya sozlamasidan olinmaydi) */
@@ -214,17 +214,36 @@ export const v2: AgreementTemplate = {
         '4.1. Шартноманинг умумий қиймати олдиндан белгиланмайди ва имзоланган далолатномалар ҳамда ' +
         'расмийлаштирилган ЭҲФлар суммаси асосида шаклланади.',
     },
+    // 4.2 va 4.3 narx turiga qarab ikki xil: BHM koeffitsienti yoki so'mdagi
+    // qat'iy summa. Ikkalasi bir vaqtda chiqmasligi shart — aks holda hujjatda
+    // bir-biriga zid ikkita narxlash tartibi paydo bo'ladi.
     {
       kind: 'paragraph',
       text:
         '4.2. Хизмат нархлари қуйидаги жадвалда БҲМга нисбатан коэффициент кўринишида белгиланади. ' +
         'Электрон БЮД расмийлаштириш — **{{mainTariffBhm}}** БҲМ миқдорида.',
+      when: (t) => t.pricingMode === 'BHM',
+    },
+    {
+      kind: 'paragraph',
+      text:
+        '4.2. Хизмат нархлари қуйидаги жадвалда сўмда қатъий миқдорда белгиланади. ' +
+        'Электрон БЮД расмийлаштириш — **{{mainTariffUzs}} сўм** миқдорида.',
+      when: (t) => t.pricingMode === 'FIXED',
     },
     {
       kind: 'table',
       header: ['№', 'Хизмат номи', 'Ўлчов бирлиги', 'Нархи (БҲМ)'],
       widths: [8, 52, 20, 20],
       rows: (t) => t.tariffs.map((row, i) => [String(i + 1), row.name, row.unit, String(row.bhm)]),
+      when: (t) => t.pricingMode === 'BHM',
+    },
+    {
+      kind: 'table',
+      header: ['№', 'Хизмат номи', 'Ўлчов бирлиги', 'Нархи (сўм)'],
+      widths: [8, 52, 20, 20],
+      rows: (t) => t.tariffs.map((row, i) => [String(i + 1), row.name, row.unit, formatMoney(row.uzs ?? 0)]),
+      when: (t) => t.pricingMode === 'FIXED',
     },
     {
       kind: 'paragraph',
@@ -232,6 +251,15 @@ export const v2: AgreementTemplate = {
         '4.3. Ҳисоб-китоб хизмат кўрсатилган санада амалда бўлган БҲМ миқдоридан келиб чиққан ҳолда ' +
         'сўмда амалга оширилади; БҲМ ўзгарганда нархлар автоматик равишда қайта ҳисобланади ва бу ' +
         'қўшимча битим тузишни талаб қилмайди.',
+      when: (t) => t.pricingMode === 'BHM',
+    },
+    {
+      kind: 'paragraph',
+      text:
+        '4.3. Ҳисоб-китоб юқорида белгиланган қатъий нархлар бўйича сўмда амалга оширилади. ' +
+        'БҲМнинг ўзгариши нархларга таъсир қилмайди; нархлар фақат Томонларнинг ёзма қўшимча ' +
+        'битими билан ўзгартирилади.',
+      when: (t) => t.pricingMode === 'FIXED',
     },
     {
       kind: 'paragraph',

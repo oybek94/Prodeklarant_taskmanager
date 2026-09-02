@@ -1,4 +1,4 @@
-import { PAYMENT_MODEL_LETTER, type ServiceAgreement, type TariffRow } from './types';
+import { PAYMENT_MODEL_LETTER, type PricingMode, type ServiceAgreement, type TariffRow } from './types';
 
 /** Shablon matnida ishlatiladigan barcha token — boshqasi yozilsa TypeScript ushlaydi */
 export interface AgreementTokens {
@@ -49,6 +49,11 @@ export interface AgreementTokens {
   creditLimit: string;
   prepaidRevertDays: string;
   mainTariffBhm: string;
+  /**
+   * BYuD narxi so'mda. `BHM` rejimida koeffitsient × amaldagi BHM dan
+   * hisoblanadi, `FIXED` rejimida shartnomada belgilangan qat'iy summa
+   * (BHM o'zgarishi ta'sir qilmaydi).
+   */
   mainTariffUzs: string;
   jurisdictionCourt: string;
   /** Bo'sh bo'lsa 2.3-bandning ikkinchi gapi PDF'dan tushadi */
@@ -57,6 +62,8 @@ export interface AgreementTokens {
   /** Jadval bloklari uchun — matn tokeni emas */
   tariffs: TariffRow[];
   paymentModel: ServiceAgreement['paymentModel'];
+  /** Narx BHM koeffitsientida yoki so'mda qat'iy — shablon bandlarini tanlaydi */
+  pricingMode: PricingMode;
   vatPayer: boolean;
 }
 
@@ -119,6 +126,10 @@ function formatDate(iso: string): string {
  */
 export function buildTokens(a: ServiceAgreement, bhmUzs: number): AgreementTokens {
   const tariffBhm = Number(a.mainTariffBhm);
+  const pricingMode = a.pricingMode ?? 'BHM';
+  // FIXED da narx shartnomada qotirilgan — BHM ga KO'PAYTIRILMAYDI, aks holda
+  // BHM o'zgarganda qat'iy narx ham siljib ketardi.
+  const tariffUzs = pricingMode === 'FIXED' ? Number(a.mainTariffUzs ?? 0) : tariffBhm * bhmUzs;
   // Yozuvda saqlangan qiymat ustun — eski shartnomalar aynan o'z matnida
   // qayta chiqadi; bo'sh bo'lsagina standart qiymatga tushamiz.
   const executorDirector = a.executorDirector?.trim() || EXECUTOR_DIRECTOR;
@@ -164,13 +175,14 @@ export function buildTokens(a: ServiceAgreement, bhmUzs: number): AgreementToken
     creditLimit: a.creditLimit ? formatMoney(Number(a.creditLimit)) : '—',
     prepaidRevertDays: String(a.prepaidRevertDays),
     mainTariffBhm: String(tariffBhm),
-    mainTariffUzs: formatMoney(tariffBhm * bhmUzs),
+    mainTariffUzs: formatMoney(Number.isFinite(tariffUzs) ? tariffUzs : 0),
     jurisdictionCourt: a.jurisdictionCourt?.trim() || DEFAULT_JURISDICTION_COURT,
     // Bu yerda `dash` ISHLATILMAYDI: bo'sh qiymat 2.3-bandni o'chirish signali
     brokerRegistryNumber: a.brokerRegistryNumber?.trim() ?? '',
 
     tariffs: a.tariffs,
     paymentModel: a.paymentModel,
+    pricingMode,
     vatPayer: a.vatPayer,
   };
 }

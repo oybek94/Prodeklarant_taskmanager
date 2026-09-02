@@ -9,9 +9,11 @@ import { CURRENT_TEMPLATE_VERSION } from '../features/serviceAgreement/templates
 import { withMainTariff } from '../features/serviceAgreement/tariffs';
 import {
   PAYMENT_MODEL_LABEL,
+  PRICING_MODE_LABEL,
   STATUS_LABEL,
   type AgreementStatus,
   type PaymentModel,
+  type PricingMode,
   type ServiceAgreement,
 } from '../features/serviceAgreement/types';
 
@@ -47,7 +49,8 @@ const EMPTY: ServiceAgreement = {
   executorPhone: null, executorEmail: null,
   paymentModel: 'PREPAID', monthlyDueDay: null, perCountThreshold: null, perCountDueDays: null,
   perAmountThreshold: null, perAmountDueDays: null, creditLimit: null, prepaidRevertDays: 10,
-  mainTariffBhm: '2', tariffs: [{ name: 'Электрон БЮД расмийлаштириш', unit: '1 БЮД', bhm: 2 }],
+  pricingMode: 'BHM', mainTariffBhm: '2', mainTariffUzs: null,
+  tariffs: [{ name: 'Электрон БЮД расмийлаштириш', unit: '1 БЮД', bhm: 2 }],
   vatPayer: false, jurisdictionCourt: null, brokerRegistryNumber: null,
   signingPlace: 'Олтиариқ тумани', includeSeal: true,
 };
@@ -210,7 +213,27 @@ export default function ServiceAgreementEditor() {
    * holda hujjatda ikki xil narx paydo bo'ladi.
    */
   const setMainTariff = (value: string) =>
-    setForm((prev) => ({ ...prev, mainTariffBhm: value, tariffs: withMainTariff(prev.tariffs, value) }));
+    setForm((prev) =>
+      prev.pricingMode === 'FIXED'
+        ? { ...prev, mainTariffUzs: value, tariffs: withMainTariff(prev.tariffs, value, 'FIXED') }
+        : { ...prev, mainTariffBhm: value, tariffs: withMainTariff(prev.tariffs, value, 'BHM') },
+    );
+
+  /**
+   * Narx turi almashtirilganda jadvalning birinchi qatori YANGI rejim
+   * qiymatiga qayta bog\'lanadi — aks holda jadvalda eski rejimdagi narx qolib,
+   * hujjat matni bilan ziddiyat chiqardi.
+   */
+  const setPricingMode = (mode: PricingMode) =>
+    setForm((prev) => ({
+      ...prev,
+      pricingMode: mode,
+      tariffs: withMainTariff(
+        prev.tariffs,
+        mode === 'FIXED' ? prev.mainTariffUzs ?? '' : prev.mainTariffBhm,
+        mode,
+      ),
+    }));
 
   useEffect(() => {
     apiClient.get('/bxm/current').then(({ data }) => setBhmUzs(Number(data.amountUzs) || 0)).catch(() => setBhmUzs(0));
@@ -309,12 +332,15 @@ export default function ServiceAgreementEditor() {
       return toast.error('Ish soni va to\'lov muddatini kiriting');
     if (form.paymentModel === 'PER_AMOUNT' && (!form.perAmountThreshold || !form.perAmountDueDays))
       return toast.error('Summa va to\'lov muddatini kiriting');
+    if (form.pricingMode === 'FIXED' && !Number(form.mainTariffUzs))
+      return toast.error('BYuD uchun qat\'iy narxni kiriting');
 
     setSaving(true);
     try {
       const payload = {
         ...form,
         mainTariffBhm: Number(form.mainTariffBhm),
+        mainTariffUzs: form.pricingMode === 'FIXED' ? Number(form.mainTariffUzs) : undefined,
         creditLimit: form.creditLimit ? Number(form.creditLimit) : undefined,
         perAmountThreshold: form.perAmountThreshold ? Number(form.perAmountThreshold) : undefined,
       };
@@ -332,9 +358,16 @@ export default function ServiceAgreementEditor() {
     }
   };
 
-  const tariffUzs = bhmUzs && Number(form.mainTariffBhm)
-    ? (Number(form.mainTariffBhm) * bhmUzs).toLocaleString('ru-RU')
-    : '';
+  // BHM rejimida — taxminiy so\'m ekvivalenti, FIXED rejimida — kiritilgan
+  // summaning uch xonalab ajratilgan ko\'rinishi. Ikkalasi ham faqat ko\'rsatma.
+  const tariffHint =
+    form.pricingMode === 'FIXED'
+      ? Number(form.mainTariffUzs)
+        ? `${Number(form.mainTariffUzs).toLocaleString('ru-RU')} so'm`
+        : undefined
+      : bhmUzs && Number(form.mainTariffBhm)
+        ? `≈ ${(Number(form.mainTariffBhm) * bhmUzs).toLocaleString('ru-RU')} so'm`
+        : undefined;
 
   return (
     <div className="mx-auto max-w-3xl p-4 pb-28 sm:p-6 sm:pb-28">
@@ -515,10 +548,46 @@ export default function ServiceAgreementEditor() {
             </div>
           )}
 
+          <Field label="Narx turi" className="mt-4">
+            <div className="flex flex-wrap gap-2">
+              {(Object.keys(PRICING_MODE_LABEL) as PricingMode[]).map((mode) => (
+                <button
+                  key={mode}
+                  onClick={() => setPricingMode(mode)}
+                  className={`rounded-lg px-3 py-2 text-sm transition ${
+                    form.pricingMode === mode
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  {PRICING_MODE_LABEL[mode]}
+                </button>
+              ))}
+            </div>
+            <span className="mt-1 block text-xs text-gray-400">
+              {form.pricingMode === 'FIXED'
+                ? 'Narx shartnomada so\'mda qotiriladi — BHM o\'zgarishi unga ta\'sir qilmaydi'
+                : 'Narx BHM ga nisbatan koeffitsientda — BHM o\'zgarganda avtomatik qayta hisoblanadi'}
+            </span>
+          </Field>
+
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
-            <Field label="BYuD tarifi (BHM)" hint={tariffUzs ? `≈ ${tariffUzs} so'm` : undefined}>
-              <input value={form.mainTariffBhm} onChange={(e) => setMainTariff(e.target.value)} className={INPUT_CLASS} />
-            </Field>
+            {form.pricingMode === 'FIXED' ? (
+              <Field label="BYuD narxi (so\'m)" hint={tariffHint}>
+                <input
+                  type="number"
+                  min={0}
+                  value={form.mainTariffUzs ?? ''}
+                  onChange={(e) => setMainTariff(e.target.value)}
+                  placeholder="1000000"
+                  className={INPUT_CLASS}
+                />
+              </Field>
+            ) : (
+              <Field label="BYuD tarifi (BHM)" hint={tariffHint}>
+                <input value={form.mainTariffBhm} onChange={(e) => setMainTariff(e.target.value)} className={INPUT_CLASS} />
+              </Field>
+            )}
             {form.paymentModel !== 'PREPAID' && (
               <Field label="Kredit limiti (so'm)">
                 <input type="number" value={form.creditLimit ?? ''} onChange={(e) => set('creditLimit', e.target.value || null)} className={INPUT_CLASS} />

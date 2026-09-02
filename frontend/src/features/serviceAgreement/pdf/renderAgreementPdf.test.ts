@@ -58,7 +58,8 @@ const agreement: ServiceAgreement = {
   executorPhone: null, executorEmail: null,
   paymentModel: 'PREPAID', monthlyDueDay: null, perCountThreshold: null, perCountDueDays: null,
   perAmountThreshold: null, perAmountDueDays: null, creditLimit: null, prepaidRevertDays: 10,
-  mainTariffBhm: '3', tariffs: [{ name: 'Электрон БЮД расмийлаштириш', unit: '1 БЮД', bhm: 3 }],
+  pricingMode: 'BHM', mainTariffBhm: '3', mainTariffUzs: null,
+  tariffs: [{ name: 'Электрон БЮД расмийлаштириш', unit: '1 БЮД', bhm: 3 }],
   vatPayer: false, jurisdictionCourt: null, brokerRegistryNumber: null,
   signingPlace: 'Олтиариқ тумани', includeSeal: true,
 };

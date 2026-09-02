@@ -26,7 +26,8 @@ const base: ServiceAgreement = {
   executorPhone: '+998911187007', executorEmail: 'oybek@prodeklarant.uz',
   paymentModel: 'MONTHLY', monthlyDueDay: 10, perCountThreshold: 5, perCountDueDays: 3,
   perAmountThreshold: '20000000', perAmountDueDays: 3, creditLimit: '20000000', prepaidRevertDays: 10,
-  mainTariffBhm: '3', tariffs: [{ name: 'Elektron BYuD', unit: '1 BYuD', bhm: 3 }],
+  pricingMode: 'BHM', mainTariffBhm: '3', mainTariffUzs: null,
+  tariffs: [{ name: 'Elektron BYuD', unit: '1 BYuD', bhm: 3 }],
   vatPayer: false, jurisdictionCourt: 'Farg\'ona viloyati iqtisodiy sudi',
   brokerRegistryNumber: null, signingPlace: 'Олтиариқ тумани', includeSeal: true,
 };

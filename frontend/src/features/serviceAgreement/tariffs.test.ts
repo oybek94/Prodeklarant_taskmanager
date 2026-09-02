@@ -30,4 +30,19 @@ describe('withMainTariff', () => {
   it('kasrli qiymatni saqlaydi', () => {
     expect(withMainTariff([], '2.5')[0].bhm).toBe(2.5);
   });
+
+  describe('FIXED rejimi', () => {
+    it('so\'m qiymatini `uzs` ga yozadi, `bhm` ga tegmaydi', () => {
+      const rows = withMainTariff([{ name: 'Электрон БЮД', unit: '1 БЮД', bhm: 3 }], '1000000', 'FIXED');
+      expect(rows[0]).toEqual({ name: 'Электрон БЮД', unit: '1 БЮД', bhm: 3, uzs: 1000000 });
+    });
+
+    it('jadval bo\'sh bo\'lsa asosiy qatorni so\'m narxi bilan yaratadi', () => {
+      expect(withMainTariff([], '1000000', 'FIXED')).toEqual([{ ...MAIN_TARIFF_ROW, bhm: 0, uzs: 1000000 }]);
+    });
+
+    it('raqam bo\'lmagan qiymatda 0 qo\'yadi', () => {
+      expect(withMainTariff([], 'abc', 'FIXED')[0].uzs).toBe(0);
+    });
+  });
 });

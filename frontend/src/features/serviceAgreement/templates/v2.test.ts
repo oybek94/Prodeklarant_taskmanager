@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { openSync } from 'fontkit';
 import { getTemplate, CURRENT_TEMPLATE_VERSION } from './index';
 import { resolveText, visibleBlocks } from './types';
-import { buildTokens } from '../tokens';
+import { buildTokens, formatMoney } from '../tokens';
 import type { ServiceAgreement } from '../types';
 
 /** `components/pdf/fonts.ts` dagi stek bilan bir xil bo'lishi shart */
@@ -23,7 +23,8 @@ const base: ServiceAgreement = {
   executorPhone: '+998911187007', executorEmail: '1187007@mail.ru',
   paymentModel: 'MONTHLY', monthlyDueDay: 10, perCountThreshold: 5, perCountDueDays: 3,
   perAmountThreshold: '20000000', perAmountDueDays: 3, creditLimit: '20000000', prepaidRevertDays: 10,
-  mainTariffBhm: '3', tariffs: [{ name: 'Elektron BYuD', unit: '1 BYuD', bhm: 3 }],
+  pricingMode: 'BHM', mainTariffBhm: '3', mainTariffUzs: null,
+  tariffs: [{ name: 'Elektron BYuD', unit: '1 BYuD', bhm: 3 }],
   vatPayer: false, jurisdictionCourt: 'Farg\'ona viloyati iqtisodiy sudi',
   brokerRegistryNumber: null, signingPlace: 'Олтиариқ тумани', includeSeal: true,
 };
@@ -63,6 +64,39 @@ describe('v2 shabloni', () => {
     const text = renderAll(base);
     expect(text).toContain('Elektron BYuD');
     expect(text).toContain('Нархи (БҲМ)');
+  });
+
+  describe('qat\'iy summa rejimi (FIXED)', () => {
+    const fixed: ServiceAgreement = {
+      ...base, pricingMode: 'FIXED', mainTariffUzs: '1000000',
+      tariffs: [{ name: 'Elektron BYuD', unit: '1 BYuD', bhm: 3, uzs: 1000000 }],
+    };
+
+    it('narxni so\'mda ko\'rsatadi, jadval ustuni ham so\'mda', () => {
+      const text = renderAll(fixed);
+      expect(text).toContain(formatMoney(1_000_000));
+      expect(text).toContain('Нархи (сўм)');
+      expect(text).not.toContain('Нархи (БҲМ)');
+    });
+
+    it('BHM koeffitsienti matni chiqmaydi', () => {
+      const text = renderAll(fixed);
+      expect(text).not.toContain('БҲМга нисбатан коэффициент');
+      expect(text).not.toContain('БҲМ ўзгарганда нархлар автоматик');
+    });
+
+    it('narx qat\'iyligi haqidagi band chiqadi', () => {
+      expect(renderAll(fixed)).toContain('БҲМнинг ўзгариши нархларга таъсир қилмайди');
+    });
+
+    it('BHM rejimida qat\'iylik bandi chiqmaydi', () => {
+      expect(renderAll(base)).not.toContain('БҲМнинг ўзгариши нархларга таъсир қилмайди');
+      expect(renderAll(base)).toContain('БҲМ ўзгарганда нархлар автоматик');
+    });
+
+    it('barcha tokenlar yechiladi', () => {
+      expect(renderAll(fixed)).not.toContain('{{');
+    });
   });
 
   it('Bajaruvchi e-mail\'i doimiy docs@prodeklarant.uz', () => {
@@ -208,6 +242,7 @@ describe('v2 shabloni', () => {
       renderAll({ ...base, paymentModel: 'PER_AMOUNT' }),
       renderAll({ ...base, brokerRegistryNumber: '№ 123' }),
       renderAll({ ...base, vatPayer: true }),
+      renderAll({ ...base, pricingMode: 'FIXED', mainTariffUzs: '1000000' }),
     ].join('\n');
 
     const missing = new Set<string>();

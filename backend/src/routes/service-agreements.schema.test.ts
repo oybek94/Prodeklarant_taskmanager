@@ -16,6 +16,28 @@ describe('agreementCreateSchema', () => {
     expect(agreementCreateSchema.safeParse(base).success).toBe(true);
   });
 
+  it('pricingMode ko\'rsatilmasa BHM bo\'ladi', () => {
+    const r = agreementCreateSchema.safeParse(base);
+    expect(r.success && r.data.pricingMode).toBe('BHM');
+  });
+
+  it('FIXED uchun mainTariffUzs majburiy', () => {
+    expect(agreementCreateSchema.safeParse({ ...base, pricingMode: 'FIXED' }).success).toBe(false);
+    expect(
+      agreementCreateSchema.safeParse({ ...base, pricingMode: 'FIXED', mainTariffUzs: 1000000 }).success,
+    ).toBe(true);
+  });
+
+  it('BHM rejimida mainTariffUzs talab qilinmaydi', () => {
+    expect(agreementCreateSchema.safeParse({ ...base, pricingMode: 'BHM' }).success).toBe(true);
+  });
+
+  it('manfiy qat\'iy narx rad etiladi', () => {
+    expect(
+      agreementCreateSchema.safeParse({ ...base, pricingMode: 'FIXED', mainTariffUzs: -1 }).success,
+    ).toBe(false);
+  });
+
   it('MONTHLY uchun monthlyDueDay majburiy', () => {
     const r = agreementCreateSchema.safeParse({ ...base, paymentModel: 'MONTHLY' });
     expect(r.success).toBe(false);

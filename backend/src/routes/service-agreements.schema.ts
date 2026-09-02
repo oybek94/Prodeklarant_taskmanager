@@ -4,6 +4,8 @@ const tariffRowSchema = z.object({
   name: z.string().min(1),
   unit: z.string().default(''),
   bhm: z.number().nonnegative(),
+  /** So'mdagi qat'iy narx — faqat `pricingMode = FIXED` shartnomalarda o'qiladi */
+  uzs: z.number().nonnegative().optional(),
 });
 
 /**
@@ -53,7 +55,9 @@ const baseShape = {
   perAmountDueDays: z.number().int().positive().nullish(),
   creditLimit: z.number().nonnegative().nullish(),
   prepaidRevertDays: z.number().int().positive().default(10),
+  pricingMode: z.enum(['BHM', 'FIXED']).default('BHM'),
   mainTariffBhm: z.number().nonnegative(),
+  mainTariffUzs: z.number().nonnegative().nullish(),
   tariffs: z.array(tariffRowSchema).default([]),
   vatPayer: z.boolean().default(false),
   jurisdictionCourt: z.string().nullish(),
@@ -63,9 +67,9 @@ const baseShape = {
 };
 
 /**
- * Tanlangan to'lov modeliga qarab qaysi maydonlar majburiy ekanini tekshiradi
- * (shartnomaning 5.5.1-bandi). Modelsiz maydon kelib qolsa xato bermaymiz —
- * u shunchaki PDF'da ishlatilmaydi.
+ * Tanlangan to'lov modeli va narx turiga qarab qaysi maydonlar majburiy ekanini
+ * tekshiradi (shartnomaning 5.5.1-bandi va 4.2-bandi). Modelsiz maydon kelib
+ * qolsa xato bermaymiz — u shunchaki PDF'da ishlatilmaydi.
  */
 function requireModelFields<T extends z.ZodTypeAny>(schema: T) {
   return schema.superRefine((value, ctx: z.RefinementCtx) => {
@@ -84,6 +88,14 @@ function requireModelFields<T extends z.ZodTypeAny>(schema: T) {
     if (data.paymentModel === 'MONTHLY') need('monthlyDueDay');
     if (data.paymentModel === 'PER_COUNT') { need('perCountThreshold'); need('perCountDueDays'); }
     if (data.paymentModel === 'PER_AMOUNT') { need('perAmountThreshold'); need('perAmountDueDays'); }
+    // Qat'iy narx rejimida summa bo'lmasa shartnomada «0 сўм» chiqib qolardi
+    if (data.pricingMode === 'FIXED' && (data.mainTariffUzs === undefined || data.mainTariffUzs === null)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['mainTariffUzs'],
+        message: 'Qat\'iy summa rejimida BYuD narxi majburiy',
+      });
+    }
   });
 }
 

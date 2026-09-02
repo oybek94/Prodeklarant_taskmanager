@@ -382,10 +382,6 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
   if (data.type === 'SALARY' && !data.workerId) {
     return res.status(400).json({ error: 'workerId required for SALARY' });
   }
-  // Transaksiyalar faqat UZS'da yuritiladi (legacy maosh to'lovlari bundan mustasno)
-  if (data.currency !== 'UZS' && !(data.type === 'SALARY' && data.isLegacyPayment)) {
-    return res.status(400).json({ error: 'Transaksiyalar faqat UZS valyutasida bo\'lishi mumkin' });
-  }
 
   const originalCurrency: Currency = (data.currency as Currency) || 'UZS';
 
@@ -564,10 +560,6 @@ router.put('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
   }
   if (data.type === 'SALARY' && !data.workerId) {
     return res.status(400).json({ error: 'workerId required for SALARY' });
-  }
-  // Transaksiyalar faqat UZS'da yuritiladi (legacy maosh to'lovlari bundan mustasno)
-  if (data.currency !== 'UZS' && !(data.type === 'SALARY' && data.isLegacyPayment)) {
-    return res.status(400).json({ error: 'Transaksiyalar faqat UZS valyutasida bo\'lishi mumkin' });
   }
 
   const originalCurrency: Currency = (data.currency as Currency) || 'UZS';

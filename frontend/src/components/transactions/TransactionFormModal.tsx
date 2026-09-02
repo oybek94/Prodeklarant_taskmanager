@@ -275,7 +275,7 @@ export const TransactionFormModal: React.FC<TransactionFormModalProps> = React.m
             label="Summa"
             required
             showLabels={true}
-            currencyRules={form.type === 'SALARY' && form.isLegacyPayment ? undefined : { fixed: 'UZS' }}
+            currencyRules={undefined}
             errors={monetaryErrors}
           />
 

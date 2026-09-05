@@ -13,6 +13,7 @@ import { Decimal } from '@prisma/client/runtime/library';
 import { ValidationService } from '../services/validation.service';
 import { getExchangeRate } from '../services/exchange-rate';
 import { calculateAmountUzs } from '../services/monetary-validation';
+import { shouldDeductGovernmentFees, computeContractPaymentSplit } from '../services/contract-payment-split';
 import fs from 'fs/promises';
 import { ensureCmrForInvoice } from '../services/cmr-service';
 import { ensureTirForInvoice } from '../services/tir-service';
@@ -375,6 +376,8 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
         dealAmount_exchange_rate: true,
         dealAmount_amount_uzs: true,
         dealAmount_exchange_source: true,
+        contractPaymentType: true,
+        serviceFeeTransferUzs: true,
       },
     });
 
@@ -392,6 +395,11 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
     let snapshotCustomsPayment = null;
     let snapshotCustomsPaymentExchangeRate: Decimal | null = null;
     let snapshotCustomsPaymentAmountUzs: number | null = null;
+
+    const snapshotContractPaymentType = fullClient?.contractPaymentType || 'CASH_ALL_INCLUSIVE';
+    const snapshotServiceFeeTransferUzs = fullClient?.serviceFeeTransferUzs != null
+      ? Number(fullClient.serviceFeeTransferUzs)
+      : null;
 
     // Capture exchange rates for deal amount and populate universal fields
     let snapshotDealAmountAmountUzs: number | null = null;
@@ -585,7 +593,13 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
       taskData.snapshotCustomsPayment = snapshotCustomsPayment;
       taskData.snapshotCustomsPaymentExchangeRate = snapshotCustomsPaymentExchangeRate;
     }
-    
+
+    // Shartnoma to'lov turi snapshot (dealAmount snapshot bilan bir vaqtda)
+    taskData.snapshotContractPaymentType = snapshotContractPaymentType;
+    if (snapshotServiceFeeTransferUzs != null) {
+      taskData.snapshotServiceFeeTransferUzs = snapshotServiceFeeTransferUzs;
+    }
+
     // Universal monetary fields for snapshots
     if (snapshotDealAmount != null && snapshotDealAmountCurrency && snapshotDealAmountExchangeRateValue) {
       taskData.snapshotDealAmount_amount_original = snapshotDealAmount;
@@ -1116,7 +1130,19 @@ router.get('/:id', requireAuth(), async (req: AuthRequest, res) => {
     
     // UI da "Asosiy Shartnoma (Base)" kursatish uchun, tDealAmount dan tExtra ni ayiramiz:
     const baseDealUzs = tDealAmount - extraDeklaratsiyaUzs;
-    
+
+    // Shartnoma to'lov turi: CASH_ALL_INCLUSIVE (legacy) dan boshqasida mijoz
+    // davlat to'lovini (sertifikat/bojxona) o'zi to'laydi — netProfit'dan ayirilmaydi.
+    const contractPaymentType = task.snapshotContractPaymentType || (task.client as any).contractPaymentType || 'CASH_ALL_INCLUSIVE';
+    const deductGovernmentFees = shouldDeductGovernmentFees(contractPaymentType);
+    const stateDeduction = deductGovernmentFees ? davlatUzsReal : 0;
+    const customsDeduction = deductGovernmentFees ? tDeclarationPayment : 0;
+
+    const transferConfigUzs = task.snapshotServiceFeeTransferUzs != null
+      ? Number(task.snapshotServiceFeeTransferUzs)
+      : ((task.client as any).serviceFeeTransferUzs != null ? Number((task.client as any).serviceFeeTransferUzs) : null);
+    const { cashAmount, transferAmount } = computeContractPaymentSplit(contractPaymentType, tDealAmount, transferConfigUzs);
+
     (task as any).financialReport = {
         dealAmountBase: baseDealUzs - psrAmountInUzs, // PSR ni ham ayirib tashlaymiz
         dealAmount: tDealAmount,
@@ -1124,7 +1150,10 @@ router.get('/:id', requireAuth(), async (req: AuthRequest, res) => {
         statePayment: davlatUzsReal,
         declarationPayment: tDeclarationPayment,
         hiredWorkerPayment: certHiredWorkerUzs,
-        netProfit: tDealAmount - certifierUzsReal - davlatUzsReal - tDeclarationPayment - certHiredWorkerUzs - localAdminEarnedUzs
+        contractPaymentType,
+        cashAmount,
+        transferAmount,
+        netProfit: tDealAmount - certifierUzsReal - stateDeduction - customsDeduction - certHiredWorkerUzs - localAdminEarnedUzs
     };
     
     // Eski logic bilan ishlashni davom etishi uchun

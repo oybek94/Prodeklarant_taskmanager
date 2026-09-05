@@ -63,6 +63,7 @@ import faqRouter from './routes/faq';
 import medalsRouter from './routes/medals';
 import sellerKpiRouter from './routes/seller-kpi';
 import { initFinanceBot } from './services/finance-bot.service';
+import { initLeadReminderBot } from './services/lead-reminder-bot.service';
 
 const app = express();
 // Nginx reverse proxy orqasida ishlaymiz (1 ta hop). Busiz req.ip har doim 127.0.0.1
@@ -339,6 +340,7 @@ if (!process.env.NODE_APP_INSTANCE || process.env.NODE_APP_INSTANCE === '0') {
   initializeProcessScheduler();
   initCronJobs();
   initFinanceBot();
+  initLeadReminderBot();
 } else {
   console.log(`Worker instance ${process.env.NODE_APP_INSTANCE} started. Background jobs skipped.`);
 }

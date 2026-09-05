@@ -296,5 +296,40 @@ export const initCronJobs = () => {
       console.error('[CRON] AuditLog retention xatolik:', e);
     }
   });
+
+  // ==========================================
+  // LIDLAR KEYINGI QO'NG'IROQ ES LATMALARI (TELEGRAM BOT)
+  // Har 1 daqiqada tekshiradi: nextCallAt <= now va reminderSent = false
+  // ==========================================
+  cron.schedule('* * * * *', async () => {
+    try {
+      const now = new Date();
+      const pendingReminders = await prisma.lead.findMany({
+        where: {
+          nextCallAt: { lte: now },
+          reminderSent: false,
+          stage: { notIn: ['CLOSED_WON', 'CLOSED_LOST'] },
+        },
+        select: { id: true, companyName: true, nextCallAt: true },
+      });
+
+      if (pendingReminders.length > 0) {
+        console.log(`[CRON] ${pendingReminders.length} ta lid bo'yicha qo'ng'iroq vaqti bo'ldi. Telegram bot orqali eslatilmoqda...`);
+        const { sendLeadCallReminder } = await import('./services/lead-reminder-bot.service');
+
+        for (const lead of pendingReminders) {
+          try {
+            await sendLeadCallReminder(lead.id);
+            console.log(`[CRON] Lid #${lead.id} (${lead.companyName}) eslatmasi Telegram bot orqali yuborildi.`);
+          } catch (err) {
+            console.error(`[CRON] Lid #${lead.id} eslatma yuborishda xatolik:`, err);
+          }
+        }
+      }
+    } catch (e) {
+      console.error('[CRON] Lid eslatma cron xatolik:', e);
+    }
+  });
+  console.log('[CRON] Lidlar keyingi qo\'ng\'iroq eslatmalari (daqiqalik) ishga tushdi.');
 };
 

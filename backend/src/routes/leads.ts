@@ -415,7 +415,10 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
         if (stage !== undefined) data.stage = stage;
         if (assignedToId !== undefined) data.assignedToId = assignedToId ? Number(assignedToId) : null;
         if (lostReason !== undefined) data.lostReason = lostReason;
-        if (nextCallAt !== undefined) data.nextCallAt = nextCallAt ? new Date(nextCallAt) : null;
+        if (nextCallAt !== undefined) {
+            data.nextCallAt = nextCallAt ? new Date(nextCallAt) : null;
+            data.reminderSent = false;
+        }
         if (hasDiscount !== undefined) data.hasDiscount = hasDiscount;
 
         if (estimatedExportVolume !== undefined) {
@@ -587,6 +590,21 @@ router.put('/:id', async (req: AuthRequest, res: Response) => {
         }
 
         res.json(lead);
+    } catch (err: any) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// POST /api/leads/:id/send-reminder — Telegram bot orqali qo'lda eslatma yuborish
+router.post('/:id/send-reminder', async (req: AuthRequest, res: Response) => {
+    try {
+        const id = Number(req.params.id);
+        const { sendLeadCallReminder } = await import('../services/lead-reminder-bot.service');
+        const success = await sendLeadCallReminder(id);
+        if (!success) {
+            return res.status(400).json({ error: "Eslatma yuborilmadi. Telegram bot sozlanganini va lidda keyingi qo'ng'iroq vaqti belgilanganini tekshiring." });
+        }
+        res.json({ success: true, message: 'Telegram eslatma muvaffaqiyatli yuborildi' });
     } catch (err: any) {
         res.status(500).json({ error: err.message });
     }

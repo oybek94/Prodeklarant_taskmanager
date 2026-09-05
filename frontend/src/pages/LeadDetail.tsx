@@ -150,6 +150,7 @@ export default function LeadDetail() {
     // Reminder
     const [reminder, setReminder] = useState('');
     const [savingReminder, setSavingReminder] = useState(false);
+    const [sendingTelegramReminder, setSendingTelegramReminder] = useState(false);
 
     // AI Features
     const [score, setScore] = useState<{ score: number; explanation: string; temperature: string } | null>(null);
@@ -409,6 +410,19 @@ export default function LeadDetail() {
             toast.error('Xatolik');
         } finally {
             setSavingReminder(false);
+        }
+    };
+
+    const handleSendTelegramReminder = async () => {
+        setSendingTelegramReminder(true);
+        try {
+            await apiClient.post(`/leads/${id}/send-reminder`);
+            playSuccessSound();
+            toast.success('Telegram bot orqali eslatma yuborildi!');
+        } catch (err: any) {
+            toast.error(err.response?.data?.error || 'Telegram eslatma yuborishda xatolik');
+        } finally {
+            setSendingTelegramReminder(false);
         }
     };
 
@@ -774,10 +788,21 @@ export default function LeadDetail() {
                             </button>
                         </div>
                         {lead.nextCallAt && (
-                            <p className="text-xs text-gray-400 mt-2 flex items-center gap-1.5 font-medium">
-                                <Icon icon="solar:calendar-bold-duotone" className="w-3.5 h-3.5 text-blue-500" />
-                                {formatDateTime(lead.nextCallAt)}
-                            </p>
+                            <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between gap-2">
+                                <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1.5 font-medium">
+                                    <Icon icon="solar:calendar-bold-duotone" className="w-3.5 h-3.5 text-blue-500" />
+                                    {formatDateTime(lead.nextCallAt)}
+                                </p>
+                                <button
+                                    onClick={handleSendTelegramReminder}
+                                    disabled={sendingTelegramReminder}
+                                    className="px-2.5 py-1.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/50 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors disabled:opacity-60"
+                                    title="Telegram bot orqali darhol eslatma yuborish"
+                                >
+                                    <Icon icon="solar:plain-bold-duotone" className="w-3.5 h-3.5" />
+                                    {sendingTelegramReminder ? 'Yuborilmoqda...' : 'Telegramda eslatish'}
+                                </button>
+                            </div>
                         )}
                     </div>
                 </div>

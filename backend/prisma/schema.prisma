@@ -32,6 +32,7 @@ model User {
   photoUrl           String?
   active             Boolean                  @default(true)
   xp                 Int                      @default(0)
+  telegramChatId     String?
   createdAt          DateTime                 @default(now())
   archiveDocuments   ArchiveDocument[]        @relation("ArchiveDocumentUploadedBy")
   auditLogs          AuditLog[]
@@ -1220,6 +1221,7 @@ model Lead {
   assignedToId          Int?
   lostReason            String?
   nextCallAt            DateTime?
+  reminderSent          Boolean            @default(false)
   createdAt             DateTime           @default(now())
   updatedAt             DateTime           @updatedAt
   estimatedExportVolume String?

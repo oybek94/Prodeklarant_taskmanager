@@ -6,7 +6,6 @@ import { formatNumber, formatNumberFixed, formatUnitPrice, numberToWordsRu, getC
 import { InvoiceWeightSummary } from './InvoiceWeightSummary';
 import InvoiceFieldHint from './InvoiceFieldHint';
 import type { InvoiceFieldHintKey } from '../../constants/invoiceFieldHints';
-import { ExportPriceCalculator } from './ExportPriceCalculator';
 import { InvoiceItemRow } from './InvoiceItemRow';
 import { useTableKeyboardNav } from './hooks/useTableKeyboardNav';
 import { Icon } from '@iconify/react';
@@ -766,12 +765,6 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = React.memo(({
             palletWeight={form.palletWeight}
             vehicleWeight={form.vehicleWeight}
             packagingTypes={packagingTypes}
-          />
-          <ExportPriceCalculator 
-            form={form}
-            setForm={setForm}
-            items={items}
-            canEditEffective={canEditEffective}
           />
         </>
       )}

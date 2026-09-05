@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import apiClient from '../../lib/api';
 import { Icon } from '@iconify/react';
-import { RecommendedPricesSection } from './RecommendedPricesSection';
 import {
   addTnvedProduct,
   deleteTnvedProduct,
@@ -217,8 +216,6 @@ export const SpecsTab = () => {
       </div>
 
       <div className="grid grid-cols-1 gap-6">
-        <RecommendedPricesSection />
-
         <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-100 dark:border-slate-700 p-6 hover:shadow-md transition-shadow">
           <div className="flex justify-between items-center mb-5">
             <div className="flex items-center gap-3">

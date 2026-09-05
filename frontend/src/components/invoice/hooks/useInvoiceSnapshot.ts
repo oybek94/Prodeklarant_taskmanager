@@ -49,7 +49,7 @@ export const useInvoiceSnapshot = ({
   }, [markSnapshotAfterSave, currentSnapshot]);
 
   // Boshlang'ich snapshotni loading tugagandan keyin olish.
-  // 1500ms kutib turamiz — chunki ExportPriceCalculator, contract selection va boshqa 
+  // 1500ms kutib turamiz — chunki contract selection va boshqa
   // side-effect'lar loading tugagandan keyin ham form'ni o'zgartirishi mumkin.
   // Shu vaqt ichida barcha avtomatik o'zgarishlar tugab bo'ladi.
   useEffect(() => {

@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { prisma } from '../prisma';
-import { Prisma, Currency, ExchangeSource } from '@prisma/client';
+import { Prisma, Currency, ExchangeSource, ContractPaymentType } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 import { z } from 'zod';
 import { AuthRequest, requireAuth } from '../middleware/auth';
@@ -22,6 +22,8 @@ const clientSchema = z.object({
   dealAmountCurrency: z.enum(['USD', 'UZS']).optional(),
   dealAmountExchangeRate: z.number().positive().optional(), // Optional - will auto-fetch if not provided
   dealAmountExchangeSource: z.enum(['CBU', 'MANUAL']).optional(), // Optional - defaults to CBU
+  contractPaymentType: z.enum(['CASH_ALL_INCLUSIVE', 'TRANSFER_ONLY', 'CASH_ONLY', 'MIXED']).optional(),
+  serviceFeeTransferUzs: z.number().min(0).optional().nullable(),
   phone: z.string().optional(),
   creditType: z.enum(['TASK_COUNT', 'AMOUNT']).optional().nullable(),
   creditLimit: z.union([z.number(), z.string()]).optional().nullable().transform((val) => {
@@ -315,6 +317,8 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
       dealAmount_exchange_rate: dealAmountExchangeRate,
       dealAmount_amount_uzs: dealAmountInUzs,
       dealAmount_exchange_source: dealAmount ? exchangeSource : null,
+      contractPaymentType: (parsed.data.contractPaymentType as ContractPaymentType) ?? undefined,
+      serviceFeeTransferUzs: parsed.data.serviceFeeTransferUzs != null ? new Decimal(parsed.data.serviceFeeTransferUzs) : undefined,
       phone: parsed.data.phone ?? null,
       // Shartnoma maydonlari
       contractNumber: parsed.data.contractNumber || undefined,
@@ -562,6 +566,25 @@ router.patch('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
     if (req.body.phone !== undefined) {
       updateData.phone = req.body.phone === null || req.body.phone === '' ? null : req.body.phone;
     }
+    if (req.body.contractPaymentType !== undefined) {
+      const validTypes = ['CASH_ALL_INCLUSIVE', 'TRANSFER_ONLY', 'CASH_ONLY', 'MIXED'];
+      if (!validTypes.includes(req.body.contractPaymentType)) {
+        return res.status(400).json({ error: `Noto'g'ri shartnoma turi: ${req.body.contractPaymentType}` });
+      }
+      updateData.contractPaymentType = req.body.contractPaymentType as ContractPaymentType;
+    }
+    if (req.body.serviceFeeTransferUzs !== undefined) {
+      const rawTransferUzs = req.body.serviceFeeTransferUzs;
+      if (rawTransferUzs === null || rawTransferUzs === '') {
+        updateData.serviceFeeTransferUzs = null;
+      } else {
+        const parsedTransferUzs = Number(rawTransferUzs);
+        if (!Number.isFinite(parsedTransferUzs) || parsedTransferUzs < 0) {
+          return res.status(400).json({ error: "Perechisleniya summasi manfiy bo'lmasligi kerak" });
+        }
+        updateData.serviceFeeTransferUzs = new Decimal(parsedTransferUzs);
+      }
+    }
 
     // Handle initial debt update
     const initialDebtChanged = req.body.initialDebt !== undefined;
@@ -704,6 +727,8 @@ router.patch('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
       id: updatedClient.id,
       name: updatedClient.name,
       dealAmount: updatedClient.dealAmount,
+      contractPaymentType: updatedClient.contractPaymentType,
+      serviceFeeTransferUzs: updatedClient.serviceFeeTransferUzs,
       phone: updatedClient.phone,
       creditType: updatedClient.creditType,
       creditLimit: updatedClient.creditLimit,

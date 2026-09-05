@@ -52,6 +52,8 @@ export class ClientService {
         dealAmount_amount_uzs: 0,
         dealAmount_amount_original: 0,
         dealAmount_exchange_rate: 0,
+        contractPaymentType: 'CASH_ALL_INCLUSIVE',
+        serviceFeeTransferUzs: 0,
         totalDealAmount: 0,
         totalIncome: 0,
         balance: 0,
@@ -170,16 +172,18 @@ export class ClientService {
       (client as any).dealAmount_amount_uzs = 0;
       (client as any).dealAmount_amount_original = 0;
       (client as any).dealAmount_exchange_rate = 0;
+      (client as any).contractPaymentType = 'CASH_ALL_INCLUSIVE';
+      (client as any).serviceFeeTransferUzs = 0;
       (client as any).initialDebt = 0;
       (client as any).initialDebtInUzs = 0;
       (client as any).creditLimit = 0;
       (client as any).transactions = [];
-      (client as any).tasks = client.tasks.map((t: any) => ({ 
-        id: t.id, 
-        status: t.status, 
-        hasPsr: t.hasPsr, 
-        branch: t.branch, 
-        createdAt: t.createdAt 
+      (client as any).tasks = client.tasks.map((t: any) => ({
+        id: t.id,
+        status: t.status,
+        hasPsr: t.hasPsr,
+        branch: t.branch,
+        createdAt: t.createdAt
       }));
     }
 

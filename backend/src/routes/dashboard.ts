@@ -4,6 +4,7 @@ import { getWorkerPaymentReport } from '../services/worker-payment';
 import { requireAuth, AuthRequest } from '../middleware/auth';
 import { TaskStatus } from '@prisma/client';
 import { appCache, CACHE_TTL } from '../services/cache';
+import { shouldDeductGovernmentFees } from '../services/contract-payment-split';
 
 const router = Router();
 
@@ -781,11 +782,13 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
           snapshotCertificatePayment: true,
           snapshotWorkerPrice: true,
           snapshotCustomsPayment: true,
+          snapshotContractPaymentType: true,
           client: {
             select: {
               dealAmount: true,
               dealAmount_currency: true,
               dealAmountCurrency: true,
+              contractPaymentType: true,
             },
           },
         },
@@ -809,9 +812,13 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
           : Number(client.dealAmount || 0);
         const psrAmount = task.hasPsr ? Number(task.snapshotPsrPrice || 0) : 0;
         const dealAmount = baseDealAmount + psrAmount;
-        const certificatePayment = Number(task.snapshotCertificatePayment || 0);
         const workerPrice = Number(task.snapshotWorkerPrice || 0);
-        const customsPayment = Number(task.snapshotCustomsPayment || 0);
+
+        const contractPaymentType = task.snapshotContractPaymentType || client.contractPaymentType || 'CASH_ALL_INCLUSIVE';
+        const deductGovernmentFees = shouldDeductGovernmentFees(contractPaymentType);
+        const certificatePayment = deductGovernmentFees ? Number(task.snapshotCertificatePayment || 0) : 0;
+        const customsPayment = deductGovernmentFees ? Number(task.snapshotCustomsPayment || 0) : 0;
+
         const branchPayments = certificatePayment + workerPrice + psrAmount + customsPayment;
         const netProfit = dealAmount - branchPayments;
 

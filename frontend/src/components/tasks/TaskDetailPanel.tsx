@@ -686,6 +686,12 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                         )}
                       </span>
                     </div>
+                    {financial.rep && financial.rep.transferAmount > 0 && (
+                      <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 -mt-1.5">
+                        <span>Naqt: {formatMoney(financial.rep.cashAmount, financial.currency)}</span>
+                        <span>Perechisleniya: {formatMoney(financial.rep.transferAmount, financial.currency)}</span>
+                      </div>
+                    )}
                     {financial.rep && (
                       <>
                         <div className="flex items-center justify-between">

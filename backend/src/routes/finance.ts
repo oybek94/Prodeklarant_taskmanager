@@ -9,6 +9,7 @@ import { Decimal } from '@prisma/client/runtime/library';
 import { upsertExchangeRate, getLatestExchangeRate, fetchAndSaveDailyRate, getExchangeRate, formatLocalDate } from '../services/exchange-rate';
 import { validateExchangeRateImmutability } from '../services/monetary-validation';
 import { appCache, CACHE_TTL } from '../services/cache';
+import { shouldDeductGovernmentFees } from '../services/contract-payment-split';
 
 const router = Router();
 
@@ -1003,7 +1004,7 @@ router.get('/ceo-stats', requireAuth('ADMIN'), async (_req: AuthRequest, res) =>
         status: { notIn: ['BOSHLANMAGAN', 'JARAYONDA'] }
       },
       include: {
-        client: { select: { id: true, name: true, dealAmount: true, dealAmountCurrency: true, dealAmount_currency: true } }
+        client: { select: { id: true, name: true, dealAmount: true, dealAmountCurrency: true, dealAmount_currency: true, contractPaymentType: true } }
       }
     });
 
@@ -1054,17 +1055,23 @@ router.get('/ceo-stats', requireAuth('ADMIN'), async (_req: AuthRequest, res) =>
         }
 
         let taskExpenseUzs = 0;
-        
-        // Davlat tolovlari: ST-1, FITO, Fumigatsiya, Ichki sertifikat
-        const davlatUz = Number(sp?.st1Payment || 0) + Number(sp?.fitoPayment || 0) + Number(sp?.fumigationPayment || 0) + Number(sp?.internalCertPayment || 0);
-        if (sp?.currency === 'USD') taskExpenseUzs += davlatUz * usdToUzsRate;
-        else taskExpenseUzs += davlatUz;
 
-        // Bojxona tolovi:
-        const customs = task.snapshotCustomsPayment != null ? Number(task.snapshotCustomsPayment) : Number(sp?.customsPayment || 0);
-        const customsCurrency = task.snapshotCustomsPayment_currency || sp?.currency || 'UZS';
-        if (customsCurrency === 'USD') taskExpenseUzs += customs * usdToUzsRate;
-        else taskExpenseUzs += customs;
+        const contractPaymentType = task.snapshotContractPaymentType || task.client.contractPaymentType || 'CASH_ALL_INCLUSIVE';
+        const deductGovernmentFees = shouldDeductGovernmentFees(contractPaymentType);
+
+        // Davlat tolovlari: ST-1, FITO, Fumigatsiya, Ichki sertifikat
+        // (faqat CASH_ALL_INCLUSIVE turida — boshqalarida mijoz o'zi to'laydi)
+        if (deductGovernmentFees) {
+          const davlatUz = Number(sp?.st1Payment || 0) + Number(sp?.fitoPayment || 0) + Number(sp?.fumigationPayment || 0) + Number(sp?.internalCertPayment || 0);
+          if (sp?.currency === 'USD') taskExpenseUzs += davlatUz * usdToUzsRate;
+          else taskExpenseUzs += davlatUz;
+
+          // Bojxona tolovi:
+          const customs = task.snapshotCustomsPayment != null ? Number(task.snapshotCustomsPayment) : Number(sp?.customsPayment || 0);
+          const customsCurrency = task.snapshotCustomsPayment_currency || sp?.currency || 'UZS';
+          if (customsCurrency === 'USD') taskExpenseUzs += customs * usdToUzsRate;
+          else taskExpenseUzs += customs;
+        }
 
         // Ishchilarga to'lovlar:
         const worker = task.snapshotWorkerPrice != null ? Number(task.snapshotWorkerPrice) : Number(sp?.workerPrice || 0);

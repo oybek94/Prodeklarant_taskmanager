@@ -1,0 +1,5 @@
+-- AlterTable
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "telegramChatId" TEXT;
+
+-- AlterTable
+ALTER TABLE "Lead" ADD COLUMN IF NOT EXISTS "reminderSent" BOOLEAN NOT NULL DEFAULT false;

@@ -21,3 +21,10 @@ ALTER TABLE "Task"
 
 ALTER TABLE "Task"
   ADD COLUMN IF NOT EXISTS "snapshotServiceFeeTransferUzs" DECIMAL(18,2);
+
+-- Mavjud tasklar legacy bo'lib qolsin: mijoz sozlamasi keyin o'zgarsa ham
+-- eski tasklar raqamlari o'zgarmaydi (spec, qaror 1). Status bo'yicha filtr
+-- yo'q — band (hali yakunlanmagan) tasklar ham shu funksiya yaratilishidan
+-- oldin ochilgan, shuning uchun legacy bo'lib qoladi.
+UPDATE "Task" SET "snapshotContractPaymentType" = 'CASH_ALL_INCLUSIVE'
+  WHERE "snapshotContractPaymentType" IS NULL;

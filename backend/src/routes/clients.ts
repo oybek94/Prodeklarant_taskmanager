@@ -574,9 +574,16 @@ router.patch('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
       updateData.contractPaymentType = req.body.contractPaymentType as ContractPaymentType;
     }
     if (req.body.serviceFeeTransferUzs !== undefined) {
-      updateData.serviceFeeTransferUzs = req.body.serviceFeeTransferUzs === null || req.body.serviceFeeTransferUzs === ''
-        ? null
-        : new Decimal(req.body.serviceFeeTransferUzs);
+      const rawTransferUzs = req.body.serviceFeeTransferUzs;
+      if (rawTransferUzs === null || rawTransferUzs === '') {
+        updateData.serviceFeeTransferUzs = null;
+      } else {
+        const parsedTransferUzs = Number(rawTransferUzs);
+        if (!Number.isFinite(parsedTransferUzs) || parsedTransferUzs < 0) {
+          return res.status(400).json({ error: "Perechisleniya summasi manfiy bo'lmasligi kerak" });
+        }
+        updateData.serviceFeeTransferUzs = new Decimal(parsedTransferUzs);
+      }
     }
 
     // Handle initial debt update

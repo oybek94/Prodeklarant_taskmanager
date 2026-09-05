@@ -385,6 +385,8 @@ interface UseCargoImportProps {
   packagingTypes: Array<{ name: string }>;
   /** Bazadagi tovar nomlari — tanlanganda Код ТН ВЭД avtomatik to'ladi */
   invoiceProductOptions: Array<{ name: string; code: string }>;
+  /** Sozlamalar → TNVED ro'yxatidagi joriy global kodlar — har doim ustuvor */
+  globalTnvedProducts?: Array<{ name: string; code: string }>;
   /** Shartnoma spetsifikatsiyasi — nom bo'yicha narx/TNVED fallback */
   selectedContractSpec: SpecRow[];
   /**
@@ -406,6 +408,7 @@ export const useCargoImport = ({
   contractDeliveryTerms,
   packagingTypes,
   invoiceProductOptions,
+  globalTnvedProducts = [],
   selectedContractSpec,
   ensureColumn,
 }: UseCargoImportProps) => {
@@ -547,7 +550,7 @@ export const useCargoImport = ({
         // Nom bazadagi variant bilan mos kelsa Код ТН ВЭД (va narx) avtomatik to'ladi —
         // qo'lda tanlanganidagi bilan bir xil qoida. Kalibr qo'shilishidan OLDIN
         // bajariladi, aks holda nom ro'yxatga mos kelmay kod bo'sh qolardi.
-        const defaults = resolveProductDefaults(base.name, invoiceProductOptions, selectedContractSpec);
+        const defaults = resolveProductDefaults(base.name, invoiceProductOptions, selectedContractSpec, globalTnvedProducts);
         if (defaults.tnvedCode) base.tnvedCode = defaults.tnvedCode;
         // Matnda narx berilgan bo'lsa u ustun turadi; bo'lmasa shartnoma narxi olinadi
         if (!base.unitPrice && defaults.unitPrice != null) base.unitPrice = defaults.unitPrice;
@@ -657,6 +660,7 @@ export const useCargoImport = ({
     customFields,
     packingCustomFields,
     invoiceProductOptions,
+    globalTnvedProducts,
     selectedContractSpec,
     ensureColumn,
     setForm,

@@ -21,31 +21,43 @@ export function calculateTotalPrice(item: InvoiceItem): number {
  * Nom ro'yxatdagi variant bilan aynan mos kelganda (registrga sezgir emas)
  * Код ТН ВЭД avtomatik to'ladi — nom qo'lda yozilganda ham, matndan
  * import qilinganda ham bir xil qoida ishlashi uchun sof funksiya.
+ *
+ * Ustuvorlik: 1) Sozlamalar → TNVED ro'yxatidagi JORIY global kod (mavsumga qarab
+ * shu yerda yangilansa, hamma joyda darhol qo'llanadi) 2) shartnoma spetsifikatsiyasi
+ * (narx va, global topilmasa, fallback kod) 3) shu shartnomada avval ishlatilgan
+ * mahsulotlarning tarixiy kodi (oxirgi variant — global bilan zid bo'lsa yutqazadi).
  */
 export function resolveProductDefaults(
   name: string,
   invoiceProductOptions: Array<{ name: string; code: string }>,
-  selectedContractSpec: SpecRow[]
+  selectedContractSpec: SpecRow[],
+  globalTnvedProducts: Array<{ name: string; code: string }> = []
 ): { tnvedCode?: string; unitPrice?: number } {
   const nameTrim = name.trim();
   if (!nameTrim) return {};
+  const nameLower = nameTrim.toLowerCase();
   const result: { tnvedCode?: string; unitPrice?: number } = {};
 
-  // 1-qadam: Global TNVED ro'yxatidan qidirish (ustuvor)
-  const globalMatch = invoiceProductOptions.find(
-    (p) => p.name.trim().toLowerCase() === nameTrim.toLowerCase()
-  );
+  // 1-qadam: Sozlamalar → TNVED ro'yxatidagi joriy global kod — har doim ustuvor
+  const globalMatch = globalTnvedProducts.find((p) => p.name.trim().toLowerCase() === nameLower);
   if (globalMatch?.code) result.tnvedCode = globalMatch.code;
 
-  // 2-qadam: Shartnoma spetsifikatsiyasidan qidirish (narx va fallback TNVED)
+  // 2-qadam: Shartnoma spetsifikatsiyasidan qidirish (narx va, global topilmasa, fallback TNVED)
   const specRow = selectedContractSpec.find(
-    (r) => (r.productName || '').trim().toLowerCase() === nameTrim.toLowerCase()
+    (r) => (r.productName || '').trim().toLowerCase() === nameLower
   );
   if (specRow) {
     if (!result.tnvedCode && specRow.tnvedCode?.trim()) {
       result.tnvedCode = specRow.tnvedCode.trim();
     }
     if (specRow.unitPrice != null) result.unitPrice = Number(specRow.unitPrice);
+  }
+
+  // 3-qadam: qolgan variantlar (masalan, shu shartnomada eng ko'p ishlatilgan
+  // mahsulotning tarixiy kodi) — faqat yuqoridagi ikkalasida ham topilmasa
+  if (!result.tnvedCode) {
+    const fallbackMatch = invoiceProductOptions.find((p) => p.name.trim().toLowerCase() === nameLower);
+    if (fallbackMatch?.code) result.tnvedCode = fallbackMatch.code;
   }
 
   return result;
@@ -79,6 +91,8 @@ function recalcEqualFormulaRows(items: InvoiceItem[], changedIndex: number): voi
 interface UseInvoiceItemsParams {
   selectedContractSpec: SpecRow[];
   invoiceProductOptions: Array<{ name: string; code: string }>;
+  /** Sozlamalar → TNVED ro'yxatidagi joriy global kodlar (mavsumiy yangilanish shu yerdan) */
+  globalTnvedProducts?: Array<{ name: string; code: string }>;
   tareRules?: Array<{ packageType: string; tareWeight: number }>;
 }
 
@@ -100,7 +114,7 @@ function applyRulesToItem(item: InvoiceItem, tareRules?: Array<{packageType: str
   return item;
 }
 
-export function useInvoiceItems({ selectedContractSpec, invoiceProductOptions, tareRules }: UseInvoiceItemsParams) {
+export function useInvoiceItems({ selectedContractSpec, invoiceProductOptions, globalTnvedProducts = [], tareRules }: UseInvoiceItemsParams) {
   const [items, setItems] = useState<InvoiceItem[]>([createDefaultItem()]);
   const [editingGrossWeight, setEditingGrossWeight] = useState<{ index: number; value: string } | null>(null);
   const [editingNetWeight, setEditingNetWeight] = useState<{ index: number; value: string } | null>(null);
@@ -180,7 +194,7 @@ export function useInvoiceItems({ selectedContractSpec, invoiceProductOptions, t
       const newItems = [...prev];
       newItems[index] = { ...newItems[index], name: value };
 
-      const defaults = resolveProductDefaults(value, invoiceProductOptions, selectedContractSpec);
+      const defaults = resolveProductDefaults(value, invoiceProductOptions, selectedContractSpec, globalTnvedProducts);
       if (defaults.tnvedCode) newItems[index].tnvedCode = defaults.tnvedCode;
       if (defaults.unitPrice != null) {
         newItems[index].unitPrice = defaults.unitPrice;
@@ -189,7 +203,7 @@ export function useInvoiceItems({ selectedContractSpec, invoiceProductOptions, t
 
       return newItems;
     });
-  }, [selectedContractSpec, invoiceProductOptions]);
+  }, [selectedContractSpec, invoiceProductOptions, globalTnvedProducts]);
 
   const handleNameEnChange = useCallback((index: number, value: string) => {
     handleItemChange(index, 'nameEn', value);

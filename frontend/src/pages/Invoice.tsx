@@ -247,7 +247,7 @@ const Invoice = () => {
   } = useInvoiceModalsState();
 
   // Extracted hooks
-  const { packagingTypes, invoiceProductOptions } = useProductOptions(selectedContractSpec, selectedContractFrequentProducts);
+  const { packagingTypes, invoiceProductOptions, tnvedProducts } = useProductOptions(selectedContractSpec, selectedContractFrequentProducts);
   const { invoiceNumberWarning, setInvoiceNumberWarning } = useInvoiceNumberCheck(form.invoiceNumber, selectedContractId, invoice?.id);
   const tareRules = Array.isArray(form.additionalInfo?.tareRules) ? form.additionalInfo.tareRules as Array<{packageType: string, tareWeight: number}> : [];
   const {
@@ -271,7 +271,7 @@ const Invoice = () => {
     addItem,
     removeItem,
     applyMassNetWeightFormula,
-  } = useInvoiceItems({ selectedContractSpec, invoiceProductOptions, tareRules });
+  } = useInvoiceItems({ selectedContractSpec, invoiceProductOptions, globalTnvedProducts: tnvedProducts, tareRules });
   const serviceAgreement = useInvoiceServiceAgreement(task?.client?.id);
   useInvoiceExtension(form, items, contracts, selectedContractId, invoice?.id, task?.client?.inn, serviceAgreement);
 
@@ -353,6 +353,7 @@ const Invoice = () => {
     contractDeliveryTerms,
     packagingTypes,
     invoiceProductOptions,
+    globalTnvedProducts: tnvedProducts,
     selectedContractSpec,
     ensureColumn: handleEnsureCargoColumn,
   });

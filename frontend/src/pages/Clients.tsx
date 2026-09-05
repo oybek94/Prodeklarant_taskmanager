@@ -30,6 +30,8 @@ interface Client {
   name: string;
   dealAmount?: number | string | null;
   dealAmountCurrency?: 'USD' | 'UZS';
+  contractPaymentType?: 'CASH_ALL_INCLUSIVE' | 'TRANSFER_ONLY' | 'CASH_ONLY' | 'MIXED';
+  serviceFeeTransferUzs?: number | string | null;
   phone?: string;
   createdAt: string;
   tasks?: { id: number }[];
@@ -137,6 +139,8 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
     name: '',
     dealAmount: '',
     dealAmountCurrency: 'UZS' as 'USD' | 'UZS',
+    contractPaymentType: 'CASH_ALL_INCLUSIVE' as 'CASH_ALL_INCLUSIVE' | 'TRANSFER_ONLY' | 'CASH_ONLY' | 'MIXED',
+    serviceFeeTransferUzs: '',
     phone: '',
     creditType: '' as 'TASK_COUNT' | 'AMOUNT' | '',
     creditLimit: '',
@@ -165,6 +169,8 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
     dealAmount: '',
     dealAmountCurrency: 'USD' as 'USD' | 'UZS',
     dealAmountExchangeRate: '',
+    contractPaymentType: 'CASH_ALL_INCLUSIVE' as 'CASH_ALL_INCLUSIVE' | 'TRANSFER_ONLY' | 'CASH_ONLY' | 'MIXED',
+    serviceFeeTransferUzs: '',
     phone: '',
     defaultAfterHoursPayer: 'CLIENT' as 'CLIENT' | 'COMPANY',
     creditType: '' as 'TASK_COUNT' | 'AMOUNT' | '',
@@ -1020,6 +1026,10 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
         dealAmount: form.dealAmount ? parseFloat(form.dealAmount) : undefined,
         dealAmountCurrency: form.dealAmountCurrency,
         dealAmountExchangeRate: form.dealAmount && form.dealAmountExchangeRate ? parseFloat(form.dealAmountExchangeRate) : undefined,
+        contractPaymentType: form.contractPaymentType,
+        serviceFeeTransferUzs: form.contractPaymentType === 'MIXED' && form.serviceFeeTransferUzs
+          ? parseFloat(form.serviceFeeTransferUzs)
+          : undefined,
         phone: form.phone || undefined,
         // Shartnoma maydonlari
         contractNumber: form.contractNumber || undefined,
@@ -1078,6 +1088,8 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
         name: '',
         dealAmount: '',
         dealAmountCurrency: 'UZS',
+        contractPaymentType: 'CASH_ALL_INCLUSIVE',
+        serviceFeeTransferUzs: '',
         dealAmountExchangeRate: '',
         phone: '',
         creditType: '',
@@ -1115,6 +1127,8 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
       dealAmount: client.dealAmount ? client.dealAmount.toString() : '',
       dealAmountCurrency: (client.dealAmountCurrency || 'USD') as 'USD' | 'UZS',
       dealAmountExchangeRate: (client as any).dealAmountExchangeRate ? (client as any).dealAmountExchangeRate.toString() : '',
+      contractPaymentType: ((client as any).contractPaymentType || 'CASH_ALL_INCLUSIVE') as 'CASH_ALL_INCLUSIVE' | 'TRANSFER_ONLY' | 'CASH_ONLY' | 'MIXED',
+      serviceFeeTransferUzs: (client as any).serviceFeeTransferUzs != null ? (client as any).serviceFeeTransferUzs.toString() : '',
       phone: client.phone || '',
       defaultAfterHoursPayer: (client.defaultAfterHoursPayer === 'COMPANY' ? 'COMPANY' : 'CLIENT') as 'CLIENT' | 'COMPANY',
       creditType: client.creditType || '',
@@ -1187,6 +1201,10 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
         dealAmount: editForm.dealAmount ? parseFloat(editForm.dealAmount) : undefined,
         dealAmountCurrency: editForm.dealAmountCurrency,
         dealAmountExchangeRate: editForm.dealAmount && editForm.dealAmountExchangeRate ? parseFloat(editForm.dealAmountExchangeRate) : undefined,
+        contractPaymentType: editForm.contractPaymentType,
+        serviceFeeTransferUzs: editForm.contractPaymentType === 'MIXED' && editForm.serviceFeeTransferUzs
+          ? parseFloat(editForm.serviceFeeTransferUzs)
+          : (editForm.contractPaymentType !== 'MIXED' ? null : undefined),
         phone: editForm.phone || undefined,
         defaultAfterHoursPayer: editForm.defaultAfterHoursPayer,
         // Shartnoma maydonlari
@@ -1239,6 +1257,8 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
         name: '',
         dealAmount: '',
         dealAmountCurrency: 'USD',
+        contractPaymentType: 'CASH_ALL_INCLUSIVE',
+        serviceFeeTransferUzs: '',
         dealAmountExchangeRate: '',
         phone: '',
         defaultAfterHoursPayer: 'CLIENT',
@@ -1541,6 +1561,31 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                     hideExchangeRate={true}
                     errors={monetaryErrors}
                   />
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Shartnoma turi</label>
+                    <select
+                      value={form.contractPaymentType}
+                      onChange={(e) => setForm({ ...form, contractPaymentType: e.target.value as typeof form.contractPaymentType })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    >
+                      <option value="CASH_ALL_INCLUSIVE">Naqt (hammasi ichida, eski)</option>
+                      <option value="TRANSFER_ONLY">Xizmat haqi — 100% perechisleniya</option>
+                      <option value="CASH_ONLY">Xizmat haqi — 100% naqt</option>
+                      <option value="MIXED">Xizmat haqi — aralash (naqt + perechisleniya)</option>
+                    </select>
+                  </div>
+                  {form.contractPaymentType === 'MIXED' && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Perechisleniya summasi (so'm)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={form.serviceFeeTransferUzs}
+                        onChange={(e) => setForm({ ...form, serviceFeeTransferUzs: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                      />
+                    </div>
+                  )}
                   <div className="border border-blue-100 rounded-lg p-3 bg-blue-50/50">
                     <h3 className="text-sm font-medium text-gray-700 mb-2">O'tgan yilgi / eski qarzdorlik (ixtiyoriy)</h3>
                     <MonetaryInput
@@ -3627,6 +3672,31 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                     }}
                   />
                 </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Shartnoma turi</label>
+                  <select
+                    value={editForm.contractPaymentType}
+                    onChange={(e) => setEditForm({ ...editForm, contractPaymentType: e.target.value as typeof editForm.contractPaymentType })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  >
+                    <option value="CASH_ALL_INCLUSIVE">Naqt (hammasi ichida, eski)</option>
+                    <option value="TRANSFER_ONLY">Xizmat haqi — 100% perechisleniya</option>
+                    <option value="CASH_ONLY">Xizmat haqi — 100% naqt</option>
+                    <option value="MIXED">Xizmat haqi — aralash (naqt + perechisleniya)</option>
+                  </select>
+                </div>
+                {editForm.contractPaymentType === 'MIXED' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Perechisleniya summasi (so'm)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      value={editForm.serviceFeeTransferUzs}
+                      onChange={(e) => setEditForm({ ...editForm, serviceFeeTransferUzs: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    />
+                  </div>
+                )}
                 <div className="border border-blue-100 rounded-lg p-3 bg-blue-50/50">
                   <h3 className="text-sm font-medium text-gray-700 mb-2">O'tgan yilgi / eski qarzdorlik (ixtiyoriy)</h3>
                   <MonetaryInput

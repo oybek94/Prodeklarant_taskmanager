@@ -17,3 +17,9 @@ db-tunnel.ps1
 
 # Lokal AI/MCP sozlamalari (ichida DB parollari bo'lishi mumkin)
 .codex/
+
+# Claude Code worktree'lari — bular ichki .git bo'lgani uchun
+# gitignore qilinmasa gitlink (submodule) sifatida tasodifan trackga tushadi
+.claude/worktrees/
+.worktrees/
+worktrees/

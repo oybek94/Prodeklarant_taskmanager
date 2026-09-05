@@ -96,6 +96,8 @@ model Client {
   dealAmount_exchange_rate   Decimal?           @db.Decimal(10, 4)
   dealAmount_amount_uzs      Decimal?           @db.Decimal(16, 2)
   dealAmount_exchange_source ExchangeSource?
+  contractPaymentType        ContractPaymentType @default(CASH_ALL_INCLUSIVE)
+  serviceFeeTransferUzs      Decimal?           @db.Decimal(18, 2)
   defaultAfterHoursPayer     AfterHoursPayer?   @default(CLIENT)
   initialDebt                Decimal?           @db.Decimal(18, 2)
   initialDebtCurrency        Currency?          @default(UZS)
@@ -233,6 +235,8 @@ model Task {
   snapshotCustomsPayment_exchange_rate       Decimal?             @db.Decimal(10, 4)
   snapshotCustomsPayment_amount_uzs          Decimal?             @db.Decimal(16, 2)
   snapshotCustomsPayment_exchange_source     ExchangeSource?
+  snapshotContractPaymentType                ContractPaymentType?
+  snapshotServiceFeeTransferUzs              Decimal?             @db.Decimal(18, 2)
   qrToken                                    String?              @unique
   afterHoursDeclaration                      Boolean              @default(false)
   afterHoursPayer                            AfterHoursPayer      @default(CLIENT)
@@ -1564,6 +1568,13 @@ enum PaymentModel {
   MONTHLY
   PER_COUNT
   PER_AMOUNT
+}
+
+enum ContractPaymentType {
+  CASH_ALL_INCLUSIVE // Legacy: dealAmount = hammasi (davlat to'lovlari ham) naqt
+  TRANSFER_ONLY      // Xizmat haqi 100% perechisleniya
+  CASH_ONLY          // Xizmat haqi 100% naqt, davlat to'lovini mijoz o'zi to'laydi
+  MIXED              // Xizmat haqi qisman perechisleniya (qat'iy UZS summa), qolgani naqt
 }
 
 /// Narx qanday belgilanadi: BHM ga nisbatan koeffitsient (BHM o'zgarganda

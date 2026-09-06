@@ -442,7 +442,7 @@ export function createLoadData({
                   }
                   return [...prev, contract];
                 });
-                const contractCurrency = (contract.contractCurrency && ['USD', 'RUB', 'EUR'].includes(contract.contractCurrency)) ? contract.contractCurrency : 'USD';
+                const contractCurrency = (contract.contractCurrency && ['USD', 'UZS', 'RUB', 'EUR'].includes(contract.contractCurrency)) ? contract.contractCurrency : 'USD';
                 setSelectedContractCurrency(contractCurrency);
                 let spec: SpecRow[] = [];
                 if (contract.specification) {

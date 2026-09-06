@@ -2599,6 +2599,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg min-w-[120px]"
                         >
                           <option value="USD">USD</option>
+                          <option value="UZS">UZS</option>
                           <option value="RUB">RUB</option>
                           <option value="EUR">EUR</option>
                         </select>

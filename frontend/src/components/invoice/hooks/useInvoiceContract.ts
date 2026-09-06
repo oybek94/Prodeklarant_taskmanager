@@ -86,7 +86,7 @@ export function useInvoiceContract({
       const firstDt = deliveryTermsList[0] || dtArr[0] || '';
       const pairedCustoms = firstDt ? (() => { const i = dtArr.indexOf(firstDt); return i >= 0 && caArr[i]?.trim() ? caArr[i].trim() : ''; })() : '';
       setContractDeliveryTerms(deliveryTermsList.length ? deliveryTermsList : (firstDt ? [firstDt] : []));
-      const contractCurrency = (contract.contractCurrency && ['USD', 'RUB', 'EUR'].includes(contract.contractCurrency)) ? contract.contractCurrency : 'USD';
+      const contractCurrency = (contract.contractCurrency && ['USD', 'UZS', 'RUB', 'EUR'].includes(contract.contractCurrency)) ? contract.contractCurrency : 'USD';
       setSelectedContractCurrency(contractCurrency);
       setForm((prev: any) => ({
         ...prev,

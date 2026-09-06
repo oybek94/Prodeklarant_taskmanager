@@ -49,6 +49,7 @@ export interface PdfTranslatableTextsInput {
   orderedVisibleColumns: string[];
   columnLabels: Record<string, string>;
   totalColumnLabel: string;
+  invoiceCurrency?: string;
 }
 
 /**
@@ -73,6 +74,7 @@ export const buildPdfTranslatableTexts = ({
   orderedVisibleColumns,
   columnLabels,
   totalColumnLabel,
+  invoiceCurrency,
 }: PdfTranslatableTextsInput): Record<string, string> => {
   const texts: Record<string, string> = {};
   const c = selectedContract;
@@ -155,7 +157,7 @@ export const buildPdfTranslatableTexts = ({
   }
 
   // --- Jadval ---
-  const effectiveColumnLabels = buildEffectiveColumnLabels(items, columnLabels, totalColumnLabel);
+  const effectiveColumnLabels = buildEffectiveColumnLabels(items, columnLabels, totalColumnLabel, invoiceCurrency);
   orderedVisibleColumns.forEach((key) => {
     put(texts, columnLabelKey(key), effectiveColumnLabels[key]);
   });

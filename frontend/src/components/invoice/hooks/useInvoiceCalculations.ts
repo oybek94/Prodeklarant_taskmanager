@@ -56,6 +56,8 @@ export const useInvoiceCalculations = ({
         ? 'Общая сумма Рубли РФ'
         : invoiceCurrency === 'EUR'
         ? 'Общая сумма в Евро'
+        : invoiceCurrency === 'UZS'
+        ? 'Стоимость поставки в узбекских сумах'
         : columnLabels.total;
 
     return {

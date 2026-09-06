@@ -357,7 +357,7 @@ export const PdfItemsTable: React.FC<PdfItemsTableProps> = ({
     [sourceItems, t],
   );
 
-  const ruColumnLabels = buildEffectiveColumnLabels(sourceItems, columnLabels, totalColumnLabel);
+  const ruColumnLabels = buildEffectiveColumnLabels(sourceItems, columnLabels, totalColumnLabel, invoiceCurrency);
   const effectiveColumnLabels: Record<string, string> = {};
   orderedVisibleColumns.forEach((key) => {
     effectiveColumnLabels[key] = t(columnLabelKey(key), ruColumnLabels[key] || key);

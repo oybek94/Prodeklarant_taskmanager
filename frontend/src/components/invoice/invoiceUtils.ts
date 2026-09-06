@@ -291,7 +291,7 @@ export const numberToWordsRu = (num: number, currency: string): string => {
         ? 'ноль рублей РФ'
         : cur === 'EUR'
           ? 'ноль евро'
-          : 'ноль сумов';
+          : 'ноль узбекских сум';
   if (!Number.isFinite(num) || num < 0) return zeroPhrase;
   if (num === 0) return zeroPhrase;
 
@@ -348,9 +348,7 @@ export const numberToWordsRu = (num: number, currency: string): string => {
     else if (whole >= 2 && whole <= 4) result += ' евро';
     else result += ' евро';
   } else {
-    if (whole === 1) result += ' сум';
-    else if (whole < 5) result += ' сума';
-    else result += ' сумов';
+    result += ' узбекских сум';
   }
 
   const fracWord =

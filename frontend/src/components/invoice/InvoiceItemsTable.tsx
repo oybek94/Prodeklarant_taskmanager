@@ -283,7 +283,9 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = React.memo(({
   const renderTableHeader = (py: string) => {
     const uniqueUnits = Array.from(new Set(items.map(i => i.unit).filter(Boolean)));
     let unitPriceLabel = columnLabels.unitPrice || 'Цена за ед.изм.';
-    if (uniqueUnits.length === 1) {
+    if (invoiceCurrency === 'UZS') {
+      unitPriceLabel = 'Цена за ед. изм. в узбекских сумах';
+    } else if (uniqueUnits.length === 1) {
       const u = uniqueUnits[0];
       if (u === 'кор.' || u === 'кор') unitPriceLabel = 'Цена за коробку';
       else if (u === 'упак.' || u === 'упак') unitPriceLabel = 'Цена за упаковку';

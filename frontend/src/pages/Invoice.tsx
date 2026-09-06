@@ -531,6 +531,7 @@ const Invoice = () => {
       orderedVisibleColumns,
       columnLabels,
       totalColumnLabel,
+      invoiceCurrency,
     });
 
     const response = await apiClient.post(`/invoices/${invoice.id}/translations-en`, { texts });
@@ -539,7 +540,7 @@ const Invoice = () => {
   }, [
     invoice?.id, viewTab, form, selectedContract, task, isAdditionalInfoVisible,
     customFields, specCustomFields, packingCustomFields, items,
-    orderedVisibleColumns, columnLabels, totalColumnLabel,
+    orderedVisibleColumns, columnLabels, totalColumnLabel, invoiceCurrency,
   ]);
 
   const generatePdf = useCallback(async (withSeal: boolean, lang: PdfLang = 'ru') => {

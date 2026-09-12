@@ -63,6 +63,7 @@ export function AdditionalInfoModal({
 }: AdditionalInfoModalProps) {
   const [draggedFieldIdx, setDraggedFieldIdx] = useState<number | null>(null);
   const [dragOverFieldIdx, setDragOverFieldIdx] = useState<number | null>(null);
+  const [vehicleNumberCyrillicWarning, setVehicleNumberCyrillicWarning] = useState(false);
 
   const fieldOrder = useMemo(() => {
     const order = [...additionalFieldsOrder];
@@ -473,15 +474,25 @@ export function AdditionalInfoModal({
                   type="text"
                   value={form.vehicleNumber}
                   onChange={(e) => {
-                    const value = e.target.value;
+                    const raw = e.target.value;
+                    const value = raw.replace(/[Ѐ-ӿ]/g, '');
+                    setVehicleNumberCyrillicWarning(raw !== value);
                     setForm({ ...form, vehicleNumber: value });
                     if (additionalInfoError && form.deliveryTerms.trim() && value.trim()) {
                       setAdditionalInfoError(null);
                     }
                   }}
+                  onBlur={() => setVehicleNumberCyrillicWarning(false)}
                   required
+                  pattern="[^Ѐ-ӿ]*"
+                  title="Faqat lotin harflarida yozing (kirill qabul qilinmaydi)"
                   className={inputCompactCls}
                 />
+                {vehicleNumberCyrillicWarning && (
+                  <p className="mt-1 text-xs text-red-500">
+                    Faqat lotin alifbosida yozing — kirill harflari qabul qilinmaydi
+                  </p>
+                )}
               </FieldBlock>
               <FieldBlock compact label="Примечание:" hint="vehicleWeight">
                 <input

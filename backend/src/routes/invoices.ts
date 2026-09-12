@@ -242,7 +242,7 @@ const invoiceSchema = z.object({
     usdToRubRate: z.number().min(0).max(1e6).optional(),
     // Transport va logistika
     deliveryTerms: z.string().max(500).optional(),
-    vehicleNumber: z.string().max(200).optional(),
+    vehicleNumber: z.string().max(200).regex(/^[^Ѐ-ӿ]*$/, 'Номер автотранспорта faqat lotin harflarida bo\'lishi kerak').optional(),
     trailerNumber: z.string().max(200).optional(),
     smrNumber: z.string().max(100).optional(),
     tirNumber: z.string().max(100).optional(),

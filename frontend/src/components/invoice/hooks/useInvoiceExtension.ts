@@ -19,7 +19,7 @@ export function useInvoiceExtension(
   selectedContractId: string,
   invoiceId?: number,
   clientInn?: string,
-  serviceAgreement?: InvoiceServiceAgreement | null,
+  serviceAgreements?: InvoiceServiceAgreement[] | null,
 ) {
   useEffect(() => {
     const handleExtensionRequest = (event: MessageEvent) => {
@@ -62,6 +62,20 @@ export function useInvoiceExtension(
         ? (selectedContract?.buyerAddress || '')
         : `${selectedContract?.consigneeAddress || ''} п/п. ${selectedContract?.buyerName || ''} ${selectedContract?.buyerAddress || ''}`.replace(/\s+/g, ' ').trim();
 
+      // Bir mijozning (masalan, vositachi/broker) bir nechta korxona uchun
+      // shartnomasi bo'lishi mumkin — shu invoysning eksportyor INN iga mos
+      // kelmasa, boshqa korxonaning shartnoma raqamini yozib qo'yishdan ko'ra
+      // bo'sh qoldirish afzal (mos kelmasa cargoFillG54 ogohlantiradi).
+      const normalizeInn = (value: string | null | undefined) => (value || '').replace(/\s+/g, '');
+      const exppnInnNormalized = normalizeInn(exppnInn);
+      const agreementsList = serviceAgreements || [];
+      const innMatches = exppnInnNormalized
+        ? agreementsList.filter((a) => normalizeInn(a.customerInn) === exppnInnNormalized)
+        : [];
+      const matchedServiceAgreement = innMatches.length > 0
+        ? [...innMatches].sort((a, b) => (a.date < b.date ? 1 : -1))[0]
+        : (agreementsList.length === 1 ? agreementsList[0] : null);
+
       const exportData = {
         // cargo.customs.uz 54-grafasidagi "БЮДга берилган рақам" shu ID dan
         // 6 xonali qilib olinadi — takrorlanmasligi shart
@@ -82,9 +96,12 @@ export function useInvoiceExtension(
         DESTINATION_COUNTRY: selectedContract?.destinationCountry || '',
         EXP_CTDC_NO: (selectedContract?.contractNumber || form.contractNumber || form.invoiceNumber) || '',
         // BYUD 54-grafasi ("Битим рақами") tashqi savdo shartnomasini emas,
-        // mijoz bilan tuzilgan xizmat shartnomasini so'raydi
-        SERVICE_AGREEMENT_NO: serviceAgreement?.number || '',
-        SERVICE_AGREEMENT_DT: serviceAgreement?.date || '',
+        // mijoz bilan tuzilgan xizmat shartnomasini so'raydi. Bitta mijozda
+        // (masalan, vositachi/broker) bir nechta korxona uchun alohida
+        // shartnoma bo'lishi mumkin — shu sababli "eng oxirgisi" emas, AYNAN
+        // shu invoysning eksportyor INN iga mos keladigani tanlanadi.
+        SERVICE_AGREEMENT_NO: matchedServiceAgreement?.number || '',
+        SERVICE_AGREEMENT_DT: matchedServiceAgreement?.date || '',
         EXP_CVNT_DT: (selectedContract?.contractDate ? String(selectedContract.contractDate).split('T')[0] : (form.date ? String(form.date).split('T')[0] : '')) || '',
         vehicleNumber: form.vehicleNumber || '',
         items: items.map(item => ({
@@ -105,5 +122,5 @@ export function useInvoiceExtension(
       window.removeEventListener('message', handleExtensionRequest);
       sessionStorage.removeItem('current_export_invoice');
     };
-  }, [form, items, contracts, selectedContractId, invoiceId, clientInn, serviceAgreement]);
+  }, [form, items, contracts, selectedContractId, invoiceId, clientInn, serviceAgreements]);
 }

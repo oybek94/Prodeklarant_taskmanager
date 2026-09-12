@@ -272,8 +272,8 @@ const Invoice = () => {
     removeItem,
     applyMassNetWeightFormula,
   } = useInvoiceItems({ selectedContractSpec, invoiceProductOptions, globalTnvedProducts: tnvedProducts, tareRules });
-  const serviceAgreement = useInvoiceServiceAgreement(task?.client?.id);
-  useInvoiceExtension(form, items, contracts, selectedContractId, invoice?.id, task?.client?.inn, serviceAgreement);
+  const serviceAgreements = useInvoiceServiceAgreement(task?.client?.id);
+  useInvoiceExtension(form, items, contracts, selectedContractId, invoice?.id, task?.client?.inn, serviceAgreements);
 
 
   // task stages effect removed, handled by useInvoiceStages

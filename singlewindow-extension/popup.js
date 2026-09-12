@@ -14,7 +14,15 @@ async function getProdeklarantData(statusDiv) {
         const validTabs = appTabs.filter(t => t.url && t.url.includes('/invoices/task/'));
 
         if (validTabs && validTabs.length > 0) {
-            const targetTabId = validTabs[0].id;
+            // Bir nechta invoys tabi ochiq bo'lishi mumkin (masalan, boshqa
+            // korxonaning eski tabi fon rejimida qolgan). tabs.query tartibi
+            // qachon ochilganiga bog'liq, foydalanuvchi nimani ko'zda tutgani
+            // bilan bog'liq emas — shu sababli ENG OXIRGI faollashtirilgan tab
+            // olinadi, aks holda boshqa korxonaning ma'lumotlari yuklanadi.
+            const targetTab = validTabs.length === 1
+                ? validTabs[0]
+                : [...validTabs].sort((a, b) => (b.lastAccessed || 0) - (a.lastAccessed || 0))[0];
+            const targetTabId = targetTab.id;
             
             const injectionResults = await chrome.scripting.executeScript({
                 target: { tabId: targetTabId },

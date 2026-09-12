@@ -7,39 +7,43 @@ export interface InvoiceServiceAgreement {
   number: string;
   /** YYYY-MM-DD */
   date: string;
+  /** Solishtirish uchun — bir mijozda bir nechta shartnoma bo'lganda ajratadi */
+  customerInn: string | null;
 }
 
 /**
  * BYUD 54-grafasidagi "Битим рақами" — mijoz bilan tuzilgan XIZMAT shartnomasi
- * (Shartnomalar sahifasi), tashqi savdo shartnomasi emas. Bir mijozda bir
- * nechtasi bo'lsa, amaldagilarining eng oxirgisi olinadi — server
- * `agreementDate desc` bo'yicha saralab beradi.
+ * (Shartnomalar sahifasi), tashqi savdo shartnomasi emas.
  *
- * Topilmasa `null` qaytadi va kengaytma 54-grafaga hech narsa yozmaydi:
- * begona raqam yozib qo'yishdan ko'ra bo'sh qoldirib ogohlantirgan afzal.
+ * Bitta Client (masalan, vositachi/broker) nomiga bir nechta korxona uchun
+ * alohida shartnoma tuzilgan bo'lishi mumkin — shu sababli BARCHA aktiv
+ * shartnomalar qaytariladi, aniq qaysi biri kerakligini chaqiruvchi (invoysdagi
+ * eksportyor INN iga qarab) hal qiladi. Bitta "eng oxirgisini" olish xato
+ * korxonaning shartnoma raqamini yozib qo'yishi mumkin edi.
  */
-export function useInvoiceServiceAgreement(clientId?: number): InvoiceServiceAgreement | null {
-  const [agreement, setAgreement] = useState<InvoiceServiceAgreement | null>(null);
+export function useInvoiceServiceAgreement(clientId?: number): InvoiceServiceAgreement[] | null {
+  const [agreements, setAgreements] = useState<InvoiceServiceAgreement[] | null>(null);
 
   useEffect(() => {
     if (!clientId) {
-      setAgreement(null);
+      setAgreements(null);
       return;
     }
 
     let cancelled = false;
-    listAgreements({ clientId, status: 'ACTIVE', limit: 1 })
+    listAgreements({ clientId, status: 'ACTIVE', limit: 50 })
       .then((response) => {
         if (cancelled) return;
-        const found = response.items[0];
-        setAgreement(
-          found
-            ? { number: found.agreementNumber, date: String(found.agreementDate).split('T')[0] }
-            : null,
+        setAgreements(
+          response.items.map((item) => ({
+            number: item.agreementNumber,
+            date: String(item.agreementDate).split('T')[0],
+            customerInn: item.customerInn,
+          })),
         );
       })
       .catch(() => {
-        if (!cancelled) setAgreement(null);
+        if (!cancelled) setAgreements(null);
       });
 
     return () => {
@@ -47,5 +51,5 @@ export function useInvoiceServiceAgreement(clientId?: number): InvoiceServiceAgr
     };
   }, [clientId]);
 
-  return agreement;
+  return agreements;
 }

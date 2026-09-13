@@ -1424,6 +1424,12 @@ router.patch('/:taskId/stages/:stageId', requireAuth(), async (req: AuthRequest,
 
       if (task?.client) {
         const newMultiplier = Number(parsed.data.customsPaymentMultiplier);
+        const clientContractPaymentType = (task.client as any).contractPaymentType || 'CASH_ALL_INCLUSIVE';
+        // Faqat CASH_ALL_INCLUSIVE (legacy) turida dealAmount ichiga davlat to'lovlari
+        // (bojxona/BXM koeffitsienti, ish vaqtidan tashqari to'lov) kiritilgan bo'ladi.
+        // Boshqa turlarda (Xizmat haqi: TRANSFER_ONLY, CASH_ONLY, MIXED) mijoz davlat
+        // to'lovini o'zi to'g'ridan-to'g'ri to'laydi — bu snapshotDealAmount'ga qo'shilmasligi kerak.
+        const includeGovernmentFeesInDeal = shouldDeductGovernmentFees(clientContractPaymentType);
 
         // Calculate new additional payment (if new multiplier > 1)
         // Additional payment = (multiplier - 1) × BXM (only the excess over 1 BXM)
@@ -1439,7 +1445,7 @@ router.patch('/:taskId/stages/:stageId', requireAuth(), async (req: AuthRequest,
         const dealExtraFromAfterHours = afterHoursDeclaration && afterHoursPayer === 'CLIENT'
           ? afterHoursExtraOriginal
           : 0;
-        
+
         // Get base deal amount (from client or current snapshot)
         const baseDealAmount = task.client.dealAmount ? Number(task.client.dealAmount) : 0;
         const baseDealAmountUzs = clientCurrency === 'USD'
@@ -1449,9 +1455,15 @@ router.patch('/:taskId/stages/:stageId', requireAuth(), async (req: AuthRequest,
 
         // Calculate new snapshotDealAmount by removing previous additional payment and adding new one
         // Or simply: baseDealAmount + newAdditionalPayment (+ after-hours if payer is client)
-        const newSnapshotDealAmount = baseDealAmount + newAdditionalPayment + dealExtraFromAfterHours;
-        const newSnapshotDealAmountUzs = baseDealAmountUzs + (newMultiplier - 1) * bxmAmountUzs + (afterHoursDeclaration && afterHoursPayer === 'CLIENT' ? 103000 : 0);
-        
+        // Xizmat haqi turlarida (TRANSFER_ONLY/CASH_ONLY/MIXED) davlat to'lovlari alohida
+        // to'lanadi, shuning uchun kelishilgan summaga (baseDealAmount) qo'shilmaydi.
+        const newSnapshotDealAmount = includeGovernmentFeesInDeal
+          ? baseDealAmount + newAdditionalPayment + dealExtraFromAfterHours
+          : baseDealAmount;
+        const newSnapshotDealAmountUzs = includeGovernmentFeesInDeal
+          ? baseDealAmountUzs + (newMultiplier - 1) * bxmAmountUzs + (afterHoursDeclaration && afterHoursPayer === 'CLIENT' ? 103000 : 0)
+          : baseDealAmountUzs;
+
         // Update task's snapshotDealAmount
         await (tx as any).task.update({
           where: { id: taskId },

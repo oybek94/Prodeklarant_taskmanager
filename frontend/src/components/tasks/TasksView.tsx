@@ -105,8 +105,9 @@ export const TasksView: React.FC<TasksViewProps> = ({
         ) : (
           // ADMIN/MANAGER uchun barcha filiallar - dinamik
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-[30px]">
-            {Array.isArray(branches) && 
-              [...branches]
+            {Array.isArray(branches) &&
+              branches
+                .filter((branch) => branch.isActive !== false)
                 .sort((a, b) => {
                   if (!isMobile) return 0; // Desktopda tartibni buzmaymiz
                   const tasksA = tasksByBranch.get(a.name)?.length || 0;

@@ -14,7 +14,7 @@ interface EditForm {
 }
 
 interface Client { id: number; name: string }
-interface Branch { id: number; name: string }
+interface Branch { id: number; name: string; isActive?: boolean }
 
 interface EditTaskModalProps {
   show: boolean;
@@ -101,7 +101,9 @@ const EditTaskModal: React.FC<EditTaskModalProps> = ({
                 Filial <span className="text-red-500">*</span>
               </label>
               <div className="flex flex-wrap gap-2">
-                {Array.isArray(branches) && branches.length > 0 ? branches.map((branch) => (
+                {Array.isArray(branches) && branches.length > 0 ? branches
+                  .filter((branch) => branch.isActive !== false || branch.id.toString() === editForm.branchId)
+                  .map((branch) => (
                   <button key={branch.id} type="button"
                     onClick={() => setEditForm({ ...editForm, branchId: branch.id.toString() })}
                     className={`flex-1 min-w-0 px-3 py-2 border-2 rounded-lg font-medium transition-colors text-sm ${editForm.branchId === branch.id.toString() ? btnActive : btnInactive}`}>

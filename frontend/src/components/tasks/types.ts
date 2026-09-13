@@ -118,6 +118,7 @@ export interface Branch {
   name: string;
   phones?: string[];
   address?: string;
+  isActive?: boolean;
 }
 
 export interface TaskStats {

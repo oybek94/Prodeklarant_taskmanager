@@ -28,6 +28,8 @@ const resolveUploadUrl = (url?: string | null) => {
 interface Client {
   id: number;
   name: string;
+  assignedUserId?: number | null;
+  assignedUser?: { id: number; name: string } | null;
   dealAmount?: number | string | null;
   dealAmountCurrency?: 'USD' | 'UZS';
   contractPaymentType?: 'CASH_ALL_INCLUSIVE' | 'TRANSFER_ONLY' | 'CASH_ONLY' | 'MIXED';
@@ -43,9 +45,17 @@ interface Client {
   initialDebtCurrency?: 'USD' | 'UZS';
 }
 
+interface AssignableUser {
+  id: number;
+  name: string;
+  role: string;
+}
+
 interface ClientDetail {
   id: number;
   name: string;
+  assignedUserId?: number | null;
+  assignedUser?: { id: number; name: string } | null;
   dealAmount?: number | string | null;
   balanceCurrency?: 'USD' | 'UZS';
   phone?: string;
@@ -126,6 +136,8 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
   const [clientsTotalCount, setClientsTotalCount] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterHasDebt, setFilterHasDebt] = useState<'' | 'yes' | 'no'>('');
+  const [filterAssignedUserId, setFilterAssignedUserId] = useState<string>('');
+  const [assignableUsers, setAssignableUsers] = useState<AssignableUser[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showClientModal, setShowClientModal] = useState(false);
@@ -137,6 +149,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
   const [monthlyTasks, setMonthlyTasks] = useState<MonthlyTask[]>([]);
   const [form, setForm] = useState({
     name: '',
+    assignedUserId: '',
     dealAmount: '',
     dealAmountCurrency: 'UZS' as 'USD' | 'UZS',
     contractPaymentType: 'CASH_ALL_INCLUSIVE' as 'CASH_ALL_INCLUSIVE' | 'TRANSFER_ONLY' | 'CASH_ONLY' | 'MIXED',
@@ -166,6 +179,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
   const [savingClient, setSavingClient] = useState(false);
   const [editForm, setEditForm] = useState({
     name: '',
+    assignedUserId: '',
     dealAmount: '',
     dealAmountCurrency: 'USD' as 'USD' | 'UZS',
     dealAmountExchangeRate: '',
@@ -369,10 +383,11 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
     const controller = new AbortController();
     loadClients(controller.signal);
     return () => controller.abort();
-  }, [clientsPage, searchQuery, filterHasDebt]);
+  }, [clientsPage, searchQuery, filterHasDebt, filterAssignedUserId]);
 
   useEffect(() => {
     loadStats();
+    loadAssignableUsers();
   }, []);
 
   // Invoices sahifasidan Mijoz yoki Shartnoma ustiga bosilganda ochilgan oynalarni ochish
@@ -525,6 +540,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
         ['limit', CLIENTS_PAGE_SIZE.toString()],
         ...(searchQuery.trim() ? [['search', searchQuery.trim()]] : []),
         ...(filterHasDebt ? [['hasDebt', filterHasDebt]] : []),
+        ...(filterAssignedUserId ? [['assignedUserId', filterAssignedUserId]] : []),
       ]);
       const response = await apiClient.get(`/clients?${params}`, { signal });
       
@@ -562,6 +578,15 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
       setClients([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadAssignableUsers = async () => {
+    try {
+      const response = await apiClient.get('/users?selectList=true');
+      setAssignableUsers(Array.isArray(response.data) ? response.data : []);
+    } catch (error) {
+      console.error('Error loading assignable users:', error);
     }
   };
 
@@ -1023,6 +1048,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
       setSavingClient(true);
       const createData: any = {
         name: form.name,
+        assignedUserId: form.assignedUserId ? Number(form.assignedUserId) : undefined,
         dealAmount: form.dealAmount ? parseFloat(form.dealAmount) : undefined,
         dealAmountCurrency: form.dealAmountCurrency,
         dealAmountExchangeRate: form.dealAmount && form.dealAmountExchangeRate ? parseFloat(form.dealAmountExchangeRate) : undefined,
@@ -1086,6 +1112,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
       }
       setForm({
         name: '',
+        assignedUserId: '',
         dealAmount: '',
         dealAmountCurrency: 'UZS',
         contractPaymentType: 'CASH_ALL_INCLUSIVE',
@@ -1124,6 +1151,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
     setEditingClient(client);
     setEditForm({
       name: client.name,
+      assignedUserId: client.assignedUserId ? String(client.assignedUserId) : '',
       dealAmount: client.dealAmount ? client.dealAmount.toString() : '',
       dealAmountCurrency: (client.dealAmountCurrency || 'USD') as 'USD' | 'UZS',
       dealAmountExchangeRate: (client as any).dealAmountExchangeRate ? (client as any).dealAmountExchangeRate.toString() : '',
@@ -1198,6 +1226,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
     try {
       const updateData: any = {
         name: editForm.name,
+        assignedUserId: editForm.assignedUserId ? Number(editForm.assignedUserId) : null,
         dealAmount: editForm.dealAmount ? parseFloat(editForm.dealAmount) : undefined,
         dealAmountCurrency: editForm.dealAmountCurrency,
         dealAmountExchangeRate: editForm.dealAmount && editForm.dealAmountExchangeRate ? parseFloat(editForm.dealAmountExchangeRate) : undefined,
@@ -1467,14 +1496,31 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                   <option value="no">Qarzi yo'qlar</option>
                 </select>
               </div>
+
+              {/* Assigned User Filter */}
+              <div className="min-w-[150px]">
+                <label className="block text-xs font-medium text-gray-500 mb-1 ml-1">Mas'ul xodim</label>
+                <select
+                  value={filterAssignedUserId}
+                  onChange={(e) => { setFilterAssignedUserId(e.target.value); setClientsPage(1); }}
+                  className="w-full px-3 py-2 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 focus:bg-white rounded-lg transition-colors text-sm dark:text-gray-200"
+                >
+                  <option value="">Hammasi</option>
+                  <option value="none">Admin (biriktirilmagan)</option>
+                  {assignableUsers.map((u) => (
+                    <option key={u.id} value={u.id}>{u.name}</option>
+                  ))}
+                </select>
+              </div>
             </div>
-            
-            {(searchQuery || filterHasDebt) && (
+
+            {(searchQuery || filterHasDebt || filterAssignedUserId) && (
               <div className="lg:self-end">
                 <button
                   onClick={() => {
                     setSearchQuery('');
                     setFilterHasDebt('');
+                    setFilterAssignedUserId('');
                     setClientsPage(1);
                   }}
                   className="w-full lg:w-auto px-4 py-2 border border-blue-200 dark:border-blue-900/50 text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors flex justify-center items-center gap-2 text-sm font-medium"
@@ -1617,6 +1663,20 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                     />
                   </div>
 
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Mas'ul xodim</label>
+                    <select
+                      value={form.assignedUserId}
+                      onChange={(e) => setForm({ ...form, assignedUserId: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    >
+                      <option value="">Admin (biriktirilmagan)</option>
+                      {assignableUsers.map((u) => (
+                        <option key={u.id} value={u.id}>{u.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
                   {/* Nasiya shartlari */}
                   <div className="border-t border-gray-200 pt-4 mt-4">
                     <h3 className="text-sm font-medium text-gray-700 mb-3">Nasiya shartlari (ixtiyoriy)</h3>
@@ -1729,6 +1789,10 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                           <div className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400">
                             <Icon icon="solar:phone-bold-duotone" className="w-3.5 h-3.5" />
                             <span className="truncate"><EmptyValue value={client.phone} /></span>
+                          </div>
+                          <div className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 mt-1">
+                            <Icon icon="solar:user-id-bold-duotone" className="w-3.5 h-3.5" />
+                            <span className="truncate">{client.assignedUser?.name || 'Admin'}</span>
                           </div>
                       </div>
 
@@ -2024,12 +2088,19 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                 )}
 
                 {/* Client Info - Telefon hamma ko'radi, summa yashiriladi */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div className="bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 p-5 rounded-2xl shadow-sm">
                       <div className="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">Telefon</div>
                       <div className="font-semibold text-gray-900 dark:text-gray-100 text-lg flex items-center gap-2">
                         <Icon icon="solar:phone-bold-duotone" className="w-4 h-4 text-gray-400" />
                         <EmptyValue value={selectedClient.phone} />
+                      </div>
+                    </div>
+                    <div className="bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 p-5 rounded-2xl shadow-sm">
+                      <div className="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">Mas'ul xodim</div>
+                      <div className="font-semibold text-gray-900 dark:text-gray-100 text-lg flex items-center gap-2">
+                        <Icon icon="solar:user-id-bold-duotone" className="w-4 h-4 text-gray-400" />
+                        {selectedClient.assignedUser?.name || 'Admin'}
                       </div>
                     </div>
                     <div className="bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 p-5 rounded-2xl shadow-sm">
@@ -3727,6 +3798,20 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                     onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                   />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Mas'ul xodim</label>
+                  <select
+                    value={editForm.assignedUserId}
+                    onChange={(e) => setEditForm({ ...editForm, assignedUserId: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  >
+                    <option value="">Admin (biriktirilmagan)</option>
+                    {assignableUsers.map((u) => (
+                      <option key={u.id} value={u.id}>{u.name}</option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>

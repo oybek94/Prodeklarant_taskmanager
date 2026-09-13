@@ -5,6 +5,7 @@ export interface ClientFilters {
   search?: string;
   dateFrom?: string;
   dateTo?: string;
+  assignedUserId?: string;
 }
 
 export class ClientRepository {
@@ -14,6 +15,9 @@ export class ClientRepository {
     const baseQuery = {
       where,
       include: {
+        assignedUser: {
+          select: { id: true, name: true },
+        },
         tasks: {
           select: {
             id: true,
@@ -64,6 +68,14 @@ export class ClientRepository {
         where.createdAt.lte = toDate;
       }
     }
+
+    if (filters.assignedUserId === 'none') {
+      where.assignedUserId = null;
+    } else if (filters.assignedUserId) {
+      const id = Number(filters.assignedUserId);
+      if (Number.isFinite(id)) where.assignedUserId = id;
+    }
+
     return where;
   }
 
@@ -71,6 +83,9 @@ export class ClientRepository {
     return prisma.client.findUnique({
       where: { id },
       include: {
+        assignedUser: {
+          select: { id: true, name: true },
+        },
         tasks: {
           include: { branch: true },
           orderBy: { createdAt: 'desc' },

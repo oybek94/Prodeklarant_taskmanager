@@ -6,8 +6,27 @@ import { z } from 'zod';
 
 const router = Router();
 
-// Only admin can access
-router.get('/', requireAuth('ADMIN'), async (req, res) => {
+router.get('/', requireAuth(), async (req: AuthRequest, res) => {
+  // Lightweight list for dropdowns (e.g. mijozni xodimga biriktirish) — har qanday
+  // autentifikatsiyalangan foydalanuvchi ko'ra oladi, moliyaviy/maxfiy maydonlarsiz.
+  if (req.query.selectList === 'true') {
+    try {
+      const users = await prisma.user.findMany({
+        where: { active: true },
+        select: { id: true, name: true, role: true },
+        orderBy: { name: 'asc' },
+      });
+      return res.json(users);
+    } catch (error: any) {
+      console.error('[Users] Error fetching select list:', error);
+      return res.status(500).json({ error: 'Xodimlar ro\'yxatini yuklashda xatolik yuz berdi' });
+    }
+  }
+
+  if (req.user?.role !== 'ADMIN') {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
   try {
     console.log('[Users] Fetching users...');
     const users = await prisma.user.findMany({

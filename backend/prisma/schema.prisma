@@ -74,11 +74,15 @@ model User {
   assignedNotes      DashboardNote[]          @relation("NoteAssignedTo")
   completedNotes     DashboardNote[]          @relation("NoteCompletedBy")
   userMedals         UserMedal[]
+  assignedClients    Client[]                 @relation("ClientAssignedUser")
 }
 
 model Client {
   id                         Int                @id @default(autoincrement())
   name                       String
+  // Mas'ul xodim — shaxsiy mijoz biriktiruvi. Bo'sh bo'lsa UI'da "Admin" deb ko'rsatiladi.
+  assignedUserId             Int?
+  assignedUser               User?              @relation("ClientAssignedUser", fields: [assignedUserId], references: [id], onDelete: SetNull)
   dealAmount                 Decimal?           @db.Decimal(18, 2)
   dealAmountCurrency         Currency?          @default(UZS)
   phone                      String?

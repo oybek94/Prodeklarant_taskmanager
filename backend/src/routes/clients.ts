@@ -18,6 +18,7 @@ const router = Router();
 
 const clientSchema = z.object({
   name: z.string().min(1),
+  assignedUserId: z.union([z.number().int().positive(), z.null()]).optional(),
   dealAmount: z.number().optional(),
   dealAmountCurrency: z.enum(['USD', 'UZS']).optional(),
   dealAmountExchangeRate: z.number().positive().optional(), // Optional - will auto-fetch if not provided
@@ -63,7 +64,7 @@ router.get('/', requireAuth(), async (req: AuthRequest, res) => {
       return res.json(list);
     }
 
-    const { page = '1', limit = '15', search, dateFrom, dateTo, hasDebt } = req.query;
+    const { page = '1', limit = '15', search, dateFrom, dateTo, hasDebt, assignedUserId } = req.query;
     const pageNum = Number(page);
     const take = Number(limit);
     const skip = (pageNum - 1) * take;
@@ -72,6 +73,7 @@ router.get('/', requireAuth(), async (req: AuthRequest, res) => {
       search: search ? String(search) : undefined,
       dateFrom: dateFrom ? String(dateFrom) : undefined,
       dateTo: dateTo ? String(dateTo) : undefined,
+      assignedUserId: assignedUserId ? String(assignedUserId) : undefined,
     };
 
     const isAdmin = req.user?.role === 'ADMIN';
@@ -304,8 +306,16 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
       }
     }
 
+    if (parsed.data.assignedUserId != null) {
+      const assignedUser = await prisma.user.findUnique({ where: { id: parsed.data.assignedUserId } });
+      if (!assignedUser) {
+        return res.status(400).json({ error: "Mas'ul xodim topilmadi" });
+      }
+    }
+
     const createData: any = {
       name: parsed.data.name,
+      assignedUserId: parsed.data.assignedUserId ?? null,
       // Keep old fields for backward compatibility
       dealAmount: dealAmount,
       dealAmountCurrency: dealAmountCurrency,
@@ -470,6 +480,23 @@ router.patch('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
     // Standard fields
     if (req.body.name !== undefined) {
       updateData.name = req.body.name;
+    }
+
+    if ('assignedUserId' in req.body) {
+      const rawAssignedUserId = req.body.assignedUserId;
+      if (rawAssignedUserId === null || rawAssignedUserId === '') {
+        updateData.assignedUserId = null;
+      } else {
+        const assignedUserId = Number(rawAssignedUserId);
+        if (!Number.isFinite(assignedUserId)) {
+          return res.status(400).json({ error: "Mas'ul xodim ID noto'g'ri" });
+        }
+        const assignedUser = await prisma.user.findUnique({ where: { id: assignedUserId } });
+        if (!assignedUser) {
+          return res.status(400).json({ error: "Mas'ul xodim topilmadi" });
+        }
+        updateData.assignedUserId = assignedUserId;
+      }
     }
 
     // Handle deal amount with exchange rate
@@ -726,6 +753,7 @@ router.patch('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
     res.json({
       id: updatedClient.id,
       name: updatedClient.name,
+      assignedUserId: updatedClient.assignedUserId,
       dealAmount: updatedClient.dealAmount,
       contractPaymentType: updatedClient.contractPaymentType,
       serviceFeeTransferUzs: updatedClient.serviceFeeTransferUzs,

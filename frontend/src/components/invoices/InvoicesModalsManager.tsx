@@ -184,7 +184,7 @@ export const InvoicesModalsManager: React.FC<InvoicesModalsManagerProps> = ({
                 </label>
                 <div className="flex flex-wrap gap-2">
                   {branches.length > 0 ? (
-                    branches.map((branch) => (
+                    branches.filter((branch) => branch.isActive !== false).map((branch) => (
                       <button
                         key={branch.id}
                         type="button"

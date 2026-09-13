@@ -139,12 +139,11 @@ export const InvoiceToolbar: React.FC<InvoiceToolbarProps> = React.memo(({
   // Faqat "invoice" tabida ma'noga ega bo'lgan blankalar
   const isInvoiceTab = viewTab === 'invoice';
 
-  // ST-1 / Ichki / Tashqi va Deklaratsiya faqat tuman tanlangan yoki Oltiariq
-  // filiali bo'lganda ma'noga ega
-  const branchName = task?.branch?.name?.toLowerCase() || '';
-  const isOltiariqBranch = branchName.includes('oltiariq');
+  // ST-1 / Ichki / Tashqi va Deklaratsiya faqat tuman tanlangan yoki filialning
+  // o'z tumani (Sozlamalar > Tuzilma'da belgilangan) bo'lganda ma'noga ega
+  const hasBranchDefaultRegion = Boolean(task?.branch?.defaultRegionCode);
   const hasRegionSelected = Boolean(form.fssRegionInternalCode) || Boolean(form.fssRegionName);
-  const hasRegionContext = isOltiariqBranch || hasRegionSelected;
+  const hasRegionContext = hasBranchDefaultRegion || hasRegionSelected;
 
   return (
     <div className="mb-4">

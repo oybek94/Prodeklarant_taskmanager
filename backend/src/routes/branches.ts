@@ -8,6 +8,13 @@ const router = Router();
 
 const createBranchSchema = z.object({
   name: z.string().min(1, 'Filial nomi bo\'sh bo\'lmasligi kerak'),
+  defaultRegionCodeId: z.number().int().positive().nullable().optional(),
+});
+
+const updateBranchSchema = z.object({
+  defaultRegionCodeId: z.number().int().positive().nullable().optional(),
+  isActive: z.boolean().optional(),
+  regionText: z.string().nullable().optional(),
 });
 
 // GET /api/branches - Get all branches
@@ -15,6 +22,11 @@ router.get('/', async (_req, res) => {
   try {
     const branches = await prisma.branch.findMany({
       orderBy: { name: 'asc' },
+      include: {
+        defaultRegionCode: {
+          select: { id: true, name: true, internalCode: true, externalCode: true },
+        },
+      },
     });
     // Branch metadata (telefon, xarita) qo'shish
     const enriched = branches.map((b) => {
@@ -48,6 +60,7 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
     const branch = await prisma.branch.create({
       data: {
         name: parsed.data.name,
+        defaultRegionCodeId: parsed.data.defaultRegionCodeId ?? null,
       },
     });
 
@@ -57,9 +70,46 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
     if (error.code === 'P2002') {
       return res.status(400).json({ error: 'Bu nomli filial allaqachon mavjud' });
     }
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Filial yaratishda xatolik yuz berdi',
       details: error instanceof Error ? error.message : String(error)
+    });
+  }
+});
+
+// PATCH /api/branches/:id - Update a branch's default region, active status and/or region text (ADMIN only)
+router.patch('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
+  try {
+    const id = Number(req.params.id);
+    const parsed = updateBranchSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: parsed.error.flatten().fieldErrors });
+    }
+
+    const data: { defaultRegionCodeId?: number | null; isActive?: boolean; regionText?: string | null } = {};
+    if (parsed.data.defaultRegionCodeId !== undefined) data.defaultRegionCodeId = parsed.data.defaultRegionCodeId;
+    if (parsed.data.isActive !== undefined) data.isActive = parsed.data.isActive;
+    if (parsed.data.regionText !== undefined) data.regionText = parsed.data.regionText?.trim() || null;
+
+    const branch = await prisma.branch.update({
+      where: { id },
+      data,
+      include: {
+        defaultRegionCode: {
+          select: { id: true, name: true, internalCode: true, externalCode: true },
+        },
+      },
+    });
+
+    res.json(branch);
+  } catch (error: any) {
+    console.error('Error updating branch:', error);
+    if (error.code === 'P2025') {
+      return res.status(404).json({ error: 'Filial topilmadi' });
+    }
+    res.status(500).json({
+      error: 'Filialni yangilashda xatolik yuz berdi',
+      details: error instanceof Error ? error.message : String(error),
     });
   }
 });

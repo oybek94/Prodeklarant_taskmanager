@@ -14,7 +14,7 @@ interface CreateForm {
 }
 
 interface Client { id: number; name: string }
-interface Branch { id: number; name: string }
+interface Branch { id: number; name: string; isActive?: boolean }
 
 interface CreateTaskModalProps {
   show: boolean;
@@ -100,7 +100,7 @@ const CreateTaskModal: React.FC<CreateTaskModalProps> = ({
                 Filial <span className="text-red-500">*</span>
               </label>
               <div className="flex flex-wrap gap-2">
-                {Array.isArray(branches) && branches.length > 0 ? branches.map((branch) => (
+                {Array.isArray(branches) && branches.length > 0 ? branches.filter((branch) => branch.isActive !== false).map((branch) => (
                   <button key={branch.id} type="button"
                     onClick={() => setForm({ ...form, branchId: branch.id.toString() })}
                     className={`flex-1 min-w-0 px-3 py-2 border-2 rounded-lg font-medium transition-colors text-sm ${form.branchId === branch.id.toString() ? btnActive : btnInactive}`}>

@@ -10,6 +10,16 @@ datasource db {
 model Branch {
   id                  Int                  @id @default(autoincrement())
   name                String               @unique
+  // To'xtatilgan (false) filial yangi invoys/vazifa yaratishda tanlov ro'yxatida
+  // chiqmaydi, lekin mavjud invoyslar/vazifalar/hisobotlarda ko'rinishda qoladi.
+  isActive            Boolean              @default(true)
+  // Filial bitta tumanga bog'liq bo'lsa (mas. Oltiariq), shu yerda belgilanadi
+  // va invoysda tuman qo'lda tanlanmasdan Sertifikatlar/Deklaratsiya darhol
+  // chiqadi. Bir nechta tuman bilan ishlaydigan filiallar uchun null qoldiriladi.
+  defaultRegionCodeId Int?
+  defaultRegionCode   RegionCode?          @relation(fields: [defaultRegionCodeId], references: [id], onDelete: SetNull)
+  // TIR/SMR/CMR hujjatlaridagi "viloyat" matn maydoni (mas. "Ферганская область")
+  regionText          String?
   invoices            Invoice[]
   tasks               Task[]
   transactions        Transaction[]
@@ -1102,6 +1112,7 @@ model RegionCode {
   externalCode String
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+  branches     Branch[]
 
   @@index([name])
   @@index([internalCode])

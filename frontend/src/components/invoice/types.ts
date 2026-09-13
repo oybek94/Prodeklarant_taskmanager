@@ -140,6 +140,8 @@ export interface Task {
   branch?: {
     id: number;
     name: string;
+    /** Filial bitta tumanga bog'liq bo'lsa — tuman qo'lda tanlanmasdan Sertifikatlar/Deklaratsiya darhol chiqadi */
+    defaultRegionCode?: RegionCode | null;
   };
 }
 

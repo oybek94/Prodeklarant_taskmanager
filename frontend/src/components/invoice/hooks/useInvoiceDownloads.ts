@@ -88,13 +88,6 @@ export function useInvoiceDownloads({
     }
   }, [regionCodesLoading, regionCodes, setRegionCodesLoading, setRegionCodes]);
 
-  const findOltiariqRegion = useCallback((list: RegionCode[]) => {
-    return list.find((region) => {
-      const name = region.name.toLowerCase();
-      return name.includes('олтиарик') || name.includes('oltiariq');
-    });
-  }, []);
-
   // --- FSS Query Builder ---
 
   const buildFssQuery = useCallback((override?: {
@@ -224,28 +217,24 @@ export function useInvoiceDownloads({
       return;
     }
 
-    // Agar tuman tanlanmagan bo'lsa va Oltiariq filiali bo'lsa, Oltiariq tumani avtomatik yuklanadi
-    const branchName = task?.branch?.name?.toLowerCase() || '';
-    const isOltiariqBranch = branchName.includes('oltiariq');
-    if (isOltiariqBranch) {
-      const list = regionCodes.length ? regionCodes : await loadRegionCodes();
-      const match = findOltiariqRegion(list);
-      if (match) {
-        await generateFssExcel({
-          internalCode: match.internalCode,
-          name: match.name,
-          externalCode: match.externalCode,
-          filePrefix: prefix,
-          templateType: prefix === 'Ichki' ? 'ichki' : 'tashqi',
-        });
-        return;
-      }
+    // Agar tuman tanlanmagan bo'lsa, filialning o'z tumani (Sozlamalar > Tuzilma'da
+    // belgilangan) bo'lsa o'sha avtomatik yuklanadi
+    const defaultRegion = task?.branch?.defaultRegionCode;
+    if (defaultRegion) {
+      await generateFssExcel({
+        internalCode: defaultRegion.internalCode,
+        name: defaultRegion.name,
+        externalCode: defaultRegion.externalCode,
+        filePrefix: prefix,
+        templateType: prefix === 'Ichki' ? 'ichki' : 'tashqi',
+      });
+      return;
     }
     setShowFssRegionModal(true);
     if (!regionCodes.length) {
       await loadRegionCodes();
     }
-  }, [form.fssRegionName, form.fssRegionInternalCode, form.fssRegionExternalCode, task?.branch?.name, regionCodes, loadRegionCodes, findOltiariqRegion, setShowFssRegionModal, setFssFilePrefix, setFssAutoDownload, generateFssExcel]);
+  }, [form.fssRegionName, form.fssRegionInternalCode, form.fssRegionExternalCode, task?.branch?.defaultRegionCode, regionCodes, loadRegionCodes, setShowFssRegionModal, setFssFilePrefix, setFssAutoDownload, generateFssExcel]);
 
   const openFssRegionSelector = useCallback(async () => {
     setFssAutoDownload(false);

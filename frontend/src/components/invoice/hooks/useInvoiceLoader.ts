@@ -249,6 +249,9 @@ export function createLoadData({
         const taskResponse = await apiClient.get(`/tasks/${taskId}?light=true`);
         if (isCancelled()) return;
         setTask(taskResponse.data);
+        // Filialning o'z tumani (Sozlamalar > Tuzilma'da belgilangan) bo'lsa,
+        // invoysda tuman hali tanlanmagan bo'lsa shu tuman standart bo'ladi
+        const branchDefaultRegion = taskResponse.data?.branch?.defaultRegionCode;
 
         // 2-qadam: Contracts va Invoice ni PARALLEL yuklash (tezlik uchun)
         const [contractsResult, invoiceResult] = await Promise.allSettled([
@@ -294,10 +297,13 @@ export function createLoadData({
 
           if (!inv) {
             setInvoice(null);
-            if (taskResponse.data?.client?.contractNumber) {
+            if (taskResponse.data?.client?.contractNumber || branchDefaultRegion) {
               setForm((prev: any) => ({
                 ...prev,
-                contractNumber: taskResponse.data.client.contractNumber,
+                contractNumber: taskResponse.data?.client?.contractNumber ?? prev.contractNumber,
+                fssRegionInternalCode: branchDefaultRegion?.internalCode ?? prev.fssRegionInternalCode,
+                fssRegionName: branchDefaultRegion?.name ?? prev.fssRegionName,
+                fssRegionExternalCode: branchDefaultRegion?.externalCode ?? prev.fssRegionExternalCode,
               }));
             }
             if (contractIdFromQuery) {
@@ -323,9 +329,9 @@ export function createLoadData({
               deliveryTerms: inv.additionalInfo?.deliveryTerms ?? prev.deliveryTerms,
               vehicleNumber: inv.additionalInfo?.vehicleNumber ?? prev.vehicleNumber,
               vehicleWeight: inv.additionalInfo?.vehicleWeight ?? prev.vehicleWeight,
-              fssRegionInternalCode: inv.additionalInfo?.fssRegionInternalCode ?? prev.fssRegionInternalCode,
-              fssRegionName: inv.additionalInfo?.fssRegionName ?? prev.fssRegionName,
-              fssRegionExternalCode: inv.additionalInfo?.fssRegionExternalCode ?? prev.fssRegionExternalCode,
+              fssRegionInternalCode: inv.additionalInfo?.fssRegionInternalCode ?? branchDefaultRegion?.internalCode ?? prev.fssRegionInternalCode,
+              fssRegionName: inv.additionalInfo?.fssRegionName ?? branchDefaultRegion?.name ?? prev.fssRegionName,
+              fssRegionExternalCode: inv.additionalInfo?.fssRegionExternalCode ?? branchDefaultRegion?.externalCode ?? prev.fssRegionExternalCode,
               loaderWeight: inv.additionalInfo?.loaderWeight ?? prev.loaderWeight,
               trailerWeight: inv.additionalInfo?.trailerWeight ?? prev.trailerWeight,
               palletWeight: inv.additionalInfo?.palletWeight ?? prev.palletWeight,

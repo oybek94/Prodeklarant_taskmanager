@@ -127,17 +127,6 @@ const formatDate = (value?: Date | string | null) => {
 
 const toPlain = (value?: string | null) => (value ? String(value) : '');
 
-/** Filial nomiga qarab viloyat matni (SMR E23, H67) */
-const getRegionByBranchName = (branchName?: string | null): string => {
-  if (!branchName) return '';
-  const n = String(branchName).trim().toLowerCase();
-  if (n.includes('oltiariq') || n.includes('oltariq')) return 'Ферганская область';
-  if (n.includes('toshkent')) return 'Ташкентская область';
-  if (n.includes('surxondaryo')) return 'Сурхандарьинская область';
-  if (n.includes('sirdaryo')) return 'Сырдарьинская область';
-  return '';
-};
-
 const buildGoodsDescription = (items: InvoiceItem[]) => {
   if (!items.length) return '';
   return items
@@ -387,8 +376,8 @@ export const generateCmrExcel = async (payload: CmrInvoicePayload) => {
   if (payload.invoice.notes) {
     sheet.getCell('AC25').value = toPlain(payload.invoice.notes);
   }
-  const branchName = (payload.invoice as { branch?: { name: string } }).branch?.name;
-  const regionByBranch = getRegionByBranchName(branchName);
+  // Filialning "viloyat" matni (Sozlamalar > Tuzilma'da belgilanadi)
+  const regionByBranch = (payload.invoice as { branch?: { regionText?: string | null } }).branch?.regionText;
   const shipmentPlaceText = regionByBranch || toPlain(additionalInfo.shipmentPlace);
   if (shipmentPlaceText) {
     sheet.getCell('E23').value = shipmentPlaceText;

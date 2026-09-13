@@ -97,17 +97,6 @@ const toUpperCyrillicCountry = (raw?: string | null): string => {
   return value.toUpperCase();
 };
 
-/** Filial nomiga qarab viloyat matni (TIR/SMR shablonlarida) */
-const getRegionByBranchName = (branchName?: string | null): string => {
-  if (!branchName) return '';
-  const n = String(branchName).trim().toLowerCase();
-  if (n.includes('oltiariq') || n.includes('oltariq')) return 'Ферганская область';
-  if (n.includes('toshkent')) return 'Ташкентская область';
-  if (n.includes('surxondaryo')) return 'Сурхандарьинская область';
-  if (n.includes('sirdaryo')) return 'Сырдарьинская область';
-  return '';
-};
-
 type TirCellMap = {
   invoiceCell: string;
   smrCell: string;
@@ -194,8 +183,8 @@ export const generateTirExcel = async (payload: TirInvoicePayload) => {
 
   const map = await loadTirCellMap();
 
-  const branchName = (payload.invoice as { branch?: { name: string } }).branch?.name;
-  const regionText = getRegionByBranchName(branchName);
+  // Filialning "viloyat" matni (Sozlamalar > Tuzilma'da belgilanadi)
+  const regionText = (payload.invoice as { branch?: { regionText?: string | null } }).branch?.regionText;
   if (regionText) {
     sheet.getCell(map.regionCell).value = regionText;
   }

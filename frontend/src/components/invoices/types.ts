@@ -50,6 +50,7 @@ export interface Contract {
 export interface Branch {
   id: number;
   name: string;
+  isActive?: boolean;
 }
 
 export interface Worker {

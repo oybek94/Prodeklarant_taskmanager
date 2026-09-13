@@ -68,12 +68,8 @@ export const generateCmrDocx = async (payload: CmrDocPayload): Promise<Buffer> =
     ? baseBuyerAddress
     : `${contract?.consigneeAddress || ''} п/п. ${baseBuyerName}`.replace(/\s+/g, ' ').trim();
 
-  const branchName = String((invoice as any).branch?.name || '').toLowerCase();
-  let defaultRegion = '';
-  if (branchName.includes('oltiariq')) defaultRegion = 'Ферганская область';
-  else if (branchName.includes('toshkent')) defaultRegion = 'Ташкентская область';
-  else if (branchName.includes('sirdaryo')) defaultRegion = 'Сырдарьинская область';
-  else if (branchName.includes('surxondaryo')) defaultRegion = 'Сурхандарьинская область';
+  // Filialning "viloyat" matni (Sozlamalar > Tuzilma'da belgilanadi)
+  const defaultRegion = String((invoice as any).branch?.regionText || '');
 
   const totalPackages = items.reduce((sum, item) => sum + Number(item.packagesCount || item.quantity || 0), 0);
   const totalGrossWeight = items.reduce((sum, item) => sum + Number(item.grossWeight || 0), 0);

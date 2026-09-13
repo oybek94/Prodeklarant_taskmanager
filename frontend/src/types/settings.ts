@@ -52,6 +52,11 @@ export interface StatePayment {
 export interface Branch {
   id: number;
   name: string;
+  isActive: boolean;
+  defaultRegionCodeId?: number | null;
+  defaultRegionCode?: RegionCode | null;
+  /** TIR/SMR/CMR hujjatlaridagi "viloyat" matn maydoni */
+  regionText?: string | null;
 }
 
 export interface CompanySettings {

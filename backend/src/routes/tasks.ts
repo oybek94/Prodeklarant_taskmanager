@@ -764,6 +764,9 @@ router.get('/:id', requireAuth(), async (req: AuthRequest, res) => {
             select: {
               id: true,
               name: true,
+              defaultRegionCode: {
+                select: { id: true, name: true, internalCode: true, externalCode: true },
+              },
             },
           },
           stages: {

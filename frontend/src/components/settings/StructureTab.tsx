@@ -11,6 +11,7 @@ export const StructureTab = () => {
   const [showBranchForm, setShowBranchForm] = useState(false);
   const [newBranchName, setNewBranchName] = useState('');
   const [deletingBranchId, setDeletingBranchId] = useState<number | null>(null);
+  const [regionTextDrafts, setRegionTextDrafts] = useState<Record<number, string>>({});
 
   const [regionCodes, setRegionCodes] = useState<RegionCode[]>([]);
   const [loadingRegionCodes, setLoadingRegionCodes] = useState(true);
@@ -42,6 +43,45 @@ export const StructureTab = () => {
       await apiClient.post('/branches', { name: branchName });
       await loadBranches();
       alert('Filial muvaffaqiyatli qo\'shildi');
+    } catch (error: any) {
+      alert(error.response?.data?.error || 'Xatolik yuz berdi');
+    }
+  };
+
+  const handleSetBranchRegion = async (branchId: number, defaultRegionCodeId: number | null) => {
+    try {
+      await apiClient.patch(`/branches/${branchId}`, { defaultRegionCodeId });
+      await loadBranches();
+    } catch (error: any) {
+      alert(error.response?.data?.error || 'Xatolik yuz berdi');
+    }
+  };
+
+  const handleToggleBranchActive = async (branchId: number, isActive: boolean) => {
+    try {
+      await apiClient.patch(`/branches/${branchId}`, { isActive });
+      await loadBranches();
+    } catch (error: any) {
+      alert(error.response?.data?.error || 'Xatolik yuz berdi');
+    }
+  };
+
+  const getRegionTextValue = (branch: Branch) =>
+    regionTextDrafts[branch.id] !== undefined ? regionTextDrafts[branch.id] : (branch.regionText || '');
+
+  const handleRegionTextBlur = async (branch: Branch) => {
+    const draft = regionTextDrafts[branch.id];
+    if (draft === undefined) return;
+    const trimmed = draft.trim();
+    setRegionTextDrafts((prev) => {
+      const next = { ...prev };
+      delete next[branch.id];
+      return next;
+    });
+    if (trimmed === (branch.regionText || '')) return;
+    try {
+      await apiClient.patch(`/branches/${branch.id}`, { regionText: trimmed || null });
+      await loadBranches();
     } catch (error: any) {
       alert(error.response?.data?.error || 'Xatolik yuz berdi');
     }
@@ -141,18 +181,75 @@ export const StructureTab = () => {
                 {branches.map((branch) => (
                   <div
                     key={branch.id}
-                    className="flex items-center justify-between p-3 border border-gray-200 dark:border-slate-700 rounded-lg hover:bg-gray-50 dark:bg-slate-900/50"
+                    className={`flex flex-col gap-2 p-3 border border-gray-200 dark:border-slate-700 rounded-lg hover:bg-gray-50 dark:bg-slate-900/50 ${
+                      branch.isActive ? '' : 'opacity-60'
+                    }`}
                   >
-                    <div className="text-gray-800 dark:text-slate-200 font-medium">{branch.name}</div>
-                    <button
-                      onClick={() => handleDeleteBranch(branch.id, branch.name)}
-                      disabled={deletingBranchId === branch.id}
-                      className="inline-flex items-center justify-center p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm disabled:opacity-50"
-                      aria-label="Filialni o'chirish"
-                      title="Filialni o'chirish"
-                    >
-                      <IconTrash />
-                    </button>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <div className="text-gray-800 dark:text-slate-200 font-medium">{branch.name}</div>
+                        {!branch.isActive && (
+                          <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-200 text-gray-600 dark:bg-slate-700 dark:text-slate-300">
+                            To'xtatilgan
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleToggleBranchActive(branch.id, !branch.isActive)}
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                            branch.isActive
+                              ? 'bg-amber-50 text-amber-700 hover:bg-amber-100 dark:bg-amber-900/20 dark:text-amber-400'
+                              : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-400'
+                          }`}
+                          title={
+                            branch.isActive
+                              ? "Filialni to'xtatish — yangi invoys/vazifa yaratishda ko'rinmaydi"
+                              : 'Filialni faollashtirish'
+                          }
+                        >
+                          <Icon icon={branch.isActive ? 'solar:pause-circle-bold-duotone' : 'solar:play-circle-bold-duotone'} className="w-4 h-4" />
+                          {branch.isActive ? "To'xtatish" : 'Faollashtirish'}
+                        </button>
+                        <select
+                          value={branch.defaultRegionCodeId ?? ''}
+                          onChange={(e) =>
+                            handleSetBranchRegion(branch.id, e.target.value ? Number(e.target.value) : null)
+                          }
+                          className="px-2 py-1.5 border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded-lg text-sm outline-none focus:border-blue-500"
+                          title="Filialning o'z tumani — belgilansa, invoysda tuman qo'lda tanlanmasdan Sertifikatlar/Deklaratsiya darhol chiqadi"
+                        >
+                          <option value="">Tuman tanlanmagan</option>
+                          {regionCodes.map((rc) => (
+                            <option key={rc.id} value={rc.id}>
+                              {rc.name}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          onClick={() => handleDeleteBranch(branch.id, branch.name)}
+                          disabled={deletingBranchId === branch.id}
+                          className="inline-flex items-center justify-center p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm disabled:opacity-50"
+                          aria-label="Filialni o'chirish"
+                          title="Filialni o'chirish"
+                        >
+                          <IconTrash />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Icon icon="solar:global-bold-duotone" className="w-4 h-4 text-gray-400 dark:text-slate-500 shrink-0" />
+                      <input
+                        type="text"
+                        value={getRegionTextValue(branch)}
+                        onChange={(e) =>
+                          setRegionTextDrafts((prev) => ({ ...prev, [branch.id]: e.target.value }))
+                        }
+                        onBlur={() => handleRegionTextBlur(branch)}
+                        placeholder="Viloyat matni (TIR/SMR/CMR) — masalan: Ферганская область"
+                        className="flex-1 min-w-0 px-3 py-1.5 border border-gray-300 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 rounded-lg text-sm outline-none focus:border-blue-500"
+                      />
+                    </div>
                   </div>
                 ))}
               </div>

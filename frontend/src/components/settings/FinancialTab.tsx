@@ -35,7 +35,7 @@ export const FinancialTab = () => {
   const [loadingCertifierFeeConfig, setLoadingCertifierFeeConfig] = useState(true);
   const [showCertifierFeeForm, setShowCertifierFeeForm] = useState(false);
   const [certifierFeeForm, setCertifierFeeForm] = useState({
-    branchId: 0, st1Rate: '', fitoRate: '', aktRate: '', fumigationRate: '', hiredWorkerRate: '',
+    branchId: 0, st1Rate: '', fitoRate: '', aktRate: '', fumigationRate: '', hiredWorkerRate: '', serviceFeeTaxRatePercent: '9.5',
   });
 
   const [kpiConfigEdits, setKpiConfigEdits] = useState<Record<string, string>>({});
@@ -216,6 +216,7 @@ export const FinancialTab = () => {
         aktRate: Number(certifierFeeForm.aktRate),
         fumigationRate: Number(certifierFeeForm.fumigationRate),
         hiredWorkerRate: Number(certifierFeeForm.hiredWorkerRate),
+        serviceFeeTaxRatePercent: Number(certifierFeeForm.serviceFeeTaxRatePercent),
       });
       setShowCertifierFeeForm(false);
       await loadCertifierFeeConfig();
@@ -534,7 +535,8 @@ export const FinancialTab = () => {
                          fitoRate: config.fitoRate.toString(),
                          aktRate: config.aktRate.toString(),
                          fumigationRate: config.fumigationRate.toString(),
-                         hiredWorkerRate: config.hiredWorkerRate.toString()
+                         hiredWorkerRate: config.hiredWorkerRate.toString(),
+                         serviceFeeTaxRatePercent: (config.serviceFeeTaxRatePercent ?? 9.5).toString()
                        });
                        setShowCertifierFeeForm(true);
                      }} className="p-1.5 bg-orange-50 dark:bg-orange-500/10 text-orange-600 rounded-lg hover:bg-orange-100 transition-colors">
@@ -561,6 +563,10 @@ export const FinancialTab = () => {
                      <div className="flex justify-between px-3 py-2 bg-gray-50 dark:bg-slate-900/50 rounded-lg col-span-2">
                        <span className="text-xs font-semibold text-gray-500 dark:text-slate-400">Yollanma ishchi</span>
                        <span className="text-sm font-bold text-gray-800 dark:text-slate-200">{formatCurrency(Number(config.hiredWorkerRate), 'UZS')}</span>
+                     </div>
+                     <div className="flex justify-between px-3 py-2 bg-gray-50 dark:bg-slate-900/50 rounded-lg col-span-2">
+                       <span className="text-xs font-semibold text-gray-500 dark:text-slate-400">Xizmat haqi soliq stavkasi</span>
+                       <span className="text-sm font-bold text-gray-800 dark:text-slate-200">{Number(config.serviceFeeTaxRatePercent ?? 9.5)}%</span>
                      </div>
                    </div>
                 </div>
@@ -823,6 +829,10 @@ export const FinancialTab = () => {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">Yollanma ishchi (UZS)</label>
                   <input type="number" min="0" value={certifierFeeForm.hiredWorkerRate} onChange={(e) => setCertifierFeeForm({ ...certifierFeeForm, hiredWorkerRate: e.target.value })} required className="w-full px-3 py-2 border-2 border-gray-300 dark:border-slate-600 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1">Xizmat haqi soliq stavkasi (%)</label>
+                  <input type="number" min="0" max="100" step="0.1" value={certifierFeeForm.serviceFeeTaxRatePercent} onChange={(e) => setCertifierFeeForm({ ...certifierFeeForm, serviceFeeTaxRatePercent: e.target.value })} required className="w-full px-3 py-2 border-2 border-gray-300 dark:border-slate-600 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none" />
                 </div>
               </div>
               <div className="flex gap-3 mt-6">

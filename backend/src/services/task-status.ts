@@ -2,6 +2,7 @@ import { PrismaClient, Prisma, TaskStatus } from '@prisma/client';
 import crypto from 'crypto';
 import { prisma } from '../prisma';
 import { notifyTaskCompleted } from './finance-bot.service';
+import { computeAndRecordClientAssignmentBonus, deleteClientAssignmentBonus } from './client-assignment-bonus';
 
 /**
  * Calculate task status based on stages using the formula:
@@ -109,6 +110,9 @@ export async function updateTaskStatus(
   if (oldStatus !== TaskStatus.YAKUNLANDI && newStatus === TaskStatus.YAKUNLANDI) {
     // Fire and forget, don't wait for telegram API
     notifyTaskCompleted(taskId).catch(err => console.error(err));
+    await computeAndRecordClientAssignmentBonus(tx, taskId);
+  } else if (oldStatus === TaskStatus.YAKUNLANDI && newStatus !== TaskStatus.YAKUNLANDI) {
+    await deleteClientAssignmentBonus(tx, taskId);
   }
 
   // Return true if task entered TEKSHIRILGAN status (QR token generation needed)

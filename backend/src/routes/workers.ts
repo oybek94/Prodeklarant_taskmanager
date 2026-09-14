@@ -612,6 +612,47 @@ router.get('/:id/error-stats', requireAuth(), async (req, res) => {
   });
 });
 
+// GET /api/workers/:id/client-bonuses - Mijozga biriktirilgan xodim uchun foyda-bonus yozuvlari
+router.get('/:id/client-bonuses', requireAuth(), async (req: AuthRequest, res) => {
+  try {
+    const workerId = parseInt(req.params.id);
+    if (req.user?.role !== 'ADMIN' && req.user?.id !== workerId) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+    const bonuses = await (prisma as any).clientAssignmentBonus.findMany({
+      where: { userId: workerId },
+      include: {
+        client: { select: { id: true, name: true } },
+        task: { select: { id: true, title: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    const totalBonusUzs = bonuses.reduce((sum: number, b: any) => sum + Number(b.bonusUzs || 0), 0);
+
+    res.json({
+      totalBonusUzs,
+      bonuses: bonuses.map((b: any) => ({
+        id: b.id,
+        taskId: b.taskId,
+        taskTitle: b.task?.title,
+        clientId: b.clientId,
+        clientName: b.client?.name,
+        dealAmountUzs: Number(b.dealAmountUzs),
+        taxUzs: Number(b.taxUzs),
+        certifierFeeUzs: Number(b.certifierFeeUzs),
+        otherWorkersFeeUzs: Number(b.otherWorkersFeeUzs),
+        profitUzs: Number(b.profitUzs),
+        bonusUzs: Number(b.bonusUzs),
+        createdAt: b.createdAt,
+      })),
+    });
+  } catch (error: any) {
+    console.error('Error fetching client assignment bonuses:', error);
+    res.status(500).json({ error: error.message || 'Xatolik yuz berdi' });
+  }
+});
+
 // GET /api/workers/previous-year-debts - Barcha ishchilarning o'tgan yil qarzlarini olish
 router.get('/previous-year-debts', requireAuth(), async (req: AuthRequest, res) => {
   try {

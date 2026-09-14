@@ -89,6 +89,7 @@ export interface CertifierFeeConfig {
   aktRate: number;
   fumigationRate: number;
   hiredWorkerRate: number;
+  serviceFeeTaxRatePercent: number;
   createdAt: string;
   updatedAt: string;
 }

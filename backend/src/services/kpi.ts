@@ -30,6 +30,14 @@ export async function logKpiForStage(
 ) {
   if (!userId) return;
 
+  // Mijozga biriktirilgan xodim o'sha mijozning ishini bajarsa, unga xizmat
+  // haqi (KpiLog) yozilmaydi — buning o'rniga profit-share bonus sxemasi ishlaydi.
+  const taskForClient = await (tx as any).task.findUnique({
+    where: { id: taskId },
+    select: { client: { select: { assignedUserId: true } } },
+  });
+  if (taskForClient?.client?.assignedUserId === userId) return;
+
   // Stage nomini normalize qilish (Sertifikat olib chiqish va Topshirish uchun)
   let normalizedStageName = stageName;
   if (stageName === 'ST' || stageName === 'Fito' || stageName === 'FITO') {

@@ -41,7 +41,7 @@ export default function Profile() {
   const workerId = id ? parseInt(id) : user?.id;
 
   const {
-    stats, stageStats, contributions, errorStats, workerDetail, branches,
+    stats, stageStats, contributions, errorStats, workerDetail, branches, clientBonuses,
     loading, stageStatsLoading, errorStatsLoading,
     reloadWorkerDetail, reloadStats
   } = useProfileData(workerId, period, id);
@@ -183,6 +183,45 @@ export default function Profile() {
           <TrophyRoom userId={workerId} />
         </div>
       </div>
+
+      {/* ─── Mijozga biriktirilgan xodim uchun bonus ─── */}
+      {clientBonuses && clientBonuses.bonuses.length > 0 && (
+        <div className="bg-white/70 backdrop-blur-xl rounded-2xl shadow-sm border border-white/80 ring-1 ring-black/5 overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-100/80 bg-emerald-50/40 flex justify-between items-center">
+            <h3 className="text-base font-bold text-gray-800 flex items-center gap-2">
+              <Icon icon="solar:hand-money-bold-duotone" className="w-5 h-5 text-emerald-500" />
+              Biriktirilgan mijozdan bonus
+            </h3>
+            <span className="text-xs text-gray-500 font-medium bg-white px-3 py-1 rounded-full border">
+              Jami: <span className="font-bold text-emerald-600">{new Intl.NumberFormat('en-US').format(Math.round(clientBonuses.totalBonusUzs)).replace(/,/g, ' ')} so'm</span>
+            </span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50/80 text-xs text-gray-500 uppercase">
+                <tr>
+                  <th className="px-6 py-3 text-left">Sana</th>
+                  <th className="px-6 py-3 text-left">Mijoz</th>
+                  <th className="px-6 py-3 text-left">Vazifa</th>
+                  <th className="px-6 py-3 text-right">Bonus</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100/80">
+                {clientBonuses.bonuses.map((b) => (
+                  <tr key={b.id} className="hover:bg-gray-50/50">
+                    <td className="px-6 py-3 text-gray-600 whitespace-nowrap">{new Date(b.createdAt).toLocaleDateString('en-US')}</td>
+                    <td className="px-6 py-3 text-gray-700">{b.clientName || '-'}</td>
+                    <td className="px-6 py-3 text-gray-700">{b.taskTitle || '-'}</td>
+                    <td className="px-6 py-3 text-right font-bold text-emerald-600 whitespace-nowrap">
+                      {new Intl.NumberFormat('en-US').format(Math.round(b.bonusUzs)).replace(/,/g, ' ')} so'm
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* ─── Stage Statistics & Calendar ─── */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">

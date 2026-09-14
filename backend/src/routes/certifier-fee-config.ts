@@ -13,6 +13,7 @@ const certifierFeeSchema = z.object({
   aktRate: z.coerce.number().min(0).default(0),
   fumigationRate: z.coerce.number().min(0).default(0),
   hiredWorkerRate: z.coerce.number().min(0).default(0),
+  serviceFeeTaxRatePercent: z.coerce.number().min(0).max(100).default(9.5),
 });
 
 // GET /certifier-fee-config - Barcha filiallar uchun eng oxirgi tariflarni olish
@@ -43,6 +44,7 @@ router.get('/', requireAuth('ADMIN'), async (_req: AuthRequest, res) => {
             aktRate: 0,
             fumigationRate: 0,
             hiredWorkerRate: 0,
+            serviceFeeTaxRatePercent: 9.5,
             createdAt: new Date(),
           };
         }
@@ -55,6 +57,7 @@ router.get('/', requireAuth('ADMIN'), async (_req: AuthRequest, res) => {
           aktRate: Number(config.aktRate || 0),
           fumigationRate: Number(config.fumigationRate || 0),
           hiredWorkerRate: Number(config.hiredWorkerRate || 0),
+          serviceFeeTaxRatePercent: Number(config.serviceFeeTaxRatePercent ?? 9.5),
         };
       })
     );
@@ -88,6 +91,7 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
         aktRate: data.aktRate,
         fumigationRate: data.fumigationRate,
         hiredWorkerRate: data.hiredWorkerRate,
+        serviceFeeTaxRatePercent: data.serviceFeeTaxRatePercent,
       },
       include: { branch: true },
     });
@@ -99,6 +103,7 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
       aktRate: Number(config.aktRate || 0),
       fumigationRate: Number(config.fumigationRate || 0),
       hiredWorkerRate: Number(config.hiredWorkerRate || 0),
+      serviceFeeTaxRatePercent: Number(config.serviceFeeTaxRatePercent ?? 9.5),
     });
   } catch (error: any) {
     console.error('Error saving certifier fee config:', error);

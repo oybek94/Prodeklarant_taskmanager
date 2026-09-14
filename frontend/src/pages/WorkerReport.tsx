@@ -14,6 +14,7 @@ export default function WorkerReport() {
   const [workerName, setWorkerName] = useState('');
   const [kpiStats, setKpiStats] = useState<any>(null);
   const [finStats, setFinStats] = useState<any>(null);
+  const [clientBonuses, setClientBonuses] = useState<any>(null);
   const [dateRange, setDateRange] = useState('all');
 
   useEffect(() => { loadData(); }, [id, dateRange]);
@@ -34,12 +35,14 @@ export default function WorkerReport() {
         params = { startDate: start.toISOString(), endDate: end.toISOString() };
       }
 
-      const [kpi, fin] = await Promise.all([
+      const [kpi, fin, bonuses] = await Promise.all([
         apiClient.get(`/kpi/worker-stats/${id}`, { params }),
         apiClient.get(`/workers/${id}/stats`, { params: { period: 'all' } }),
+        apiClient.get(`/workers/${id}/client-bonuses`),
       ]);
       setKpiStats(kpi.data);
       setFinStats(fin.data);
+      setClientBonuses(bonuses.data);
     } catch (e) {
       console.error('Error fetching stats', e);
     } finally {
@@ -341,6 +344,45 @@ export default function WorkerReport() {
                     <td className="px-6 py-3 text-right font-bold text-purple-600 whitespace-nowrap">
                       {p.paidCurrency === 'UZS' ? `${fmt(p.paidAmountUzs)} so'm` : fmtUsd(p.paidAmountUsd)}
                     </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Client Assignment Bonus */}
+      {clientBonuses?.bonuses?.length > 0 && (
+        <div className="bg-white/70 backdrop-blur-xl rounded-2xl shadow-sm border border-white/80 ring-1 ring-black/5 overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-100/80 bg-emerald-50/40 flex justify-between items-center">
+            <h3 className="text-base font-bold text-gray-800 flex items-center gap-2">
+              <Icon icon="solar:hand-money-bold-duotone" className="w-5 h-5 text-emerald-500" />
+              Biriktirilgan mijozdan bonus
+            </h3>
+            <span className="text-xs text-gray-500 font-medium bg-white px-3 py-1 rounded-full border">
+              Jami: <span className="font-bold text-emerald-600">{fmt(clientBonuses.totalBonusUzs)} so'm</span>
+            </span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50/80 text-xs text-gray-500 uppercase">
+                <tr>
+                  <th className="px-6 py-3 text-left">Sana</th>
+                  <th className="px-6 py-3 text-left">Mijoz</th>
+                  <th className="px-6 py-3 text-left">Vazifa</th>
+                  <th className="px-6 py-3 text-right">Shartnoma summasi</th>
+                  <th className="px-6 py-3 text-right">Bonus</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100/80">
+                {clientBonuses.bonuses.map((b: any) => (
+                  <tr key={b.id} className="hover:bg-gray-50/50">
+                    <td className="px-6 py-3 text-gray-600 whitespace-nowrap">{new Date(b.createdAt).toLocaleDateString('en-US')}</td>
+                    <td className="px-6 py-3 text-gray-700">{b.clientName || '-'}</td>
+                    <td className="px-6 py-3 text-gray-700">{b.taskTitle || '-'}</td>
+                    <td className="px-6 py-3 text-right text-gray-500 whitespace-nowrap">{fmt(b.dealAmountUzs)} so'm</td>
+                    <td className="px-6 py-3 text-right font-bold text-emerald-600 whitespace-nowrap">{fmt(b.bonusUzs)} so'm</td>
                   </tr>
                 ))}
               </tbody>

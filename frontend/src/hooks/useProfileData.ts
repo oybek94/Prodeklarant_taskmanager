@@ -47,6 +47,26 @@ export interface StageStats {
   };
 }
 
+export interface ClientBonus {
+  id: number;
+  taskId: number;
+  taskTitle?: string;
+  clientId: number;
+  clientName?: string;
+  dealAmountUzs: number;
+  taxUzs: number;
+  certifierFeeUzs: number;
+  otherWorkersFeeUzs: number;
+  profitUzs: number;
+  bonusUzs: number;
+  createdAt: string;
+}
+
+export interface ClientBonuses {
+  totalBonusUzs: number;
+  bonuses: ClientBonus[];
+}
+
 export interface WorkerDetail {
   id: number;
   name: string;
@@ -64,6 +84,7 @@ export interface ProfileDataHookResult {
   errorStats: any;
   workerDetail: WorkerDetail | null;
   branches: { id: number; name: string }[];
+  clientBonuses: ClientBonuses | null;
   loading: boolean;
   stageStatsLoading: boolean;
   errorStatsLoading: boolean;
@@ -79,6 +100,7 @@ export function useProfileData(workerId: number | undefined, period: string, idP
   const [errorStats, setErrorStats] = useState<any>(null);
   const [workerDetail, setWorkerDetail] = useState<WorkerDetail | null>(null);
   const [branches, setBranches] = useState<{ id: number; name: string }[]>([]);
+  const [clientBonuses, setClientBonuses] = useState<ClientBonuses | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [stageStatsLoading, setStageStatsLoading] = useState(true);
@@ -157,13 +179,24 @@ export function useProfileData(workerId: number | undefined, period: string, idP
     }
   };
 
+  const loadClientBonuses = async () => {
+    if (!workerId) return;
+    try {
+      const response = await apiClient.get(`/workers/${workerId}/client-bonuses`);
+      setClientBonuses(response.data);
+    } catch (error) {
+      console.error('Error loading client bonuses:', error);
+    }
+  };
+
   const reloadAll = async () => {
     await Promise.allSettled([
       loadStats(),
       loadStageStats(),
       loadContributions(),
       loadErrorStats(),
-      loadWorkerDetail()
+      loadWorkerDetail(),
+      loadClientBonuses()
     ]);
   };
 
@@ -181,6 +214,7 @@ export function useProfileData(workerId: number | undefined, period: string, idP
     errorStats,
     workerDetail,
     branches,
+    clientBonuses,
     loading,
     stageStatsLoading,
     errorStatsLoading,

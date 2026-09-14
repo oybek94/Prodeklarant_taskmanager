@@ -75,6 +75,7 @@ model User {
   completedNotes     DashboardNote[]          @relation("NoteCompletedBy")
   userMedals         UserMedal[]
   assignedClients    Client[]                 @relation("ClientAssignedUser")
+  clientAssignmentBonuses ClientAssignmentBonus[] @relation("ClientAssignmentBonusUser")
 }
 
 model Client {
@@ -127,6 +128,7 @@ model Client {
   tasks                      Task[]
   transactions               Transaction[]      @relation("TransactionClient")
   leads                      Lead[]             @relation("LeadClient")
+  clientAssignmentBonuses    ClientAssignmentBonus[]
 }
 
 model ServiceAgreement {
@@ -258,6 +260,7 @@ model Task {
   aiChecks                                   AiCheck[]
   invoice                                    Invoice?
   kpiLogs                                    KpiLog[]
+  clientAssignmentBonus                      ClientAssignmentBonus?
   structuredDocuments                        StructuredDocument[]
   branch                                     Branch               @relation(fields: [branchId], references: [id])
   client                                     Client               @relation(fields: [clientId], references: [id])
@@ -447,6 +450,27 @@ model KpiLog {
   @@index([userId])
   @@index([taskId])
   @@index([userId, createdAt])
+}
+
+model ClientAssignmentBonus {
+  id                 Int      @id @default(autoincrement())
+  taskId             Int      @unique
+  clientId           Int
+  userId             Int
+  dealAmountUzs      Decimal  @db.Decimal(18, 2)
+  taxUzs             Decimal  @db.Decimal(18, 2)
+  certifierFeeUzs    Decimal  @db.Decimal(18, 2)
+  otherWorkersFeeUzs Decimal  @db.Decimal(18, 2)
+  profitUzs          Decimal  @db.Decimal(18, 2)
+  bonusUzs           Decimal  @db.Decimal(18, 2)
+  createdAt          DateTime @default(now())
+
+  task   Task   @relation(fields: [taskId], references: [id])
+  client Client @relation(fields: [clientId], references: [id])
+  user   User   @relation("ClientAssignmentBonusUser", fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([clientId])
 }
 
 model AuditLog {
@@ -1086,15 +1110,16 @@ model CompanySettings {
 }
 
 model CertifierFeeConfig {
-  id              Int      @id @default(autoincrement())
-  branchId        Int      @default(1)
-  st1Rate         Decimal  @db.Decimal(18, 2)
-  fitoRate        Decimal  @db.Decimal(18, 2)
-  aktRate         Decimal  @db.Decimal(18, 2)
-  fumigationRate  Decimal  @default(0) @db.Decimal(18, 2)
-  hiredWorkerRate Decimal  @default(0) @db.Decimal(18, 2)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id                     Int      @id @default(autoincrement())
+  branchId               Int      @default(1)
+  st1Rate                Decimal  @db.Decimal(18, 2)
+  fitoRate               Decimal  @db.Decimal(18, 2)
+  aktRate                Decimal  @db.Decimal(18, 2)
+  fumigationRate         Decimal  @default(0) @db.Decimal(18, 2)
+  hiredWorkerRate        Decimal  @default(0) @db.Decimal(18, 2)
+  serviceFeeTaxRatePercent Decimal @default(9.5) @db.Decimal(5, 2)
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
 
   branch Branch @relation(fields: [branchId], references: [id])
 

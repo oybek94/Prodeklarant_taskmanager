@@ -22,6 +22,23 @@ const TOTALS_LABELS = ['итого', 'всего'];
 /** "Выгрузка" sarlavhasi — destination faqat shundan keyin keladi */
 const DESTINATION_MARKER = /выгрузка/i;
 
+/**
+ * "Номер ТС" qatorida mijozlar ba'zan "40|202GCA / 40|6509BA" kabi ortiqcha
+ * ajratgichlar (probel, "|") bilan yozadi. Standart ko'rinish — ortiqcha
+ * belgilarsiz, bir nechta raqam "/" bilan ajratilgan: "40202GCA/406509BA".
+ * AI promptga "shundayligicha qaytaring" deyilgan bo'lsa ham, bu tozalash
+ * kod darajasida kafolatlanadi.
+ */
+function normalizeVehicleNumber(value: string | null): string | null {
+  if (!value) return value;
+  const cleaned = value
+    .split('/')
+    .map((part) => part.replace(/[^0-9A-Za-z]/g, ''))
+    .filter((part) => part.length > 0)
+    .join('/');
+  return cleaned.length > 0 ? cleaned : null;
+}
+
 /** "В упаковочный лист:" — undan keyingi qatorlar packing_fields ga tegishli */
 const PACKING_SECTION_MARKER = /^\s*в\s+упаковочн\S*\s+лист\s*:?/i;
 
@@ -96,5 +113,8 @@ export function normalizeCargoExtraction(
   //    AI ba'zan uni "DAP Москва" dan to'qib chiqaradi
   const destination = DESTINATION_MARKER.test(rawText) ? data.destination : null;
 
-  return { ...data, extra_fields, packing_fields, destination };
+  // 4) Номер ТС — ortiqcha probel/"|" kabi belgilarsiz standart ko'rinishga keltiriladi
+  const vehicle_number = normalizeVehicleNumber(data.vehicle_number);
+
+  return { ...data, extra_fields, packing_fields, destination, vehicle_number };
 }

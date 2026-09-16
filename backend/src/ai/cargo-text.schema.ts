@@ -42,7 +42,7 @@ export const cargoProductSchema = z.strictObject({
 
 export const cargoTextExtractionSchema = z.strictObject({
   invoice_number: z.string().nullable(),
-  /** Номер ТС — butun holicha, ajratilmaydi */
+  /** Номер ТС — butun holicha, ajratilmaydi (Stage 2 da "|"/probel tozalanadi) */
   vehicle_number: z.string().nullable(),
   harvest_year: z.string().nullable(),
   /** Buyurtma/partiya kodi, masalan "RVI-2026-29-31-TKGARDENS-3682719-BGR-DSC_1" */

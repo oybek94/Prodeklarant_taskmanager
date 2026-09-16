@@ -85,7 +85,9 @@ ga ham YOZMANG.
 MAYDONLAR MAZMUNI:
 - invoice_number — "Номер инвойса" qiymati (masalan "PIN-98")
 - vehicle_number — "Номер ТС" qiymati BUTUN HOLICHA, qismlarga ajratmang
-  (masalan "40906MCA/405284BA" — shundayligicha)
+  (masalan "40906MCA/405284BA" — shundayligicha). Agar qatorda "|" kabi
+  ortiqcha ajratgichlar yoki probellar bo'lsa (masalan "40|202GCA / 40|6509BA"),
+  ularni OLIB TASHLANG va "40202GCA/406509BA" ko'rinishida qaytaring
 - harvest_year — "Год урожая" qiymati
 - order_number — buyurtma/partiya kodi: alohida turgan uzun defisli kod
   (masalan "RVI-2026-29-31-TKGARDENS-3682719-BGR-DSC_1")

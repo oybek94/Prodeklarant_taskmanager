@@ -83,7 +83,12 @@ jadvali ularni o'zi hisoblaydi. Hech qaysi maydonga, jumladan extra_fields
 ga ham YOZMANG.
 
 MAYDONLAR MAZMUNI:
-- invoice_number — "Номер инвойса" qiymati (masalan "PIN-98")
+- invoice_number — "Номер инвойса" qiymati (masalan "PIN-98"). Qatorda
+  "№ 8/26 от 16.09.2026 г" kabi sana ham bo'lsa, FAQAT raqam qismini qaytaring
+  ("8/26"), "№" belgisini olib tashlang, sanani invoice_date ga yozing
+- invoice_date — "Номер инвойса" qatoridagi "от DD.MM.YYYY" sanasi, ISO
+  ko'rinishida (YYYY-MM-DD, masalan "от 16.09.2026" → "2026-09-16"). Bunday
+  sana yo'q bo'lsa → null
 - vehicle_number — "Номер ТС" qiymati BUTUN HOLICHA, qismlarga ajratmang
   (masalan "40906MCA/405284BA" — shundayligicha). Agar qatorda "|" kabi
   ortiqcha ajratgichlar yoki probellar bo'lsa (masalan "40|202GCA / 40|6509BA"),

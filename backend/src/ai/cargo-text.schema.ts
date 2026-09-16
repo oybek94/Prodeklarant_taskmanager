@@ -42,6 +42,8 @@ export const cargoProductSchema = z.strictObject({
 
 export const cargoTextExtractionSchema = z.strictObject({
   invoice_number: z.string().nullable(),
+  /** "Номер инвойса" qatoridagi "от DD.MM.YYYY" sanasi, ISO (YYYY-MM-DD) */
+  invoice_date: z.string().nullable(),
   /** Номер ТС — butun holicha, ajratilmaydi (Stage 2 da "|"/probel tozalanadi) */
   vehicle_number: z.string().nullable(),
   harvest_year: z.string().nullable(),

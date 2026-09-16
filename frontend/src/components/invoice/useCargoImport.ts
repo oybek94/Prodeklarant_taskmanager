@@ -34,6 +34,7 @@ export const RC_COLUMN_LABEL = 'РЦ';
 
 export interface CargoTextExtraction {
   invoice_number: string | null;
+  invoice_date: string | null;
   vehicle_number: string | null;
   harvest_year: string | null;
   order_number: string | null;
@@ -61,6 +62,7 @@ export interface CargoPreviewRow {
 /** Invoysning skalyar maydonlariga to'g'ridan-to'g'ri tushadigan qiymatlar */
 const FORM_FIELD_LABELS: Record<string, string> = {
   invoiceNumber: 'Номер инвойса',
+  date: 'Дата инвойса',
   vehicleNumber: 'Номер автотранспорта',
   harvestYear: 'Урожай',
   orderNumber: 'Номер заказа',
@@ -232,6 +234,7 @@ export const buildPreviewRows = (
   };
 
   pushForm('invoiceNumber', parsed.invoice_number);
+  pushForm('date', parsed.invoice_date);
   pushForm('vehicleNumber', parsed.vehicle_number);
   pushForm('harvestYear', parsed.harvest_year);
   pushForm('orderNumber', parsed.order_number);
@@ -487,6 +490,7 @@ export const useCargoImport = ({
       if (value && isSelected(`form:${field}`)) formPatch[field] = value;
     };
     setIf('invoiceNumber', parsed.invoice_number);
+    setIf('date', parsed.invoice_date);
     setIf('vehicleNumber', parsed.vehicle_number);
     setIf('harvestYear', parsed.harvest_year);
     setIf('orderNumber', parsed.order_number);

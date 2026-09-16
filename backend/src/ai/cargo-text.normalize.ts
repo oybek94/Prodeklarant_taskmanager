@@ -39,6 +39,39 @@ function normalizeVehicleNumber(value: string | null): string | null {
   return cleaned.length > 0 ? cleaned : null;
 }
 
+/**
+ * "Номер инвойса" qatorida sana ham kelishi mumkin: "№ 8/26 от 16.09.2026 г".
+ * AI odatda ajratadi, lekin kafolat uchun bu bo'linish kod darajasida ham
+ * amalga oshiriladi: raqamdan "№" va "от DD.MM.YYYY" qismi tozalanadi,
+ * sana esa (agar AI invoice_date ni bo'sh qoldirgan bo'lsa) o'shandan olinadi.
+ */
+const INVOICE_NUMBER_DATE_SUFFIX =
+  /^(.*?)\s*от\s*(\d{1,2})[.\/](\d{1,2})[.\/](\d{2,4})\s*г?\.?\s*$/i;
+
+function normalizeInvoiceNumberAndDate(
+  invoiceNumber: string | null,
+  invoiceDate: string | null
+): { invoice_number: string | null; invoice_date: string | null } {
+  if (!invoiceNumber) return { invoice_number: invoiceNumber, invoice_date: invoiceDate };
+
+  let number = invoiceNumber.trim();
+  let date = invoiceDate;
+
+  const match = number.match(INVOICE_NUMBER_DATE_SUFFIX);
+  if (match) {
+    const [, numberPart, day, month, yearRaw] = match;
+    number = numberPart.trim();
+    if (!date) {
+      const year = yearRaw.length === 2 ? `20${yearRaw}` : yearRaw;
+      date = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+    }
+  }
+
+  number = number.replace(/^№\s*/, '').trim();
+
+  return { invoice_number: number.length > 0 ? number : null, invoice_date: date };
+}
+
 /** "В упаковочный лист:" — undan keyingi qatorlar packing_fields ga tegishli */
 const PACKING_SECTION_MARKER = /^\s*в\s+упаковочн\S*\s+лист\s*:?/i;
 
@@ -116,5 +149,19 @@ export function normalizeCargoExtraction(
   // 4) Номер ТС — ortiqcha probel/"|" kabi belgilarsiz standart ko'rinishga keltiriladi
   const vehicle_number = normalizeVehicleNumber(data.vehicle_number);
 
-  return { ...data, extra_fields, packing_fields, destination, vehicle_number };
+  // 5) Номер инвойса qatoridagi "от DD.MM.YYYY" sanasi invoice_date ga ajratiladi
+  const { invoice_number, invoice_date } = normalizeInvoiceNumberAndDate(
+    data.invoice_number,
+    data.invoice_date
+  );
+
+  return {
+    ...data,
+    extra_fields,
+    packing_fields,
+    destination,
+    vehicle_number,
+    invoice_number,
+    invoice_date,
+  };
 }

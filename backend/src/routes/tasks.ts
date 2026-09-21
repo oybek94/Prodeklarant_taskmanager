@@ -764,6 +764,7 @@ router.get('/:id', requireAuth(), async (req: AuthRequest, res) => {
             select: {
               id: true,
               name: true,
+              regionText: true,
               defaultRegionCode: {
                 select: { id: true, name: true, internalCode: true, externalCode: true },
               },
@@ -2189,7 +2190,7 @@ router.patch('/:id', requireAuth(), async (req: AuthRequest, res) => {
   const isOnlyAfterHoursUpdate = !hasOtherFields && (parsed.data.afterHoursDeclaration !== undefined || parsed.data.afterHoursPayer !== undefined);
 
   const isCreator = task.createdById === user.id;
-  const isAdmin = user.role === 'ADMIN';
+  const isAdmin = user.role === 'ADMIN' || user.role === 'MANAGER';
 
   // Faqat "ish vaqtidan tashqari" maydonlarini yangilashda har qanday avtorizatsiyalangan foydalanuvchi ruxsat etiladi
   if (!isAdmin && !isCreator && !isOnlyAfterHoursUpdate) {
@@ -2311,7 +2312,7 @@ router.patch('/:id', requireAuth(), async (req: AuthRequest, res) => {
          try {
              // oldingi e'lon qilingan task.createdAt dan foydalanamiz, bu yerda statePayment ham shunga qarab qidirilgan
              const certConfig = await (tx as any).certifierFeeConfig.findFirst({
-                 where: { branchId: task.branchId, createdAt: { lte: task.createdAt } },
+                 where: { branchId: parsed.data.branchId, createdAt: { lte: task.createdAt } },
                  orderBy: { createdAt: 'desc' },
              });
              if (certConfig && certConfig.hiredWorkerRate !== undefined && certConfig.hiredWorkerRate !== null) {
@@ -2338,10 +2339,69 @@ router.patch('/:id', requireAuth(), async (req: AuthRequest, res) => {
         where: { taskId: id },
         data: { branchId: parsed.data.branchId },
       });
+
+      // Filialga bog'liq avtomatik maydonlar (Место отгрузки груза, FSS tumani) yangi filialga o'tadi.
+      // Foydalanuvchi qo'lda o'zgartirgan (eski filial qiymatiga teng bo'lmagan) qiymatlarga tegilmaydi.
+      const branchSelect = {
+        regionText: true,
+        defaultRegionCode: { select: { name: true, internalCode: true, externalCode: true } },
+      } as const;
+      const [oldBranch, newBranch, invoice] = await Promise.all([
+        tx.branch.findUnique({ where: { id: task.branchId }, select: branchSelect }),
+        tx.branch.findUnique({ where: { id: parsed.data.branchId }, select: branchSelect }),
+        tx.invoice.findUnique({ where: { taskId: id }, select: { id: true, additionalInfo: true } }),
+      ]);
+      if (invoice && newBranch) {
+        const rawInfo = invoice.additionalInfo;
+        const info: Record<string, unknown> =
+          rawInfo && typeof rawInfo === 'object' && !Array.isArray(rawInfo) ? { ...(rawInfo as Record<string, unknown>) } : {};
+        let changed = false;
+
+        const currentPlace = String(info.shipmentPlace ?? '').trim();
+        const oldPlace = (oldBranch?.regionText ?? '').trim();
+        const newPlace = (newBranch.regionText ?? '').trim();
+        if ((currentPlace === '' || currentPlace === oldPlace) && currentPlace !== newPlace) {
+          info.shipmentPlace = newPlace;
+          changed = true;
+        }
+
+        const currentRegionCode = String(info.fssRegionInternalCode ?? '').trim();
+        const oldRegionCode = oldBranch?.defaultRegionCode?.internalCode?.trim() ?? '';
+        const newRegion = newBranch.defaultRegionCode;
+        if (currentRegionCode === '' || currentRegionCode === oldRegionCode) {
+          const nextCode = newRegion?.internalCode?.trim() ?? '';
+          if (currentRegionCode !== nextCode) {
+            info.fssRegionInternalCode = nextCode;
+            info.fssRegionName = newRegion?.name ?? '';
+            info.fssRegionExternalCode = newRegion?.externalCode ?? '';
+            changed = true;
+          }
+        }
+
+        if (changed) {
+          await tx.invoice.update({
+            where: { id: invoice.id },
+            data: { additionalInfo: info as Prisma.InputJsonObject },
+          });
+        }
+      }
     }
 
     return updatedTask;
-  });
+  }, { timeout: 30000, maxWait: 10000 });
+
+  // Filial o'zgarganda TIR/CMR fayllari (viloyat matni filialdan olinadi) yangi filial bilan qayta yaratiladi
+  if (parsed.data.branchId != null && parsed.data.branchId !== task.branchId) {
+    try {
+      const branchInvoice = await prisma.invoice.findUnique({ where: { taskId: id }, select: { id: true } });
+      if (branchInvoice) {
+        await ensureCmrForInvoice({ invoiceId: branchInvoice.id, uploadedById: user.id });
+        await ensureTirForInvoice({ invoiceId: branchInvoice.id, uploadedById: user.id });
+      }
+    } catch (error) {
+      console.error('Filial o\'zgargandan keyin TIR/CMR qayta yaratilmadi:', error);
+    }
+  }
 
   res.json(updated);
   // Real-time: task yangilanishi haqida xabar berish

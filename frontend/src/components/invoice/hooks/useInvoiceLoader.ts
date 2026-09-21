@@ -10,6 +10,7 @@ interface UseInvoiceLoaderParams {
   contractIdFromQuery: string | null | undefined;
   taskId: string | undefined;
   duplicateInvoiceId: number | null | undefined;
+  newInvoiceBranchRegionText?: string;
   setLoading: (l: boolean) => void;
   setContracts: (updater: any[] | ((prev: any[]) => any[])) => void;
   setSelectedContractId: (id: string) => void;
@@ -43,6 +44,7 @@ export function createLoadData({
   contractIdFromQuery,
   taskId,
   duplicateInvoiceId,
+  newInvoiceBranchRegionText,
   setLoading,
   setContracts,
   setSelectedContractId,
@@ -104,6 +106,7 @@ export function createLoadData({
             paymentTerms: contract.deliveryTerms || prev.paymentTerms,
             date: getLocalDateString(),
             gln: contract.gln != null ? contract.gln : prev.gln,
+            shipmentPlace: prev.shipmentPlace || newInvoiceBranchRegionText || '',
           }));
 
           handleContractSelect(contractIdFromQuery);
@@ -181,7 +184,7 @@ export function createLoadData({
                 palletWeight: '',
                 trailerNumber: '',
                 smrNumber: '',
-                shipmentPlace: String(dupAi?.shipmentPlace || ''),
+                shipmentPlace: newInvoiceBranchRegionText || String(dupAi?.shipmentPlace || ''),
                 customsAddress: '',
                 destination: String(dupAi?.destination || ''),
                 origin: 'Республика Узбекистан',
@@ -252,6 +255,7 @@ export function createLoadData({
         // Filialning o'z tumani (Sozlamalar > Tuzilma'da belgilangan) bo'lsa,
         // invoysda tuman hali tanlanmagan bo'lsa shu tuman standart bo'ladi
         const branchDefaultRegion = taskResponse.data?.branch?.defaultRegionCode;
+        const branchRegionText = String(taskResponse.data?.branch?.regionText ?? '').trim();
 
         // 2-qadam: Contracts va Invoice ni PARALLEL yuklash (tezlik uchun)
         const [contractsResult, invoiceResult] = await Promise.allSettled([
@@ -297,10 +301,11 @@ export function createLoadData({
 
           if (!inv) {
             setInvoice(null);
-            if (taskResponse.data?.client?.contractNumber || branchDefaultRegion) {
+            if (taskResponse.data?.client?.contractNumber || branchDefaultRegion || branchRegionText) {
               setForm((prev: any) => ({
                 ...prev,
                 contractNumber: taskResponse.data?.client?.contractNumber ?? prev.contractNumber,
+                shipmentPlace: prev.shipmentPlace || branchRegionText,
                 fssRegionInternalCode: branchDefaultRegion?.internalCode ?? prev.fssRegionInternalCode,
                 fssRegionName: branchDefaultRegion?.name ?? prev.fssRegionName,
                 fssRegionExternalCode: branchDefaultRegion?.externalCode ?? prev.fssRegionExternalCode,

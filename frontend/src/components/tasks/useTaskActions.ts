@@ -471,7 +471,8 @@ export function useTaskActions(params: UseTaskActionsParams) {
       await loadTaskDetail(selectedTask.id);
       await loadTasks(showArchive, filters as any);
     } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Xatolik yuz berdi');
+      const apiError = error.response?.data?.error;
+      toast.error(typeof apiError === 'string' && apiError ? apiError : 'Saqlashda xatolik yuz berdi. Qayta urinib ko\'ring');
     }
   }, [selectedTask, isMobile, editTaskId, isArchiveRoute, navigate, modals, showArchive, filters, loadTaskDetail, loadTasks]);
 

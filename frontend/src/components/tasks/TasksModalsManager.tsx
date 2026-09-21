@@ -104,7 +104,9 @@ export const TasksModalsManager: React.FC<TasksModalsManagerProps> = ({
         isMobile={isMobile}
         isNewTaskRoute={isNewTaskRoute}
         onClose={() => modals.setShowForm(false)}
-        onSubmit={taskActions.handleSubmit}
+        onSubmit={(e: React.FormEvent) => taskActions.handleSubmit(e, form, () => setForm({
+          title: '', clientId: '', branchId: '', comments: '', hasPsr: false, afterHoursPayer: 'CLIENT', driverPhone: '',
+        }))}
       />
 
       {modals.showTaskModal && selectedTask && (
@@ -296,7 +298,7 @@ export const TasksModalsManager: React.FC<TasksModalsManagerProps> = ({
         editTaskId={editTaskId}
         isArchiveRoute={isArchiveRoute}
         onClose={() => modals.setShowEditModal(false)}
-        onSubmit={taskActions.handleEditSubmit}
+        onSubmit={(e: React.FormEvent) => taskActions.handleEditSubmit(e, editForm)}
       />
 
       <DocumentUploadModal

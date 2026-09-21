@@ -173,6 +173,7 @@ const Invoices = () => {
         state: {
           newInvoiceTaskForm: {
             branchId: createTaskForm.branchId,
+            branchRegionText: branches.find((b) => String(b.id) === createTaskForm.branchId)?.regionText?.trim() || undefined,
             hasPsr: createTaskForm.hasPsr,
             driverPhone: createTaskForm.driverPhone.trim() || undefined,
             comments: taskComments,

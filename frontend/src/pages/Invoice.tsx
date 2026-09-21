@@ -97,7 +97,7 @@ const Invoice = () => {
   const canEdit = canEditInvoices(user?.role);
   const { taskId, clientId, contractId } = useParams<{ taskId?: string; clientId?: string; contractId?: string }>();
   const location = useLocation();
-  const locationState = location.state as { newInvoiceTaskForm?: { branchId: string; hasPsr: boolean; driverPhone?: string; comments?: string; contractNumber?: string }; duplicateInvoiceId?: number; viewOnly?: boolean };
+  const locationState = location.state as { newInvoiceTaskForm?: { branchId: string; branchRegionText?: string; hasPsr: boolean; driverPhone?: string; comments?: string; contractNumber?: string }; duplicateInvoiceId?: number; viewOnly?: boolean };
   const newInvoiceTaskForm = locationState?.newInvoiceTaskForm;
   const duplicateInvoiceId = locationState?.duplicateInvoiceId;
   const viewOnly = locationState?.viewOnly === true;
@@ -386,6 +386,7 @@ const Invoice = () => {
     contractIdFromQuery,
     taskId,
     duplicateInvoiceId,
+    newInvoiceBranchRegionText: newInvoiceTaskForm?.branchRegionText,
     setLoading,
     setContracts,
     setSelectedContractId,

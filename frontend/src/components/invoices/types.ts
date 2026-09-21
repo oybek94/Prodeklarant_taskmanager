@@ -51,6 +51,7 @@ export interface Branch {
   id: number;
   name: string;
   isActive?: boolean;
+  regionText?: string | null;
 }
 
 export interface Worker {

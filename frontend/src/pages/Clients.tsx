@@ -25,6 +25,59 @@ const resolveUploadUrl = (url?: string | null) => {
   return `${origin}${url}`;
 };
 
+// --- Shartnoma oynasi uslub tokenlari -----------------------------------
+const CX_INPUT = 'w-full px-3.5 py-2.5 border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800/70 text-gray-900 dark:text-gray-100 rounded-xl text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500 transition-colors placeholder:text-gray-400 dark:placeholder:text-slate-500';
+const CX_LABEL = 'flex items-center gap-1.5 text-[13px] font-semibold text-gray-600 dark:text-gray-300 mb-1.5 tracking-wide';
+const CX_FILE = 'w-full text-xs text-gray-600 dark:text-gray-300 file:mr-3 file:py-2 file:px-3.5 file:rounded-lg file:border-0 file:bg-indigo-50 file:text-indigo-700 file:font-semibold hover:file:bg-indigo-100 dark:file:bg-indigo-500/10 dark:file:text-indigo-300 dark:hover:file:bg-indigo-500/20 border border-dashed border-gray-300 dark:border-slate-600 rounded-xl px-2.5 py-2 cursor-pointer bg-gray-50/60 dark:bg-slate-800/40';
+const CX_ADD_ROW_BTN = 'inline-flex items-center gap-1.5 mt-1 px-3.5 py-2 bg-white dark:bg-slate-800 border border-dashed border-indigo-300 dark:border-indigo-700 text-indigo-600 dark:text-indigo-300 rounded-xl hover:bg-indigo-50 dark:hover:bg-indigo-500/10 hover:border-indigo-400 text-sm font-medium transition-colors';
+
+type ContractSectionTone = 'slate' | 'blue' | 'emerald' | 'amber' | 'violet';
+
+const CONTRACT_SECTION_TONE: Record<ContractSectionTone, string> = {
+  slate: 'border-gray-200 dark:border-slate-700 bg-gray-50/70 dark:bg-slate-800/30',
+  blue: 'border-blue-200/80 dark:border-blue-900/50 bg-blue-50/50 dark:bg-blue-950/20',
+  emerald: 'border-emerald-200/80 dark:border-emerald-900/50 bg-emerald-50/50 dark:bg-emerald-950/20',
+  amber: 'border-amber-200/80 dark:border-amber-900/50 bg-amber-50/40 dark:bg-amber-950/10',
+  violet: 'border-violet-200/80 dark:border-violet-900/50 bg-violet-50/50 dark:bg-violet-950/20',
+};
+
+const CONTRACT_SECTION_ICON_TONE: Record<ContractSectionTone, string> = {
+  slate: 'bg-gray-200 text-gray-600 dark:bg-slate-700 dark:text-slate-300',
+  blue: 'bg-blue-100 text-blue-600 dark:bg-blue-900/60 dark:text-blue-300',
+  emerald: 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/60 dark:text-emerald-300',
+  amber: 'bg-amber-100 text-amber-600 dark:bg-amber-900/60 dark:text-amber-300',
+  violet: 'bg-violet-100 text-violet-600 dark:bg-violet-900/60 dark:text-violet-300',
+};
+
+function ContractSection({
+  icon,
+  title,
+  tone = 'slate',
+  actions,
+  children,
+}: {
+  icon: string;
+  title: string;
+  tone?: ContractSectionTone;
+  actions?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className={`rounded-2xl border p-4 sm:p-5 ${CONTRACT_SECTION_TONE[tone]}`}>
+      <div className="flex items-center justify-between gap-3 mb-4">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${CONTRACT_SECTION_ICON_TONE[tone]}`}>
+            <Icon icon={icon} className="w-4.5 h-4.5" />
+          </span>
+          <h4 className="font-semibold text-gray-800 dark:text-gray-100 text-[13px] uppercase tracking-wider truncate">{title}</h4>
+        </div>
+        {actions}
+      </div>
+      <div className="space-y-3">{children}</div>
+    </div>
+  );
+}
+
 interface Client {
   id: number;
   name: string;
@@ -2553,7 +2606,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
       {/* Contract Create Modal */}
       {showContractModal && selectedClient && (
         <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 backdrop-blur-sm"
+          className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 backdrop-blur-sm p-4"
           style={{ animation: 'backdropFadeIn 0.3s ease-out' }}
           onMouseDown={(e) => {
             if (e.target === e.currentTarget) {
@@ -2563,111 +2616,110 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
           }}
         >
           <div
-            className="bg-white rounded-lg shadow-2xl p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto"
+            className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-5xl mx-auto max-h-[92vh] flex flex-col overflow-hidden border border-gray-100 dark:border-slate-800"
             style={{ animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)' }}
           >
-            <div className="flex justify-between items-center mb-6 border-b border-gray-100 pb-4">
-              <h3 className="text-xl font-bold text-gray-800">
-                {editingContractId ? 'Shartnomani tahrirlash' : 'Yangi shartnoma qo\'shish'}
-              </h3>
+            {/* Header */}
+            <div className="flex justify-between items-start gap-4 px-6 pt-6 pb-4 shrink-0">
+              <div className="flex items-center gap-3 min-w-0">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-sm shadow-indigo-600/30">
+                  <Icon icon="solar:document-text-bold-duotone" className="w-6 h-6" />
+                </span>
+                <div className="min-w-0">
+                  <h3 className="text-lg font-bold text-gray-900 dark:text-gray-50 leading-tight">
+                    {editingContractId ? 'Shartnomani tahrirlash' : 'Yangi shartnoma qo\'shish'}
+                  </h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{selectedClient.name}</p>
+                </div>
+              </div>
               <button
                 onClick={() => setShowContractModal(false)}
-                className="text-gray-400 hover:text-gray-600 p-2 hover:bg-gray-100 rounded-xl transition-colors"
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-2 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-xl transition-colors shrink-0"
               >
                 <Icon icon="solar:close-circle-bold-duotone" className="w-6 h-6" />
               </button>
             </div>
 
             {/* Tablar */}
-            <div className="flex gap-2 mb-4 border-b">
-              <button
-                type="button"
-                onClick={() => setContractModalTab('main')}
-                className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${contractModalTab === 'main' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
-              >
-                Shartnoma ma'lumotlari
-              </button>
-              <button
-                type="button"
-                onClick={async () => {
-                  setContractModalTab('spec');
-                  const spec = contractForm.specification || [];
-                  if (spec.length === 0) {
-                    const defaultSpec = await getDefaultSpecFromTnved();
-                    setContractFormAndRef((prev) => ({ ...prev, specification: defaultSpec }));
-                  } else {
-                    const merged = await ensureSpecHasTnvedProducts(spec);
-                    setContractFormAndRef((prev) => ({ ...prev, specification: merged }));
-                  }
-                }}
-                className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${contractModalTab === 'spec' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
-              >
-                Spetsifikatsiya
-              </button>
-              <button
-                type="button"
-                onClick={() => setContractModalTab('terms')}
-                className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${contractModalTab === 'terms' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
-              >
-                Условия поставки
-              </button>
-              <button
-                type="button"
-                onClick={() => setContractModalTab('customs')}
-                className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${contractModalTab === 'customs' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
-              >
-                Адрес растаможки
-              </button>
-              <button
-                type="button"
-                onClick={() => setContractModalTab('files')}
-                className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${contractModalTab === 'files' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
-              >
-                Shartnoma fayllari
-              </button>
+            <div className="flex gap-1.5 px-6 pb-4 overflow-x-auto shrink-0">
+              {([
+                { id: 'main', label: 'Shartnoma ma\'lumotlari', icon: 'solar:document-text-bold-duotone' },
+                { id: 'spec', label: 'Spetsifikatsiya', icon: 'solar:list-check-bold-duotone' },
+                { id: 'terms', label: 'Условия поставки', icon: 'solar:routing-2-bold-duotone' },
+                { id: 'customs', label: 'Адрес растаможки', icon: 'solar:map-point-bold-duotone' },
+                { id: 'files', label: 'Shartnoma fayllari', icon: 'solar:folder-with-files-bold-duotone' },
+              ] as const).map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={async () => {
+                    if (tab.id === 'spec') {
+                      setContractModalTab('spec');
+                      const spec = contractForm.specification || [];
+                      if (spec.length === 0) {
+                        const defaultSpec = await getDefaultSpecFromTnved();
+                        setContractFormAndRef((prev) => ({ ...prev, specification: defaultSpec }));
+                      } else {
+                        const merged = await ensureSpecHasTnvedProducts(spec);
+                        setContractFormAndRef((prev) => ({ ...prev, specification: merged }));
+                      }
+                      return;
+                    }
+                    setContractModalTab(tab.id);
+                  }}
+                  className={`inline-flex items-center gap-1.5 whitespace-nowrap px-3.5 py-2 rounded-xl text-sm font-medium transition-colors ${
+                    contractModalTab === tab.id
+                      ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/30'
+                      : 'bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-slate-700'
+                  }`}
+                >
+                  <Icon icon={tab.icon} className="w-4 h-4" />
+                  {tab.label}
+                </button>
+              ))}
             </div>
 
-            <form onSubmit={handleContractSubmit} className="space-y-6">
+            <form onSubmit={handleContractSubmit} className="flex-1 flex flex-col min-h-0">
+              <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4 border-t border-gray-100 dark:border-slate-800">
               {contractModalTab === 'main' && (
                 <>
                   {/* Shartnoma ma'lumotlari */}
-                  <div className="border-b pb-4">
-                    <h4 className="font-semibold text-gray-700 mb-3">Shartnoma ma'lumotlari</h4>
+                  <ContractSection icon="solar:document-bold-duotone" title="Shartnoma ma'lumotlari" tone="slate">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                        <div className="flex items-center gap-1.5 mb-1">
-                          <label className="block text-sm font-medium text-gray-700">Shartnoma raqami *</label>
+                        <div className={CX_LABEL}>
+                          <label>Shartnoma raqami *</label>
                           <ContractFieldHint field="contractNumber" />
                         </div>
                         <input
                           type="text"
                           value={contractForm.contractNumber}
                           onChange={(e) => setContractFormAndRef({ ...contractForm, contractNumber: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                          className={CX_INPUT}
                           required
                         />
                       </div>
                       <div>
-                        <div className="flex items-center gap-1.5 mb-1">
-                          <label className="block text-sm font-medium text-gray-700">Shartnoma sanasi *</label>
+                        <div className={CX_LABEL}>
+                          <label>Shartnoma sanasi *</label>
                           <ContractFieldHint field="contractDate" />
                         </div>
                         <DateInput
                           value={contractForm.contractDate}
                           onChange={(value) => setContractFormAndRef({ ...contractForm, contractDate: value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                          className={CX_INPUT}
                           required
                         />
                       </div>
                       <div>
-                        <div className="flex items-center gap-1.5 mb-1">
-                          <label className="block text-sm font-medium text-gray-700">Shartnoma valyutasi</label>
+                        <div className={CX_LABEL}>
+                          <label>Shartnoma valyutasi</label>
                           <ContractFieldHint field="contractCurrency" />
                         </div>
                         <select
                           value={contractForm.contractCurrency || 'USD'}
                           onChange={(e) => setContractFormAndRef({ ...contractForm, contractCurrency: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg min-w-[120px]"
+                          className={`${CX_INPUT} min-w-[120px]`}
                         >
                           <option value="USD">USD</option>
                           <option value="UZS">UZS</option>
@@ -2676,110 +2728,109 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                         </select>
                       </div>
                       <div className="md:col-span-2">
-                        <div className="flex items-center gap-1.5 mb-1">
-                          <label className="block text-sm font-medium text-gray-700">Email manzillar</label>
+                        <div className={CX_LABEL}>
+                          <label>Email manzillar</label>
                           <ContractFieldHint field="emails" />
                         </div>
                         <input
                           type="text"
                           value={contractForm.emails}
                           onChange={(e) => setContractFormAndRef({ ...contractForm, emails: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                          className={CX_INPUT}
                           placeholder="email1@example.com, email2@example.com"
                         />
-                        <p className="text-xs text-gray-500 mt-1">Email bir nechta bo&apos;lishi mumkin. Agar email lar ko&apos;p bo&apos;lsa, vergul (,) bilan ajratib yozing.</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1.5">Email bir nechta bo&apos;lishi mumkin. Agar email lar ko&apos;p bo&apos;lsa, vergul (,) bilan ajratib yozing.</p>
                       </div>
                     </div>
-                  </div>
+                  </ContractSection>
 
                   {/* Sotuvchi ma'lumotlari */}
-                  <div className="border-b pb-4">
-                    <h4 className="font-semibold text-gray-700 mb-3">Sotuvchi ma'lumotlari</h4>
+                  <ContractSection icon="solar:shop-bold-duotone" title="Sotuvchi ma'lumotlari (eksportyor)" tone="blue">
                     <div className="space-y-3">
                       <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3 items-end">
                         <div>
-                          <div className="flex items-center gap-1.5 mb-1">
-                            <label className="block text-sm font-medium text-gray-700">Korxona nomi *</label>
+                          <div className={CX_LABEL}>
+                            <label>Korxona nomi *</label>
                             <ContractFieldHint field="sellerName" />
                           </div>
                           <input
                             type="text"
                             value={contractForm.sellerName}
                             onChange={(e) => setContractFormAndRef({ ...contractForm, sellerName: e.target.value })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                            className={CX_INPUT}
                             required
                           />
                         </div>
                         <div className="sm:w-40">
-                          <div className="flex items-center gap-1.5 mb-1">
-                            <label className="block text-sm font-medium text-gray-700">INN</label>
+                          <div className={CX_LABEL}>
+                            <label>INN</label>
                             <ContractFieldHint field="sellerInn" />
                           </div>
                           <input
                             type="text"
                             value={contractForm.sellerInn}
                             onChange={(e) => setContractFormAndRef({ ...contractForm, sellerInn: e.target.value })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                            className={CX_INPUT}
                             placeholder="INN"
                           />
                         </div>
                       </div>
                       <div>
-                        <div className="flex items-center gap-1.5 mb-1">
-                          <label className="block text-sm font-medium text-gray-700">Yuridik manzili *</label>
+                        <div className={CX_LABEL}>
+                          <label>Yuridik manzili *</label>
                           <ContractFieldHint field="sellerLegalAddress" />
                         </div>
                         <textarea
                           rows={2}
                           value={contractForm.sellerLegalAddress}
                           onChange={(e) => setContractFormAndRef({ ...contractForm, sellerLegalAddress: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                          className={CX_INPUT}
                           required
                         />
                       </div>
                       <div>
-                        <div className="flex items-center gap-1.5 mb-1">
-                          <label className="block text-sm font-medium text-gray-700">Qolgan rekvizitlar</label>
+                        <div className={CX_LABEL}>
+                          <label>Qolgan rekvizitlar</label>
                           <ContractFieldHint field="sellerDetails" />
                         </div>
                         <textarea
                           rows={3}
                           value={contractForm.sellerDetails}
                           onChange={(e) => setContractFormAndRef({ ...contractForm, sellerDetails: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                          className={CX_INPUT}
                           placeholder="INN, MFO, bank, hisob raqam va h.k."
                         />
                       </div>
                       <div>
-                        <div className="flex items-center gap-1.5 mb-1">
-                          <label className="block text-sm font-medium text-gray-700">GLN kod</label>
+                        <div className={CX_LABEL}>
+                          <label>GLN kod</label>
                           <ContractFieldHint field="gln" />
                         </div>
                         <input
                           type="text"
                           value={contractForm.gln}
                           onChange={(e) => setContractFormAndRef({ ...contractForm, gln: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                          className={CX_INPUT}
                           placeholder="GLN kodini kiriting"
                         />
                       </div>
                       <div>
-                        <div className="flex items-center gap-1.5 mb-1">
-                          <label className="block text-sm font-medium text-gray-700">Директор</label>
+                        <div className={CX_LABEL}>
+                          <label>Директор</label>
                           <ContractFieldHint field="supplierDirector" />
                         </div>
                         <input
                           type="text"
                           value={contractForm.supplierDirector}
                           onChange={(e) => setContractFormAndRef({ ...contractForm, supplierDirector: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                          className={CX_INPUT}
                           placeholder="Ism familyasi"
                         />
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
                         <div>
-                          <div className="flex items-center gap-1.5 mb-1">
-                            <label className="block text-sm font-medium text-gray-700">Imzo (PNG/JPG)</label>
+                          <div className={CX_LABEL}>
+                            <label>Imzo (PNG/JPG)</label>
                             <ContractFieldHint field="sellerSignatureUrl" />
                           </div>
                           <input
@@ -2797,19 +2848,19 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                               }
                               if (inputEl) inputEl.value = '';
                             }}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                            className={CX_FILE}
                           />
                           {contractForm.sellerSignatureUrl && (
                             <div className="mt-2 flex items-center gap-2">
-                              <img src={resolveUploadUrl(contractForm.sellerSignatureUrl)} alt="Imzo" className="h-16 w-auto object-contain border border-gray-200 rounded" />
-                              <a href={resolveUploadUrl(contractForm.sellerSignatureUrl)} target="_blank" rel="noopener noreferrer" className="p-2 text-gray-600 hover:text-blue-600 hover:bg-gray-100 rounded" title="Rasmni yuklab olish" aria-label="Rasmni yuklab olish"><Icon icon="solar:download-bold-duotone" className="w-4 h-4" /></a>
-                              <button type="button" onClick={() => setContractFormAndRef({ ...contractForm, sellerSignatureUrl: '' })} className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded" title="O'chirish" aria-label="O'chirish"><Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4" /></button>
+                              <img src={resolveUploadUrl(contractForm.sellerSignatureUrl)} alt="Imzo" className="h-16 w-auto object-contain border border-gray-200 dark:border-slate-700 rounded-lg bg-white" />
+                              <a href={resolveUploadUrl(contractForm.sellerSignatureUrl)} target="_blank" rel="noopener noreferrer" className="p-2 text-gray-600 dark:text-gray-300 hover:text-blue-600 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg" title="Rasmni yuklab olish" aria-label="Rasmni yuklab olish"><Icon icon="solar:download-bold-duotone" className="w-4 h-4" /></a>
+                              <button type="button" onClick={() => setContractFormAndRef({ ...contractForm, sellerSignatureUrl: '' })} className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg" title="O'chirish" aria-label="O'chirish"><Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4" /></button>
                             </div>
                           )}
                         </div>
                         <div>
-                          <div className="flex items-center gap-1.5 mb-1">
-                            <label className="block text-sm font-medium text-gray-700">Muhr (PNG/JPG)</label>
+                          <div className={CX_LABEL}>
+                            <label>Muhr (PNG/JPG)</label>
                             <ContractFieldHint field="sellerSealUrl" />
                           </div>
                           <input
@@ -2827,46 +2878,45 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                               }
                               if (inputEl) inputEl.value = '';
                             }}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                            className={CX_FILE}
                           />
                           {contractForm.sellerSealUrl && (
                             <div className="mt-2 flex items-center gap-2">
-                              <img src={resolveUploadUrl(contractForm.sellerSealUrl)} alt="Muhr" className="h-20 w-auto object-contain border border-gray-200 rounded" />
-                              <a href={resolveUploadUrl(contractForm.sellerSealUrl)} target="_blank" rel="noopener noreferrer" className="p-2 text-gray-600 hover:text-blue-600 hover:bg-gray-100 rounded" title="Rasmni yuklab olish" aria-label="Rasmni yuklab olish"><Icon icon="solar:download-bold-duotone" className="w-4 h-4" /></a>
-                              <button type="button" onClick={() => setContractFormAndRef({ ...contractForm, sellerSealUrl: '' })} className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded" title="O'chirish" aria-label="O'chirish"><Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4" /></button>
+                              <img src={resolveUploadUrl(contractForm.sellerSealUrl)} alt="Muhr" className="h-20 w-auto object-contain border border-gray-200 dark:border-slate-700 rounded-lg bg-white" />
+                              <a href={resolveUploadUrl(contractForm.sellerSealUrl)} target="_blank" rel="noopener noreferrer" className="p-2 text-gray-600 dark:text-gray-300 hover:text-blue-600 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg" title="Rasmni yuklab olish" aria-label="Rasmni yuklab olish"><Icon icon="solar:download-bold-duotone" className="w-4 h-4" /></a>
+                              <button type="button" onClick={() => setContractFormAndRef({ ...contractForm, sellerSealUrl: '' })} className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg" title="O'chirish" aria-label="O'chirish"><Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4" /></button>
                             </div>
                           )}
                         </div>
                       </div>
                     </div>
-                  </div>
+                  </ContractSection>
 
                   {/* Sotib oluvchi ma'lumotlari */}
-                  <div className="border-b pb-4">
-                    <h4 className="font-semibold text-gray-700 mb-3">Sotib oluvchi ma'lumotlari</h4>
+                  <ContractSection icon="solar:cart-large-bold-duotone" title="Sotib oluvchi ma'lumotlari (importyor)" tone="emerald">
                     <div className="space-y-3">
                       <div>
-                        <div className="flex items-center gap-1.5 mb-1">
-                          <label className="block text-sm font-medium text-gray-700">Korxona nomi *</label>
+                        <div className={CX_LABEL}>
+                          <label>Korxona nomi *</label>
                           <ContractFieldHint field="buyerName" />
                         </div>
                         <input
                           type="text"
                           value={contractForm.buyerName}
                           onChange={(e) => setContractFormAndRef({ ...contractForm, buyerName: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                          className={CX_INPUT}
                           required
                         />
                       </div>
                       <div>
-                        <div className="flex items-center gap-1.5 mb-1">
-                          <label className="block text-sm font-medium text-gray-700">Davlati *</label>
+                        <div className={CX_LABEL}>
+                          <label>Davlati *</label>
                           <ContractFieldHint field="destinationCountry" />
                         </div>
                         <select
                           value={contractForm.destinationCountry}
                           onChange={(e) => setContractFormAndRef({ ...contractForm, destinationCountry: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                          className={CX_INPUT}
                           required
                         >
                           <option value="">Tanlang...</option>
@@ -2887,48 +2937,48 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                         </select>
                       </div>
                       <div>
-                        <div className="flex items-center gap-1.5 mb-1">
-                          <label className="block text-sm font-medium text-gray-700">Yuridik manzili *</label>
+                        <div className={CX_LABEL}>
+                          <label>Yuridik manzili *</label>
                           <ContractFieldHint field="buyerAddress" />
                         </div>
                         <textarea
                           rows={2}
                           value={contractForm.buyerAddress}
                           onChange={(e) => setContractFormAndRef({ ...contractForm, buyerAddress: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                          className={CX_INPUT}
                           required
                         />
                       </div>
                       <div>
-                        <div className="flex items-center gap-1.5 mb-1">
-                          <label className="block text-sm font-medium text-gray-700">Qolgan rekvizitlar</label>
+                        <div className={CX_LABEL}>
+                          <label>Qolgan rekvizitlar</label>
                           <ContractFieldHint field="buyerDetails" />
                         </div>
                         <textarea
                           rows={3}
                           value={contractForm.buyerDetails}
                           onChange={(e) => setContractFormAndRef({ ...contractForm, buyerDetails: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                          className={CX_INPUT}
                           placeholder="INN, MFO, bank, hisob raqam va h.k."
                         />
                       </div>
                       <div>
-                        <div className="flex items-center gap-1.5 mb-1">
-                          <label className="block text-sm font-medium text-gray-700">Директор</label>
+                        <div className={CX_LABEL}>
+                          <label>Директор</label>
                           <ContractFieldHint field="buyerDirector" />
                         </div>
                         <input
                           type="text"
                           value={contractForm.buyerDirector}
                           onChange={(e) => setContractFormAndRef({ ...contractForm, buyerDirector: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                          className={CX_INPUT}
                           placeholder="Ism familyasi"
                         />
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
                         <div>
-                          <div className="flex items-center gap-1.5 mb-1">
-                            <label className="block text-sm font-medium text-gray-700">Imzo (PNG/JPG)</label>
+                          <div className={CX_LABEL}>
+                            <label>Imzo (PNG/JPG)</label>
                             <ContractFieldHint field="buyerSignatureUrl" />
                           </div>
                           <input
@@ -2946,19 +2996,19 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                               }
                               if (inputEl) inputEl.value = '';
                             }}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                            className={CX_FILE}
                           />
                           {contractForm.buyerSignatureUrl && (
                             <div className="mt-2 flex items-center gap-2">
-                              <img src={resolveUploadUrl(contractForm.buyerSignatureUrl)} alt="Imzo" className="h-16 w-auto object-contain border border-gray-200 rounded" />
-                              <a href={resolveUploadUrl(contractForm.buyerSignatureUrl)} target="_blank" rel="noopener noreferrer" className="p-2 text-gray-600 hover:text-blue-600 hover:bg-gray-100 rounded" title="Rasmni yuklab olish" aria-label="Rasmni yuklab olish"><Icon icon="solar:download-bold-duotone" className="w-4 h-4" /></a>
-                              <button type="button" onClick={() => setContractFormAndRef({ ...contractForm, buyerSignatureUrl: '' })} className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded" title="O'chirish" aria-label="O'chirish"><Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4" /></button>
+                              <img src={resolveUploadUrl(contractForm.buyerSignatureUrl)} alt="Imzo" className="h-16 w-auto object-contain border border-gray-200 dark:border-slate-700 rounded-lg bg-white" />
+                              <a href={resolveUploadUrl(contractForm.buyerSignatureUrl)} target="_blank" rel="noopener noreferrer" className="p-2 text-gray-600 dark:text-gray-300 hover:text-blue-600 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg" title="Rasmni yuklab olish" aria-label="Rasmni yuklab olish"><Icon icon="solar:download-bold-duotone" className="w-4 h-4" /></a>
+                              <button type="button" onClick={() => setContractFormAndRef({ ...contractForm, buyerSignatureUrl: '' })} className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg" title="O'chirish" aria-label="O'chirish"><Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4" /></button>
                             </div>
                           )}
                         </div>
                         <div>
-                          <div className="flex items-center gap-1.5 mb-1">
-                            <label className="block text-sm font-medium text-gray-700">Muhr (PNG/JPG)</label>
+                          <div className={CX_LABEL}>
+                            <label>Muhr (PNG/JPG)</label>
                             <ContractFieldHint field="buyerSealUrl" />
                           </div>
                           <input
@@ -2976,160 +3026,166 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                               }
                               if (inputEl) inputEl.value = '';
                             }}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                            className={CX_FILE}
                           />
                           {contractForm.buyerSealUrl && (
                             <div className="mt-2 flex items-center gap-2">
-                              <img src={resolveUploadUrl(contractForm.buyerSealUrl)} alt="Muhr" className="h-20 w-auto object-contain border border-gray-200 rounded" />
-                              <a href={resolveUploadUrl(contractForm.buyerSealUrl)} target="_blank" rel="noopener noreferrer" className="p-2 text-gray-600 hover:text-blue-600 hover:bg-gray-100 rounded" title="Rasmni yuklab olish" aria-label="Rasmni yuklab olish"><Icon icon="solar:download-bold-duotone" className="w-4 h-4" /></a>
-                              <button type="button" onClick={() => setContractFormAndRef({ ...contractForm, buyerSealUrl: '' })} className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded" title="O'chirish" aria-label="O'chirish"><Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4" /></button>
+                              <img src={resolveUploadUrl(contractForm.buyerSealUrl)} alt="Muhr" className="h-20 w-auto object-contain border border-gray-200 dark:border-slate-700 rounded-lg bg-white" />
+                              <a href={resolveUploadUrl(contractForm.buyerSealUrl)} target="_blank" rel="noopener noreferrer" className="p-2 text-gray-600 dark:text-gray-300 hover:text-blue-600 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg" title="Rasmni yuklab olish" aria-label="Rasmni yuklab olish"><Icon icon="solar:download-bold-duotone" className="w-4 h-4" /></a>
+                              <button type="button" onClick={() => setContractFormAndRef({ ...contractForm, buyerSealUrl: '' })} className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg" title="O'chirish" aria-label="O'chirish"><Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4" /></button>
                             </div>
                           )}
                         </div>
                       </div>
                     </div>
-                  </div>
+                  </ContractSection>
 
                   {/* Yuk jo'natuvchi */}
-                  <div className="border-b pb-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <h4 className="font-semibold text-gray-700">Yuk jo'natuvchi ma'lumotlari</h4>
-                      <label className="inline-flex items-center gap-2 text-sm text-gray-600">
+                  <ContractSection
+                    icon="solar:delivery-bold-duotone"
+                    title="Yuk jo'natuvchi ma'lumotlari"
+                    tone="amber"
+                    actions={(
+                      <label className="inline-flex items-center gap-2 text-xs font-medium text-gray-600 dark:text-gray-300 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5 cursor-pointer shrink-0">
                         <input
                           type="checkbox"
                           checked={hasShipper}
                           onChange={(e) => setHasShipper(e.target.checked)}
                         />
-                        Yuk jo'natuvchi mavjud
+                        Mavjud
                       </label>
-                    </div>
+                    )}
+                  >
                     {hasShipper && (
                       <div className="space-y-3">
                         <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3 items-end">
                           <div>
-                            <div className="flex items-center gap-1.5 mb-1">
-                              <label className="block text-sm font-medium text-gray-700">Korxona nomi</label>
+                            <div className={CX_LABEL}>
+                              <label>Korxona nomi</label>
                               <ContractFieldHint field="shipperName" />
                             </div>
                             <input
                               type="text"
                               value={contractForm.shipperName}
                               onChange={(e) => setContractFormAndRef({ ...contractForm, shipperName: e.target.value })}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                              className={CX_INPUT}
                             />
                           </div>
                           <div className="sm:w-40">
-                            <div className="flex items-center gap-1.5 mb-1">
-                              <label className="block text-sm font-medium text-gray-700">INN</label>
+                            <div className={CX_LABEL}>
+                              <label>INN</label>
                               <ContractFieldHint field="shipperInn" />
                             </div>
                             <input
                               type="text"
                               value={contractForm.shipperInn}
                               onChange={(e) => setContractFormAndRef({ ...contractForm, shipperInn: e.target.value })}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                              className={CX_INPUT}
                               placeholder="INN"
                             />
                           </div>
                         </div>
                         <div>
-                          <div className="flex items-center gap-1.5 mb-1">
-                            <label className="block text-sm font-medium text-gray-700">Yuridik manzili</label>
+                          <div className={CX_LABEL}>
+                            <label>Yuridik manzili</label>
                             <ContractFieldHint field="shipperAddress" />
                           </div>
                           <textarea
                             rows={2}
                             value={contractForm.shipperAddress}
                             onChange={(e) => setContractFormAndRef({ ...contractForm, shipperAddress: e.target.value })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                            className={CX_INPUT}
                           />
                         </div>
                         <div>
-                          <div className="flex items-center gap-1.5 mb-1">
-                            <label className="block text-sm font-medium text-gray-700">Qolgan rekvizitlar</label>
+                          <div className={CX_LABEL}>
+                            <label>Qolgan rekvizitlar</label>
                             <ContractFieldHint field="shipperDetails" />
                           </div>
                           <textarea
                             rows={3}
                             value={contractForm.shipperDetails}
                             onChange={(e) => setContractFormAndRef({ ...contractForm, shipperDetails: e.target.value })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                            className={CX_INPUT}
                             placeholder="INN, MFO, bank, hisob raqam va h.k."
                           />
                         </div>
                       </div>
                     )}
-                  </div>
+                  </ContractSection>
 
                   {/* Yuk qabul qiluvchi */}
-                  <div className="border-b pb-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <h4 className="font-semibold text-gray-700">Yuk qabul qiluvchi ma'lumotlari</h4>
-                      <label className="inline-flex items-center gap-2 text-sm text-gray-600">
+                  <ContractSection
+                    icon="solar:inbox-in-bold-duotone"
+                    title="Yuk qabul qiluvchi ma'lumotlari"
+                    tone="violet"
+                    actions={(
+                      <label className="inline-flex items-center gap-2 text-xs font-medium text-gray-600 dark:text-gray-300 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5 cursor-pointer shrink-0">
                         <input
                           type="checkbox"
                           checked={hasConsignee}
                           onChange={(e) => setHasConsignee(e.target.checked)}
                         />
-                        Yuk qabul qiluvchi mavjud
+                        Mavjud
                       </label>
-                    </div>
+                    )}
+                  >
                     {hasConsignee && (
                       <div className="space-y-3">
                         <div>
-                          <div className="flex items-center gap-1.5 mb-1">
-                            <label className="block text-sm font-medium text-gray-700">Korxona nomi</label>
+                          <div className={CX_LABEL}>
+                            <label>Korxona nomi</label>
                             <ContractFieldHint field="consigneeName" />
                           </div>
                           <input
                             type="text"
                             value={contractForm.consigneeName}
                             onChange={(e) => setContractFormAndRef({ ...contractForm, consigneeName: e.target.value })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                            className={CX_INPUT}
                           />
                         </div>
                         <div>
-                          <div className="flex items-center gap-1.5 mb-1">
-                            <label className="block text-sm font-medium text-gray-700">Yuridik manzili</label>
+                          <div className={CX_LABEL}>
+                            <label>Yuridik manzili</label>
                             <ContractFieldHint field="consigneeAddress" />
                           </div>
                           <textarea
                             rows={2}
                             value={contractForm.consigneeAddress}
                             onChange={(e) => setContractFormAndRef({ ...contractForm, consigneeAddress: e.target.value })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                            className={CX_INPUT}
                           />
                         </div>
                         <div>
-                          <div className="flex items-center gap-1.5 mb-1">
-                            <label className="block text-sm font-medium text-gray-700">Qolgan rekvizitlar</label>
+                          <div className={CX_LABEL}>
+                            <label>Qolgan rekvizitlar</label>
                             <ContractFieldHint field="consigneeDetails" />
                           </div>
                           <textarea
                             rows={3}
                             value={contractForm.consigneeDetails}
                             onChange={(e) => setContractFormAndRef({ ...contractForm, consigneeDetails: e.target.value })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                            className={CX_INPUT}
                             placeholder="INN, MFO, bank, hisob raqam va h.k."
                           />
                         </div>
                         <div>
-                          <div className="flex items-center gap-1.5 mb-1">
-                            <label className="block text-sm font-medium text-gray-700">Директор</label>
+                          <div className={CX_LABEL}>
+                            <label>Директор</label>
                             <ContractFieldHint field="consigneeDirector" />
                           </div>
                           <input
                             type="text"
                             value={contractForm.consigneeDirector}
                             onChange={(e) => setContractFormAndRef({ ...contractForm, consigneeDirector: e.target.value })}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                            className={CX_INPUT}
                             placeholder="Ism familyasi"
                           />
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
                           <div>
-                            <div className="flex items-center gap-1.5 mb-1">
-                              <label className="block text-sm font-medium text-gray-700">Imzo (PNG/JPG)</label>
+                            <div className={CX_LABEL}>
+                              <label>Imzo (PNG/JPG)</label>
                               <ContractFieldHint field="consigneeSignatureUrl" />
                             </div>
                             <input
@@ -3147,19 +3203,19 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                                 }
                                 if (inputEl) inputEl.value = '';
                               }}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                              className={CX_FILE}
                             />
                             {contractForm.consigneeSignatureUrl && (
                               <div className="mt-2 flex items-center gap-2">
-                                <img src={resolveUploadUrl(contractForm.consigneeSignatureUrl)} alt="Imzo" className="h-16 w-auto object-contain border border-gray-200 rounded" />
-                                <a href={resolveUploadUrl(contractForm.consigneeSignatureUrl)} target="_blank" rel="noopener noreferrer" className="p-2 text-gray-600 hover:text-blue-600 hover:bg-gray-100 rounded" title="Rasmni yuklab olish" aria-label="Rasmni yuklab olish"><Icon icon="solar:download-bold-duotone" className="w-4 h-4" /></a>
-                                <button type="button" onClick={() => setContractFormAndRef({ ...contractForm, consigneeSignatureUrl: '' })} className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded" title="O'chirish" aria-label="O'chirish"><Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4" /></button>
+                                <img src={resolveUploadUrl(contractForm.consigneeSignatureUrl)} alt="Imzo" className="h-16 w-auto object-contain border border-gray-200 dark:border-slate-700 rounded-lg bg-white" />
+                                <a href={resolveUploadUrl(contractForm.consigneeSignatureUrl)} target="_blank" rel="noopener noreferrer" className="p-2 text-gray-600 dark:text-gray-300 hover:text-blue-600 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg" title="Rasmni yuklab olish" aria-label="Rasmni yuklab olish"><Icon icon="solar:download-bold-duotone" className="w-4 h-4" /></a>
+                                <button type="button" onClick={() => setContractFormAndRef({ ...contractForm, consigneeSignatureUrl: '' })} className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg" title="O'chirish" aria-label="O'chirish"><Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4" /></button>
                               </div>
                             )}
                           </div>
                           <div>
-                            <div className="flex items-center gap-1.5 mb-1">
-                              <label className="block text-sm font-medium text-gray-700">Muhr (PNG/JPG)</label>
+                            <div className={CX_LABEL}>
+                              <label>Muhr (PNG/JPG)</label>
                               <ContractFieldHint field="consigneeSealUrl" />
                             </div>
                             <input
@@ -3177,60 +3233,58 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                                 }
                                 if (inputEl) inputEl.value = '';
                               }}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                              className={CX_FILE}
                             />
                             {contractForm.consigneeSealUrl && (
                               <div className="mt-2 flex items-center gap-2">
-                                <img src={resolveUploadUrl(contractForm.consigneeSealUrl)} alt="Muhr" className="h-20 w-auto object-contain border border-gray-200 rounded" />
-                                <a href={resolveUploadUrl(contractForm.consigneeSealUrl)} target="_blank" rel="noopener noreferrer" className="p-2 text-gray-600 hover:text-blue-600 hover:bg-gray-100 rounded" title="Rasmni yuklab olish" aria-label="Rasmni yuklab olish"><Icon icon="solar:download-bold-duotone" className="w-4 h-4" /></a>
-                                <button type="button" onClick={() => setContractFormAndRef({ ...contractForm, consigneeSealUrl: '' })} className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded" title="O'chirish" aria-label="O'chirish"><Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4" /></button>
+                                <img src={resolveUploadUrl(contractForm.consigneeSealUrl)} alt="Muhr" className="h-20 w-auto object-contain border border-gray-200 dark:border-slate-700 rounded-lg bg-white" />
+                                <a href={resolveUploadUrl(contractForm.consigneeSealUrl)} target="_blank" rel="noopener noreferrer" className="p-2 text-gray-600 dark:text-gray-300 hover:text-blue-600 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg" title="Rasmni yuklab olish" aria-label="Rasmni yuklab olish"><Icon icon="solar:download-bold-duotone" className="w-4 h-4" /></a>
+                                <button type="button" onClick={() => setContractFormAndRef({ ...contractForm, consigneeSealUrl: '' })} className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg" title="O'chirish" aria-label="O'chirish"><Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4" /></button>
                               </div>
                             )}
                           </div>
                         </div>
                       </div>
                     )}
-                  </div>
+                  </ContractSection>
 
                   {/* Direktor */}
-                  <div>
-                    <h4 className="font-semibold text-gray-700 mb-3">Direktor ma'lumotlari</h4>
-                    <div className="space-y-2">
+                  <ContractSection icon="solar:user-id-bold-duotone" title="Direktor ma'lumotlari" tone="slate">
+                    <div className="space-y-3">
                       <div>
-                        <div className="flex items-center gap-1.5 mb-1">
-                          <label className="block text-sm font-medium text-gray-700">Direktor F.I.O. *</label>
+                        <div className={CX_LABEL}>
+                          <label>Direktor F.I.O. *</label>
                           <ContractFieldHint field="supplierDirector" />
                         </div>
                         <input
                           type="text"
                           value={contractForm.supplierDirector}
                           onChange={(e) => setContractFormAndRef({ ...contractForm, supplierDirector: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                          className={CX_INPUT}
                           required
                         />
                       </div>
                       <div>
-                        <div className="flex items-center gap-1.5 mb-1">
-                          <label className="block text-sm font-medium text-gray-700">Товар отпустил:</label>
+                        <div className={CX_LABEL}>
+                          <label>Товар отпустил:</label>
                           <ContractFieldHint field="goodsReleasedBy" />
                         </div>
                         <input
                           type="text"
                           value={contractForm.goodsReleasedBy}
                           onChange={(e) => setContractFormAndRef({ ...contractForm, goodsReleasedBy: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                          className={CX_INPUT}
                           placeholder="Товар отпустил"
                         />
                       </div>
                     </div>
-                  </div>
+                  </ContractSection>
 
                   {/* Kompaniya logotipi */}
-                  <div>
-                    <h4 className="font-semibold text-gray-700 mb-3 mt-4">Kompaniya logotipi</h4>
+                  <ContractSection icon="solar:gallery-bold-duotone" title="Kompaniya logotipi" tone="slate">
                     <div>
-                      <div className="flex items-center gap-1.5 mb-1">
-                        <label className="block text-sm font-medium text-gray-700">Logotip (PNG/JPG)</label>
+                      <div className={CX_LABEL}>
+                        <label>Logotip (PNG/JPG)</label>
                         <ContractFieldHint field="companyLogoUrl" />
                       </div>
                       <input
@@ -3248,32 +3302,31 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                           }
                           if (inputEl) inputEl.value = '';
                         }}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                        className={CX_FILE}
                       />
                       {contractForm.companyLogoUrl && (
                         <div className="mt-2 flex items-center gap-2">
-                          <img src={resolveUploadUrl(contractForm.companyLogoUrl)} alt="Logotip" className="h-20 w-auto object-contain border border-gray-200 rounded" />
-                          <a href={resolveUploadUrl(contractForm.companyLogoUrl)} target="_blank" rel="noopener noreferrer" className="p-2 text-gray-600 hover:text-blue-600 hover:bg-gray-100 rounded" title="Rasmni yuklab olish" aria-label="Rasmni yuklab olish"><Icon icon="solar:download-bold-duotone" className="w-4 h-4" /></a>
-                          <button type="button" onClick={() => setContractFormAndRef({ ...contractForm, companyLogoUrl: '' })} className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded" title="O'chirish" aria-label="O'chirish"><Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4" /></button>
+                          <img src={resolveUploadUrl(contractForm.companyLogoUrl)} alt="Logotip" className="h-20 w-auto object-contain border border-gray-200 dark:border-slate-700 rounded-lg bg-white" />
+                          <a href={resolveUploadUrl(contractForm.companyLogoUrl)} target="_blank" rel="noopener noreferrer" className="p-2 text-gray-600 dark:text-gray-300 hover:text-blue-600 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg" title="Rasmni yuklab olish" aria-label="Rasmni yuklab olish"><Icon icon="solar:download-bold-duotone" className="w-4 h-4" /></a>
+                          <button type="button" onClick={() => setContractFormAndRef({ ...contractForm, companyLogoUrl: '' })} className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg" title="O'chirish" aria-label="O'chirish"><Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4" /></button>
                         </div>
                       )}
                     </div>
-                  </div>
+                  </ContractSection>
 
                 </>
               )}
 
               {contractModalTab === 'terms' && (
                 <>
-                  <div>
-                    <h4 className="font-semibold text-gray-700 mb-3">Условия поставки / Rastamojka</h4>
-                    <p className="text-sm text-gray-500 mb-2">Har bir qatorda chap ustun — Условия поставки, o‘ng ustun — Rastamojka (juft, bir-biriga bog‘langan).</p>
+                  <ContractSection icon="solar:routing-2-bold-duotone" title="Условия поставки / Rastamojka" tone="blue">
+                    <p className="text-sm text-gray-500 dark:text-gray-400 -mt-1 mb-1">Har bir qatorda chap ustun — Условия поставки, o‘ng ustun — Rastamojka (juft, bir-biriga bog‘langan).</p>
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="flex-1 min-w-0 inline-flex items-center gap-1.5 text-xs font-medium text-gray-600">
+                      <span className="flex-1 min-w-0 inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                         Условия поставки
                         <ContractFieldHint field="deliveryTerms" />
                       </span>
-                      <span className="flex-1 min-w-0 inline-flex items-center gap-1.5 text-xs font-medium text-gray-600">
+                      <span className="flex-1 min-w-0 inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                         Rastamojka
                         <ContractFieldHint field="customsAddress" />
                       </span>
@@ -3298,7 +3351,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                                 while (nextC.length < nextD.length) nextC.push('');
                                 setContractFormAndRef({ ...contractForm, deliveryTerms: nextD, customsAddress: nextC });
                               }}
-                              className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-lg"
+                              className={`flex-1 min-w-0 ${CX_INPUT}`}
                               placeholder="Условия поставки"
                             />
                             <input
@@ -3311,7 +3364,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                                 while (nextD.length < nextC.length) nextD.push('');
                                 setContractFormAndRef({ ...contractForm, deliveryTerms: nextD, customsAddress: nextC });
                               }}
-                              className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-lg"
+                              className={`flex-1 min-w-0 ${CX_INPUT}`}
                               placeholder="Rastamojka"
                             />
                             <button
@@ -3333,10 +3386,10 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                                   customsAddress: nextC.length ? nextC : [''],
                                 });
                               }}
-                              className="px-2 py-2 text-sm text-red-600 hover:text-red-700 shrink-0"
+                              className="p-2.5 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg shrink-0 transition-colors"
                               title="O'chirish"
                             >
-                              ✕
+                              <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4" />
                             </button>
                           </div>
                         ));
@@ -3351,19 +3404,19 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                           const nextC = [...contractForm.customsAddress]; while (nextC.length < len) nextC.push(''); nextC.push('');
                           setContractFormAndRef({ ...contractForm, deliveryTerms: nextD, customsAddress: nextC });
                         }}
-                        className="mt-2 px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm"
+                        className={CX_ADD_ROW_BTN}
                       >
-                        + Qator qo'shish
+                        <Icon icon="solar:add-circle-bold-duotone" className="w-4 h-4" />
+                        Qator qo'shish
                       </button>
                     </div>
-                  </div>
+                  </ContractSection>
                 </>
               )}
 
               {contractModalTab === 'customs' && (
                 <>
-                  <div>
-                    <h4 className="flex items-center gap-1.5 font-semibold text-gray-700 mb-3">Shaxar / Адрес растаможки<ContractFieldHint field="customsAddress" /></h4>
+                  <ContractSection icon="solar:map-point-bold-duotone" title="Shaxar / Адрес растаможки" tone="violet" actions={<ContractFieldHint field="customsAddress" />}>
                     <div className="space-y-2">
                       {contractForm.customsAddress.map((value, index) => {
                         const address = value || '';
@@ -3377,7 +3430,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                                 next[index] = e.target.value;
                                 setContractFormAndRef({ ...contractForm, customsAddress: next });
                               }}
-                              className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-lg"
+                              className={`flex-1 min-w-0 ${CX_INPUT}`}
                               placeholder="Адрес растаможки"
                             />
                             <button
@@ -3390,10 +3443,10 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                                 const next = contractForm.customsAddress.filter((_, i) => i !== index);
                                 setContractFormAndRef({ ...contractForm, customsAddress: next.length ? next : [''] });
                               }}
-                              className="px-2 py-2 text-sm text-red-600 hover:text-red-700 shrink-0"
+                              className="p-2.5 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg shrink-0 transition-colors"
                               title="O'chirish"
                             >
-                              ✕
+                              <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4" />
                             </button>
                           </div>
                         );
@@ -3401,30 +3454,30 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                       <button
                         type="button"
                         onClick={() => setContractFormAndRef({ ...contractForm, customsAddress: [...contractForm.customsAddress, ''] })}
-                        className="mt-2 px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm"
+                        className={CX_ADD_ROW_BTN}
                       >
-                        + Qator qo'shish
+                        <Icon icon="solar:add-circle-bold-duotone" className="w-4 h-4" />
+                        Qator qo'shish
                       </button>
                     </div>
-                  </div>
+                  </ContractSection>
                 </>
               )}
 
               {contractModalTab === 'spec' && (
                 <>
-                  <div>
-                    <h4 className="font-semibold text-gray-700 mb-3">Spetsifikatsiya (qaysi mahsulotlar, qancha, qanday narxda)</h4>
-                    <div className="overflow-x-auto">
-                      <table className="min-w-full border border-gray-300 rounded-lg text-sm">
+                  <ContractSection icon="solar:list-check-bold-duotone" title="Spetsifikatsiya (mahsulotlar, miqdor, narx)" tone="emerald">
+                    <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-slate-700">
+                      <table className="min-w-full text-sm">
                         <thead>
-                          <tr className="bg-gray-100">
-                            <th className="px-2 py-2 text-left font-medium text-gray-700 border-b w-24"><span className="inline-flex items-center gap-1">Спецификация №<ContractFieldHint field="specNumber" /></span></th>
-                            <th className="px-2 py-2 text-left font-medium text-gray-700 border-b w-20"><span className="inline-flex items-center gap-1">Товар №<ContractFieldHint field="productNumber" /></span></th>
-                            <th className="px-2 py-2 text-left font-medium text-gray-700 border-b w-28"><span className="inline-flex items-center gap-1">TNVED kod<ContractFieldHint field="tnvedCode" /></span></th>
-                            <th className="px-2 py-2 text-left font-medium text-gray-700 border-b"><span className="inline-flex items-center gap-1">Mahsulot nomi<ContractFieldHint field="productName" /></span></th>
-                            <th className="px-2 py-2 text-left font-medium text-gray-700 border-b"><span className="inline-flex items-center gap-1">Botanik nomi<ContractFieldHint field="botanicalName" /></span></th>
-                            <th className="px-2 py-2 text-right font-medium text-gray-700 border-b w-28"><span className="inline-flex items-center gap-1">ЦЕНА<ContractFieldHint field="unitPrice" /></span></th>
-                            <th className="px-2 py-2 w-10 border-b"></th>
+                          <tr className="bg-gray-100 dark:bg-slate-800">
+                            <th className="px-2 py-2.5 text-left font-semibold text-gray-600 dark:text-gray-300 border-b border-gray-200 dark:border-slate-700 w-24"><span className="inline-flex items-center gap-1">Спецификация №<ContractFieldHint field="specNumber" /></span></th>
+                            <th className="px-2 py-2.5 text-left font-semibold text-gray-600 dark:text-gray-300 border-b border-gray-200 dark:border-slate-700 w-20"><span className="inline-flex items-center gap-1">Товар №<ContractFieldHint field="productNumber" /></span></th>
+                            <th className="px-2 py-2.5 text-left font-semibold text-gray-600 dark:text-gray-300 border-b border-gray-200 dark:border-slate-700 w-28"><span className="inline-flex items-center gap-1">TNVED kod<ContractFieldHint field="tnvedCode" /></span></th>
+                            <th className="px-2 py-2.5 text-left font-semibold text-gray-600 dark:text-gray-300 border-b border-gray-200 dark:border-slate-700"><span className="inline-flex items-center gap-1">Mahsulot nomi<ContractFieldHint field="productName" /></span></th>
+                            <th className="px-2 py-2.5 text-left font-semibold text-gray-600 dark:text-gray-300 border-b border-gray-200 dark:border-slate-700"><span className="inline-flex items-center gap-1">Botanik nomi<ContractFieldHint field="botanicalName" /></span></th>
+                            <th className="px-2 py-2.5 text-right font-semibold text-gray-600 dark:text-gray-300 border-b border-gray-200 dark:border-slate-700 w-28"><span className="inline-flex items-center gap-1 justify-end w-full">ЦЕНА<ContractFieldHint field="unitPrice" /></span></th>
+                            <th className="px-2 py-2.5 w-10 border-b border-gray-200 dark:border-slate-700"></th>
                           </tr>
                         </thead>
                         <tbody>
@@ -3441,7 +3494,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                                       return { ...prev, specification: next };
                                     });
                                   }}
-                                  className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+                                  className="w-full px-2 py-1.5 border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800/70 text-gray-900 dark:text-gray-100 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500"
                                   placeholder="Спецификация №"
                                 />
                               </td>
@@ -3456,7 +3509,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                                       return { ...prev, specification: next };
                                     });
                                   }}
-                                  className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+                                  className="w-full px-2 py-1.5 border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800/70 text-gray-900 dark:text-gray-100 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500"
                                   placeholder="Товар №"
                                 />
                               </td>
@@ -3471,7 +3524,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                                       return { ...prev, specification: next };
                                     });
                                   }}
-                                  className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+                                  className="w-full px-2 py-1.5 border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800/70 text-gray-900 dark:text-gray-100 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500"
                                   placeholder="TNVED kod"
                                 />
                               </td>
@@ -3486,7 +3539,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                                       return { ...prev, specification: next };
                                     });
                                   }}
-                                  className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+                                  className="w-full px-2 py-1.5 border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800/70 text-gray-900 dark:text-gray-100 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500"
                                   placeholder="Mahsulot nomi"
                                 />
                               </td>
@@ -3501,7 +3554,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                                       return { ...prev, specification: next };
                                     });
                                   }}
-                                  className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+                                  className="w-full px-2 py-1.5 border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800/70 text-gray-900 dark:text-gray-100 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500"
                                   placeholder="Botanik nomi"
                                 />
                               </td>
@@ -3521,11 +3574,11 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                                       return { ...prev, specification: next };
                                     });
                                   }}
-                                  className="w-full px-2 py-1 border border-gray-300 rounded text-xs text-right"
+                                  className="w-full px-2 py-1.5 border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800/70 text-gray-900 dark:text-gray-100 rounded-lg text-xs text-right focus:outline-none focus:ring-2 focus:ring-indigo-500/40 focus:border-indigo-500"
                                   placeholder="0"
                                 />
                               </td>
-                              <td className="px-2 py-1">
+                              <td className="px-2 py-1 text-center">
                                 <button
                                   type="button"
                                   onClick={() => {
@@ -3534,9 +3587,10 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                                       specification: (prev.specification || []).filter((_, i) => i !== idx),
                                     }));
                                   }}
-                                  className="text-red-600 hover:text-red-800 text-sm"
+                                  className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg transition-colors"
+                                  title="O'chirish"
                                 >
-                                  ×
+                                  <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4" />
                                 </button>
                               </td>
                             </tr>
@@ -3565,90 +3619,90 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                           ],
                         }));
                       }}
-                      className="mt-2 px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm"
+                      className={CX_ADD_ROW_BTN}
                     >
-                      + Qator qo'shish
+                      <Icon icon="solar:add-circle-bold-duotone" className="w-4 h-4" />
+                      Qator qo'shish
                     </button>
-                  </div>
+                  </ContractSection>
                 </>
               )}
 
               {contractModalTab === 'files' && (
-                <div className="space-y-6">
-                  <div className="border-b pb-4">
-                    <h4 className="font-semibold text-gray-700 mb-3">Shartnoma fayllari</h4>
-                    <div className="space-y-3">
-                      <div>
-                        <div className="flex items-center gap-1.5 mb-1">
-                          <label className="block text-sm font-medium text-gray-700">
-                            Fayllarni yuklash (ko'p fayl yuklash mumkin)
-                          </label>
-                          <ContractFieldHint field="files" />
-                        </div>
-                        <input
-                          type="file"
-                          multiple
-                          onChange={uploadContractFiles}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                        />
-                      </div>
-                      {contractForm.files && contractForm.files.length > 0 && (
-                        <div className="mt-4">
-                          <h5 className="text-sm font-medium text-gray-700 mb-2">Yuklangan fayllar:</h5>
-                          <ul className="space-y-2">
-                            {contractForm.files.map((file, index) => (
-                              <li key={file.fileUrl || file.name} className="flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-lg">
-                                <div className="flex items-center gap-3 overflow-hidden">
-                                  <Icon icon="solar:file-bold-duotone" className="w-5 h-5 text-gray-500 shrink-0" />
-                                  <span className="text-sm text-gray-800 truncate" title={file.name}>{file.name}</span>
-                                </div>
-                                <div className="flex items-center gap-3 shrink-0">
-                                  <a
-                                    href={resolveUploadUrl(file.fileUrl)}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-blue-600 hover:text-blue-800"
-                                    title="Ko'rish"
-                                  >
-                                    <Icon icon="solar:eye-bold-duotone" className="w-4 h-4" />
-                                  </a>
-                                  <a
-                                    href={resolveUploadUrl(file.fileUrl)}
-                                    download={file.name || 'document'}
-                                    className="text-green-600 hover:text-green-800"
-                                    title="Ko'chirib olish"
-                                  >
-                                    <Icon icon="solar:download-bold-duotone" className="w-4 h-4" />
-                                  </a>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      const newFiles = [...(contractForm.files || [])];
-                                      newFiles.splice(index, 1);
-                                      setContractFormAndRef((prev) => ({ ...prev, files: newFiles }));
-                                    }}
-                                    className="text-red-600 hover:text-red-800"
-                                    title="O'chirish"
-                                  >
-                                    <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4" />
-                                  </button>
-                                </div>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
+                <ContractSection icon="solar:folder-with-files-bold-duotone" title="Shartnoma fayllari" tone="slate">
+                  <div>
+                    <div className={CX_LABEL}>
+                      <label>Fayllarni yuklash (ko'p fayl yuklash mumkin)</label>
+                      <ContractFieldHint field="files" />
                     </div>
+                    <input
+                      type="file"
+                      multiple
+                      onChange={uploadContractFiles}
+                      className={CX_FILE}
+                    />
                   </div>
-                </div>
+                  {contractForm.files && contractForm.files.length > 0 && (
+                    <div className="pt-1">
+                      <h5 className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-2">Yuklangan fayllar</h5>
+                      <ul className="space-y-2">
+                        {contractForm.files.map((file, index) => (
+                          <li key={file.fileUrl || file.name} className="flex items-center justify-between p-3 bg-white dark:bg-slate-800/70 border border-gray-200 dark:border-slate-700 rounded-xl">
+                            <div className="flex items-center gap-3 overflow-hidden">
+                              <Icon icon="solar:file-bold-duotone" className="w-5 h-5 text-gray-500 dark:text-gray-400 shrink-0" />
+                              <span className="text-sm text-gray-800 dark:text-gray-200 truncate" title={file.name}>{file.name}</span>
+                            </div>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <a
+                                href={resolveUploadUrl(file.fileUrl)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/30 rounded-lg"
+                                title="Ko'rish"
+                              >
+                                <Icon icon="solar:eye-bold-duotone" className="w-4 h-4" />
+                              </a>
+                              <a
+                                href={resolveUploadUrl(file.fileUrl)}
+                                download={file.name || 'document'}
+                                className="p-1.5 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 rounded-lg"
+                                title="Ko'chirib olish"
+                              >
+                                <Icon icon="solar:download-bold-duotone" className="w-4 h-4" />
+                              </a>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const newFiles = [...(contractForm.files || [])];
+                                  newFiles.splice(index, 1);
+                                  setContractFormAndRef((prev) => ({ ...prev, files: newFiles }));
+                                }}
+                                className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg"
+                                title="O'chirish"
+                              >
+                                <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </ContractSection>
               )}
+              </div>
 
-              <div className="flex gap-2">
+              <div className="flex gap-2 px-6 py-4 border-t border-gray-100 dark:border-slate-800 shrink-0 bg-white dark:bg-slate-900">
                 <button
                   type="submit"
                   disabled={savingContract}
-                  className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 disabled:opacity-50"
+                  className="inline-flex items-center gap-2 bg-indigo-600 text-white px-5 py-2.5 rounded-xl hover:bg-indigo-700 disabled:opacity-50 font-medium text-sm shadow-sm shadow-indigo-600/30 transition-colors"
                 >
+                  {savingContract ? (
+                    <Icon icon="solar:refresh-bold-duotone" className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Icon icon="solar:diskette-bold-duotone" className="w-4 h-4" />
+                  )}
                   {savingContract ? 'Saqlanmoqda...' : 'Saqlash'}
                 </button>
                 <button
@@ -3657,7 +3711,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                     setShowContractModal(false);
                     resetContractForm();
                   }}
-                  className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300"
+                  className="bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-gray-200 px-5 py-2.5 rounded-xl hover:bg-gray-200 dark:hover:bg-slate-700 font-medium text-sm transition-colors"
                 >
                   Bekor qilish
                 </button>

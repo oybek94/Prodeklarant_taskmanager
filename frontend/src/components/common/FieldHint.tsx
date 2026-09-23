@@ -98,6 +98,7 @@ const FieldHint: React.FC<FieldHintProps> = ({ title, text, example, className }
       <button
         ref={buttonRef}
         type="button"
+        tabIndex={-1}
         onClick={() => setOpen((prev) => !prev)}
         aria-label={`${title} — ma'lumot`}
         aria-expanded={open}

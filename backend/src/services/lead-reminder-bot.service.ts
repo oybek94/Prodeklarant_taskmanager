@@ -44,6 +44,13 @@ export const initLeadReminderBot = () => {
     return;
   }
 
+  // Lokal dev instansiyalar serverdagi jonli botga polling orqali halaqit bermasligi uchun.
+  if (process.env.LEAD_BOT_POLLING === 'false') {
+    console.warn('[LeadReminderBot] LEAD_BOT_POLLING=false — polling o\'chirilgan (lokal), faqat sendMessage ishlaydi.');
+    bot = new TelegramBot(token, { polling: false });
+    return;
+  }
+
   try {
     bot = new TelegramBot(token, { polling: true });
 

@@ -33,12 +33,10 @@ const Login = () => {
     try {
       const user = await login(email, password) as any;
       const role = user?.role;
-      if (role === 'ADMIN') {
-        navigate('/dashboard');
-      } else if (role === 'SELLER') {
+      if (role === 'SELLER') {
         navigate('/crm');
       } else {
-        navigate('/tasks');
+        navigate('/invoices');
       }
     } catch (err: any) {
       const errorMessage = err.response?.data?.error || err.message || 'Login xatolik';

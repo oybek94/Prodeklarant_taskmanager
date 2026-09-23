@@ -132,7 +132,7 @@ const AppRoutes = () => {
         path="/login"
         element={
           isAuthenticated
-            ? <Navigate to="/dashboard" />
+            ? <Navigate to={user?.role === 'SELLER' ? '/crm' : '/invoices'} />
             : <Login />
         }
       />
@@ -416,7 +416,7 @@ const AppRoutes = () => {
           <Navigate
             to={
               isAuthenticated
-                ? (user?.role === 'SELLER' ? "/crm" : "/dashboard")
+                ? (user?.role === 'SELLER' ? "/crm" : "/invoices")
                 : "/login"
             }
             replace

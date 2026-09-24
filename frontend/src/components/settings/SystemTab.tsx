@@ -39,7 +39,9 @@ export const SystemTab = () => {
       formData.append('file', file);
       
       const res = await apiClient.post('/system/restore', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
+        headers: { 'Content-Type': 'multipart/form-data' },
+        // Tiklash bitta tranzaksiyada bir necha daqiqa olishi mumkin (backend: 10 daq)
+        timeout: 10 * 60 * 1000,
       });
       alert(res.data.message || "Ma'lumotlar muvaffaqiyatli tiklandi!");
       window.location.reload();

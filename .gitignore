@@ -23,3 +23,8 @@ db-tunnel.ps1
 .claude/worktrees/
 .worktrees/
 worktrees/
+
+# Foydalanuvchi/DB dump'lari (ism, email, parol hash) — repo PUBLIC, hech qachon commit qilinmasin
+backend/users*.json
+*.dump
+*-dump.json

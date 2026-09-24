@@ -1,12 +1,11 @@
-import { Router } from 'express';
-import { BackupService } from '../services/backup.service';
+import { Router, Request, Response, NextFunction } from 'express';
+import { BackupService, RestoreValidationError } from '../services/backup.service';
 import multer from 'multer';
 import PizZip from 'pizzip';
-import { Prisma, PrismaClient } from '@prisma/client';
-import { prisma } from '../prisma';
 
 const router = Router();
-const upload = multer({ storage: multer.memoryStorage() });
+// Kunlik zaxira ~4MB (zip); 100MB — katta o'sish uchun zaxira, xotirani to'ldirmaslik uchun chegara
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 100 * 1024 * 1024, files: 1 } });
 
 // /api/system/backup
 router.get('/backup', async (req, res) => {
@@ -26,7 +25,7 @@ router.post('/restore', upload.single('file'), async (req, res) => {
       return res.status(400).json({ error: 'Fayl yuklanmadi.' });
     }
 
-    let backupData;
+    let backupData: unknown;
     const fileName = req.file.originalname.toLowerCase();
 
     if (fileName.endsWith('.zip')) {
@@ -42,36 +41,30 @@ router.post('/restore', upload.single('file'), async (req, res) => {
       return res.status(400).json({ error: "Faqat .zip yoki .json format ruxsat etiladi." });
     }
 
-    // Ma'lumotlarni bazaga yozish
-    await prisma.$executeRawUnsafe(`SET session_replication_role = 'replica';`);
-    const models = Prisma.dmmf.datamodel.models;
-
-    for (const model of models) {
-      await prisma.$executeRawUnsafe(`TRUNCATE TABLE "${model.name}" CASCADE;`);
-    }
-
-    for (const model of models) {
-      const modelName = model.name;
-      const prismaModelName = modelName.charAt(0).toLowerCase() + modelName.slice(1);
-      const records = backupData[modelName];
-      if (records && records.length > 0) {
-        await (prisma as any)[prismaModelName].createMany({
-          data: records,
-          skipDuplicates: true,
-        });
-      }
-    }
-
-    await prisma.$executeRawUnsafe(`SET session_replication_role = 'origin';`);
-    res.json({ message: "Ma'lumotlar muvaffaqiyatli tiklandi! ✅" });
+    // Validatsiya + TRUNCATE + yozish — hammasi bitta tranzaksiyada (service ichida)
+    const inserted = await BackupService.restoreAllData(backupData);
+    const totalRows = Object.values(inserted).reduce((sum, n) => sum + n, 0);
+    res.json({ message: `Ma'lumotlar muvaffaqiyatli tiklandi! ✅ (${totalRows} ta yozuv)`, inserted });
 
   } catch (error) {
+    if (error instanceof RestoreValidationError) {
+      return res.status(400).json({ error: error.message });
+    }
+    if (error instanceof SyntaxError) {
+      return res.status(400).json({ error: "Zaxira faylidagi JSON buzilgan. Baza o'zgarmadi." });
+    }
     console.error('[RESTORE ERROR]', error);
-    try {
-      await prisma.$executeRawUnsafe(`SET session_replication_role = 'origin';`);
-    } catch (e) {}
-    res.status(500).json({ error: "Zaxirani tiklashda xatolik yuz berdi." });
+    res.status(500).json({ error: "Zaxirani tiklashda xatolik yuz berdi. Tranzaksiya bekor qilindi — baza o'zgarmadi." });
   }
+});
+
+// Multer xatolari (masalan, fayl juda katta) — umumiy 500 o'rniga tushunarli javob
+router.use((err: unknown, _req: Request, res: Response, next: NextFunction) => {
+  if (err instanceof multer.MulterError) {
+    const status = err.code === 'LIMIT_FILE_SIZE' ? 413 : 400;
+    return res.status(status).json({ error: status === 413 ? 'Fayl juda katta (maks. 100MB).' : `Fayl yuklashda xato: ${err.code}` });
+  }
+  next(err);
 });
 
 export default router;

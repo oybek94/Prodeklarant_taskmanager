@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
 import apiClient from '../lib/api';
 import { markArticleAsRead } from '../utils/articleStorage';
+import { sanitizeHtml } from '../utils/sanitizeHtml';
 import { useAuth } from '../contexts/AuthContext';
 import { Icon } from '@iconify/react';
 import RichTextEditor from '../components/RichTextEditor';
@@ -439,7 +440,7 @@ export default function TrainingStageDetail() {
               stage.description && (
                 <div
                   className="tinymce-content"
-                  dangerouslySetInnerHTML={{ __html: stage.description }}
+                  dangerouslySetInnerHTML={{ __html: sanitizeHtml(stage.description) }}
                 />
               )
             )}
@@ -496,7 +497,7 @@ export default function TrainingStageDetail() {
                             ) : (
                               <div
                                 className="tinymce-content"
-                                dangerouslySetInnerHTML={{ __html: material.content }}
+                                dangerouslySetInnerHTML={{ __html: sanitizeHtml(material.content) }}
                               />
                             )}
                           </div>

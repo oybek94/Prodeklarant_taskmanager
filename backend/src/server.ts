@@ -3,6 +3,8 @@ import express from 'express';
 import { createServer } from 'http';
 import { Server as SocketIOServer } from 'socket.io';
 import cors from 'cors';
+import helmet from 'helmet';
+import { corsOrigin } from './config/cors';
 import rateLimit from 'express-rate-limit';
 import { prisma } from './prisma';
 import authRouter from './routes/auth';
@@ -84,45 +86,17 @@ app.use((_req, res, next) => {
   next();
 });
 
-// CORS sozlamalari
-const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',').map(origin => origin.trim()) || [
-  'http://localhost:5173',
-  'http://127.0.0.1:5173',
-  'http://138.249.7.15'
-];
-
-app.use(cors({
-  origin: (origin, callback) => {
-    // Agar origin yo'q bo'lsa (masalan, Nginx orqali kelgan so'rovlar), ruxsat berish
-    if (!origin) {
-      return callback(null, true);
-    }
-
-    // Agar origin allowedOrigins ro'yxatida bo'lsa, ruxsat berish
-    if (allowedOrigins.includes(origin)) {
-      return callback(null, true);
-    }
-
-    // Development'da barcha localhost originlarga ruxsat berish
-    if (process.env.NODE_ENV !== 'production') {
-      if (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
-        return callback(null, true);
-      }
-    }
-
-    // Agar origin allowedOrigins ro'yxatida bo'lmasa, lekin production'da bo'lsa, 
-    // ham ruxsat berish (chunki Nginx orqali kelgan so'rovlar origin header bilan kelishi mumkin)
-    if (process.env.NODE_ENV === 'production') {
-      return callback(null, true);
-    }
-
-    // Development'da faqat allowedOrigins ro'yxatidagi originlarga ruxsat berish
-    // Lekin xatolikni throw qilmasdan, faqat console'ga log qilamiz
-    console.warn(`⚠️  CORS: ${origin} ruxsat berilmagan, lekin ruxsat berildi (development)`);
-    callback(null, true);
-  },
-  credentials: true
+// Xavfsizlik sarlavhalari (helmet). API faqat JSON/fayl qaytaradi, shuning uchun
+// standart CSP (default-src 'self') hech narsani buzmaydi va yuklangan fayl
+// (masalan .html) /api/secure-uploads orqali ochilsa ham inline skriptni to'sadi.
+// CORP same-site: dev'da Vite (localhost:5173) localhost:3001 dan rasm oladi.
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'same-site' },
 }));
+
+// CORS: faqat ruxsat etilgan originlar (qarang config/cors.ts). Auth — Bearer
+// token, cookie ishlatilmaydi, shuning uchun credentials yoqilmaydi.
+app.use(cors({ origin: corsOrigin }));
 // Increase body size limits for file uploads (50MB for multiple files)
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
@@ -349,15 +323,7 @@ if (!process.env.NODE_APP_INSTANCE || process.env.NODE_APP_INSTANCE === '0') {
 import { verifyAccessToken } from './utils/jwt';
 
 const io = new SocketIOServer(httpServer, {
-  cors: {
-    origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
-      if (process.env.NODE_ENV !== 'production' && (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:'))) return callback(null, true);
-      if (process.env.NODE_ENV === 'production') return callback(null, true);
-      callback(null, true);
-    },
-    credentials: true,
-  },
+  cors: { origin: corsOrigin },
   transports: ['websocket', 'polling'],
 });
 

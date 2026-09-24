@@ -1,6 +1,6 @@
 import { prisma } from '../prisma';
 import { TaskProcessLogAction } from '@prisma/client';
-import { notify } from './notificationService';
+import { notify, markProcessNotificationsRead } from './notificationService';
 
 const PROCESS_TYPE_LABELS: Record<string, string> = {
   TIR: 'TIR-SMR',
@@ -90,9 +90,7 @@ export async function runProcessReminderJob(): Promise<{ processed: number }> {
         });
         // Mavjud o'qilmagan bildirishnomalarni ham o'chirish
         if (isCompleted) {
-          await prisma.$executeRawUnsafe(
-            `UPDATE "Notification" SET "read" = true WHERE "read" = false AND metadata->>'taskProcessId' = '${tp.id}'`
-          );
+          await markProcessNotificationsRead(tp.id);
         }
         continue;
       }

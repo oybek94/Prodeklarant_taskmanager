@@ -1,6 +1,7 @@
 import { PrismaClient, Prisma, ContractPaymentType } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 import { computeContractPaymentSplit } from './contract-payment-split';
+import { amountInUzs, warnSkippedUzs } from '../utils/money';
 
 const XIZMAT_HAQI_CONTRACT_TYPES: ContractPaymentType[] = ['TRANSFER_ONLY', 'CASH_ONLY', 'MIXED'];
 
@@ -65,13 +66,20 @@ export async function computeAndRecordClientAssignmentBonus(
   }
   // CASH_ONLY -> taxUzs qoladi 0
 
+  // USD KPI log'i so'm deb ayirilsa (ilgari `?? log.amount`), boshqa ishchilar haqi
+  // ~12 000x kam chiqib, foyda va bonus sun'iy oshardi. Log'da kurs bo'lmasa —
+  // tasks.ts dagi kabi vazifaning snapshot kursi bilan o'giramiz.
+  const taskRate = task.snapshotDealAmount_exchange_rate ?? task.snapshotDealAmountExchangeRate;
   let otherWorkersFeeUzs = new Decimal(0);
+  let skippedLogs = 0;
   for (const log of task.kpiLogs || []) {
     if (log.userId === assignedUserId) continue;
     if (log.user?.role === 'ADMIN') continue;
-    const logAmountUzs = log.amount_uzs ?? log.convertedUzsAmount ?? log.amount ?? 0;
-    otherWorkersFeeUzs = otherWorkersFeeUzs.plus(logAmountUzs);
+    const logAmountUzs = amountInUzs(log) ?? amountInUzs({ ...log, exchange_rate: taskRate });
+    if (logAmountUzs) otherWorkersFeeUzs = otherWorkersFeeUzs.plus(logAmountUzs);
+    else skippedLogs++;
   }
+  warnSkippedUzs(`client-assignment-bonus task=${task.id} kpiLogs`, skippedLogs);
 
   let profitUzs = dealAmountUzs.minus(taxUzs).minus(certifierFeeUzs).minus(otherWorkersFeeUzs);
   if (profitUzs.isNegative()) {

@@ -2,7 +2,8 @@ import { Router } from 'express';
 import { prisma } from '../prisma';
 import { getWorkerPaymentReport } from '../services/worker-payment';
 import { requireAuth, AuthRequest } from '../middleware/auth';
-import { TaskStatus } from '@prisma/client';
+import { Prisma, TaskStatus } from '@prisma/client';
+import { amountInUzs, toMoneyNumber, warnSkippedUzs, ZERO } from '../utils/money';
 import { appCache, CACHE_TTL } from '../services/cache';
 import { shouldDeductGovernmentFees } from '../services/contract-payment-split';
 
@@ -598,6 +599,10 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
       select: {
         type: true,
         amount_uzs: true,
+        convertedUzsAmount: true,
+        amount: true,
+        currency: true,
+        exchangeRate: true,
         amount_original: true,
         currency_universal: true,
         exchange_rate: true,
@@ -605,25 +610,27 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
       },
     });
 
-    // Group by type and sum amount_uzs (accounting base currency)
-    const financialStats = financialTransactions.reduce((acc: any, tx: any) => {
-      const type = tx.type;
-      if (!acc[type]) {
-        acc[type] = { total: 0, exchangeRates: new Set<string>() };
-      }
-      acc[type].total += Number(tx.amount_uzs || tx.convertedUzsAmount || tx.amount_original || 0);
+    // Tur bo'yicha so'mdagi yig'indi (Decimal). So'mga o'girib bo'lmaydigan qator
+    // (USD, kurs yo'q) endi so'm deb qo'shilmaydi — ilgari amount_original qo'shilardi.
+    const financialStats: Record<string, { total: Prisma.Decimal; exchangeRates: Set<string> }> = {};
+    let financialSkipped = 0;
+    for (const tx of financialTransactions) {
+      const bucket = (financialStats[tx.type] ??= { total: ZERO, exchangeRates: new Set<string>() });
+      const uzs = amountInUzs(tx);
+      if (uzs) bucket.total = bucket.total.plus(uzs);
+      else financialSkipped++;
       if (tx.exchange_rate) {
-        acc[type].exchangeRates.add(`${tx.exchange_rate}-${tx.exchange_source || 'CBU'}`);
+        bucket.exchangeRates.add(`${tx.exchange_rate}-${tx.exchange_source || 'CBU'}`);
       }
-      return acc;
-    }, {});
+    }
+    warnSkippedUzs('dashboard financialStats', financialSkipped);
 
     // Convert to array format with exchange rate info
-    const financialStatsArray = Object.entries(financialStats).map(([type, data]: [string, any]) => {
-      const exchangeRatesSet = data.exchangeRates as Set<string>;
+    const financialStatsArray = Object.entries(financialStats).map(([type, data]) => {
+      const exchangeRatesSet = data.exchangeRates;
       return {
         type,
-        total: data.total,
+        total: toMoneyNumber(data.total),
         currency: 'UZS',
         exchangeRatesUsed: Array.from(exchangeRatesSet).map((rate: string) => {
           const [value, source] = rate.split('-');
@@ -956,16 +963,25 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
           amount_uzs: true,
           convertedUzsAmount: true,
           amount: true,
+          currency: true,
+          exchangeRate: true,
+          amount_original: true,
+          currency_universal: true,
+          exchange_rate: true,
           branchId: true,
         },
       });
 
       const paid = { st1: 0, fito: 0, akt: 0 };
+      let paidSkipped = 0;
       for (const tx of payments) {
         if (tx.branchId && tx.branchId !== oltiariqBranch.id) {
           continue;
         }
-        const amount = Number(tx.amount_uzs || tx.convertedUzsAmount || tx.amount || 0);
+        // USD to'lov kurssiz bo'lsa so'm deb qo'shilmaydi (ilgari `amount` qo'shilardi)
+        const uzs = amountInUzs(tx);
+        if (!uzs) { paidSkipped++; continue; }
+        const amount = toMoneyNumber(uzs);
         const rawCategory = tx.expenseCategory || '';
         const normalized = rawCategory.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
         if (normalized.startsWith('ST1')) {
@@ -976,6 +992,7 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
           paid.akt += amount;
         }
       }
+      warnSkippedUzs('dashboard oltiariq state payments', paidSkipped);
       const paidTotal = paid.st1 + paid.fito + paid.akt;
 
       const remaining = {

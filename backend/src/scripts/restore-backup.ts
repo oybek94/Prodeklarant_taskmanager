@@ -1,59 +1,23 @@
 import fs from 'fs';
 import path from 'path';
-import { PrismaClient, Prisma } from '@prisma/client';
+import { prisma } from '../prisma';
+import { BackupService } from '../services/backup.service';
 
-const prisma = new PrismaClient();
-
+// Qo'lda tiklash: /api/system/restore bilan AYNAN bir xil mantiq (bitta tranzaksiya,
+// SET LOCAL, validatsiya, sequence'lar) — xato bo'lsa baza o'zgarmaydi.
 async function restoreDatabase(jsonFilePath: string) {
   try {
     console.log(`[RESTORE] Zaxira fayli o'qilmoqda: ${jsonFilePath}`);
-    const fileContent = fs.readFileSync(jsonFilePath, 'utf-8');
-    const backupData = JSON.parse(fileContent);
+    const backupData: unknown = JSON.parse(fs.readFileSync(jsonFilePath, 'utf-8'));
 
-    console.log("[RESTORE] Baza tozalash va ma'lumotlarni kiritish boshlandi...");
-
-    // 1. Foreign key (tashqi kalit) tekshiruvlarini vaqtinchalik o'chiramiz
-    // Bu qadam ma'lumotlarni ketma-ketligidan qat'iy nazar yozishga ruxsat beradi
-    await prisma.$executeRawUnsafe("SET session_replication_role = 'replica';");
-
-    const models = Prisma.dmmf.datamodel.models;
-
-    // 2. Barcha jadvallarni tozalaymiz (eski ma'lumotlar o'chadi)
-    for (const model of models) {
-      const modelName = model.name;
-      console.log(`[RESTORE] Tozalanmoqda: ${modelName}...`);
-      await prisma.$executeRawUnsafe(`TRUNCATE TABLE "${modelName}" CASCADE;`);
+    const inserted = await BackupService.restoreAllData(backupData);
+    for (const [model, count] of Object.entries(inserted)) {
+      if (count > 0) console.log(`[RESTORE] ${model}: ${count} ta qator`);
     }
-
-    // 3. Zaxiradagi ma'lumotlarni yozamiz
-    for (const model of models) {
-      const modelName = model.name;
-      const prismaModelName = modelName.charAt(0).toLowerCase() + modelName.slice(1);
-      
-      const records = backupData[modelName];
-      
-      if (records && records.length > 0) {
-        console.log(`[RESTORE] Yuklanmoqda: ${modelName} (${records.length} ta qator)...`);
-        
-        // createMany yordamida tezkor kiritish
-        await (prisma as any)[prismaModelName].createMany({
-          data: records,
-          skipDuplicates: true,
-        });
-      }
-    }
-
-    // 4. Foreign key tekshiruvlarini qayta yoqamiz
-    await prisma.$executeRawUnsafe("SET session_replication_role = 'origin';");
-
     console.log("[RESTORE] Barcha ma'lumotlar muvaffaqiyatli tiklandi! ✅");
-
   } catch (error) {
-    console.error('[RESTORE] Tiklashda xatolik yuz berdi:', error);
-    // Xato bo'lsa ham tekshiruvni yoqib qo'yish kerak
-    try {
-      await prisma.$executeRawUnsafe("SET session_replication_role = 'origin';");
-    } catch (e) {}
+    console.error("[RESTORE] Tiklashda xatolik — tranzaksiya bekor qilindi, baza o'zgarmadi:", error);
+    process.exitCode = 1;
   } finally {
     await prisma.$disconnect();
   }

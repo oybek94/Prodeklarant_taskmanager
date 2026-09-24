@@ -35,7 +35,7 @@
 - Backend: 
   - Install: `cd backend && npm install`
   - Dev: `npm run dev` (uses `tsx watch src/server.ts`)
-  - Build: `npm run build` → `node dist/index.js` to run production build
+  - Build: `npm run build` → `node dist/server.js` to run production build
   - Migrations: `npm run prisma:migrate`; generate client: `npm run prisma:generate`; seed: `npm run prisma:seed`.
 - Frontend:
   - Install: `cd frontend && npm install`

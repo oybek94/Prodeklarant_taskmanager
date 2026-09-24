@@ -3,6 +3,7 @@ import { Decimal } from '@prisma/client/runtime/library';
 import { PrismaClient, Prisma } from '@prisma/client';
 import { prisma } from '../prisma';
 import { getLatestExchangeRate, getExchangeRate } from './exchange-rate';
+import { amountInUzs, sumUzs, toMoneyNumber, warnSkippedUzs, ZERO } from '../utils/money';
 
 /**
  * View modes for financial reporting
@@ -101,7 +102,10 @@ export function getAccountingView(data: {
   originalAmount?: number;
   originalCurrency?: Currency | string;
 } {
-  const converted = Number(data.convertedUzsAmount || data.originalAmount || 0);
+  // originalAmount faqat UZS bo'lsa so'm hisoblanadi (USD summa so'm deb ko'rsatilmasin)
+  const converted = data.convertedUzsAmount != null
+    ? Number(data.convertedUzsAmount)
+    : data.originalCurrency === 'UZS' ? Number(data.originalAmount ?? 0) : 0;
   
   return {
     amount: converted,
@@ -266,7 +270,8 @@ function transformTransaction(tx: any): TransactionWithRate {
   const currencyUniversal = tx.currency_universal || tx.originalCurrency || tx.currency || 'USD';
   const exchangeRate = tx.exchange_rate ? Number(tx.exchange_rate) : null;
   const exchangeSource = tx.exchange_source || null;
-  const amountUzs = Number(tx.amount_uzs || tx.convertedUzsAmount || amountOriginal || 0);
+  // USD summa kurssiz so'm deb ko'rsatilmaydi (ilgari amountOriginal fallback edi)
+  const amountUzs = toMoneyNumber(amountInUzs(tx) ?? ZERO);
 
   // Calculate operational amount
   let operationalAmount = amountOriginal;
@@ -429,13 +434,13 @@ export async function generateProfitReport(
   ].sort((a, b) => b.date.getTime() - a.date.getTime());
 
   // Calculate accounting totals (always UZS)
-  const accountingIncome = incomeTransactions.reduce((sum: number, tx: any) => {
-    return sum + Number(tx.amount_uzs || tx.convertedUzsAmount || tx.amount || 0);
-  }, 0);
-
-  const accountingExpenses = expenseTransactions.reduce((sum: number, tx: any) => {
-    return sum + Number(tx.amount_uzs || tx.convertedUzsAmount || tx.amount || 0);
-  }, 0);
+  // Decimal yig'indi; so'mga o'girib bo'lmaydigan qator (USD, kurs yo'q) qo'shilmaydi
+  const incomeSum = sumUzs(incomeTransactions);
+  const expenseSum = sumUzs(expenseTransactions);
+  warnSkippedUzs('reporting accountingIncome', incomeSum.skipped);
+  warnSkippedUzs('reporting accountingExpenses', expenseSum.skipped);
+  const accountingIncome = toMoneyNumber(incomeSum.total);
+  const accountingExpenses = toMoneyNumber(expenseSum.total);
 
   const accountingProfit = accountingIncome - accountingExpenses;
 

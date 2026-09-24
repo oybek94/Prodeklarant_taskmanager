@@ -7,6 +7,7 @@ import { computeDurations } from '../services/stage-duration';
 import { logKpiForStage } from '../services/kpi';
 import { updateTaskStatus, generateQrTokenIfNeeded } from '../services/task-status';
 import { socketEmitter } from '../services/socketEmitter';
+import { markProcessNotificationsRead } from '../services/notificationService';
 
 const router = Router();
 
@@ -203,9 +204,7 @@ router.post('/confirm', requireAuth(), async (req: AuthRequest, res) => {
       });
 
       // Yangi Notification: o'qilgan deb belgilash
-      await tx.$executeRawUnsafe(
-        `UPDATE "Notification" SET "read" = true WHERE "read" = false AND metadata->>'taskProcessId' = '${taskProcessId}'`
-      );
+      await markProcessNotificationsRead(taskProcessId, tx);
 
       // Tegishli task stage ni avtomatik TAYYOR belgilash
       const stageNames = PROCESS_TYPE_TO_STAGE_NAMES[tp.processType];
@@ -337,9 +336,7 @@ router.post('/reject', requireAuth(), async (req: AuthRequest, res) => {
     }
 
     // Yangi Notification: o'qilgan deb belgilash (interaktiv bildirishnomani yopish)
-    await prisma.$executeRawUnsafe(
-      `UPDATE "Notification" SET "read" = true WHERE "read" = false AND metadata->>'taskProcessId' = '${taskProcessId}'`
-    );
+    await markProcessNotificationsRead(taskProcessId);
 
     res.status(200).json({ success: true });
   } catch (error: any) {

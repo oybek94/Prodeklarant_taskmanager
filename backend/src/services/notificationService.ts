@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { prisma } from '../prisma';
 import { socketEmitter } from './socketEmitter';
 
@@ -34,7 +35,7 @@ interface NotifyParams {
   message: string;
   actionUrl?: string;
   taskId?: number;
-  metadata?: Record<string, any>;
+  metadata?: Prisma.InputJsonObject;
   excludeUserId?: number; // bu foydalanuvchiga yubormaslik
 }
 
@@ -67,13 +68,17 @@ export async function notify(params: NotifyParams): Promise<void> {
   const config = NOTIFICATION_CONFIG[type];
 
   try {
-    // DB ga saqlash — raw SQL (prisma generate kerak emas)
-    const values = recipients.map(userId =>
-      `(${userId}, '${type}'::\"NotificationType\", '${title.replace(/'/g, "''")}', '${message.replace(/'/g, "''")}', ${actionUrl ? `'${actionUrl.replace(/'/g, "''")}'` : 'NULL'}, false, ${taskId || 'NULL'}, ${metadata ? `'${JSON.stringify(metadata).replace(/'/g, "''")}'::jsonb` : 'NULL'}, NOW())`
-    ).join(', ');
-    await prisma.$executeRawUnsafe(
-      `INSERT INTO "Notification" ("userId", "type", "title", "message", "actionUrl", "read", "taskId", "metadata", "createdAt") VALUES ${values}`
-    );
+    await prisma.notification.createMany({
+      data: recipients.map((userId) => ({
+        userId,
+        type,
+        title,
+        message,
+        actionUrl: actionUrl ?? null,
+        taskId: taskId ?? null,
+        metadata: metadata ?? Prisma.JsonNull,
+      })),
+    });
 
     // Socket.io orqali push
     for (const userId of recipients) {
@@ -123,4 +128,25 @@ export async function getAllActiveUserIds(): Promise<number[]> {
     select: { id: true },
   });
   return users.map(u => u.id);
+}
+
+/**
+ * Jarayon (TasksProcess) ga bog'liq o'qilmagan bildirishnomalarni o'qilgan deb belgilaydi.
+ * metadata.taskProcessId raqam sifatida yoziladi; eski yozuvlar uchun matn ko'rinishi ham qamraladi
+ * (avvalgi raw SQL `metadata->>'taskProcessId'` ikkalasini ham moslardi).
+ */
+export async function markProcessNotificationsRead(
+  taskProcessId: number,
+  db: Prisma.TransactionClient = prisma,
+): Promise<void> {
+  await db.notification.updateMany({
+    where: {
+      read: false,
+      OR: [
+        { metadata: { path: ['taskProcessId'], equals: taskProcessId } },
+        { metadata: { path: ['taskProcessId'], equals: String(taskProcessId) } },
+      ],
+    },
+    data: { read: true },
+  });
 }

@@ -5,109 +5,109 @@ import { NOTIFICATION_CONFIG } from '../services/notificationService';
 
 const router = Router();
 
+const parseId = (raw: string): number | null => {
+  const id = Number.parseInt(raw, 10);
+  return Number.isFinite(id) ? id : null;
+};
+
 // GET / - Foydalanuvchining bildirishnomalarini olish
 router.get('/', requireAuth(), async (req: AuthRequest, res) => {
   try {
     const userId = req.user!.id;
     const onlyUnread = req.query.unread === 'true';
-    const limit = Math.min(parseInt(req.query.limit as string) || 50, 100);
+    const limit = Math.min(Number.parseInt(req.query.limit as string, 10) || 50, 100);
 
-    const whereClause = onlyUnread
-      ? `WHERE "userId" = ${userId} AND "read" = false`
-      : `WHERE "userId" = ${userId}`;
+    const rows = await prisma.notification.findMany({
+      where: { userId, ...(onlyUnread ? { read: false } : {}) },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+    });
 
-    const rows: any[] = await prisma.$queryRawUnsafe(
-      `SELECT "id", "userId", "type"::text, "title", "message", "actionUrl", "read", "taskId", "metadata", "createdAt" FROM "Notification" ${whereClause} ORDER BY "createdAt" DESC LIMIT ${limit}`
-    );
-
-    const result = rows.map(n => ({
+    res.json(rows.map((n) => ({
       ...n,
-      icon: (NOTIFICATION_CONFIG as any)[n.type]?.icon || 'ℹ️',
-      color: (NOTIFICATION_CONFIG as any)[n.type]?.color || 'gray',
-    }));
-
-    res.json(result);
-  } catch (error: any) {
+      icon: NOTIFICATION_CONFIG[n.type]?.icon || 'ℹ️',
+      color: NOTIFICATION_CONFIG[n.type]?.color || 'gray',
+    })));
+  } catch (error) {
     console.error('Notifications get error:', error);
-    res.status(500).json({ error: error.message || 'Xatolik yuz berdi' });
+    res.status(500).json({ error: 'Xatolik yuz berdi' });
   }
 });
 
 // GET /unread-count - O'qilmagan bildirishnomalar soni
 router.get('/unread-count', requireAuth(), async (req: AuthRequest, res) => {
   try {
-    const userId = req.user!.id;
-    const result: any[] = await prisma.$queryRawUnsafe(
-      `SELECT COUNT(*)::int as count FROM "Notification" WHERE "userId" = ${userId} AND "read" = false`
-    );
-    res.json({ count: result[0]?.count || 0 });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    const count = await prisma.notification.count({
+      where: { userId: req.user!.id, read: false },
+    });
+    res.json({ count });
+  } catch (error) {
+    console.error('Notifications unread-count error:', error);
+    res.status(500).json({ error: 'Xatolik yuz berdi' });
   }
 });
 
 // PATCH /:id/read - Bitta bildirishnomani o'qilgan deb belgilash
 router.patch('/:id/read', requireAuth(), async (req: AuthRequest, res) => {
   try {
-    const id = parseInt(req.params.id, 10);
-    if (!Number.isFinite(id)) {
+    const id = parseId(req.params.id);
+    if (id === null) {
       return res.status(400).json({ error: 'Noto\'g\'ri ID' });
     }
-    const userId = req.user!.id;
 
-    const rows: any[] = await prisma.$queryRawUnsafe(
-      `SELECT "id", "userId" FROM "Notification" WHERE "id" = ${id}`
-    );
-    if (rows.length === 0) {
+    const notification = await prisma.notification.findUnique({
+      where: { id },
+      select: { userId: true },
+    });
+    if (!notification) {
       return res.status(404).json({ error: 'Bildirishnoma topilmadi' });
     }
-    if (rows[0].userId !== userId) {
+    if (notification.userId !== req.user!.id) {
       return res.status(403).json({ error: 'Ruxsat yo\'q' });
     }
 
-    await prisma.$executeRawUnsafe(
-      `UPDATE "Notification" SET "read" = true WHERE "id" = ${id}`
-    );
-
+    await prisma.notification.update({ where: { id }, data: { read: true } });
     res.json({ success: true });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Notification read error:', error);
-    res.status(500).json({ error: error.message || 'Xatolik yuz berdi' });
+    res.status(500).json({ error: 'Xatolik yuz berdi' });
   }
 });
 
 // PATCH /read-all - Barcha bildirishnomalarni o'qilgan deb belgilash
 router.patch('/read-all', requireAuth(), async (req: AuthRequest, res) => {
   try {
-    const userId = req.user!.id;
-    await prisma.$executeRawUnsafe(
-      `UPDATE "Notification" SET "read" = true WHERE "userId" = ${userId} AND "read" = false`
-    );
+    await prisma.notification.updateMany({
+      where: { userId: req.user!.id, read: false },
+      data: { read: true },
+    });
     res.json({ success: true });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
+  } catch (error) {
+    console.error('Notifications read-all error:', error);
+    res.status(500).json({ error: 'Xatolik yuz berdi' });
   }
 });
 
 // DELETE /:id - Bitta bildirishnomani o'chirish
 router.delete('/:id', requireAuth(), async (req: AuthRequest, res) => {
   try {
-    const id = parseInt(req.params.id, 10);
-    if (!Number.isFinite(id)) {
+    const id = parseId(req.params.id);
+    if (id === null) {
       return res.status(400).json({ error: 'Noto\'g\'ri ID' });
     }
-    const userId = req.user!.id;
 
-    const rows: any[] = await prisma.$queryRawUnsafe(
-      `SELECT "id", "userId" FROM "Notification" WHERE "id" = ${id}`
-    );
-    if (rows.length === 0) return res.status(404).json({ error: 'Topilmadi' });
-    if (rows[0].userId !== userId) return res.status(403).json({ error: 'Ruxsat yo\'q' });
+    const notification = await prisma.notification.findUnique({
+      where: { id },
+      select: { userId: true },
+    });
+    if (!notification) return res.status(404).json({ error: 'Topilmadi' });
+    if (notification.userId !== req.user!.id) return res.status(403).json({ error: 'Ruxsat yo\'q' });
 
-    await prisma.$executeRawUnsafe(`DELETE FROM "Notification" WHERE "id" = ${id}`);
+    await prisma.notification.delete({ where: { id } });
     res.json({ success: true });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
+  } catch (error) {
+    console.error('Notification delete error:', error);
+    res.status(500).json({ error: 'Xatolik yuz berdi' });
   }
 });
 

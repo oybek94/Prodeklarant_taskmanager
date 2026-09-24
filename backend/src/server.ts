@@ -44,9 +44,10 @@ import aiRouter from './routes/ai';
 import reportsRouter from './routes/reports';
 import qrRouter from './routes/qr';
 import stickerRouter from './routes/sticker';
-import { requireAuth } from './middleware/auth';
+import { requireAuth, authenticateApi } from './middleware/auth';
 import { auditLog } from './middleware/audit';
 import { requestTiming } from './middleware/request-timing';
+import { sanitizeErrorResponses, GENERIC_ERROR_MESSAGE } from './middleware/sanitize-errors';
 import OpenAIClient from './ai/openai.client';
 import path from 'path';
 import fs from 'fs';
@@ -77,6 +78,9 @@ const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3001;
 
 // Sekin so'rovlarni o'lchash — barcha boshqa middleware'lardan oldin turishi shart
 app.use(requestTiming());
+
+// Production'da 5xx javoblardagi ichki tafsilotlar (Prisma, stack, SQL, yo'llar) mijozga ketmasin
+app.use(sanitizeErrorResponses());
 
 // Ichki tizim — qidiruv tizimlari indeksiga tushmasligi shart.
 // Header meta-teg'dan kuchliroq: JSON/PDF/rasm kabi HTML bo'lmagan
@@ -156,26 +160,9 @@ const apiLimiter = rateLimit({
   skip: (req) => req.path.startsWith('/uploads') || req.path.startsWith('/api/uploads'),
 });
 
+// Ochiq endpoint — API xaritasini (endpoint ro'yxatini) oshkor qilmaydi
 app.get('/', (_req, res) => {
-  res.json({
-    message: 'Prodeklarant API',
-    version: '1.0.0',
-    endpoints: {
-      health: '/health',
-      auth: '/api/auth',
-      clients: '/api/clients',
-      tasks: '/api/tasks',
-      transactions: '/api/transactions',
-      kpi: '/api/kpi',
-      users: '/api/users',
-      dashboard: '/api/dashboard',
-      workers: '/api/workers',
-      workerPayments: '/api/worker-payments',
-      bxm: '/api/bxm',
-      ai: '/api/ai',
-      debts: '/api/debts',
-    },
-  });
+  res.json({ message: 'Prodeklarant API' });
 });
 
 app.get('/health', async (_req, res) => {
@@ -209,6 +196,8 @@ app.get(['/health/db', '/api/health/db'], async (_req, res) => {
 app.use('/api/auth/login', loginLimiter);         // Login uchun qat'iy limit
 app.use('/api/auth/client/login', loginLimiter);  // Client login uchun ham
 app.use('/api', apiLimiter);                      // Barcha API uchun umumiy limit
+// Sukut bo'yicha yopiq: /api ostida token talab qilinadi (ochiq yo'llar — middleware/auth.ts PUBLIC_API)
+app.use('/api', authenticateApi);
 
 app.use('/api/auth', authRouter);
 // AI endpoints (protected, requires authentication)
@@ -267,11 +256,15 @@ app.use('/api/seller-kpi', requireAuth(), sellerKpiRouter);
 app.use('/api/v1', lmsRouter);
 
 // Global error handler
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+// Bu yerga faqat kutilmagan (throw qilingan) xatolar tushadi — 5xx matni production'da
+// hech qachon mijozga ketmaydi; 4xx (masalan body-parser 400/413) xabari qoladi.
+app.use((err: Error & { status?: number; statusCode?: number }, req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error('Global error handler:', err);
-  res.status(err.status || 500).json({
-    error: err.message || 'Internal server error',
-    ...(process.env.NODE_ENV !== 'production' && { stack: err.stack }),
+  const status = err.status ?? err.statusCode ?? 500;
+  const isProduction = process.env.NODE_ENV === 'production';
+  res.status(status).json({
+    error: status >= 500 && isProduction ? GENERIC_ERROR_MESSAGE : err.message || 'Internal server error',
+    ...(!isProduction && { stack: err.stack }),
   });
 });
 

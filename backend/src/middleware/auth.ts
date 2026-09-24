@@ -54,3 +54,43 @@ export const requireAuth =
 // Xodimlar ham, mijoz portali ham foydalanadigan endpointlar uchun.
 // Handler ichida CLIENT faqat o'z ma'lumotini ko'rishi tekshirilishi shart.
 export const requireStaffOrClient = () => requireAuth(...STAFF_ROLES, CLIENT_ROLE);
+
+// /api ostida token'siz ochiq bo'lishi SHART bo'lgan yo'llar (app.use('/api') ga nisbatan).
+// Yangi ochiq endpoint qo'shilsa — shu yerga ataylab yozilishi kerak.
+const PUBLIC_API_EXACT = new Set([
+  '/auth/login',
+  '/auth/client/login',
+  '/auth/refresh',
+  '/health/db',
+]);
+const PUBLIC_API_PREFIXES = [
+  '/q/', // QR orqali hujjatni ochiq tekshirish
+  '/v1/media/stream/', // LMS video — o'z stream token'ini query'da tekshiradi
+];
+
+export const isPublicApiPath = (path: string): boolean => {
+  const normalized = path.length > 1 ? path.replace(/\/+$/, '') : path;
+  return PUBLIC_API_EXACT.has(normalized) || PUBLIC_API_PREFIXES.some((prefix) => path.startsWith(prefix));
+};
+
+/**
+ * Himoya "sukut bo'yicha yopiq": /api ostidagi har bir so'rov yaroqli token talab
+ * qiladi (xodim yoki mijoz), faqat PUBLIC_API ro'yxati bundan mustasno. Ilgari ~20
+ * router auth'siz mount qilingan va himoya har endpointdagi requireAuth'ga bog'liq
+ * edi — bittasini unutish endpointni ochiq qoldirardi. Rol cheklovlari hamon
+ * endpoint darajasidagi requireAuth(...) da.
+ */
+export const authenticateApi = (req: AuthRequest, res: Response, next: NextFunction) => {
+  if (req.method === 'OPTIONS' || isPublicApiPath(req.path)) return next();
+  const auth = req.headers.authorization;
+  if (!auth?.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  try {
+    const payload = verifyAccessToken(auth.slice(7));
+    req.user = { id: payload.sub, role: payload.role, branchId: payload.branchId || null, name: payload.name };
+    next();
+  } catch {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+};

@@ -18,7 +18,7 @@ import fs from 'fs/promises';
 import { ensureCmrForInvoice } from '../services/cmr-service';
 import { ensureTirForInvoice } from '../services/tir-service';
 import { socketEmitter } from '../services/socketEmitter';
-import { notify, getAllActiveUserIds } from '../services/notificationService';
+import { notify, getAllActiveUserIds, markProcessNotificationsRead } from '../services/notificationService';
 
 import { TaskRepository } from '../repositories/task.repository';
 import { TaskService } from '../services/task.service';
@@ -1584,9 +1584,7 @@ router.patch('/:taskId/stages/:stageId', requireAuth(), async (req: AuthRequest,
           select: { id: true },
         });
         for (const rp of relatedProcesses) {
-          await (tx as any).$executeRawUnsafe(
-            `UPDATE "Notification" SET "read" = true WHERE "read" = false AND metadata->>'taskProcessId' = '${rp.id}'`
-          );
+          await markProcessNotificationsRead(rp.id, tx);
         }
       }
     } else if (parsed.data.status === 'BOSHLANMAGAN' && stage.status === 'TAYYOR') {

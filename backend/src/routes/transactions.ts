@@ -7,6 +7,7 @@ import { Decimal } from '@prisma/client/runtime/library';
 import { getLatestExchangeRate, getExchangeRate } from '../services/exchange-rate';
 import { validateMonetaryFields, calculateAmountUzs } from '../services/monetary-validation';
 import { applySelfSalaryRestrictions, canWorkerDeleteTransaction } from './transactions.guards';
+import { amountInUzs, toMoneyNumber, warnSkippedUzs, ZERO } from '../utils/money';
 
 const router = Router();
 
@@ -168,6 +169,10 @@ router.get('/stats/monthly', requireAuth(), async (req: AuthRequest, res) => {
       exchange_rate: true,
       exchange_source: true,
       amount_uzs: true,
+      convertedUzsAmount: true,
+      amount: true,
+      currency: true,
+      exchangeRate: true,
       date: true,
     },
   });
@@ -183,40 +188,56 @@ router.get('/stats/monthly', requireAuth(), async (req: AuthRequest, res) => {
       exchange_rate: true,
       exchange_source: true,
       amount_uzs: true,
+      convertedUzsAmount: true,
+      amount: true,
+      currency: true,
+      exchangeRate: true,
       date: true,
     },
   });
 
   // Calculate stats using amount_uzs (accounting base currency)
-  const calculateStats = (transactions: any[]) => {
-    let income = 0;
-    let expense = 0;
-    let salary = 0;
+  // So'mdagi yig'indi Decimal'da; javob chegarasida number. So'mga o'girib bo'lmaydigan
+  // qator (USD, kurs yo'q) so'm deb qo'shilmaydi.
+  const calculateStats = (transactions: typeof currentMonthTransactions, label: string) => {
+    let income = ZERO;
+    let expense = ZERO;
+    let salary = ZERO;
+    let skipped = 0;
     const exchangeRates = new Set<string>();
 
     for (const tx of transactions) {
-      // Always use amount_uzs for accounting calculations
-      const amount = Number(tx.amount_uzs || tx.convertedUzsAmount || tx.amount || 0);
-      
+      const amount = amountInUzs(tx);
+
       // Track exchange rates used
       if (tx.exchange_rate) {
         exchangeRates.add(`${tx.exchange_rate}-${tx.exchange_source || 'CBU'}`);
       }
 
+      if (!amount) {
+        skipped++;
+        continue;
+      }
       if (tx.type === 'INCOME') {
-        income += amount;
+        income = income.plus(amount);
       } else if (tx.type === 'EXPENSE') {
-        expense += amount;
+        expense = expense.plus(amount);
       } else if (tx.type === 'SALARY') {
-        salary += amount;
+        salary = salary.plus(amount);
       }
     }
+    warnSkippedUzs(`transactions stats (${label})`, skipped);
 
-    return { income, expense, salary, exchangeRates: Array.from(exchangeRates) };
+    return {
+      income: toMoneyNumber(income),
+      expense: toMoneyNumber(expense),
+      salary: toMoneyNumber(salary),
+      exchangeRates: Array.from(exchangeRates),
+    };
   };
 
-  const current = calculateStats(currentMonthTransactions);
-  const last = calculateStats(lastMonthTransactions);
+  const current = calculateStats(currentMonthTransactions, 'current month');
+  const last = calculateStats(lastMonthTransactions, 'last month');
 
   const totalExpense = current.expense + current.salary;
   const net = current.income - totalExpense;

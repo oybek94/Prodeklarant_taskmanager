@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
 import { prisma } from '../prisma';
-import { PaymentMethod, TransactionType } from '@prisma/client';
+import { Currency, PaymentMethod, Prisma, TransactionType } from '@prisma/client';
+import { z } from 'zod';
+import { amountInUzs, toMoneyNumber, warnSkippedUzs } from '../utils/money';
 
 export const getDebtPersons = async (req: Request, res: Response) => {
     try {
@@ -53,19 +55,20 @@ export const getDebts = async (req: Request, res: Response) => {
   try {
     const { status } = req.query; // status: 'active', 'paid'
     
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 10;
+    // Manfiy/nol qiymat SQL'da manfiy OFFSET/LIMIT xatosini berardi
+    const page = Math.max(parseInt(req.query.page as string) || 1, 1);
+    const limit = Math.min(Math.max(parseInt(req.query.limit as string) || 10, 1), 100);
     const skip = (page - 1) * limit;
 
     if (status === 'active' || status === 'paid') {
       // Status filtri bor — raw SQL bilan DB darajasida filter qilamiz
       // Bu barcha qarzlarni xotiraga yuklashning oldini oladi
       const havingCondition = status === 'active'
-        ? `HAVING d.amount - COALESCE(SUM(dp.amount), 0) > 0`
-        : `HAVING d.amount - COALESCE(SUM(dp.amount), 0) <= 0`;
+        ? Prisma.sql`HAVING d.amount - COALESCE(SUM(dp.amount), 0) > 0`
+        : Prisma.sql`HAVING d.amount - COALESCE(SUM(dp.amount), 0) <= 0`;
 
       // Jami sonni olish
-      const countResult = await prisma.$queryRawUnsafe<{ cnt: bigint }[]>(`
+      const countResult = await prisma.$queryRaw<{ cnt: bigint }[]>`
         SELECT COUNT(*) AS cnt FROM (
           SELECT d.id
           FROM "Debt" d
@@ -73,11 +76,11 @@ export const getDebts = async (req: Request, res: Response) => {
           GROUP BY d.id, d.amount
           ${havingCondition}
         ) sub
-      `);
+      `;
       const total = Number(countResult[0]?.cnt || 0);
 
       // Filtrlangan va paginatsiya qilingan ID'larni olish
-      const filteredIds = await prisma.$queryRawUnsafe<{ id: number }[]>(`
+      const filteredIds = await prisma.$queryRaw<{ id: number }[]>`
         SELECT d.id
         FROM "Debt" d
         LEFT JOIN "DebtPayment" dp ON dp."debtId" = d.id
@@ -85,7 +88,7 @@ export const getDebts = async (req: Request, res: Response) => {
         ${havingCondition}
         ORDER BY d."dueDate" ASC NULLS LAST, d.date DESC
         LIMIT ${limit} OFFSET ${skip}
-      `);
+      `;
 
       const ids = filteredIds.map(r => r.id);
 
@@ -191,17 +194,31 @@ export const getDebtById = async (req: Request, res: Response) => {
     }
 };
 
+// Ilgari `data: req.body` — mijoz istalgan ustunni (debtPersonId, createdAt, ...) yozishi mumkin edi.
+// Endi faqat shu maydonlar qabul qilinadi; noma'lum maydon 400 beradi.
+const updateDebtSchema = z.object({
+  amount: z.coerce.number().positive().optional(),
+  currency: z.nativeEnum(Currency).optional(),
+  comment: z.string().max(2000).nullable().optional(),
+  date: z.coerce.date().optional(),
+  dueDate: z.coerce.date().nullable().optional(),
+  originalAmount: z.coerce.number().positive().nullable().optional(),
+  originalCurrency: z.nativeEnum(Currency).nullable().optional(),
+  exchangeRate: z.coerce.number().positive().nullable().optional(),
+  convertedUzsAmount: z.coerce.number().nonnegative().nullable().optional(),
+}).strict();
+
 export const updateDebt = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const updateData = req.body;
-
-    if (updateData.date) updateData.date = new Date(updateData.date);
-    if (updateData.dueDate) updateData.dueDate = new Date(updateData.dueDate);
+    const parsed = updateDebtSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: parsed.error.flatten() });
+    }
 
     const updated = await prisma.debt.update({
       where: { id: Number(id) },
-      data: updateData
+      data: parsed.data
     });
 
     res.json(updated);
@@ -362,16 +379,25 @@ export const getDebtDashboard = async (req: Request, res: Response) => {
           amount_uzs: true,
           convertedUzsAmount: true,
           amount: true,
+          currency: true,
+          exchangeRate: true,
+          amount_original: true,
+          currency_universal: true,
+          exchange_rate: true,
           branchId: true,
         },
       });
 
       const paid = { st1: 0, fito: 0, akt: 0 };
+      let paidSkipped = 0;
       for (const tx of payments) {
         if (tx.branchId && tx.branchId !== oltiariqBranch.id) {
           continue;
         }
-        const amount = Number(tx.amount_uzs || tx.convertedUzsAmount || tx.amount || 0);
+        // USD to'lov kurssiz bo'lsa so'm deb qo'shilmaydi (ilgari `amount` qo'shilardi)
+        const uzs = amountInUzs(tx);
+        if (!uzs) { paidSkipped++; continue; }
+        const amount = toMoneyNumber(uzs);
         const rawCategory = tx.expenseCategory || '';
         const normalized = rawCategory.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
         if (normalized.startsWith('ST1')) {
@@ -382,6 +408,7 @@ export const getDebtDashboard = async (req: Request, res: Response) => {
           paid.akt += amount;
         }
       }
+      warnSkippedUzs('debts oltiariq state payments', paidSkipped);
       const paidTotal = paid.st1 + paid.fito + paid.akt;
 
       const remaining = {

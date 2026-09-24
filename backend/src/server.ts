@@ -367,6 +367,9 @@ io.use((socket, next) => {
   if (!token) return next(new Error('Authentication token required'));
   try {
     const payload = verifyAccessToken(token);
+    // Mijoz tokeni (sub = Client.id) `user:<id>` xonasida shu ID'li xodimning
+    // bildirishnomalarini olardi — socket faqat xodimlar uchun
+    if (payload.role === 'CLIENT') return next(new Error('Forbidden'));
     socket.data.user = { id: payload.sub, role: payload.role, name: payload.name, branchId: payload.branchId };
     next();
   } catch {

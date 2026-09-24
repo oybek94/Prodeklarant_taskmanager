@@ -3,7 +3,7 @@ import { prisma } from '../prisma';
 import { Prisma, Currency, ExchangeSource, ContractPaymentType } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 import { z } from 'zod';
-import { AuthRequest, requireAuth } from '../middleware/auth';
+import { AuthRequest, requireAuth, requireStaffOrClient, CLIENT_ROLE } from '../middleware/auth';
 import { hashPassword } from '../utils/hash';
 import { deepNormalizeStrings } from '../utils/text-normalize';
 import { getLatestExchangeRate } from '../services/exchange-rate';
@@ -102,7 +102,7 @@ router.get('/', requireAuth(), async (req: AuthRequest, res) => {
 
 // Get task detail with stages and duration - CLIENT can access their own tasks, ADMIN can access any
 // IMPORTANT: This route must come BEFORE all /:id/* routes to avoid route matching conflicts
-router.get('/tasks/:taskId', requireAuth(), async (req: AuthRequest, res) => {
+router.get('/tasks/:taskId', requireStaffOrClient(), async (req: AuthRequest, res) => {
   try {
     const taskId = Number(req.params.taskId);
     const userId = req.user!.id;
@@ -418,7 +418,7 @@ router.get('/:id', requireAuth(), async (req: AuthRequest, res) => {
   }
 });
 
-router.get('/:id/monthly-tasks', requireAuth(), async (req: AuthRequest, res) => {
+router.get('/:id/monthly-tasks', requireStaffOrClient(), async (req: AuthRequest, res) => {
   const id = Number(req.params.id);
   const user = req.user as any;
   
@@ -782,7 +782,7 @@ router.patch('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
 });
 
 // Client invoice stats endpoint (for client dashboard)
-router.get('/me/invoice-stats', requireAuth(), async (req: AuthRequest, res) => {
+router.get('/me/invoice-stats', requireAuth(CLIENT_ROLE), async (req: AuthRequest, res) => {
   try {
     const user = req.user;
     if (!user) {
@@ -882,7 +882,7 @@ router.get('/me/invoice-stats', requireAuth(), async (req: AuthRequest, res) => 
 });
 
 // Client tasks endpoint (for client dashboard) - CLIENT can access their own, ADMIN can access any
-router.get('/:id/tasks', requireAuth(), async (req: AuthRequest, res) => {
+router.get('/:id/tasks', requireStaffOrClient(), async (req: AuthRequest, res) => {
   try {
     const id = Number(req.params.id);
     const userId = req.user!.id;
@@ -929,7 +929,7 @@ router.get('/:id/tasks', requireAuth(), async (req: AuthRequest, res) => {
 });
 
 // Client transactions endpoint (for client dashboard) - CLIENT can access their own, ADMIN can access any
-router.get('/:id/transactions', requireAuth(), async (req: AuthRequest, res) => {
+router.get('/:id/transactions', requireStaffOrClient(), async (req: AuthRequest, res) => {
   try {
     const id = Number(req.params.id);
     const userId = req.user!.id;

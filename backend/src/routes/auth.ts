@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { prisma } from '../prisma';
 import { comparePassword, hashPassword } from '../utils/hash';
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from '../utils/jwt';
-import { requireAuth, AuthRequest } from '../middleware/auth';
+import { requireAuth, AuthRequest, CLIENT_ROLE } from '../middleware/auth';
 import { z } from 'zod';
 
 const router = Router();
@@ -141,8 +141,23 @@ router.post('/refresh', async (req, res) => {
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   try {
     const payload = verifyRefreshToken(parsed.data.refreshToken);
+
+    // Mijoz tokenida `sub` = Client.id. Uni User jadvalidan qidirish mijozga
+    // shu ID'li xodim (hatto ADMIN) tokenini berib yuborardi — shuning uchun
+    // CLIENT faqat Client jadvalidan va faqat CLIENT tokeni bilan yangilanadi.
+    if (payload.role === CLIENT_ROLE) {
+      const client = await prisma.client.findUnique({ where: { id: payload.sub } });
+      if (!client || !client.passwordHash) return res.status(401).json({ error: 'Invalid refresh' });
+      const clientPayload = { sub: client.id, role: CLIENT_ROLE, branchId: null, name: client.name };
+      return res.json({
+        accessToken: signAccessToken(clientPayload),
+        refreshToken: signRefreshToken(clientPayload),
+      });
+    }
+
     const user = await prisma.user.findUnique({ where: { id: payload.sub } });
-    if (!user) return res.status(401).json({ error: 'Invalid refresh' });
+    // Bloklangan xodim refresh orqali yangi token ololmasligi kerak
+    if (!user || !user.active) return res.status(401).json({ error: 'Invalid refresh' });
     const newPayload = { sub: user.id, role: user.role, branchId: user.branchId || null, name: user.name };
     return res.json({
       accessToken: signAccessToken(newPayload),
@@ -235,7 +250,7 @@ router.post('/client/login', async (req, res) => {
 });
 
 // Client me endpoint
-router.get('/client/me', requireAuth(), async (req: AuthRequest, res) => {
+router.get('/client/me', requireAuth(CLIENT_ROLE), async (req: AuthRequest, res) => {
   try {
     if (req.user!.role !== 'CLIENT') {
       return res.status(403).json({ error: 'Access denied' });

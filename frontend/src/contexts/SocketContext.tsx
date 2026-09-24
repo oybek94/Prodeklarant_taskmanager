@@ -47,7 +47,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     s.on('connect_error', (err) => {
       console.warn('🔌 Socket connection error:', err.message);
       // Token muddati o'tgan bo'lsa, qayta ulanmaslik
-      if (err.message.includes('expired') || err.message.includes('Invalid')) {
+      if (err.message.includes('expired') || err.message.includes('Invalid') || err.message === 'Forbidden') {
         s.disconnect();
       }
     });
@@ -84,7 +84,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
           
           s.on('connect_error', (err) => {
             console.warn('🔌 Socket connection error:', err.message);
-            if (err.message.includes('expired') || err.message.includes('Invalid')) {
+            if (err.message.includes('expired') || err.message.includes('Invalid') || err.message === 'Forbidden') {
               s.disconnect();
             }
           });

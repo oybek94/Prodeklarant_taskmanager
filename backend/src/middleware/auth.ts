@@ -10,6 +10,13 @@ export interface AuthRequest extends Request {
   };
 }
 
+// Mijoz (CLIENT) tokeni `sub` sifatida Client.id ni saqlaydi, User.id emas.
+// Shuning uchun rolsiz requireAuth() uni RAD ETADI — aks holda mijoz xodim
+// endpointlariga kirib, o'z ID'si bilan to'qnashgan xodim nomidan ish ko'radi.
+// Mijoz portali endpointlari 'CLIENT' ni rollar ro'yxatida aniq ko'rsatishi shart.
+export const CLIENT_ROLE = 'CLIENT';
+export const STAFF_ROLES = ['ADMIN', 'MANAGER', 'DEKLARANT', 'SELLER', 'CERTIFICATE_WORKER'] as const;
+
 export const requireAuth =
   (...roles: string[]) =>
   (req: AuthRequest, res: Response, next: NextFunction) => {
@@ -27,6 +34,9 @@ export const requireAuth =
           branchId: payload.branchId || null,
           name: payload.name,
         };
+        if (payload.role === CLIENT_ROLE && !roles.includes(CLIENT_ROLE)) {
+          return res.status(403).json({ error: 'Forbidden' });
+        }
         if (roles.length && !roles.includes(payload.role)) {
           return res.status(403).json({ error: 'Forbidden' });
         }
@@ -41,3 +51,6 @@ export const requireAuth =
     }
   };
 
+// Xodimlar ham, mijoz portali ham foydalanadigan endpointlar uchun.
+// Handler ichida CLIENT faqat o'z ma'lumotini ko'rishi tekshirilishi shart.
+export const requireStaffOrClient = () => requireAuth(...STAFF_ROLES, CLIENT_ROLE);

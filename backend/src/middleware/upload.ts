@@ -1,6 +1,7 @@
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
+import { isActiveContentFile, uploadRejectedError, ACTIVE_CONTENT_REJECT_MESSAGE } from '../utils/upload-guard';
 
 // Uploads papkasini yaratish
 const uploadsDir = path.join(__dirname, '../../uploads');
@@ -79,6 +80,10 @@ const fileFilter = (req: any, file: Express.Multer.File, cb: multer.FileFilterCa
   const fieldName = file.fieldname as 'image' | 'video' | 'audio' | 'document' | 'documents' | 'conversation';
   const allowedTypes = allowedMimes[fieldName] || [];
 
+  // Mime to'g'ri bo'lsa ham kengaytma .html/.svg bo'lishi mumkin (kengaytma originalname'dan olinadi)
+  if (isActiveContentFile(file.originalname, file.mimetype)) {
+    return cb(uploadRejectedError(ACTIVE_CONTENT_REJECT_MESSAGE));
+  }
   if (allowedTypes.includes(file.mimetype)) {
     cb(null, true);
   } else {

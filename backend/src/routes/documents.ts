@@ -5,6 +5,7 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import archiver from 'archiver';
+import { isActiveContentFile, uploadRejectedError, ACTIVE_CONTENT_REJECT_MESSAGE } from '../utils/upload-guard';
 
 const router = express.Router();
 
@@ -56,7 +57,13 @@ const upload = multer({
   storage: storage,
   limits: {
     fileSize: 100 * 1024 * 1024 // 100MB limit
-  }
+  },
+  fileFilter: (req, file, cb) => {
+    if (isActiveContentFile(decodeText(file.originalname), file.mimetype)) {
+      return cb(uploadRejectedError(ACTIVE_CONTENT_REJECT_MESSAGE));
+    }
+    cb(null, true);
+  },
 });
 
 // Task hujjatlarini olish

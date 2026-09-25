@@ -8,6 +8,7 @@ import multer from 'multer';
 import path from 'path';
 import fs from 'fs/promises';
 import fsSync from 'fs';
+import { isActiveContentFile, uploadRejectedError, ACTIVE_CONTENT_REJECT_MESSAGE } from '../utils/upload-guard';
 
 const router = Router();
 
@@ -64,6 +65,9 @@ const upload = multer({
     const originalNameDecoded = decodeText(file.originalname);
     const fileExtension = path.extname(originalNameDecoded).toLowerCase();
     
+    if (isActiveContentFile(originalNameDecoded, file.mimetype)) {
+      return cb(uploadRejectedError(ACTIVE_CONTENT_REJECT_MESSAGE));
+    }
     if (allowedMimeTypes.includes(file.mimetype) || allowedExtensions.includes(fileExtension)) {
       cb(null, true);
     } else {

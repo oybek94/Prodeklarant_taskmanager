@@ -4,6 +4,7 @@ import { prisma } from '../prisma';
 import { getExchangeRate } from './exchange-rate';
 import { calculateAmountUzs } from './monetary-validation';
 import { shouldDeductGovernmentFees, computeContractPaymentSplit } from './contract-payment-split';
+import { psrIn } from './task-money';
 
 /**
  * Vazifa kartochkasi — GET /tasks/:id.
@@ -147,9 +148,13 @@ async function dealAmountUzs(task: TaskDetailRow, dealCurrency: Currency, rateAt
   }
 }
 
-/** PSR qo'shimchasi: 10 (USD mijozda 10 USD so'mga o'girilgan) */
+/**
+ * PSR so'mda: snapshot bo'lsa undan (valyuta maydoniga qarab), bo'lmasa eski qoida —
+ * 10 (USD mijozda 10 USD so'mga o'girilgan).
+ */
 async function psrUzs(task: TaskDetailRow, dealCurrency: Currency, rateAt: RateLookup): Promise<number> {
   if (!task.hasPsr) return 0;
+  if (task.snapshotPsrPrice != null) return psrIn(task, dealCurrency, 'UZS');
   if (dealCurrency !== 'USD') return 10;
   let rate: Decimal;
   if (task.snapshotDealAmount_exchange_rate) rate = new Decimal(task.snapshotDealAmount_exchange_rate);

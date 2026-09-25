@@ -78,9 +78,18 @@ export interface TaskDetail {
   netProfit?: number | null;
   adminEarnedAmount?: number | null;
   snapshotDealAmount?: number | null;
+  snapshotDealAmount_exchange_rate?: number | null;
+  snapshotDealAmountExchangeRate?: number | null;
+  // To'lovlar: 2026-09-25 dan so'mda (currency=UZS); eski vazifalarda mijoz valyutasida
   snapshotCertificatePayment?: number | null;
+  snapshotCertificatePayment_currency?: string | null;
+  snapshotCertificatePayment_amount_uzs?: number | null;
   snapshotPsrPrice?: number | null;
+  snapshotPsrPrice_currency?: string | null;
+  snapshotPsrPrice_amount_uzs?: number | null;
   snapshotWorkerPrice?: number | null;
+  snapshotWorkerPrice_currency?: string | null;
+  snapshotWorkerPrice_amount_uzs?: number | null;
   snapshotCustomsPayment?: number | null;
   snapshotCustomsPayment_amount_uzs?: number | null;
   snapshotCustomsPayment_amount_original?: number | null;

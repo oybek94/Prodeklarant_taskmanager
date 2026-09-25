@@ -5,6 +5,7 @@ import { getWorkerPaymentReport } from './worker-payment';
 import { amountInUzs, toMoneyNumber, warnSkippedUzs, ZERO } from '../utils/money';
 import { appCache, CACHE_TTL } from './cache';
 import { shouldDeductGovernmentFees } from './contract-payment-split';
+import { taskFeeSelect, taskFeesIn, psrIn } from './task-money';
 
 /**
  * GET /dashboard/stats — bosh sahifa statistikasi.
@@ -340,7 +341,7 @@ async function getPaymentReminders() {
       initialDebtCurrency: true,
       initialDebtInUzs: true,
       tasks: {
-        select: { id: true, createdAt: true, hasPsr: true, snapshotDealAmount: true, snapshotPsrPrice: true },
+        select: { id: true, createdAt: true, snapshotDealAmount: true, ...taskFeeSelect },
         orderBy: { createdAt: 'asc' },
       },
       transactions: {
@@ -357,7 +358,8 @@ async function getPaymentReminders() {
 
     const totalDealAmount = client.tasks.reduce((sum, task) => {
       const base = task.snapshotDealAmount != null ? Number(task.snapshotDealAmount) : dealAmount;
-      const psr = task.hasPsr ? Number(task.snapshotPsrPrice || 0) : 0;
+      // PSR so'mda saqlanishi mumkin — mijoz valyutasiga o'giriladi
+      const psr = psrIn(task, dealCurrency, dealCurrency);
       return sum + base + psr;
     }, 0);
     // DIQQAT: to'lovlar valyutasidan qat'i nazar qo'shiladi (eski xatti-harakat saqlangan)
@@ -418,12 +420,8 @@ export async function sumNetProfitForRange(start: Date, end: Date, branchId?: nu
       ...(branchId ? { branchId } : {}),
     },
     select: {
-      hasPsr: true,
+      ...taskFeeSelect,
       snapshotDealAmount: true,
-      snapshotPsrPrice: true,
-      snapshotCertificatePayment: true,
-      snapshotWorkerPrice: true,
-      snapshotCustomsPayment: true,
       snapshotContractPaymentType: true,
       client: {
         select: { dealAmount: true, dealAmount_currency: true, dealAmountCurrency: true, contractPaymentType: true },
@@ -439,13 +437,15 @@ export async function sumNetProfitForRange(start: Date, end: Date, branchId?: nu
     const client = task.client;
     const clientCurrency = client.dealAmount_currency || client.dealAmountCurrency || 'USD';
     const baseDealAmount = task.snapshotDealAmount != null ? Number(task.snapshotDealAmount) : Number(client.dealAmount || 0);
-    const psrAmount = task.hasPsr ? Number(task.snapshotPsrPrice || 0) : 0;
-    const workerPrice = Number(task.snapshotWorkerPrice || 0);
+    // To'lovlar so'mda saqlanishi mumkin — foyda mijoz valyutasida hisoblanadi
+    const fees = taskFeesIn(task, clientCurrency, clientCurrency);
+    const psrAmount = fees.psr;
+    const workerPrice = fees.worker;
 
     const contractPaymentType = task.snapshotContractPaymentType || client.contractPaymentType || 'CASH_ALL_INCLUSIVE';
     const deductGovernmentFees = shouldDeductGovernmentFees(contractPaymentType);
-    const certificatePayment = deductGovernmentFees ? Number(task.snapshotCertificatePayment || 0) : 0;
-    const customsPayment = deductGovernmentFees ? Number(task.snapshotCustomsPayment || 0) : 0;
+    const certificatePayment = deductGovernmentFees ? fees.certificate : 0;
+    const customsPayment = deductGovernmentFees ? fees.customs : 0;
 
     const netProfit = (baseDealAmount + psrAmount) - (certificatePayment + workerPrice + psrAmount + customsPayment);
 

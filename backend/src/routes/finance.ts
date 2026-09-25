@@ -10,6 +10,7 @@ import { upsertExchangeRate, getLatestExchangeRate, fetchAndSaveDailyRate, getEx
 import { validateExchangeRateImmutability } from '../services/monetary-validation';
 import { appCache, CACHE_TTL } from '../services/cache';
 import { shouldDeductGovernmentFees } from '../services/contract-payment-split';
+import { taskFeeSelect, psrIn } from '../services/task-money';
 
 const router = Router();
 
@@ -217,9 +218,8 @@ router.get('/debtors', requireAuth('ADMIN'), async (_req: AuthRequest, res) => {
           select: {
             id: true,
             createdAt: true,
-            hasPsr: true,
             snapshotDealAmount: true,
-            snapshotPsrPrice: true,
+            ...taskFeeSelect,
           },
           orderBy: { createdAt: 'asc' },
         },
@@ -242,7 +242,8 @@ router.get('/debtors', requireAuth('ADMIN'), async (_req: AuthRequest, res) => {
 
         const totalDealAmount = client.tasks.reduce((sum: number, task: any) => {
           const baseAmount = task.snapshotDealAmount != null ? Number(task.snapshotDealAmount) : dealAmount;
-          const psrAmount = task.hasPsr ? Number(task.snapshotPsrPrice || 0) : 0;
+          // PSR so'mda saqlanishi mumkin — mijoz valyutasiga o'giriladi
+          const psrAmount = psrIn(task, dealCurrency, dealCurrency);
           return sum + baseAmount + psrAmount;
         }, 0);
 
@@ -1030,10 +1031,11 @@ router.get('/ceo-stats', requireAuth('ADMIN'), async (_req: AuthRequest, res) =>
     for (const task of completedTasks) {
         const defaultDeal = Number(task.client.dealAmount || 0);
         const baseAmount = task.snapshotDealAmount != null ? Number(task.snapshotDealAmount) : defaultDeal;
-        const psrAmount = task.hasPsr ? Number(task.snapshotPsrPrice || 0) : 0;
-        
-        const totalTaskAmount = baseAmount + psrAmount;
         const currency = task.snapshotDealAmount_currency || task.client.dealAmount_currency || task.client.dealAmountCurrency || 'USD';
+        // PSR so'mda saqlanishi mumkin — shartnoma valyutasiga o'giriladi
+        const psrAmount = psrIn(task, currency, currency);
+
+        const totalTaskAmount = baseAmount + psrAmount;
 
         const totalTaskAmountUzs = currency === 'USD' ? totalTaskAmount * usdToUzsRate : totalTaskAmount;
         totalRevenueUzs += totalTaskAmountUzs;

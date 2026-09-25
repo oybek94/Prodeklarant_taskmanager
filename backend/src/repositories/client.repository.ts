@@ -1,5 +1,6 @@
 import { Prisma, Client } from '@prisma/client';
 import { prisma } from '../prisma';
+import { taskFeeSelect } from '../services/task-money';
 
 export interface ClientFilters {
   search?: string;
@@ -21,9 +22,8 @@ export class ClientRepository {
         tasks: {
           select: {
             id: true,
-            hasPsr: true,
             snapshotDealAmount: true,
-            snapshotPsrPrice: true,
+            ...taskFeeSelect,
           },
         },
         transactions: {

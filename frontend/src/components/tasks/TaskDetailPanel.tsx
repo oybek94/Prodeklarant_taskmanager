@@ -11,64 +11,8 @@ import {
 } from './taskHelpers';
 import type { TaskDetail, TaskStage, TaskVersion, TaskDocument, AiCheck, AiCheckDetails, AiCheckError, AiCheckFinding } from './types';
 import { DocumentVerificationReport } from './DocumentVerificationReport';
+import { getPsrAmount, getDealAmountDisplay, getDealAmountBaseDisplay, getBranchPaymentsDisplay } from './taskBusinessHelpers';
 
-const AFTER_HOURS_EXTRA_USD = 8.5;
-const AFTER_HOURS_EXTRA_UZS = 103000;
-
-const getPsrAmount = (task: TaskDetail | null | undefined): number => {
-  if (!task || !task.hasPsr) return 0;
-  return Number(task.snapshotPsrPrice ?? 10);
-};
-
-const getDealAmountDisplay = (
-  task: TaskDetail | null | undefined,
-  afterHoursDeclarationCurrent?: boolean
-): number => {
-  if (!task) return 0;
-  const base = Number(task.snapshotDealAmount ?? task.client?.dealAmount ?? 0);
-  const psr = getPsrAmount(task);
-  const currency = getClientCurrency(task.client);
-  const showAfterHours = afterHoursDeclarationCurrent ?? task.afterHoursDeclaration ?? false;
-  const payer = String((task.client as any)?.defaultAfterHoursPayer ?? task.afterHoursPayer ?? 'CLIENT').toUpperCase();
-  const extra = showAfterHours && payer === 'CLIENT'
-    ? (currency === 'USD' ? AFTER_HOURS_EXTRA_USD : AFTER_HOURS_EXTRA_UZS)
-    : 0;
-  return base + psr + extra;
-};
-
-const getDealAmountBaseDisplay = (
-  task: TaskDetail | null | undefined,
-  afterHoursDeclarationCurrent?: boolean
-): number => {
-  if (!task) return 0;
-  const base = Number(task.snapshotDealAmount ?? task.client?.dealAmount ?? 0);
-  const currency = getClientCurrency(task.client);
-  const showAfterHours = afterHoursDeclarationCurrent ?? task.afterHoursDeclaration ?? false;
-  const payer = String((task.client as any)?.defaultAfterHoursPayer ?? task.afterHoursPayer ?? 'CLIENT').toUpperCase();
-  const extra = showAfterHours && payer === 'CLIENT'
-    ? (currency === 'USD' ? AFTER_HOURS_EXTRA_USD : AFTER_HOURS_EXTRA_UZS)
-    : 0;
-  return base + extra;
-};
-
-const getBranchPaymentsDisplay = (
-  task: TaskDetail | null | undefined,
-  afterHoursDeclarationCurrent?: boolean
-): number => {
-  if (!task) return 0;
-  const certificatePayment = Number(task.snapshotCertificatePayment || 0);
-  const workerPrice = Number(task.snapshotWorkerPrice || 0);
-  const psrPrice = task.hasPsr ? Number(task.snapshotPsrPrice || 0) : 0;
-  const customsPayment = Number(task.snapshotCustomsPayment || 0);
-  const base = certificatePayment + workerPrice + psrPrice + customsPayment;
-  const currency = getClientCurrency(task.client);
-  const showAfterHours = afterHoursDeclarationCurrent ?? task.afterHoursDeclaration ?? false;
-  const payer = String((task.client as any)?.defaultAfterHoursPayer ?? task.afterHoursPayer ?? 'CLIENT').toUpperCase();
-  const extra = showAfterHours && payer === 'COMPANY'
-    ? (currency === 'USD' ? AFTER_HOURS_EXTRA_USD : AFTER_HOURS_EXTRA_UZS)
-    : 0;
-  return base + extra;
-};
 
 interface TaskDetailPanelProps {
   task: TaskDetail;
@@ -205,9 +149,10 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
     const dealAmount = rep?.dealAmount ?? getDealAmountDisplay(selectedTask, afterHoursDeclaration);
     const dealAmountBase = rep?.dealAmountBase ?? getDealAmountBaseDisplay(selectedTask, afterHoursDeclaration);
     
-    const psrAmount = getPsrAmount(selectedTask);
-    const netProfit = rep?.netProfit ?? (dealAmount - getBranchPaymentsDisplay(selectedTask, afterHoursDeclaration));
-    const currency: 'USD' | 'UZS' = 'UZS'; // backend UZS qaytaradi
+    // Backend hisoboti (financialReport) so'mda; u bo'lmasa zaxira hisob mijoz valyutasida
+    const currency: 'USD' | 'UZS' = rep ? 'UZS' : getClientCurrency(selectedTask.client);
+    const psrAmount = getPsrAmount(selectedTask, currency);
+    const netProfit = rep?.netProfit ?? (dealAmount - getBranchPaymentsDisplay(selectedTask, afterHoursDeclaration, currency));
     const isPositive = netProfit >= 0;
     const totalProfit = netProfit + Number(selectedTask.adminEarnedAmount || 0);
 
@@ -726,7 +671,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                       <div className="flex items-center justify-between">
                         <span className="text-sm font-semibold text-gray-500 dark:text-gray-400">Barcha xarajatlar:</span>
                         <span className="text-sm font-bold text-rose-500 dark:text-rose-400 px-2 py-0.5 bg-rose-50 dark:bg-rose-900/30 rounded-md ring-1 ring-rose-100 dark:ring-rose-800">
-                          - {formatMoney(getBranchPaymentsDisplay(selectedTask, afterHoursDeclaration), financial.currency)}
+                          - {formatMoney(getBranchPaymentsDisplay(selectedTask, afterHoursDeclaration, financial.currency), financial.currency)}
                         </span>
                       </div>
                     )}

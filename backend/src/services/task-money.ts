@@ -74,3 +74,46 @@ export function psrIn(task: TaskPsrFields, clientCurrency: Currency, target: Cur
     taskUsdRate(task)
   );
 }
+
+/** Vazifa to'lovlarini o'qish uchun kerakli maydonlar — findMany select'ga qo'shing */
+export const taskFeeSelect = {
+  hasPsr: true,
+  snapshotDealAmount_exchange_rate: true,
+  snapshotDealAmountExchangeRate: true,
+  snapshotCertificatePayment: true,
+  snapshotCertificatePayment_currency: true,
+  snapshotCertificatePayment_amount_uzs: true,
+  snapshotPsrPrice: true,
+  snapshotPsrPrice_currency: true,
+  snapshotPsrPrice_amount_uzs: true,
+  snapshotWorkerPrice: true,
+  snapshotWorkerPrice_currency: true,
+  snapshotWorkerPrice_amount_uzs: true,
+  snapshotCustomsPayment: true,
+  snapshotCustomsPayment_currency: true,
+  snapshotCustomsPayment_amount_uzs: true,
+} satisfies Prisma.TaskSelect;
+
+export type TaskFeeFields = Prisma.TaskGetPayload<{ select: typeof taskFeeSelect }>;
+
+type FeeKey = 'snapshotCertificatePayment' | 'snapshotPsrPrice' | 'snapshotWorkerPrice' | 'snapshotCustomsPayment';
+
+/** Bitta to'lov kerakli valyutada */
+export function feeIn(task: TaskFeeFields, key: FeeKey, clientCurrency: Currency, target: Currency): number {
+  return snapshotIn(
+    { amount: task[key], currency: task[`${key}_currency`], amountUzs: task[`${key}_amount_uzs`] },
+    clientCurrency,
+    target,
+    taskUsdRate(task)
+  );
+}
+
+/** Vazifaning barcha to'lovlari kerakli valyutada (PSR — faqat hasPsr bo'lsa) */
+export function taskFeesIn(task: TaskFeeFields, clientCurrency: Currency, target: Currency) {
+  return {
+    certificate: feeIn(task, 'snapshotCertificatePayment', clientCurrency, target),
+    psr: task.hasPsr ? feeIn(task, 'snapshotPsrPrice', clientCurrency, target) : 0,
+    worker: feeIn(task, 'snapshotWorkerPrice', clientCurrency, target),
+    customs: feeIn(task, 'snapshotCustomsPayment', clientCurrency, target),
+  };
+}

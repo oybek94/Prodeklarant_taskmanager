@@ -1,4 +1,5 @@
 import { ClientRepository, ClientFilters } from '../repositories/client.repository';
+import { psrIn } from './task-money';
 
 export class ClientService {
   constructor(private clientRepo: ClientRepository) {}
@@ -77,7 +78,8 @@ export class ClientService {
 
       const totalDealAmount = (client.tasks || []).reduce((sum: number, task: any) => {
         const baseAmount = task.snapshotDealAmount != null ? Number(task.snapshotDealAmount) : dealAmount;
-        const psrAmount = task.hasPsr ? (task.snapshotPsrPrice != null ? Number(task.snapshotPsrPrice) : 10) : 0;
+        // PSR so'mda saqlanishi mumkin — mijoz valyutasiga o'giriladi; snapshot yo'q eski vazifalarda 10
+        const psrAmount = task.snapshotPsrPrice != null ? psrIn(task, dealCurrency, dealCurrency) : (task.hasPsr ? 10 : 0);
         return sum + baseAmount + psrAmount;
       }, 0);
 

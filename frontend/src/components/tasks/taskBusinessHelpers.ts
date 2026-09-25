@@ -182,26 +182,69 @@ export const formatInvoiceExtractedText = (text: string, documentType?: string):
 const AFTER_HOURS_EXTRA_USD = 8.5;
 const AFTER_HOURS_EXTRA_UZS = 103000;
 
-export const getPsrAmount = (task?: { hasPsr?: boolean; snapshotPsrPrice?: number | null }) =>
-  task?.hasPsr ? Number(task.snapshotPsrPrice || 0) : 0;
+type Cur = 'USD' | 'UZS';
 
-/** Kelishuv summasi (ko'rsatish uchun): asosiy + PSR + qo'shimcha to'lov */
+/** Vazifaning USD→UZS kursi (shartnoma snapshot'idan) */
+const taskUsdRate = (task: TaskDetail): number | null => {
+  const rate = Number(task.snapshotDealAmount_exchange_rate ?? task.snapshotDealAmountExchangeRate ?? 0);
+  return rate > 0 ? rate : null;
+};
+
+/**
+ * Snapshot summasini kerakli valyutada qaytaradi (backend services/task-money.ts bilan bir xil).
+ * 2026-09-25 dan to'lovlar (sertifikat, PSR, ishchi, bojxona) so'mda saqlanadi; eski vazifalarda
+ * mijoz valyutasida — shuning uchun HAR DOIM *_currency maydoniga qaraladi.
+ */
+export const snapshotIn = (
+  amount: number | null | undefined,
+  currency: string | null | undefined,
+  amountUzs: number | null | undefined,
+  fallbackCurrency: Cur,
+  target: Cur,
+  usdRate: number | null,
+): number => {
+  if (amount == null && amountUzs == null) return 0;
+  const cur = (currency as Cur | null | undefined) ?? fallbackCurrency;
+  const rate = usdRate ?? 1;
+  if (target === 'UZS') {
+    if (cur === 'UZS') return Number(amountUzs ?? amount);
+    return amountUzs != null ? Number(amountUzs) : Number(amount) * rate;
+  }
+  if (cur === 'USD') return Number(amount ?? 0);
+  return Number(amountUzs ?? amount) / rate;
+};
+
+type FeeKey = 'snapshotCertificatePayment' | 'snapshotPsrPrice' | 'snapshotWorkerPrice' | 'snapshotCustomsPayment';
+
+export const feeIn = (task: TaskDetail, key: FeeKey, target: Cur): number =>
+  snapshotIn(task[key], task[`${key}_currency`], task[`${key}_amount_uzs`], getClientCurrency(task.client), target, taskUsdRate(task));
+
+/** PSR summasi; snapshot yo'q eski vazifalarda 10 (mijoz valyutasida) */
+export const getPsrAmount = (task: TaskDetail | null | undefined, target?: Cur): number => {
+  if (!task || !task.hasPsr) return 0;
+  const clientCur = getClientCurrency(task.client);
+  const to = target ?? clientCur;
+  if (task.snapshotPsrPrice == null) return snapshotIn(10, clientCur, null, clientCur, to, taskUsdRate(task));
+  return feeIn(task, 'snapshotPsrPrice', to);
+};
+
+const afterHoursExtra = (currency: Cur) => (currency === 'USD' ? AFTER_HOURS_EXTRA_USD : AFTER_HOURS_EXTRA_UZS);
+
+/** Kelishuv summasi (ko'rsatish uchun, mijoz valyutasida): asosiy + PSR + qo'shimcha to'lov */
 export const getDealAmountDisplay = (
   task: TaskDetail | null | undefined,
   afterHoursDeclarationCurrent?: boolean,
 ): number => {
   if (!task) return 0;
   const base = Number(task.snapshotDealAmount ?? task.client?.dealAmount ?? 0);
-  const psr = getPsrAmount(task);
   const currency = getClientCurrency(task.client);
   const showAfterHours = afterHoursDeclarationCurrent ?? task.afterHoursDeclaration ?? false;
   const payer = String((task.client as any)?.defaultAfterHoursPayer ?? task.afterHoursPayer ?? 'CLIENT').toUpperCase();
-  const extra = showAfterHours && payer === 'CLIENT'
-    ? (currency === 'USD' ? AFTER_HOURS_EXTRA_USD : AFTER_HOURS_EXTRA_UZS) : 0;
-  return base + psr + extra;
+  const extra = showAfterHours && payer === 'CLIENT' ? afterHoursExtra(currency) : 0;
+  return base + getPsrAmount(task, currency) + extra;
 };
 
-/** Asosiy kelishuv (PSR siz) */
+/** Asosiy kelishuv (PSR siz, mijoz valyutasida) */
 export const getDealAmountBaseDisplay = (
   task: TaskDetail | null | undefined,
   afterHoursDeclarationCurrent?: boolean,
@@ -211,27 +254,25 @@ export const getDealAmountBaseDisplay = (
   const currency = getClientCurrency(task.client);
   const showAfterHours = afterHoursDeclarationCurrent ?? task.afterHoursDeclaration ?? false;
   const payer = String((task.client as any)?.defaultAfterHoursPayer ?? task.afterHoursPayer ?? 'CLIENT').toUpperCase();
-  const extra = showAfterHours && payer === 'CLIENT'
-    ? (currency === 'USD' ? AFTER_HOURS_EXTRA_USD : AFTER_HOURS_EXTRA_UZS) : 0;
+  const extra = showAfterHours && payer === 'CLIENT' ? afterHoursExtra(currency) : 0;
   return base + extra;
 };
 
-/** Filial bo'yicha to'lovlar */
+/** Filial bo'yicha to'lovlar (sertifikat + ishchi + PSR + bojxona) kerakli valyutada; sukut — mijoz valyutasi */
 export const getBranchPaymentsDisplay = (
   task: TaskDetail | null | undefined,
   afterHoursDeclarationCurrent?: boolean,
+  target?: Cur,
 ): number => {
   if (!task) return 0;
-  const certificatePayment = Number(task.snapshotCertificatePayment || 0);
-  const workerPrice = Number(task.snapshotWorkerPrice || 0);
-  const psrPrice = task.hasPsr ? Number(task.snapshotPsrPrice || 0) : 0;
-  const customsPayment = Number(task.snapshotCustomsPayment || 0);
-  const base = certificatePayment + workerPrice + psrPrice + customsPayment;
-  const currency = getClientCurrency(task.client);
+  const to = target ?? getClientCurrency(task.client);
+  const base = feeIn(task, 'snapshotCertificatePayment', to)
+    + feeIn(task, 'snapshotWorkerPrice', to)
+    + (task.hasPsr ? feeIn(task, 'snapshotPsrPrice', to) : 0)
+    + feeIn(task, 'snapshotCustomsPayment', to);
   const showAfterHours = afterHoursDeclarationCurrent ?? task.afterHoursDeclaration ?? false;
   const payer = String((task.client as any)?.defaultAfterHoursPayer ?? task.afterHoursPayer ?? 'CLIENT').toUpperCase();
-  const extra = showAfterHours && payer === 'COMPANY'
-    ? (currency === 'USD' ? AFTER_HOURS_EXTRA_USD : AFTER_HOURS_EXTRA_UZS) : 0;
+  const extra = showAfterHours && payer === 'COMPANY' ? afterHoursExtra(to) : 0;
   return base + extra;
 };
 

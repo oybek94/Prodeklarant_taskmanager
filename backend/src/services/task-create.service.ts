@@ -50,7 +50,7 @@ export class TaskCreateError extends Error {
   }
 }
 
-const clientPricingSelect = {
+export const clientPricingSelect = {
   dealAmount: true,
   dealAmountCurrency: true,
   dealAmountExchangeRate: true,
@@ -98,142 +98,165 @@ export function needsLiveDealRate(client: ClientPricing): boolean {
     && !client.dealAmountExchangeRate;
 }
 
-interface Amounts { original: number; uzs: number; rate: Decimal }
+type DealFields = Pick<
+  SnapshotFields,
+  | 'snapshotDealAmount' | 'snapshotDealAmountExchangeRate'
+  | 'snapshotDealAmount_amount_original' | 'snapshotDealAmount_currency' | 'snapshotDealAmount_exchange_rate'
+  | 'snapshotDealAmount_amount_uzs' | 'snapshotDealAmount_exchange_source'
+  | 'snapshotContractPaymentType' | 'snapshotServiceFeeTransferUzs'
+>;
 
 /**
- * Davlat to'lovi summasini mijoz valyutasiga keltiradi.
- * USD: tayyor so'm qiymati bo'lsa u, bo'lmasa kurs bo'yicha hisoblanadi; kurs = uzs/original.
+ * Shartnoma summasi snapshot'i — MIJOZ valyutasida (sof funksiya).
+ * @param liveUsdRate needsLiveDealRate bo'lganda olingan jonli kurs; olinmagan bo'lsa null (→ 1)
  */
-function resolvePaymentAmounts(
-  amountUsdRaw: number | null,
-  amountUzsRaw: number | null,
-  fallbackRaw: number | null,
-  currency: Currency,
-  exchangeRate: Decimal
-): Amounts {
-  const amountUsd = Number(amountUsdRaw ?? fallbackRaw ?? 0);
-  const amountUzs = Number(amountUzsRaw ?? fallbackRaw ?? 0);
-  if (currency === 'USD') {
-    const uzs = amountUzsRaw != null ? amountUzs : Number(calculateAmountUzs(amountUsd, 'USD', exchangeRate));
-    const rate = amountUsd > 0 ? new Decimal(uzs / amountUsd) : new Decimal(1);
-    return { original: amountUsd, uzs, rate };
-  }
-  return { original: amountUzs, uzs: amountUzs, rate: new Decimal(1) };
-}
-
-const num = (v: Prisma.Decimal | null | undefined): number | null => (v != null ? Number(v) : null);
-
-/**
- * Vazifa narx snapshot'i (sof funksiya).
- * @param liveDealRate needsLiveDealRate bo'lganda olingan jonli kurs; olinmagan bo'lsa null (→ 1)
- * @param hiredWorkerRate filial CertifierFeeConfig.hiredWorkerRate — bo'lsa ishchi narxini almashtiradi
- */
-export function buildTaskPriceSnapshot(params: {
-  client: ClientPricing;
-  statePayment: StatePayment | null;
-  liveDealRate: Decimal | null;
-  hiredWorkerRate: number | null;
-}): SnapshotFields {
-  const { client, statePayment, liveDealRate, hiredWorkerRate } = params;
-  const out: SnapshotFields = {};
-
-  // Shartnoma to'lov turi snapshot (dealAmount snapshot bilan bir vaqtda)
-  out.snapshotContractPaymentType = client.contractPaymentType || 'CASH_ALL_INCLUSIVE';
+export function buildDealSnapshot(client: ClientPricing, liveUsdRate: Decimal | null): DealFields {
+  const out: DealFields = {
+    snapshotContractPaymentType: client.contractPaymentType || 'CASH_ALL_INCLUSIVE',
+  };
   if (client.serviceFeeTransferUzs != null) {
     out.snapshotServiceFeeTransferUzs = Number(client.serviceFeeTransferUzs);
   }
 
-  // ── Shartnoma summasi ──
   // dealAmount = 0 bo'lsa snapshot 0 yoziladi, lekin valyuta/kurs maydonlari yozilmaydi (eski xatti-harakat)
   const dealAmount = client.dealAmount != null ? Number(client.dealAmount) : null;
-  let dealCurrency: Currency | null = null;
-  let dealRate: Decimal | null = null;
   if (dealAmount != null) out.snapshotDealAmount = dealAmount;
+  if (!dealAmount) return out;
 
-  if (dealAmount) {
-    dealCurrency = dealCurrencyOf(client);
-    let dealUzs: number;
-    if (dealCurrency === 'USD') {
-      dealRate = client.dealAmount_exchange_rate
-        ? new Decimal(client.dealAmount_exchange_rate)
-        : client.dealAmountExchangeRate
-          ? new Decimal(client.dealAmountExchangeRate)
-          // DIQQAT: jonli kurs olinmasa 1 — eski xatti-harakat (so'm qiymati USD ga teng bo'lib qoladi)
-          : liveDealRate ?? new Decimal(1);
-      dealUzs = Number(calculateAmountUzs(dealAmount, dealCurrency, dealRate));
-    } else {
-      dealRate = new Decimal(1);
-      dealUzs = dealAmount;
-    }
-
-    out.snapshotDealAmountExchangeRate = dealRate;
-    out.snapshotDealAmount_amount_original = dealAmount;
-    out.snapshotDealAmount_currency = dealCurrency;
-    out.snapshotDealAmount_exchange_rate = Number(dealRate);
-    out.snapshotDealAmount_amount_uzs = dealUzs;
-    out.snapshotDealAmount_exchange_source = (client.dealAmount_exchange_source || 'CBU') as ExchangeSource;
+  const currency = dealCurrencyOf(client);
+  let rate: Decimal;
+  let uzs: number;
+  if (currency === 'USD') {
+    rate = client.dealAmount_exchange_rate
+      ? new Decimal(client.dealAmount_exchange_rate)
+      : client.dealAmountExchangeRate
+        ? new Decimal(client.dealAmountExchangeRate)
+        // DIQQAT: jonli kurs olinmasa 1 — eski xatti-harakat (so'm qiymati USD ga teng bo'lib qoladi)
+        : liveUsdRate ?? new Decimal(1);
+    uzs = Number(calculateAmountUzs(dealAmount, currency, rate));
+  } else {
+    rate = new Decimal(1);
+    uzs = dealAmount;
   }
 
-  if (!statePayment) return out;
+  return {
+    ...out,
+    snapshotDealAmountExchangeRate: rate,
+    snapshotDealAmount_amount_original: dealAmount,
+    snapshotDealAmount_currency: currency,
+    snapshotDealAmount_exchange_rate: Number(rate),
+    snapshotDealAmount_amount_uzs: uzs,
+    snapshotDealAmount_exchange_source: (client.dealAmount_exchange_source || 'CBU') as ExchangeSource,
+  };
+}
 
-  // ── Davlat to'lovlari (vazifa yaratilgunga qadar eng so'nggisi) ──
-  const paymentCurrency: Currency = dealCurrency || 'USD';
-  const paymentRate = dealRate || new Decimal(1);
-  const resolve = (original: Prisma.Decimal | null, uzs: Prisma.Decimal | null, fallback: Prisma.Decimal | null) =>
-    resolvePaymentAmounts(num(original), num(uzs), num(fallback), paymentCurrency, paymentRate);
+export type FeeFields = Omit<SnapshotFields, keyof DealFields>;
 
-  const certificate = resolve(
-    statePayment.certificatePayment_amount_original,
-    statePayment.certificatePayment_amount_uzs,
-    statePayment.certificatePayment
-  );
-  const psr = resolve(statePayment.psrPrice_amount_original, statePayment.psrPrice_amount_uzs, statePayment.psrPrice);
-  // CertifierFeeConfig bo'lsa undagi hiredWorkerRate ustun.
-  // DIQQAT: bu qiymat so'mda, lekin USD mijozda kurs 1 bilan "USD" deb yoziladi — eski xatti-harakat.
-  const worker = hiredWorkerRate != null
-    ? resolvePaymentAmounts(null, hiredWorkerRate, hiredWorkerRate, paymentCurrency, paymentRate)
-    : resolve(statePayment.workerPrice_amount_original, statePayment.workerPrice_amount_uzs, statePayment.workerPrice);
-  const customs = resolve(
-    statePayment.customsPayment_amount_original,
-    statePayment.customsPayment_amount_uzs,
-    statePayment.customsPayment
-  );
+/** StatePayment USD da va tayyor so'm qiymati yo'q maydon bormi — bo'lsa kurs kerak */
+export function statePaymentNeedsRate(sp: StatePayment | null): boolean {
+  if (!sp || sp.currency !== 'USD' || sp.exchange_rate) return false;
+  return sp.certificatePayment_amount_uzs == null || sp.psrPrice_amount_uzs == null
+    || sp.workerPrice_amount_uzs == null || sp.customsPayment_amount_uzs == null;
+}
 
-  Object.assign(out, {
-    snapshotCertificatePayment: certificate.original,
-    snapshotCertificatePaymentExchangeRate: certificate.rate,
-    snapshotCertificatePayment_amount_original: certificate.original,
-    snapshotCertificatePayment_currency: paymentCurrency,
-    snapshotCertificatePayment_exchange_rate: Number(certificate.rate),
-    snapshotCertificatePayment_amount_uzs: certificate.uzs,
-    snapshotCertificatePayment_exchange_source: 'MANUAL',
+/** Bitta davlat to'lovi so'mda: tayyor so'm qiymati → UZS asosiy qiymat → USD × kurs */
+function feeUzs(sp: StatePayment, uzs: Prisma.Decimal | null, base: Prisma.Decimal, usdRate: number): number {
+  if (uzs != null) return Number(uzs);
+  return sp.currency === 'USD' ? Number(base) * usdRate : Number(base);
+}
 
-    snapshotPsrPrice: psr.original,
-    snapshotPsrPriceExchangeRate: psr.rate,
-    snapshotPsrPrice_amount_original: psr.original,
-    snapshotPsrPrice_currency: paymentCurrency,
-    snapshotPsrPrice_exchange_rate: Number(psr.rate),
-    snapshotPsrPrice_amount_uzs: psr.uzs,
-    snapshotPsrPrice_exchange_source: 'MANUAL',
+function uzsFee(amount: number) {
+  return {
+    amount,
+    legacyRate: new Decimal(1),
+    currency: 'UZS' as const,
+    rate: 1,
+    source: 'MANUAL' as const,
+  };
+}
 
-    snapshotWorkerPrice: worker.original,
-    snapshotWorkerPriceExchangeRate: worker.rate,
-    snapshotWorkerPrice_amount_original: worker.original,
-    snapshotWorkerPrice_currency: paymentCurrency,
-    snapshotWorkerPrice_exchange_rate: Number(worker.rate),
-    snapshotWorkerPrice_amount_uzs: worker.uzs,
-    snapshotWorkerPrice_exchange_source: 'MANUAL',
+/**
+ * To'lovlar snapshot'i — sertifikat, PSR, ishchi narxi, bojxona. HAMMASI SO'MDA (sof funksiya).
+ * Vazifa yaratish, filial va mijoz almashtirishda bir xil qoida.
+ * @param statePayment vazifa yaratilgunga qadar eng so'nggi davlat to'lovi (yo'q bo'lsa hammasi 0)
+ * @param hiredWorkerRate filial CertifierFeeConfig.hiredWorkerRate (so'm) — bo'lsa ishchi narxi shu
+ * @param usdRate USD da kiritilgan davlat to'lovini so'mga o'girish uchun
+ */
+export function buildFeeSnapshot(
+  statePayment: StatePayment | null,
+  hiredWorkerRate: number | null,
+  usdRate: number
+): FeeFields {
+  const sp = statePayment;
+  const rate = sp?.exchange_rate ? Number(sp.exchange_rate) : usdRate;
+  const certificate = sp ? feeUzs(sp, sp.certificatePayment_amount_uzs, sp.certificatePayment, rate) : 0;
+  const psr = sp ? feeUzs(sp, sp.psrPrice_amount_uzs, sp.psrPrice, rate) : 0;
+  const worker = hiredWorkerRate ?? (sp ? feeUzs(sp, sp.workerPrice_amount_uzs, sp.workerPrice, rate) : 0);
+  const customs = sp ? feeUzs(sp, sp.customsPayment_amount_uzs, sp.customsPayment, rate) : 0;
 
-    snapshotCustomsPayment: customs.original,
-    snapshotCustomsPaymentExchangeRate: customs.rate,
-    snapshotCustomsPayment_amount_original: customs.original,
-    snapshotCustomsPayment_currency: paymentCurrency,
-    snapshotCustomsPayment_exchange_rate: Number(customs.rate),
-    snapshotCustomsPayment_amount_uzs: customs.uzs,
-    snapshotCustomsPayment_exchange_source: 'MANUAL',
-  } satisfies SnapshotFields);
-
+  const out: FeeFields = {};
+  for (const [prefix, amount] of [
+    ['snapshotCertificatePayment', certificate],
+    ['snapshotPsrPrice', psr],
+    ['snapshotWorkerPrice', worker],
+    ['snapshotCustomsPayment', customs],
+  ] as const) {
+    const f = uzsFee(amount);
+    Object.assign(out, {
+      [prefix]: f.amount,
+      [`${prefix}ExchangeRate`]: f.legacyRate,
+      [`${prefix}_amount_original`]: f.amount,
+      [`${prefix}_currency`]: f.currency,
+      [`${prefix}_exchange_rate`]: f.rate,
+      [`${prefix}_amount_uzs`]: f.amount,
+      [`${prefix}_exchange_source`]: f.source,
+    });
+  }
   return out;
+}
+
+/** Shartnoma (mijoz valyutasida) + to'lovlar (so'mda) */
+export function buildTaskPriceSnapshot(params: {
+  client: ClientPricing;
+  statePayment: StatePayment | null;
+  liveUsdRate: Decimal | null;
+  hiredWorkerRate: number | null;
+}): SnapshotFields {
+  const deal = buildDealSnapshot(params.client, params.liveUsdRate);
+  // UZS mijozda shartnoma kursi 1 — USD davlat to'lovi uchun jonli kurs kerak
+  const dealUsdRate = deal.snapshotDealAmount_currency === 'USD' ? Number(deal.snapshotDealAmount_exchange_rate) : null;
+  const usdRate = dealUsdRate ?? (params.liveUsdRate ? Number(params.liveUsdRate) : 1);
+  return { ...deal, ...buildFeeSnapshot(params.statePayment, params.hiredWorkerRate, usdRate) };
+}
+
+/**
+ * Snapshot uchun tashqi ma'lumot: `at` paytidagi eng so'nggi davlat to'lovi, filial
+ * hiredWorkerRate'i va (kerak bo'lsa) jonli USD kursi. Vazifa yaratish va tahrirlashda bir xil.
+ */
+export async function loadPricingInputs(
+  tx: Prisma.TransactionClient,
+  client: ClientPricing,
+  branchId: number,
+  at: Date
+): Promise<{ statePayment: StatePayment | null; liveUsdRate: Decimal | null; hiredWorkerRate: number | null }> {
+  const [statePayment, certConfig] = await Promise.all([
+    tx.statePayment.findFirst({ where: { createdAt: { lte: at } }, orderBy: { createdAt: 'desc' } }),
+    tx.certifierFeeConfig.findFirst({
+      where: { branchId, createdAt: { lte: at } },
+      orderBy: { createdAt: 'desc' },
+      select: { hiredWorkerRate: true },
+    }),
+  ]);
+
+  let liveUsdRate: Decimal | null = null;
+  if (needsLiveDealRate(client) || statePaymentNeedsRate(statePayment)) {
+    try {
+      liveUsdRate = await getExchangeRate(at, 'USD', 'UZS', tx);
+    } catch (error) {
+      console.error('Failed to get exchange rate for task price snapshot:', error);
+    }
+  }
+  return { statePayment, liveUsdRate, hiredWorkerRate: certConfig ? Number(certConfig.hiredWorkerRate) : null };
 }
 
 /** Vazifani narx snapshot'i va 8 ta standart bosqich bilan yaratadi (bitta tranzaksiya) */
@@ -247,32 +270,9 @@ export async function createTask(input: CreateTaskInput, actorId: number) {
     if (!client) throw new TaskCreateError(404, 'Mijoz topilmadi');
     if (!branch) throw new TaskCreateError(404, 'Filial topilmadi');
 
-    const createdAt = new Date();
-    const statePayment = await tx.statePayment.findFirst({
-      where: { createdAt: { lte: createdAt } },
-      orderBy: { createdAt: 'desc' },
-    });
+    const pricing = await loadPricingInputs(tx, client, input.branchId, new Date());
 
-    let liveDealRate: Decimal | null = null;
-    if (needsLiveDealRate(client)) {
-      try {
-        liveDealRate = await getExchangeRate(createdAt, 'USD', 'UZS', tx);
-      } catch (error) {
-        console.error('Failed to get exchange rate for deal amount snapshot:', error);
-      }
-    }
-
-    let hiredWorkerRate: number | null = null;
-    if (statePayment) {
-      const certConfig = await tx.certifierFeeConfig.findFirst({
-        where: { branchId: input.branchId, createdAt: { lte: createdAt } },
-        orderBy: { createdAt: 'desc' },
-        select: { hiredWorkerRate: true },
-      });
-      hiredWorkerRate = certConfig ? Number(certConfig.hiredWorkerRate) : null;
-    }
-
-    const snapshot = buildTaskPriceSnapshot({ client, statePayment, liveDealRate, hiredWorkerRate });
+    const snapshot = buildTaskPriceSnapshot({ client, ...pricing });
 
     const task = await tx.task.create({
       data: {

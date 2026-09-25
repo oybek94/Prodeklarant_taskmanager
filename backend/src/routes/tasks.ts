@@ -3,12 +3,10 @@ import { prisma } from '../prisma';
 import { appCache } from '../services/cache';
 import { z } from 'zod';
 import { AuthRequest, requireAuth } from '../middleware/auth';
-import { TaskStatus, Currency, Prisma } from '@prisma/client';
+import { TaskStatus, Prisma } from '@prisma/client';
 
 type AfterHoursPayerType = 'CLIENT' | 'COMPANY';
-import { Decimal } from '@prisma/client/runtime/library';
 import { ValidationService } from '../services/validation.service';
-import { shouldDeductGovernmentFees } from '../services/contract-payment-split';
 import fs from 'fs/promises';
 import { socketEmitter } from '../services/socketEmitter';
 import { applyStageStatusChange, afterStageStatusCommitted } from '../services/stage.service';
@@ -16,6 +14,7 @@ import { notify, getAllActiveUserIds } from '../services/notificationService';
 import { createTaskSchema, createTask, afterTaskCreated, TaskCreateError } from '../services/task-create.service';
 import { getTaskLight, getTaskDetail } from '../services/task-detail.service';
 import { updateTaskSchema, updateTask, TaskUpdateError, regenerateTransportDocs, broadcastTaskUpdated } from '../services/task-update.service';
+import { declarationClientSelect, declarationCompletedFields, declarationResetFields, bxmAt } from '../services/declaration-pricing';
 
 import { TaskRepository } from '../repositories/task.repository';
 import { TaskService } from '../services/task.service';
@@ -533,155 +532,37 @@ router.patch('/:taskId/stages/:stageId', requireAuth(), async (req: AuthRequest,
   const now = new Date();
 
   const updated = await prisma.$transaction(async (tx) => {
-    // If Deklaratsiya stage is being started and multiplier is provided, update task's customs payment
-    if (stage.name === 'Deklaratsiya' && parsed.data.status === 'TAYYOR' && parsed.data.customsPaymentMultiplier) {
-      // Find BXM that was effective at the time of completion
-      const completedAt = new Date();
-      const bxmConfig = await (tx as any).bXMConfig.findFirst({
-        where: { effectiveFrom: { lte: completedAt } },
-        orderBy: { effectiveFrom: 'desc' },
-      });
-      const bxmAmountUsd = bxmConfig ? Number(bxmConfig.amountUsd) : 34.4;
-      const bxmAmountUzs = bxmConfig ? Number(bxmConfig.amountUzs) : 412000;
-
-      // Get task with client to update dealAmount
-      const task = await (tx as any).task.findUnique({
+    // Deklaratsiya narxi (BXM × koef): bojxona to'lovi so'mda, CASH_ALL_INCLUSIVE da
+    // mijoz summasiga qo'shimcha — qarang services/declaration-pricing.ts
+    const declarationCompleting = stage.name === 'Deklaratsiya' && parsed.data.status === 'TAYYOR' && parsed.data.customsPaymentMultiplier;
+    const declarationReverting = stage.name === 'Deklaratsiya' && parsed.data.status === 'BOSHLANMAGAN' && stage.status === 'TAYYOR';
+    if (declarationCompleting || declarationReverting) {
+      const task = await tx.task.findUnique({
         where: { id: taskId },
-        include: { client: true },
-      });
-      
-      const clientCurrency = task?.client
-        ? (task.client as any).dealAmount_currency || (task.client as any).dealAmountCurrency || 'USD'
-        : 'USD';
-      const afterHoursDeclaration = parsed.data.afterHoursDeclaration ?? task?.afterHoursDeclaration ?? false;
-      const afterHoursPayer = (parsed.data.afterHoursPayer ?? task?.afterHoursPayer ?? 'CLIENT') as AfterHoursPayerType;
-      const afterHoursExtraOriginal = afterHoursDeclaration
-        ? (clientCurrency === 'USD' ? 8.5 : 103000)
-        : 0;
-      const afterHoursExtraUzs = afterHoursDeclaration ? 103000 : 0;
-      const bxmAmountForClient = clientCurrency === 'USD' ? bxmAmountUsd : bxmAmountUzs;
-      const calculatedCustomsBasePayment = bxmAmountForClient * parsed.data.customsPaymentMultiplier;
-      const calculatedCustomsBasePaymentUzs = clientCurrency === 'USD'
-        ? bxmAmountUzs * parsed.data.customsPaymentMultiplier
-        : calculatedCustomsBasePayment;
-      const calculatedCustomsPayment = calculatedCustomsBasePayment + afterHoursExtraOriginal;
-      const calculatedCustomsPaymentUzs = calculatedCustomsBasePaymentUzs + afterHoursExtraUzs;
-      const calculatedCustomsExchangeRate = clientCurrency === 'USD' && calculatedCustomsPayment > 0
-        ? new Decimal(calculatedCustomsPaymentUzs / calculatedCustomsPayment)
-        : new Decimal(1);
-
-      if (task?.client) {
-        const newMultiplier = Number(parsed.data.customsPaymentMultiplier);
-        const clientContractPaymentType = (task.client as any).contractPaymentType || 'CASH_ALL_INCLUSIVE';
-        // Faqat CASH_ALL_INCLUSIVE (legacy) turida dealAmount ichiga davlat to'lovlari
-        // (bojxona/BXM koeffitsienti, ish vaqtidan tashqari to'lov) kiritilgan bo'ladi.
-        // Boshqa turlarda (Xizmat haqi: TRANSFER_ONLY, CASH_ONLY, MIXED) mijoz davlat
-        // to'lovini o'zi to'g'ridan-to'g'ri to'laydi — bu snapshotDealAmount'ga qo'shilmasligi kerak.
-        const includeGovernmentFeesInDeal = shouldDeductGovernmentFees(clientContractPaymentType);
-
-        // Calculate new additional payment (if new multiplier > 1)
-        // Additional payment = (multiplier - 1) × BXM (only the excess over 1 BXM)
-        let newAdditionalPayment = 0;
-        if (newMultiplier > 1) {
-          if (clientCurrency === 'USD') {
-            newAdditionalPayment = (newMultiplier - 1) * bxmAmountUsd;
-          } else {
-            newAdditionalPayment = (newMultiplier - 1) * bxmAmountUzs;
-          }
-        }
-
-        const dealExtraFromAfterHours = afterHoursDeclaration && afterHoursPayer === 'CLIENT'
-          ? afterHoursExtraOriginal
-          : 0;
-
-        // Get base deal amount (from client or current snapshot)
-        const baseDealAmount = task.client.dealAmount ? Number(task.client.dealAmount) : 0;
-        const baseDealAmountUzs = clientCurrency === 'USD'
-          ? Number((task.client as any).dealAmount_amount_uzs
-            ?? (baseDealAmount * Number((task.client as any).dealAmount_exchange_rate || (task.client as any).dealAmountExchangeRate || task.snapshotDealAmount_exchange_rate || task.snapshotDealAmountExchangeRate || 1)))
-          : Number((task.client as any).dealAmount_amount_uzs ?? baseDealAmount);
-
-        // Calculate new snapshotDealAmount by removing previous additional payment and adding new one
-        // Or simply: baseDealAmount + newAdditionalPayment (+ after-hours if payer is client)
-        // Xizmat haqi turlarida (TRANSFER_ONLY/CASH_ONLY/MIXED) davlat to'lovlari alohida
-        // to'lanadi, shuning uchun kelishilgan summaga (baseDealAmount) qo'shilmaydi.
-        const newSnapshotDealAmount = includeGovernmentFeesInDeal
-          ? baseDealAmount + newAdditionalPayment + dealExtraFromAfterHours
-          : baseDealAmount;
-        const newSnapshotDealAmountUzs = includeGovernmentFeesInDeal
-          ? baseDealAmountUzs + (newMultiplier - 1) * bxmAmountUzs + (afterHoursDeclaration && afterHoursPayer === 'CLIENT' ? 103000 : 0)
-          : baseDealAmountUzs;
-
-        // Update task's snapshotDealAmount
-        await (tx as any).task.update({
-          where: { id: taskId },
-          data: {
-            customsPaymentMultiplier: parsed.data.customsPaymentMultiplier,
-            afterHoursDeclaration,
-            afterHoursPayer,
-            snapshotCustomsPayment: calculatedCustomsPayment,
-            snapshotCustomsPaymentExchangeRate: calculatedCustomsExchangeRate,
-            snapshotCustomsPayment_amount_original: calculatedCustomsPayment,
-            snapshotCustomsPayment_currency: clientCurrency,
-            snapshotCustomsPayment_exchange_rate: Number(calculatedCustomsExchangeRate),
-            snapshotCustomsPayment_amount_uzs: calculatedCustomsPaymentUzs,
-            snapshotCustomsPayment_exchange_source: 'MANUAL',
-            snapshotDealAmount: newSnapshotDealAmount,
-            snapshotDealAmount_amount_uzs: newSnapshotDealAmountUzs,
-          },
-        });
-      } else {
-        // If no client, just update customs payment
-        await (tx as any).task.update({
-          where: { id: taskId },
-          data: {
-            customsPaymentMultiplier: parsed.data.customsPaymentMultiplier,
-            afterHoursDeclaration,
-            afterHoursPayer,
-            snapshotCustomsPayment: calculatedCustomsPayment,
-            snapshotCustomsPaymentExchangeRate: calculatedCustomsExchangeRate,
-            snapshotCustomsPayment_amount_original: calculatedCustomsPayment,
-            snapshotCustomsPayment_currency: clientCurrency,
-            snapshotCustomsPayment_exchange_rate: Number(calculatedCustomsExchangeRate),
-            snapshotCustomsPayment_amount_uzs: calculatedCustomsPaymentUzs,
-            snapshotCustomsPayment_exchange_source: 'MANUAL',
-          },
-        });
-      }
-    } else if (stage.name === 'Deklaratsiya' && parsed.data.status === 'BOSHLANMAGAN' && stage.status === 'TAYYOR') {
-      const task = await (tx as any).task.findUnique({
-        where: { id: taskId },
-        include: { client: true },
-      });
-
-      const clientCurrency = task?.client
-        ? (task.client as any).dealAmount_currency || (task.client as any).dealAmountCurrency || 'USD'
-        : 'USD';
-
-      const baseDealAmount = task?.client?.dealAmount ? Number(task.client.dealAmount) : 0;
-      const baseDealAmountUzs = clientCurrency === 'USD'
-        ? Number((task?.client as any)?.dealAmount_amount_uzs
-          ?? (baseDealAmount * Number((task?.client as any)?.dealAmount_exchange_rate || (task?.client as any)?.dealAmountExchangeRate || task?.snapshotDealAmount_exchange_rate || task?.snapshotDealAmountExchangeRate || 1)))
-        : Number((task?.client as any)?.dealAmount_amount_uzs ?? baseDealAmount);
-
-      await (tx as any).task.update({
-        where: { id: taskId },
-        data: {
-          afterHoursDeclaration: false,
-          customsPaymentMultiplier: null,
-          snapshotCustomsPayment: 0,
-          snapshotCustomsPaymentExchangeRate: new Decimal(1),
-          snapshotCustomsPayment_amount_original: 0,
-          snapshotCustomsPayment_currency: clientCurrency,
-          snapshotCustomsPayment_exchange_rate: 1,
-          snapshotCustomsPayment_amount_uzs: 0,
-          snapshotCustomsPayment_exchange_source: 'MANUAL',
-          snapshotDealAmount: baseDealAmount,
-          snapshotDealAmount_amount_uzs: baseDealAmountUzs,
+        select: {
+          afterHoursDeclaration: true,
+          afterHoursPayer: true,
+          snapshotDealAmount_exchange_rate: true,
+          snapshotDealAmountExchangeRate: true,
+          client: { select: declarationClientSelect },
         },
       });
+      if (task && declarationCompleting && parsed.data.customsPaymentMultiplier) {
+        await tx.task.update({
+          where: { id: taskId },
+          data: declarationCompletedFields({
+            client: task.client,
+            task,
+            multiplier: Number(parsed.data.customsPaymentMultiplier),
+            afterHoursDeclaration: parsed.data.afterHoursDeclaration ?? task.afterHoursDeclaration ?? false,
+            afterHoursPayer: (parsed.data.afterHoursPayer ?? task.afterHoursPayer ?? 'CLIENT') as AfterHoursPayerType,
+            bxm: await bxmAt(tx, new Date()),
+          }),
+        });
+      } else if (task && declarationReverting) {
+        await tx.task.update({ where: { id: taskId }, data: declarationResetFields(task.client, task) });
+      }
     }
-    
 
     return applyStageStatusChange(tx, {
       stage,

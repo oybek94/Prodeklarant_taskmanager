@@ -1,15 +1,19 @@
-import { Currency, Prisma, StatePayment } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { prisma } from '../prisma';
 import { createTaskVersion } from './task-version';
 import { ensureCmrForInvoice } from './cmr-service';
 import { ensureTirForInvoice } from './tir-service';
 import { socketEmitter } from './socketEmitter';
+import { buildDealSnapshot, buildFeeSnapshot, loadPricingInputs, clientPricingSelect } from './task-create.service';
+import { declarationClientSelect, declarationCompletedFields, bxmAt } from './declaration-pricing';
+import { taskUsdRate } from './task-money';
 
 /**
  * Vazifa maydonlarini tahrirlash — PATCH /tasks/:id.
  *
- * Filial o'zgarsa: davlat to'lovi snapshot'lari qayta yoziladi (branchSnapshotUpdate),
+ * Filial yoki mijoz o'zgarsa: narx snapshot'i vazifa yaratishdagi qoida bilan qayta
+ * hisoblanadi (repriceTask — to'lovlar so'mda, shartnoma yangi mijoz narxida). Filial o'zgarsa
  * invoysning filiali va filialga bog'liq avtomatik maydonlari ko'chadi
  * (rebaseInvoiceBranchInfo), commit'dan keyin CMR/TIR qayta yaratiladi.
  */
@@ -52,6 +56,9 @@ const taskBeforeSelect = {
   driverPhone: true,
   createdById: true,
   createdAt: true,
+  customsPaymentMultiplier: true,
+  snapshotDealAmount_exchange_rate: true,
+  snapshotDealAmountExchangeRate: true,
 } satisfies Prisma.TaskSelect;
 
 type TaskBefore = Prisma.TaskGetPayload<{ select: typeof taskBeforeSelect }>;
@@ -76,80 +83,6 @@ export function hasRealChanges(input: UpdateTaskInput, task: TaskBefore): boolea
     || (input.afterHoursPayer !== undefined && input.afterHoursPayer !== task.afterHoursPayer)
     || (input.driverPhone !== undefined && input.driverPhone !== task.driverPhone)
   );
-}
-
-type BranchSnapshotFields = Pick<
-  Prisma.TaskUncheckedUpdateInput,
-  | 'snapshotCertificatePayment' | 'snapshotCertificatePayment_amount_original' | 'snapshotCertificatePayment_currency'
-  | 'snapshotCertificatePayment_amount_uzs' | 'snapshotCertificatePayment_exchange_rate' | 'snapshotCertificatePayment_exchange_source'
-  | 'snapshotPsrPrice' | 'snapshotPsrPrice_amount_original' | 'snapshotPsrPrice_currency'
-  | 'snapshotPsrPrice_amount_uzs' | 'snapshotPsrPrice_exchange_rate' | 'snapshotPsrPrice_exchange_source'
-  | 'snapshotWorkerPrice' | 'snapshotWorkerPrice_amount_original' | 'snapshotWorkerPrice_currency'
-  | 'snapshotWorkerPrice_amount_uzs' | 'snapshotWorkerPrice_exchange_rate' | 'snapshotWorkerPrice_exchange_source'
->;
-
-/**
- * Filial o'zgarganda sertifikat/PSR/ishchi narxi snapshot'lari (sof funksiya).
- * DIQQAT (eski xatti-harakat, vazifa yaratishdagidan farq qiladi): kurs doim 1 yoziladi;
- * hiredWorkerRate bu yerda "UZS" deb belgilanadi (yaratishda mijoz valyutasi bilan).
- * Bojxona (Deklaratsiya) to'lovi va shartnoma summasiga tegilmaydi.
- */
-export function branchSnapshotUpdate(
-  statePayment: StatePayment | null,
-  clientCurrency: Currency,
-  hiredWorkerRate: number | null
-): BranchSnapshotFields {
-  const pick = (original: Prisma.Decimal | null, uzs: Prisma.Decimal | null, base: Prisma.Decimal) =>
-    clientCurrency === 'USD' ? Number(original ?? base) : Number(uzs ?? base);
-
-  const cert = statePayment
-    ? { original: pick(statePayment.certificatePayment_amount_original, statePayment.certificatePayment_amount_uzs, statePayment.certificatePayment),
-        uzs: Number(statePayment.certificatePayment_amount_uzs ?? statePayment.certificatePayment) }
-    : { original: 0, uzs: 0 };
-  const psr = statePayment
-    ? { original: pick(statePayment.psrPrice_amount_original, statePayment.psrPrice_amount_uzs, statePayment.psrPrice),
-        uzs: Number(statePayment.psrPrice_amount_uzs ?? statePayment.psrPrice) }
-    : { original: 0, uzs: 0 };
-  const worker = statePayment
-    ? { original: pick(statePayment.workerPrice_amount_original, statePayment.workerPrice_amount_uzs, statePayment.workerPrice),
-        uzs: Number(statePayment.workerPrice_amount_uzs ?? statePayment.workerPrice) }
-    : { original: 0, uzs: 0 };
-
-  const out: BranchSnapshotFields = {
-    snapshotCertificatePayment: cert.original,
-    snapshotCertificatePayment_amount_original: cert.original,
-    snapshotCertificatePayment_currency: clientCurrency,
-    snapshotCertificatePayment_amount_uzs: cert.uzs,
-    snapshotCertificatePayment_exchange_rate: 1,
-    snapshotCertificatePayment_exchange_source: 'MANUAL',
-
-    snapshotPsrPrice: psr.original,
-    snapshotPsrPrice_amount_original: psr.original,
-    snapshotPsrPrice_currency: clientCurrency,
-    snapshotPsrPrice_amount_uzs: psr.uzs,
-    snapshotPsrPrice_exchange_rate: 1,
-    snapshotPsrPrice_exchange_source: 'MANUAL',
-
-    snapshotWorkerPrice: worker.original,
-    snapshotWorkerPrice_amount_original: worker.original,
-    snapshotWorkerPrice_currency: clientCurrency,
-    snapshotWorkerPrice_amount_uzs: worker.uzs,
-    snapshotWorkerPrice_exchange_rate: 1,
-    snapshotWorkerPrice_exchange_source: 'MANUAL',
-  };
-
-  // CertifierFeeConfig bo'lsa undagi hiredWorkerRate ustun
-  if (hiredWorkerRate != null) {
-    Object.assign(out, {
-      snapshotWorkerPrice: hiredWorkerRate,
-      snapshotWorkerPrice_amount_original: hiredWorkerRate,
-      snapshotWorkerPrice_currency: 'UZS',
-      snapshotWorkerPrice_amount_uzs: hiredWorkerRate,
-      snapshotWorkerPrice_exchange_rate: 1,
-      snapshotWorkerPrice_exchange_source: 'MANUAL',
-    } satisfies BranchSnapshotFields);
-  }
-  return out;
 }
 
 interface BranchPlaceInfo {
@@ -200,6 +133,66 @@ const branchPlaceSelect = {
   defaultRegionCode: { select: { name: true, internalCode: true, externalCode: true } },
 } satisfies Prisma.BranchSelect;
 
+/**
+ * Filial yoki mijoz almashtirilganda narx snapshot'ini qayta hisoblaydi — vazifa
+ * yaratishdagi bilan BIR XIL qoida (davlat to'lovi va kurs vazifa yaratilgan paytdagi):
+ * - to'lovlar (sertifikat, PSR, ishchi, bojxona) — so'mda, yangi filial tarifi bilan;
+ * - mijoz almashtirilsa shartnoma summasi yangi mijoz narxidan;
+ * - Deklaratsiya yakunlangan bo'lsa (koef bor) bojxona to'lovi BXM bo'yicha qoladi,
+ *   mijoz almashtirilsa BXM qo'shimchasi yangi mijoz summasiga yakunlangan paytdagi BXM bilan qo'shiladi.
+ */
+async function repriceTask(
+  tx: Prisma.TransactionClient,
+  task: TaskBefore,
+  target: { clientId: number; branchId: number; clientChanged: boolean }
+): Promise<Prisma.TaskUncheckedUpdateInput> {
+  const client = await tx.client.findUnique({
+    where: { id: target.clientId },
+    select: { ...clientPricingSelect, ...declarationClientSelect },
+  });
+  if (!client) throw new TaskUpdateError(404, 'Mijoz topilmadi');
+
+  const pricing = await loadPricingInputs(tx, client, target.branchId, task.createdAt);
+  const deal = target.clientChanged ? buildDealSnapshot(client, pricing.liveUsdRate) : null;
+
+  // USD da kiritilgan davlat to'lovini so'mga o'girish kursi
+  const dealUsdRate = deal
+    ? (deal.snapshotDealAmount_currency === 'USD' ? Number(deal.snapshotDealAmount_exchange_rate) : null)
+    : taskUsdRate(task);
+  const usdRate = dealUsdRate ?? (pricing.liveUsdRate ? Number(pricing.liveUsdRate) : 1);
+  const fees = buildFeeSnapshot(pricing.statePayment, pricing.hiredWorkerRate, usdRate);
+
+  const out: Prisma.TaskUncheckedUpdateInput = { ...deal, ...fees };
+
+  const multiplier = task.customsPaymentMultiplier != null ? Number(task.customsPaymentMultiplier) : null;
+  if (multiplier == null) return out;
+
+  // Deklaratsiya yakunlangan: bojxona to'lovi davlat to'lovi jadvalidan emas, BXM dan
+  for (const key of Object.keys(out)) {
+    if (key.startsWith('snapshotCustomsPayment')) delete (out as Record<string, unknown>)[key];
+  }
+  if (target.clientChanged) {
+    const declarationStage = await tx.taskStage.findFirst({
+      where: { taskId: task.id, name: 'Deklaratsiya' },
+      select: { completedAt: true },
+    });
+    Object.assign(out, declarationCompletedFields({
+      client,
+      task: {
+        snapshotDealAmount_exchange_rate: deal?.snapshotDealAmount_exchange_rate != null
+          ? new Prisma.Decimal(Number(deal.snapshotDealAmount_exchange_rate))
+          : task.snapshotDealAmount_exchange_rate,
+        snapshotDealAmountExchangeRate: task.snapshotDealAmountExchangeRate,
+      },
+      multiplier,
+      afterHoursDeclaration: task.afterHoursDeclaration,
+      afterHoursPayer: task.afterHoursPayer,
+      bxm: await bxmAt(tx, declarationStage?.completedAt ?? new Date()),
+    }));
+  }
+  return out;
+}
+
 /** Vazifani yangilaydi. Tekshiruv xatolarida TaskUpdateError tashlaydi. */
 export async function updateTask(id: number, input: UpdateTaskInput, actor: Actor) {
   const task = await prisma.task.findUnique({ where: { id }, select: taskBeforeSelect });
@@ -213,6 +206,7 @@ export async function updateTask(id: number, input: UpdateTaskInput, actor: Acto
   }
 
   const branchChanged = Boolean(input.branchId && input.branchId !== task.branchId);
+  const clientChanged = Boolean(input.clientId && input.clientId !== task.clientId);
   const changed = hasRealChanges(input, task);
 
   // Oldin mavjud bo'lmagan mijoz/filial FK xatosi bilan 500 berardi
@@ -242,19 +236,12 @@ export async function updateTask(id: number, input: UpdateTaskInput, actor: Acto
       ...(changed && { updatedById: actor.id }),
     };
 
-    if (branchChanged && input.branchId) {
-      // DIQQAT: mijoz valyutasi vazifaning ESKI mijozidan (shu so'rovda clientId ham o'zgarsa ham)
-      const [statePayment, client, certConfig] = await Promise.all([
-        tx.statePayment.findFirst({ where: { createdAt: { lte: task.createdAt } }, orderBy: { createdAt: 'desc' } }),
-        tx.client.findUnique({ where: { id: task.clientId }, select: { dealAmount_currency: true, dealAmountCurrency: true } }),
-        tx.certifierFeeConfig.findFirst({
-          where: { branchId: input.branchId, createdAt: { lte: task.createdAt } },
-          orderBy: { createdAt: 'desc' },
-          select: { hiredWorkerRate: true },
-        }),
-      ]);
-      const clientCurrency: Currency = client?.dealAmount_currency || client?.dealAmountCurrency || 'USD';
-      Object.assign(data, branchSnapshotUpdate(statePayment, clientCurrency, certConfig ? Number(certConfig.hiredWorkerRate) : null));
+    if (branchChanged || clientChanged) {
+      Object.assign(data, await repriceTask(tx, task, {
+        clientId: clientChanged ? input.clientId! : task.clientId,
+        branchId: branchChanged ? input.branchId! : task.branchId,
+        clientChanged,
+      }));
     }
 
     const updatedTask = await tx.task.update({ where: { id }, data });

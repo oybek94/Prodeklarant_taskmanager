@@ -63,7 +63,7 @@ const uniqueNonEmpty = (values: Array<string | null | undefined>) =>
 // marker yoziladi, keyin document.xml'da marker turgan run inline rasmga
 // almashtiriladi.
 
-type DocImage = {
+export type DocImage = {
   data: Buffer;
   ext: 'png' | 'jpeg';
   widthPx: number;
@@ -199,9 +199,61 @@ const embedImages = (zip: PizZip, slots: ImageSlot[]) => {
 
 // --------------------------------------------------------------------------
 
-export const generateOriginInfoDocx = async (payload: OriginInfoDocPayload): Promise<Buffer> => {
+/** Imzo va muhr balandligi — muhr invoys PDF'idagi (SEAL_HEIGHT) bilan bir xil */
+export const SIGNATURE_HEIGHT_CM = 1.5;
+export const SEAL_HEIGHT_CM = 3.8;
+
+export type OriginInfoFields = {
+  Invoys_sana: string;
+  invoys_raqam: string;
+  eksportyor_nomi: string;
+  tovar_nomi: string;
+  qadoq_soni: string;
+  qadoq_turi: string;
+  brutto: string;
+  netto: string;
+  Direktor: string;
+};
+
+export type OriginInfoData = {
+  fields: OriginInfoFields;
+  signature: DocImage | null;
+  seal: DocImage | null;
+};
+
+/** Docx va PDF uchun umumiy: shablon teglari qiymatlari + imzo/muhr rasmlari */
+export const buildOriginInfoData = async (payload: OriginInfoDocPayload): Promise<OriginInfoData> => {
   const { invoice, items, contract, companySettings } = payload;
 
+  // Грузоотправитель/Изготовитель sotuvchidan boshqa korxona bo'lsa — xatni
+  // mahsulotni yetishtirgan/jo'natgan korxona beradi (CMR'dagi qoida bilan bir xil)
+  const sellerName = contract?.sellerName || companySettings?.name || '';
+  const shipperName = (contract?.shipperName || '').trim();
+  const exporterName = shipperName && shipperName !== sellerName.trim() ? shipperName : sellerName;
+
+  const [signature, seal] = await Promise.all([
+    loadUploadImage(contract?.sellerSignatureUrl || contract?.signatureUrl),
+    loadUploadImage(contract?.sellerSealUrl || contract?.sealUrl),
+  ]);
+
+  return {
+    fields: {
+      Invoys_sana: formatDate(invoice.date),
+      invoys_raqam: invoice.invoiceNumber || '',
+      eksportyor_nomi: exporterName,
+      tovar_nomi: uniqueNonEmpty(items.map((i) => i.name)).join(', '),
+      qadoq_soni: formatNumber(sumDecimal(items.map((i) => i.packagesCount))),
+      qadoq_turi: uniqueNonEmpty(items.map((i) => i.packageType)).join(', '),
+      brutto: formatNumber(sumDecimal(items.map((i) => i.grossWeight))),
+      netto: formatNumber(sumDecimal(items.map((i) => i.netWeight))),
+      Direktor: contract?.supplierDirector || '',
+    },
+    signature,
+    seal,
+  };
+};
+
+export const generateOriginInfoDocx = async (payload: OriginInfoDocPayload): Promise<Buffer> => {
   const content = await fs.readFile(await resolveTemplatePath(), 'binary');
   const zip = new PizZip(content);
   const doc = new Docxtemplater(zip, {
@@ -211,39 +263,16 @@ export const generateOriginInfoDocx = async (payload: OriginInfoDocPayload): Pro
     nullGetter: () => '',
   });
 
-  const invoiceDate = formatDate(invoice.date);
-
-  // Грузоотправитель/Изготовитель sotuvchidan boshqa korxona bo'lsa — xatni
-  // mahsulotni yetishtirgan/jo'natgan korxona beradi (CMR'dagi qoida bilan bir xil)
-  const sellerName = contract?.sellerName || companySettings?.name || '';
-  const shipperName = (contract?.shipperName || '').trim();
-  const exporterName = shipperName && shipperName !== sellerName.trim() ? shipperName : sellerName;
-  const packageTypes = uniqueNonEmpty(items.map((i) => i.packageType));
+  const { fields, signature, seal } = await buildOriginInfoData(payload);
 
   const IMZO_MARKER = '@@IMZO@@';
   const MUHR_MARKER = '@@MUHR@@';
 
-  doc.render({
-    Invoys_sana: invoiceDate,
-    invoys_raqam: invoice.invoiceNumber || '',
-    eksportyor_nomi: exporterName,
-    tovar_nomi: uniqueNonEmpty(items.map((i) => i.name)).join(', '),
-    qadoq_soni: formatNumber(sumDecimal(items.map((i) => i.packagesCount))),
-    qadoq_turi: packageTypes.join(', '),
-    brutto: formatNumber(sumDecimal(items.map((i) => i.grossWeight))),
-    netto: formatNumber(sumDecimal(items.map((i) => i.netWeight))),
-    Direktor: contract?.supplierDirector || '',
-    Imzo: IMZO_MARKER,
-    Muhr: MUHR_MARKER,
-  });
+  doc.render({ ...fields, Imzo: IMZO_MARKER, Muhr: MUHR_MARKER });
 
-  const [signature, seal] = await Promise.all([
-    loadUploadImage(contract?.sellerSignatureUrl || contract?.signatureUrl),
-    loadUploadImage(contract?.sellerSealUrl || contract?.sealUrl),
-  ]);
   embedImages(doc.getZip(), [
-    { marker: IMZO_MARKER, image: signature, heightEmu: 1.5 * EMU_PER_CM },
-    { marker: MUHR_MARKER, image: seal, heightEmu: 3.8 * EMU_PER_CM }, // invoys PDF (SEAL_HEIGHT) bilan bir xil
+    { marker: IMZO_MARKER, image: signature, heightEmu: SIGNATURE_HEIGHT_CM * EMU_PER_CM },
+    { marker: MUHR_MARKER, image: seal, heightEmu: SEAL_HEIGHT_CM * EMU_PER_CM },
   ]);
 
   return doc.getZip().generate({ type: 'nodebuffer', compression: 'DEFLATE' });

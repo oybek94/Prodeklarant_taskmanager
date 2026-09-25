@@ -158,16 +158,17 @@ export function useInvoiceDownloads({
     }
   }, [invoice?.id, buildDownloadBase, trackProcessDownload]);
   // "Информация о происхождении товара" — sertifikat uchun eksportyor xati
-  const generateOriginInfoDoc = useCallback(async () => {
+  const generateOriginInfoDoc = useCallback(async (format: 'docx' | 'pdf' = 'docx') => {
     if (!invoice?.id) {
       alert('Invoice topilmadi');
       return;
     }
     try {
       const response = await apiClient.get(`/invoices/${invoice.id}/origin-info-doc`, {
+        params: { format },
         responseType: 'blob',
       });
-      const fileName = `${buildDownloadBase('PROISXOJDENIE')}.docx`;
+      const fileName = `${buildDownloadBase('PROISXOJDENIE')}.${format}`;
       await downloadDocumentResponse(response, fileName, 'Kelib chiqish xatini yuklab olishda xatolik yuz berdi');
       trackProcessDownload('CERT');
     } catch (error) {

@@ -30,7 +30,7 @@ interface InvoiceToolbarProps {
   // Download/generation functions
   generateSmrExcel: () => void;
   generateCmrDoc: () => void;
-  generateOriginInfoDoc: () => void;
+  generateOriginInfoDoc: (format: 'docx' | 'pdf') => void;
   generateTirExcel: () => void;
   generateST1GoodsExcel: () => void;
   generateCommodityEkExcel: () => void;
@@ -320,13 +320,23 @@ export const InvoiceToolbar: React.FC<InvoiceToolbarProps> = React.memo(({
                   </button>
                   <button
                     type="button"
-                    onClick={() => { generateOriginInfoDoc(); setSertifikatlarDropdownOpen(false); }}
+                    onClick={() => { generateOriginInfoDoc('docx'); setSertifikatlarDropdownOpen(false); }}
                     disabled={templatesDisabled}
                     className={MENU_ITEM}
                     role="menuitem"
                     title="Информация о происхождении товара (ПКМ № 994) — Word"
                   >
                     Kelib chiqish xati (Docx)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { generateOriginInfoDoc('pdf'); setSertifikatlarDropdownOpen(false); }}
+                    disabled={templatesDisabled}
+                    className={MENU_ITEM}
+                    role="menuitem"
+                    title="Информация о происхождении товара (ПКМ № 994) — PDF"
+                  >
+                    Kelib chiqish xati (PDF)
                   </button>
                 </div>
               )}

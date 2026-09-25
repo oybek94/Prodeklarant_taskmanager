@@ -1,0 +1,599 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`updateTask — yon ta'sirlar > boshqa xodim: faqat ish vaqtidan tashqari 1`] = `
+{
+  "effects": [
+    [
+      "version",
+      1,
+      99,
+    ],
+    [
+      "task.update",
+      {
+        "data": {
+          "afterHoursDeclaration": true,
+          "afterHoursPayer": "COMPANY",
+          "updatedById": 99,
+        },
+        "where": {
+          "id": 1,
+        },
+      },
+    ],
+    [
+      "socket",
+      99,
+      "task:updated",
+      {
+        "changes": {
+          "afterHoursDeclaration": true,
+          "afterHoursPayer": "COMPANY",
+        },
+        "taskId": 1,
+        "updatedBy": "Bek",
+      },
+    ],
+  ],
+  "result": {
+    "body": {
+      "id": 1,
+      "updated": true,
+    },
+    "status": 200,
+  },
+}
+`;
+
+exports[`updateTask — yon ta'sirlar > boshqa xodim: sarlavha → 403 1`] = `
+{
+  "effects": [],
+  "result": {
+    "body": {
+      "error": "Faqat task yaratgan ishchi taskni o'zgartirishi mumkin",
+    },
+    "status": 403,
+  },
+}
+`;
+
+exports[`updateTask — yon ta'sirlar > filial: USD, davlat to'lovi, invoys avto maydonlari 1`] = `
+{
+  "effects": [
+    [
+      "version",
+      1,
+      7,
+    ],
+    [
+      "task.update",
+      {
+        "data": {
+          "branchId": 4,
+          "snapshotCertificatePayment": 10,
+          "snapshotCertificatePayment_amount_original": 10,
+          "snapshotCertificatePayment_amount_uzs": 126000,
+          "snapshotCertificatePayment_currency": "USD",
+          "snapshotCertificatePayment_exchange_rate": 1,
+          "snapshotCertificatePayment_exchange_source": "MANUAL",
+          "snapshotPsrPrice": 20,
+          "snapshotPsrPrice_amount_original": 20,
+          "snapshotPsrPrice_amount_uzs": 20,
+          "snapshotPsrPrice_currency": "USD",
+          "snapshotPsrPrice_exchange_rate": 1,
+          "snapshotPsrPrice_exchange_source": "MANUAL",
+          "snapshotWorkerPrice": 5,
+          "snapshotWorkerPrice_amount_original": 5,
+          "snapshotWorkerPrice_amount_uzs": 5,
+          "snapshotWorkerPrice_currency": "USD",
+          "snapshotWorkerPrice_exchange_rate": 1,
+          "snapshotWorkerPrice_exchange_source": "MANUAL",
+          "updatedById": 7,
+        },
+        "where": {
+          "id": 1,
+        },
+      },
+    ],
+    [
+      "invoice.updateMany",
+      {
+        "data": {
+          "branchId": 4,
+        },
+        "where": {
+          "taskId": 1,
+        },
+      },
+    ],
+    [
+      "invoice.update",
+      {
+        "data": {
+          "additionalInfo": {
+            "fssRegionExternalCode": "B",
+            "fssRegionInternalCode": "1710",
+            "fssRegionName": "Qo'qon",
+            "other": 1,
+            "shipmentPlace": "Qo'qon shahri",
+          },
+        },
+        "where": {
+          "id": 9,
+        },
+      },
+    ],
+    [
+      "cmr",
+      {
+        "invoiceId": 9,
+        "uploadedById": 7,
+      },
+    ],
+    [
+      "tir",
+      {
+        "invoiceId": 9,
+        "uploadedById": 7,
+      },
+    ],
+    [
+      "socket",
+      7,
+      "task:updated",
+      {
+        "changes": {
+          "branchId": 4,
+        },
+        "taskId": 1,
+        "updatedBy": "Ali",
+      },
+    ],
+  ],
+  "result": {
+    "body": {
+      "id": 1,
+      "updated": true,
+    },
+    "status": 200,
+  },
+}
+`;
+
+exports[`updateTask — yon ta'sirlar > filial: UZS, hiredWorkerRate 1`] = `
+{
+  "effects": [
+    [
+      "version",
+      1,
+      7,
+    ],
+    [
+      "task.update",
+      {
+        "data": {
+          "branchId": 4,
+          "snapshotCertificatePayment": 126000,
+          "snapshotCertificatePayment_amount_original": 126000,
+          "snapshotCertificatePayment_amount_uzs": 126000,
+          "snapshotCertificatePayment_currency": "UZS",
+          "snapshotCertificatePayment_exchange_rate": 1,
+          "snapshotCertificatePayment_exchange_source": "MANUAL",
+          "snapshotPsrPrice": 20,
+          "snapshotPsrPrice_amount_original": 20,
+          "snapshotPsrPrice_amount_uzs": 20,
+          "snapshotPsrPrice_currency": "UZS",
+          "snapshotPsrPrice_exchange_rate": 1,
+          "snapshotPsrPrice_exchange_source": "MANUAL",
+          "snapshotWorkerPrice": 50000,
+          "snapshotWorkerPrice_amount_original": 50000,
+          "snapshotWorkerPrice_amount_uzs": 50000,
+          "snapshotWorkerPrice_currency": "UZS",
+          "snapshotWorkerPrice_exchange_rate": 1,
+          "snapshotWorkerPrice_exchange_source": "MANUAL",
+          "updatedById": 7,
+        },
+        "where": {
+          "id": 1,
+        },
+      },
+    ],
+    [
+      "invoice.updateMany",
+      {
+        "data": {
+          "branchId": 4,
+        },
+        "where": {
+          "taskId": 1,
+        },
+      },
+    ],
+    [
+      "socket",
+      7,
+      "task:updated",
+      {
+        "changes": {
+          "branchId": 4,
+        },
+        "taskId": 1,
+        "updatedBy": "Ali",
+      },
+    ],
+  ],
+  "result": {
+    "body": {
+      "id": 1,
+      "updated": true,
+    },
+    "status": 200,
+  },
+}
+`;
+
+exports[`updateTask — yon ta'sirlar > filial: davlat to'lovi yo'q, mijoz yo'q 1`] = `
+{
+  "effects": [
+    [
+      "version",
+      1,
+      7,
+    ],
+    [
+      "task.update",
+      {
+        "data": {
+          "branchId": 4,
+          "snapshotCertificatePayment": 0,
+          "snapshotCertificatePayment_amount_original": 0,
+          "snapshotCertificatePayment_amount_uzs": 0,
+          "snapshotCertificatePayment_currency": "USD",
+          "snapshotCertificatePayment_exchange_rate": 1,
+          "snapshotCertificatePayment_exchange_source": "MANUAL",
+          "snapshotPsrPrice": 0,
+          "snapshotPsrPrice_amount_original": 0,
+          "snapshotPsrPrice_amount_uzs": 0,
+          "snapshotPsrPrice_currency": "USD",
+          "snapshotPsrPrice_exchange_rate": 1,
+          "snapshotPsrPrice_exchange_source": "MANUAL",
+          "snapshotWorkerPrice": 0,
+          "snapshotWorkerPrice_amount_original": 0,
+          "snapshotWorkerPrice_amount_uzs": 0,
+          "snapshotWorkerPrice_currency": "USD",
+          "snapshotWorkerPrice_exchange_rate": 1,
+          "snapshotWorkerPrice_exchange_source": "MANUAL",
+          "updatedById": 7,
+        },
+        "where": {
+          "id": 1,
+        },
+      },
+    ],
+    [
+      "invoice.updateMany",
+      {
+        "data": {
+          "branchId": 4,
+        },
+        "where": {
+          "taskId": 1,
+        },
+      },
+    ],
+    [
+      "invoice.update",
+      {
+        "data": {
+          "additionalInfo": {
+            "fssRegionExternalCode": "B",
+            "fssRegionInternalCode": "1710",
+            "fssRegionName": "Qo'qon",
+            "shipmentPlace": "Qo'qon shahri",
+          },
+        },
+        "where": {
+          "id": 9,
+        },
+      },
+    ],
+    [
+      "cmr",
+      {
+        "invoiceId": 9,
+        "uploadedById": 7,
+      },
+    ],
+    [
+      "tir",
+      {
+        "invoiceId": 9,
+        "uploadedById": 7,
+      },
+    ],
+    [
+      "socket",
+      7,
+      "task:updated",
+      {
+        "changes": {
+          "branchId": 4,
+        },
+        "taskId": 1,
+        "updatedBy": "Ali",
+      },
+    ],
+  ],
+  "result": {
+    "body": {
+      "id": 1,
+      "updated": true,
+    },
+    "status": 200,
+  },
+}
+`;
+
+exports[`updateTask — yon ta'sirlar > filial: qo'lda o'zgartirilgan invoys maydoni saqlanadi 1`] = `
+{
+  "effects": [
+    [
+      "version",
+      1,
+      7,
+    ],
+    [
+      "task.update",
+      {
+        "data": {
+          "branchId": 4,
+          "snapshotCertificatePayment": 10,
+          "snapshotCertificatePayment_amount_original": 10,
+          "snapshotCertificatePayment_amount_uzs": 126000,
+          "snapshotCertificatePayment_currency": "USD",
+          "snapshotCertificatePayment_exchange_rate": 1,
+          "snapshotCertificatePayment_exchange_source": "MANUAL",
+          "snapshotPsrPrice": 20,
+          "snapshotPsrPrice_amount_original": 20,
+          "snapshotPsrPrice_amount_uzs": 20,
+          "snapshotPsrPrice_currency": "USD",
+          "snapshotPsrPrice_exchange_rate": 1,
+          "snapshotPsrPrice_exchange_source": "MANUAL",
+          "snapshotWorkerPrice": 5,
+          "snapshotWorkerPrice_amount_original": 5,
+          "snapshotWorkerPrice_amount_uzs": 5,
+          "snapshotWorkerPrice_currency": "USD",
+          "snapshotWorkerPrice_exchange_rate": 1,
+          "snapshotWorkerPrice_exchange_source": "MANUAL",
+          "updatedById": 7,
+        },
+        "where": {
+          "id": 1,
+        },
+      },
+    ],
+    [
+      "invoice.updateMany",
+      {
+        "data": {
+          "branchId": 4,
+        },
+        "where": {
+          "taskId": 1,
+        },
+      },
+    ],
+    [
+      "invoice.update",
+      {
+        "data": {
+          "additionalInfo": {
+            "fssRegionExternalCode": "B",
+            "fssRegionInternalCode": "1710",
+            "fssRegionName": "Qo'qon",
+            "shipmentPlace": "Boshqa joy",
+          },
+        },
+        "where": {
+          "id": 9,
+        },
+      },
+    ],
+    [
+      "cmr",
+      {
+        "invoiceId": 9,
+        "uploadedById": 7,
+      },
+    ],
+    [
+      "tir",
+      {
+        "invoiceId": 9,
+        "uploadedById": 7,
+      },
+    ],
+    [
+      "socket",
+      7,
+      "task:updated",
+      {
+        "changes": {
+          "branchId": 4,
+        },
+        "taskId": 1,
+        "updatedBy": "Ali",
+      },
+    ],
+  ],
+  "result": {
+    "body": {
+      "id": 1,
+      "updated": true,
+    },
+    "status": 200,
+  },
+}
+`;
+
+exports[`updateTask — yon ta'sirlar > menejer: mijoz + telefon 1`] = `
+{
+  "effects": [
+    [
+      "version",
+      1,
+      50,
+    ],
+    [
+      "task.update",
+      {
+        "data": {
+          "clientId": 5,
+          "driverPhone": "+998",
+          "updatedById": 50,
+        },
+        "where": {
+          "id": 1,
+        },
+      },
+    ],
+    [
+      "socket",
+      50,
+      "task:updated",
+      {
+        "changes": {
+          "clientId": 5,
+          "driverPhone": "+998",
+        },
+        "taskId": 1,
+        "updatedBy": "Men",
+      },
+    ],
+  ],
+  "result": {
+    "body": {
+      "id": 1,
+      "updated": true,
+    },
+    "status": 200,
+  },
+}
+`;
+
+exports[`updateTask — yon ta'sirlar > o'zgarishsiz qiymatlar 1`] = `
+{
+  "effects": [
+    [
+      "task.update",
+      {
+        "data": {
+          "comments": "izoh",
+          "hasPsr": false,
+          "title": "Eski",
+        },
+        "where": {
+          "id": 1,
+        },
+      },
+    ],
+    [
+      "socket",
+      7,
+      "task:updated",
+      {
+        "changes": {
+          "comments": "izoh",
+          "hasPsr": false,
+          "title": "Eski",
+        },
+        "taskId": 1,
+        "updatedBy": "Ali",
+      },
+    ],
+  ],
+  "result": {
+    "body": {
+      "id": 1,
+      "updated": true,
+    },
+    "status": 200,
+  },
+}
+`;
+
+exports[`updateTask — yon ta'sirlar > sarlavha + izoh 1`] = `
+{
+  "effects": [
+    [
+      "version",
+      1,
+      7,
+    ],
+    [
+      "task.update",
+      {
+        "data": {
+          "comments": null,
+          "title": "Yangi",
+          "updatedById": 7,
+        },
+        "where": {
+          "id": 1,
+        },
+      },
+    ],
+    [
+      "socket",
+      7,
+      "task:updated",
+      {
+        "changes": {
+          "comments": "",
+          "title": "Yangi",
+        },
+        "taskId": 1,
+        "updatedBy": "Ali",
+      },
+    ],
+  ],
+  "result": {
+    "body": {
+      "id": 1,
+      "updated": true,
+    },
+    "status": 200,
+  },
+}
+`;
+
+exports[`updateTask — yon ta'sirlar > topilmadi 1`] = `
+{
+  "effects": [],
+  "result": {
+    "body": {
+      "error": "Task not found",
+    },
+    "status": 404,
+  },
+}
+`;
+
+exports[`updateTask — yon ta'sirlar > validatsiya xatosi 1`] = `
+{
+  "effects": [],
+  "result": {
+    "body": {
+      "error": {
+        "fieldErrors": {
+          "title": [
+            "Too small: expected string to have >=1 characters",
+          ],
+        },
+        "formErrors": [],
+      },
+    },
+    "status": 400,
+  },
+}
+`;

@@ -10,14 +10,12 @@ import { Decimal } from '@prisma/client/runtime/library';
 import { ValidationService } from '../services/validation.service';
 import { shouldDeductGovernmentFees } from '../services/contract-payment-split';
 import fs from 'fs/promises';
-import { ensureCmrForInvoice } from '../services/cmr-service';
-import { ensureTirForInvoice } from '../services/tir-service';
 import { socketEmitter } from '../services/socketEmitter';
 import { applyStageStatusChange, afterStageStatusCommitted } from '../services/stage.service';
-import { createTaskVersion } from '../services/task-version';
 import { notify, getAllActiveUserIds } from '../services/notificationService';
 import { createTaskSchema, createTask, afterTaskCreated, TaskCreateError } from '../services/task-create.service';
 import { getTaskLight, getTaskDetail } from '../services/task-detail.service';
+import { updateTaskSchema, updateTask, TaskUpdateError, regenerateTransportDocs, broadcastTaskUpdated } from '../services/task-update.service';
 
 import { TaskRepository } from '../repositories/task.repository';
 import { TaskService } from '../services/task.service';
@@ -1102,19 +1100,12 @@ router.patch('/:taskId/errors/:errorId', requireAuth(), async (req: AuthRequest,
   socketEmitter.broadcast('task:errorUpdated', { taskId: updated.taskId });
 });
 
-const updateTaskSchema = z.object({
-  title: z.string().min(1).optional(),
-  clientId: z.number().optional(),
-  branchId: z.number().optional(),
-  comments: z.string().optional(),
-  hasPsr: z.boolean().optional(),
-  afterHoursDeclaration: z.boolean().optional(),
-  afterHoursPayer: z.enum(['CLIENT', 'COMPANY']).optional(),
-  driverPhone: z.string().optional(),
-});
-
+// PATCH /tasks/:id — mantiq: services/task-update.service.ts
 router.patch('/:id', requireAuth(), async (req: AuthRequest, res) => {
   const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) {
+    return res.status(400).json({ error: 'Invalid task ID' });
+  }
   const parsed = updateTaskSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
@@ -1123,249 +1114,17 @@ router.patch('/:id', requireAuth(), async (req: AuthRequest, res) => {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
-  const task = await prisma.task.findUnique({ 
-    where: { id },
-    select: { 
-      id: true,
-      title: true,
-      clientId: true,
-      branchId: true,
-      comments: true,
-      hasPsr: true,
-      afterHoursDeclaration: true,
-      afterHoursPayer: true,
-      driverPhone: true,
-      createdById: true,
-      createdAt: true,
-      snapshotDealAmount: true,
-      snapshotDealAmountExchangeRate: true,
-      snapshotDealAmount_exchange_rate: true,
+  try {
+    const { updated, branchChanged } = await updateTask(id, parsed.data, user);
+    if (branchChanged) await regenerateTransportDocs(id, user.id);
+    res.json(updated);
+    broadcastTaskUpdated(id, parsed.data, user);
+  } catch (error) {
+    if (error instanceof TaskUpdateError) {
+      return res.status(error.status).json({ error: error.message });
     }
-  });
-  if (!task) return res.status(404).json({ error: 'Task not found' });
-
-  const hasOtherFields = parsed.data.title !== undefined || parsed.data.clientId !== undefined ||
-    parsed.data.branchId !== undefined || parsed.data.comments !== undefined ||
-    parsed.data.hasPsr !== undefined || parsed.data.driverPhone !== undefined;
-  const isOnlyAfterHoursUpdate = !hasOtherFields && (parsed.data.afterHoursDeclaration !== undefined || parsed.data.afterHoursPayer !== undefined);
-
-  const isCreator = task.createdById === user.id;
-  const isAdmin = user.role === 'ADMIN' || user.role === 'MANAGER';
-
-  // Faqat "ish vaqtidan tashqari" maydonlarini yangilashda har qanday avtorizatsiyalangan foydalanuvchi ruxsat etiladi
-  if (!isAdmin && !isCreator && !isOnlyAfterHoursUpdate) {
-    return res.status(403).json({
-      error: 'Faqat task yaratgan ishchi taskni o\'zgartirishi mumkin'
-    });
+    throw error;
   }
-
-  // Check if there are actual changes
-  const hasChanges = 
-    (parsed.data.title && parsed.data.title !== task.title) ||
-    (parsed.data.clientId && parsed.data.clientId !== task.clientId) ||
-    (parsed.data.branchId && parsed.data.branchId !== task.branchId) ||
-    (parsed.data.comments !== undefined && parsed.data.comments !== task.comments) ||
-    (parsed.data.hasPsr !== undefined && parsed.data.hasPsr !== task.hasPsr) ||
-    (parsed.data.afterHoursDeclaration !== undefined && parsed.data.afterHoursDeclaration !== (task as any).afterHoursDeclaration) ||
-    (parsed.data.afterHoursPayer !== undefined && parsed.data.afterHoursPayer !== (task as any).afterHoursPayer) ||
-    (parsed.data.driverPhone !== undefined && parsed.data.driverPhone !== task.driverPhone);
-
-  const updated = await prisma.$transaction(async (tx) => {
-    // Create version before update if there are changes
-    if (hasChanges && req.user) {
-      await createTaskVersion(tx, id, req.user.id);
-    }
-
-    const updateData: any = {
-      ...(parsed.data.title && { title: parsed.data.title }),
-      ...(parsed.data.clientId && { clientId: parsed.data.clientId }),
-      ...(parsed.data.branchId && { branchId: parsed.data.branchId }),
-      ...(parsed.data.comments !== undefined && { comments: parsed.data.comments || null }),
-      ...(parsed.data.hasPsr !== undefined && { hasPsr: parsed.data.hasPsr }),
-      ...(parsed.data.afterHoursDeclaration !== undefined && { afterHoursDeclaration: parsed.data.afterHoursDeclaration }),
-      ...(parsed.data.afterHoursPayer !== undefined && { afterHoursPayer: parsed.data.afterHoursPayer as AfterHoursPayerType }),
-      ...(parsed.data.driverPhone !== undefined && { driverPhone: parsed.data.driverPhone || null }),
-      ...(hasChanges && req.user && { updatedById: req.user.id }),
-    };
-
-    if (parsed.data.branchId && parsed.data.branchId !== task.branchId) {
-      const statePayment = await (tx as any).statePayment.findFirst({
-        where: {
-          
-          createdAt: { lte: task.createdAt },
-        },
-        orderBy: { createdAt: 'desc' },
-      });
-
-      const client = await (tx as any).client.findUnique({
-        where: { id: task.clientId },
-        select: {
-          dealAmount_currency: true,
-          dealAmountCurrency: true,
-        },
-      });
-
-      const clientCurrency: Currency = client?.dealAmount_currency || client?.dealAmountCurrency || 'USD';
-
-      const pickAmount = (usd: number | null | undefined, uzs: number | null | undefined, fallback: number) =>
-        clientCurrency === 'USD'
-          ? Number(usd ?? fallback)
-          : Number(uzs ?? fallback);
-
-      if (statePayment) {
-        const certAmount = pickAmount(statePayment.certificatePayment_amount_original, statePayment.certificatePayment_amount_uzs, Number(statePayment.certificatePayment));
-        const psrAmount = pickAmount(statePayment.psrPrice_amount_original, statePayment.psrPrice_amount_uzs, Number(statePayment.psrPrice));
-        const workerAmount = pickAmount(statePayment.workerPrice_amount_original, statePayment.workerPrice_amount_uzs, Number(statePayment.workerPrice));
-
-        updateData.snapshotCertificatePayment = certAmount;
-        updateData.snapshotPsrPrice = psrAmount;
-        updateData.snapshotWorkerPrice = workerAmount;
-
-        updateData.snapshotCertificatePayment_amount_original = certAmount;
-        updateData.snapshotPsrPrice_amount_original = psrAmount;
-        updateData.snapshotWorkerPrice_amount_original = workerAmount;
-
-        updateData.snapshotCertificatePayment_currency = clientCurrency;
-        updateData.snapshotPsrPrice_currency = clientCurrency;
-        updateData.snapshotWorkerPrice_currency = clientCurrency;
-
-        updateData.snapshotCertificatePayment_amount_uzs = Number(statePayment.certificatePayment_amount_uzs ?? statePayment.certificatePayment);
-        updateData.snapshotPsrPrice_amount_uzs = Number(statePayment.psrPrice_amount_uzs ?? statePayment.psrPrice);
-        updateData.snapshotWorkerPrice_amount_uzs = Number(statePayment.workerPrice_amount_uzs ?? statePayment.workerPrice);
-
-        updateData.snapshotCertificatePayment_exchange_rate = 1;
-        updateData.snapshotPsrPrice_exchange_rate = 1;
-        updateData.snapshotWorkerPrice_exchange_rate = 1;
-
-        updateData.snapshotCertificatePayment_exchange_source = 'MANUAL';
-        updateData.snapshotPsrPrice_exchange_source = 'MANUAL';
-        updateData.snapshotWorkerPrice_exchange_source = 'MANUAL';
-      } else {
-        updateData.snapshotCertificatePayment = 0;
-        updateData.snapshotPsrPrice = 0;
-        updateData.snapshotWorkerPrice = 0;
-
-        updateData.snapshotCertificatePayment_amount_original = 0;
-        updateData.snapshotPsrPrice_amount_original = 0;
-        updateData.snapshotWorkerPrice_amount_original = 0;
-
-        updateData.snapshotCertificatePayment_currency = clientCurrency;
-        updateData.snapshotPsrPrice_currency = clientCurrency;
-        updateData.snapshotWorkerPrice_currency = clientCurrency;
-
-        updateData.snapshotCertificatePayment_amount_uzs = 0;
-        updateData.snapshotPsrPrice_amount_uzs = 0;
-        updateData.snapshotWorkerPrice_amount_uzs = 0;
-
-        updateData.snapshotCertificatePayment_exchange_rate = 1;
-        updateData.snapshotPsrPrice_exchange_rate = 1;
-        updateData.snapshotWorkerPrice_exchange_rate = 1;
-
-        updateData.snapshotCertificatePayment_exchange_source = 'MANUAL';
-        updateData.snapshotPsrPrice_exchange_source = 'MANUAL';
-        updateData.snapshotWorkerPrice_exchange_source = 'MANUAL';
-        updateData.snapshotWorkerPrice_exchange_source = 'MANUAL';
-      }
-      
-      // Agar CertifierFeeConfig mavjud bo'lsa, undan hiredWorkerRate ni ustun qilib olamiz
-      if ('certifierFeeConfig' in tx) {
-         try {
-             // oldingi e'lon qilingan task.createdAt dan foydalanamiz, bu yerda statePayment ham shunga qarab qidirilgan
-             const certConfig = await (tx as any).certifierFeeConfig.findFirst({
-                 where: { branchId: parsed.data.branchId, createdAt: { lte: task.createdAt } },
-                 orderBy: { createdAt: 'desc' },
-             });
-             if (certConfig && certConfig.hiredWorkerRate !== undefined && certConfig.hiredWorkerRate !== null) {
-                 const hwRate = Number(certConfig.hiredWorkerRate);
-                 updateData.snapshotWorkerPrice = hwRate;
-                 updateData.snapshotWorkerPrice_amount_original = hwRate;
-                 updateData.snapshotWorkerPrice_currency = 'UZS';
-                 updateData.snapshotWorkerPrice_amount_uzs = hwRate;
-                 updateData.snapshotWorkerPrice_exchange_rate = 1;
-                 updateData.snapshotWorkerPrice_exchange_source = 'MANUAL';
-             }
-         } catch(e) {}
-      }
-    }
-
-    const updatedTask = await (tx as any).task.update({
-      where: { id },
-      data: updateData,
-    });
-
-    // Task filiali o'zgarganda tegishli invoysning branchId sini ham yangilash (Invoyslar jadvalida to'g'ri ko'rinsin)
-    if (parsed.data.branchId != null && parsed.data.branchId !== task.branchId) {
-      await (tx as any).invoice.updateMany({
-        where: { taskId: id },
-        data: { branchId: parsed.data.branchId },
-      });
-
-      // Filialga bog'liq avtomatik maydonlar (Место отгрузки груза, FSS tumani) yangi filialga o'tadi.
-      // Foydalanuvchi qo'lda o'zgartirgan (eski filial qiymatiga teng bo'lmagan) qiymatlarga tegilmaydi.
-      const branchSelect = {
-        regionText: true,
-        defaultRegionCode: { select: { name: true, internalCode: true, externalCode: true } },
-      } as const;
-      const [oldBranch, newBranch, invoice] = await Promise.all([
-        tx.branch.findUnique({ where: { id: task.branchId }, select: branchSelect }),
-        tx.branch.findUnique({ where: { id: parsed.data.branchId }, select: branchSelect }),
-        tx.invoice.findUnique({ where: { taskId: id }, select: { id: true, additionalInfo: true } }),
-      ]);
-      if (invoice && newBranch) {
-        const rawInfo = invoice.additionalInfo;
-        const info: Record<string, unknown> =
-          rawInfo && typeof rawInfo === 'object' && !Array.isArray(rawInfo) ? { ...(rawInfo as Record<string, unknown>) } : {};
-        let changed = false;
-
-        const currentPlace = String(info.shipmentPlace ?? '').trim();
-        const oldPlace = (oldBranch?.regionText ?? '').trim();
-        const newPlace = (newBranch.regionText ?? '').trim();
-        if ((currentPlace === '' || currentPlace === oldPlace) && currentPlace !== newPlace) {
-          info.shipmentPlace = newPlace;
-          changed = true;
-        }
-
-        const currentRegionCode = String(info.fssRegionInternalCode ?? '').trim();
-        const oldRegionCode = oldBranch?.defaultRegionCode?.internalCode?.trim() ?? '';
-        const newRegion = newBranch.defaultRegionCode;
-        if (currentRegionCode === '' || currentRegionCode === oldRegionCode) {
-          const nextCode = newRegion?.internalCode?.trim() ?? '';
-          if (currentRegionCode !== nextCode) {
-            info.fssRegionInternalCode = nextCode;
-            info.fssRegionName = newRegion?.name ?? '';
-            info.fssRegionExternalCode = newRegion?.externalCode ?? '';
-            changed = true;
-          }
-        }
-
-        if (changed) {
-          await tx.invoice.update({
-            where: { id: invoice.id },
-            data: { additionalInfo: info as Prisma.InputJsonObject },
-          });
-        }
-      }
-    }
-
-    return updatedTask;
-  }, { timeout: 30000, maxWait: 10000 });
-
-  // Filial o'zgarganda TIR/CMR fayllari (viloyat matni filialdan olinadi) yangi filial bilan qayta yaratiladi
-  if (parsed.data.branchId != null && parsed.data.branchId !== task.branchId) {
-    try {
-      const branchInvoice = await prisma.invoice.findUnique({ where: { taskId: id }, select: { id: true } });
-      if (branchInvoice) {
-        await ensureCmrForInvoice({ invoiceId: branchInvoice.id, uploadedById: user.id });
-        await ensureTirForInvoice({ invoiceId: branchInvoice.id, uploadedById: user.id });
-      }
-    } catch (error) {
-      console.error('Filial o\'zgargandan keyin TIR/CMR qayta yaratilmadi:', error);
-    }
-  }
-
-  res.json(updated);
-  // Real-time: task yangilanishi haqida xabar berish
-  socketEmitter.broadcastExcept(user.id, 'task:updated', { taskId: id, changes: parsed.data, updatedBy: user.name });
 });
 
 router.delete('/:id', requireAuth(), async (req: AuthRequest, res) => {

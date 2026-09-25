@@ -30,6 +30,7 @@ interface InvoiceToolbarProps {
   // Download/generation functions
   generateSmrExcel: () => void;
   generateCmrDoc: () => void;
+  generateOriginInfoDoc: () => void;
   generateTirExcel: () => void;
   generateST1GoodsExcel: () => void;
   generateCommodityEkExcel: () => void;
@@ -116,6 +117,7 @@ export const InvoiceToolbar: React.FC<InvoiceToolbarProps> = React.memo(({
   setInvoysDropdownOpen,
   generateSmrExcel,
   generateCmrDoc,
+  generateOriginInfoDoc,
   generateTirExcel,
   generateST1GoodsExcel,
   generateCommodityEkExcel,
@@ -315,6 +317,16 @@ export const InvoiceToolbar: React.FC<InvoiceToolbarProps> = React.memo(({
                     title="ST-1 dasturiga tovarlarni import qilish uchun ro'yxat"
                   >
                     ST-1 tovarlar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { generateOriginInfoDoc(); setSertifikatlarDropdownOpen(false); }}
+                    disabled={templatesDisabled}
+                    className={MENU_ITEM}
+                    role="menuitem"
+                    title="Информация о происхождении товара (ПКМ № 994) — Word"
+                  >
+                    Kelib chiqish xati (Docx)
                   </button>
                 </div>
               )}

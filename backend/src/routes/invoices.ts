@@ -14,6 +14,7 @@ import { ensureTirForInvoice } from '../services/tir-service';
 import { generateST1GoodsExcel } from '../services/st1-goods-excel';
 import { generateCommodityEkExcel } from '../services/commodity-ek-excel';
 import { generateCmrDocx } from '../services/cmr-doc';
+import { generateOriginInfoDocx } from '../services/origin-info-doc';
 import fs from 'fs/promises';
 import { socketEmitter } from '../services/socketEmitter';
 import { checkItemsTare, TareWarning } from '../services/packaging-tare';
@@ -605,6 +606,52 @@ router.get('/:id/cmr-doc', requireAuth(), async (req: AuthRequest, res: Response
     res.end(buffer);
   } catch (error: any) {
     console.error('Error generating CMR Docx:', error);
+    res.status(500).json({ error: 'Serverda xatolik yuz berdi' });
+  }
+});
+
+// GET /invoices/:id/origin-info-doc - "Информация о происхождении товара" (DOCX)
+router.get('/:id/origin-info-doc', requireAuth(), async (req: AuthRequest, res: Response) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (!Number.isFinite(id)) {
+      return res.status(404).json({ error: 'Invoice topilmadi' });
+    }
+
+    const invoice = await prisma.invoice.findUnique({
+      where: { id },
+      include: { items: { orderBy: { orderIndex: 'asc' } } },
+    });
+    if (!invoice) {
+      return res.status(404).json({ error: 'Invoice topilmadi' });
+    }
+
+    const contract = invoice.contractId
+      ? await prisma.contract.findUnique({ where: { id: invoice.contractId } })
+      : invoice.contractNumber
+        ? await prisma.contract.findFirst({
+            where: { clientId: invoice.clientId, contractNumber: invoice.contractNumber },
+          })
+        : null;
+    const companySettings = await prisma.companySettings.findFirst();
+
+    const buffer = await generateOriginInfoDocx({
+      invoice,
+      items: invoice.items,
+      contract,
+      companySettings,
+    });
+
+    const fileName = `Proisxozhdenie_${invoice.invoiceNumber || invoice.id}.docx`;
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    );
+    res.setHeader('Content-Disposition', attachmentDisposition(fileName));
+    res.setHeader('Content-Length', buffer.length);
+    res.end(buffer);
+  } catch (error: unknown) {
+    console.error('Error generating origin info Docx:', error);
     res.status(500).json({ error: 'Serverda xatolik yuz berdi' });
   }
 });

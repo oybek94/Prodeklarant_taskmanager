@@ -157,6 +157,24 @@ export function useInvoiceDownloads({
       alert(error instanceof Error ? error.message : `CMR shablonini yuklab olishda xatolik yuz berdi`);
     }
   }, [invoice?.id, buildDownloadBase, trackProcessDownload]);
+  // "Информация о происхождении товара" — sertifikat uchun eksportyor xati
+  const generateOriginInfoDoc = useCallback(async () => {
+    if (!invoice?.id) {
+      alert('Invoice topilmadi');
+      return;
+    }
+    try {
+      const response = await apiClient.get(`/invoices/${invoice.id}/origin-info-doc`, {
+        responseType: 'blob',
+      });
+      const fileName = `${buildDownloadBase('PROISXOJDENIE')}.docx`;
+      await downloadDocumentResponse(response, fileName, 'Kelib chiqish xatini yuklab olishda xatolik yuz berdi');
+      trackProcessDownload('CERT');
+    } catch (error) {
+      console.error('Error downloading origin info:', error);
+      alert(error instanceof Error ? error.message : 'Kelib chiqish xatini yuklab olishda xatolik yuz berdi');
+    }
+  }, [invoice?.id, buildDownloadBase, trackProcessDownload]);
 
   // --- FSS Excel ---
 
@@ -247,6 +265,7 @@ export function useInvoiceDownloads({
   return {
     generateSmrExcel,
     generateCmrDoc,
+    generateOriginInfoDoc,
     generateTirExcel,
     generateST1GoodsExcel,
     generateCommodityEkExcel,

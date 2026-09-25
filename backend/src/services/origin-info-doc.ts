@@ -109,8 +109,6 @@ const loadUploadImage = async (url?: string | null): Promise<DocImage | null> =>
 };
 
 const EMU_PER_CM = 360000;
-/** Word 96 DPI hisoblaydi: 1px = 9525 EMU */
-const EMU_PER_PX = 9525;
 
 const drawingRunXml = (relId: string, docPrId: number, image: DocImage, heightEmu: number) => {
   const cy = Math.round(heightEmu);
@@ -245,7 +243,7 @@ export const generateOriginInfoDocx = async (payload: OriginInfoDocPayload): Pro
   ]);
   embedImages(doc.getZip(), [
     { marker: IMZO_MARKER, image: signature, heightEmu: 1.5 * EMU_PER_CM },
-    { marker: MUHR_MARKER, image: seal, heightEmu: 215 * EMU_PER_PX }, // invoys sahifasidagi muhr bilan bir xil
+    { marker: MUHR_MARKER, image: seal, heightEmu: 3.8 * EMU_PER_CM }, // invoys PDF (SEAL_HEIGHT) bilan bir xil
   ]);
 
   return doc.getZip().generate({ type: 'nodebuffer', compression: 'DEFLATE' });

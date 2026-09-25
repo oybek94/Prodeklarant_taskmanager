@@ -109,9 +109,11 @@ const loadUploadImage = async (url?: string | null): Promise<DocImage | null> =>
 };
 
 const EMU_PER_CM = 360000;
+/** Word 96 DPI hisoblaydi: 1px = 9525 EMU */
+const EMU_PER_PX = 9525;
 
-const drawingRunXml = (relId: string, docPrId: number, image: DocImage, heightCm: number) => {
-  const cy = Math.round(heightCm * EMU_PER_CM);
+const drawingRunXml = (relId: string, docPrId: number, image: DocImage, heightEmu: number) => {
+  const cy = Math.round(heightEmu);
   const cx = Math.round((cy * image.widthPx) / image.heightPx);
   const name = `Picture ${docPrId}`;
   return (
@@ -129,7 +131,7 @@ const drawingRunXml = (relId: string, docPrId: number, image: DocImage, heightCm
   );
 };
 
-type ImageSlot = { marker: string; image: DocImage | null; heightCm: number };
+type ImageSlot = { marker: string; image: DocImage | null; heightEmu: number };
 
 const embedImages = (zip: PizZip, slots: ImageSlot[]) => {
   const docPath = 'word/document.xml';
@@ -164,7 +166,7 @@ const embedImages = (zip: PizZip, slots: ImageSlot[]) => {
         `<Default Extension="${slot.image.ext}" ContentType="image/${slot.image.ext}"/><Default `
       );
     }
-    runsForSlot.set(slot.marker, drawingRunXml(relId, docPrId++, slot.image, slot.heightCm));
+    runsForSlot.set(slot.marker, drawingRunXml(relId, docPrId++, slot.image, slot.heightEmu));
   });
 
   const markerPattern = new RegExp(`(${slots.map((s) => s.marker).join('|')})`);
@@ -212,6 +214,12 @@ export const generateOriginInfoDocx = async (payload: OriginInfoDocPayload): Pro
   });
 
   const invoiceDate = formatDate(invoice.date);
+
+  // Грузоотправитель/Изготовитель sotuvchidan boshqa korxona bo'lsa — xatni
+  // mahsulotni yetishtirgan/jo'natgan korxona beradi (CMR'dagi qoida bilan bir xil)
+  const sellerName = contract?.sellerName || companySettings?.name || '';
+  const shipperName = (contract?.shipperName || '').trim();
+  const exporterName = shipperName && shipperName !== sellerName.trim() ? shipperName : sellerName;
   const packageTypes = uniqueNonEmpty(items.map((i) => i.packageType));
 
   const IMZO_MARKER = '@@IMZO@@';
@@ -220,7 +228,7 @@ export const generateOriginInfoDocx = async (payload: OriginInfoDocPayload): Pro
   doc.render({
     Invoys_sana: invoiceDate,
     invoys_raqam: invoice.invoiceNumber || '',
-    eksportyor_nomi: contract?.sellerName || companySettings?.name || '',
+    eksportyor_nomi: exporterName,
     tovar_nomi: uniqueNonEmpty(items.map((i) => i.name)).join(', '),
     qadoq_soni: formatNumber(sumDecimal(items.map((i) => i.packagesCount))),
     qadoq_turi: packageTypes.join(', '),
@@ -236,8 +244,8 @@ export const generateOriginInfoDocx = async (payload: OriginInfoDocPayload): Pro
     loadUploadImage(contract?.sellerSealUrl || contract?.sealUrl),
   ]);
   embedImages(doc.getZip(), [
-    { marker: IMZO_MARKER, image: signature, heightCm: 1.5 },
-    { marker: MUHR_MARKER, image: seal, heightCm: 3 },
+    { marker: IMZO_MARKER, image: signature, heightEmu: 1.5 * EMU_PER_CM },
+    { marker: MUHR_MARKER, image: seal, heightEmu: 215 * EMU_PER_PX }, // invoys sahifasidagi muhr bilan bir xil
   ]);
 
   return doc.getZip().generate({ type: 'nodebuffer', compression: 'DEFLATE' });

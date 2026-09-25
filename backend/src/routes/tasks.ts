@@ -3,7 +3,7 @@ import { prisma } from '../prisma';
 import { appCache } from '../services/cache';
 import { z } from 'zod';
 import { AuthRequest, requireAuth } from '../middleware/auth';
-import { TaskStatus, Currency, ExchangeSource, Prisma } from '@prisma/client';
+import { TaskStatus, Currency, Prisma } from '@prisma/client';
 
 type AfterHoursPayerType = 'CLIENT' | 'COMPANY';
 import { Decimal } from '@prisma/client/runtime/library';
@@ -18,6 +18,7 @@ import { socketEmitter } from '../services/socketEmitter';
 import { applyStageStatusChange, afterStageStatusCommitted } from '../services/stage.service';
 import { createTaskVersion } from '../services/task-version';
 import { notify, getAllActiveUserIds } from '../services/notificationService';
+import { createTaskSchema, createTask, afterTaskCreated, TaskCreateError } from '../services/task-create.service';
 
 import { TaskRepository } from '../repositories/task.repository';
 import { TaskService } from '../services/task.service';
@@ -26,29 +27,6 @@ const taskRepo = new TaskRepository();
 const taskService = new TaskService(taskRepo);
 
 const router = Router();
-
-const stageTemplates = [
-  'Invoys',
-  'Zayavka',
-  'TIR-SMR',
-  'Sertifikat olib chiqish',
-  'Deklaratsiya',
-  'Tekshirish',
-  'Topshirish',
-  'Pochta',
-];
-
-const createTaskSchema = z.object({
-  clientId: z.number(),
-  branchId: z.number(),
-  title: z.string().min(1),
-  comments: z.string().optional(),
-  hasPsr: z.boolean(),
-  driverPhone: z.string().optional(),
-  afterHoursDeclaration: z.boolean().optional().default(false),
-  afterHoursPayer: z.enum(['CLIENT', 'COMPANY']).optional().default('CLIENT'),
-  customsPaymentMultiplier: z.number().min(0.5).max(4).optional(), // BXM multiplier for Deklaratsiya (0.5 to 4)
-});
 
 router.get('/errors/unrated', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
   try {
@@ -324,6 +302,7 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
   }
 });
 
+// POST /tasks — mantiq (narx snapshot'i, bosqichlar): services/task-create.service.ts
 router.post('/', requireAuth(), async (req: AuthRequest, res) => {
   try {
     if (!req.user) {
@@ -333,349 +312,15 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
     const parsed = createTaskSchema.safeParse(req.body);
     if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
-    const task = await prisma.$transaction(async (tx) => {
-      // Client va Branch mavjudligini tekshirish
-      const client = await tx.client.findUnique({
-        where: { id: parsed.data.clientId },
-        select: { dealAmount: true },
-      });
-      if (!client) {
-        throw new Error(`Client with id ${parsed.data.clientId} not found`);
-      }
-      
-      const branch = await tx.branch.findUnique({
-        where: { id: parsed.data.branchId },
-        select: { id: true },
-      });
-      if (!branch) {
-        throw new Error(`Branch with id ${parsed.data.branchId} not found`);
-      }
-
-    // Davlat to'lovlarini olish (task yaratilgan vaqtdan oldin yaratilgan eng so'nggi davlat to'lovi)
-    const taskCreatedAt = new Date();
-    const statePayment = await tx.statePayment.findFirst({
-      where: {
-        
-        createdAt: { lte: taskCreatedAt }, // Task yaratilgunga qadar yaratilgan davlat to'lovlari
-      },
-      orderBy: {
-        createdAt: 'desc', // Eng so'nggi davlat to'lovi
-      },
-    });
-
-    // Get full client data for currency information
-    const fullClient = await tx.client.findUnique({
-      where: { id: parsed.data.clientId },
-      select: {
-        dealAmount: true,
-        dealAmountCurrency: true,
-        dealAmountExchangeRate: true,
-        dealAmount_amount_original: true,
-        dealAmount_currency: true,
-        dealAmount_exchange_rate: true,
-        dealAmount_amount_uzs: true,
-        dealAmount_exchange_source: true,
-        contractPaymentType: true,
-        serviceFeeTransferUzs: true,
-      },
-    });
-
-    let snapshotDealAmount = fullClient?.dealAmount ? Number(fullClient.dealAmount) : null;
-    let snapshotDealAmountExchangeRate: Decimal | null = null;
-    let snapshotCertificatePayment = null;
-    let snapshotCertificatePaymentExchangeRate: Decimal | null = null;
-    let snapshotCertificatePaymentAmountUzs: number | null = null;
-    let snapshotPsrPrice = null;
-    let snapshotPsrPriceExchangeRate: Decimal | null = null;
-    let snapshotPsrPriceAmountUzs: number | null = null;
-    let snapshotWorkerPrice = null;
-    let snapshotWorkerPriceExchangeRate: Decimal | null = null;
-    let snapshotWorkerPriceAmountUzs: number | null = null;
-    let snapshotCustomsPayment = null;
-    let snapshotCustomsPaymentExchangeRate: Decimal | null = null;
-    let snapshotCustomsPaymentAmountUzs: number | null = null;
-
-    const snapshotContractPaymentType = fullClient?.contractPaymentType || 'CASH_ALL_INCLUSIVE';
-    const snapshotServiceFeeTransferUzs = fullClient?.serviceFeeTransferUzs != null
-      ? Number(fullClient.serviceFeeTransferUzs)
-      : null;
-
-    // Capture exchange rates for deal amount and populate universal fields
-    let snapshotDealAmountAmountUzs: number | null = null;
-    let snapshotDealAmountCurrency: Currency | null = null;
-    let snapshotDealAmountExchangeRateValue: Decimal | null = null;
-    let snapshotDealAmountExchangeSource: ExchangeSource = 'CBU';
-
-    if (snapshotDealAmount && fullClient) {
-      // Use universal fields if available, fallback to old fields
-      const currency: Currency = fullClient.dealAmount_currency || fullClient.dealAmountCurrency || 'USD';
-      snapshotDealAmountCurrency = currency;
-      
-      if (currency === 'USD') {
-        if (fullClient.dealAmount_exchange_rate) {
-          snapshotDealAmountExchangeRateValue = new Decimal(fullClient.dealAmount_exchange_rate);
-          snapshotDealAmountExchangeRate = snapshotDealAmountExchangeRateValue;
-        } else if (fullClient.dealAmountExchangeRate) {
-          snapshotDealAmountExchangeRateValue = new Decimal(fullClient.dealAmountExchangeRate);
-          snapshotDealAmountExchangeRate = snapshotDealAmountExchangeRateValue;
-        } else {
-          try {
-            const rate = await getExchangeRate(taskCreatedAt, 'USD', 'UZS', tx);
-            snapshotDealAmountExchangeRateValue = rate;
-            snapshotDealAmountExchangeRate = rate;
-          } catch (error) {
-            console.error('Failed to get exchange rate for deal amount snapshot:', error);
-            snapshotDealAmountExchangeRateValue = new Decimal(1);
-            snapshotDealAmountExchangeRate = new Decimal(1);
-          }
-        }
-        snapshotDealAmountAmountUzs = Number(calculateAmountUzs(snapshotDealAmount, currency, snapshotDealAmountExchangeRateValue));
-      } else {
-        // UZS currency - exchange rate is always 1
-        snapshotDealAmountExchangeRateValue = new Decimal(1);
-        snapshotDealAmountExchangeRate = new Decimal(1);
-        snapshotDealAmountAmountUzs = snapshotDealAmount;
-      }
-      snapshotDealAmountExchangeSource = fullClient.dealAmount_exchange_source || 'CBU';
-    }
-
-    if (statePayment) {
-      // Task yaratilgan vaqtdan oldin yaratilgan eng so'nggi davlat to'lovidan foydalanamiz
-      const paymentCurrency: Currency = snapshotDealAmountCurrency || 'USD';
-      const paymentExchangeRate = snapshotDealAmountExchangeRateValue || new Decimal(1);
-      const resolvePaymentAmounts = (
-        amountUsdRaw: number | null | undefined,
-        amountUzsRaw: number | null | undefined,
-        fallbackRaw: number | null | undefined,
-        currency: Currency,
-        exchangeRate: Decimal
-      ) => {
-        const amountUsd = Number(amountUsdRaw ?? fallbackRaw ?? 0);
-        const amountUzs = Number(amountUzsRaw ?? fallbackRaw ?? 0);
-        if (currency === 'USD') {
-          const original = amountUsd;
-          const uzs = amountUzsRaw != null
-            ? amountUzs
-            : Number(calculateAmountUzs(original, 'USD', exchangeRate));
-          const rate = original > 0 ? new Decimal(uzs / original) : new Decimal(1);
-          return { original, uzs, rate };
-        }
-        const original = amountUzs;
-        return { original, uzs: amountUzs, rate: new Decimal(1) };
-      };
-
-      const certificateAmounts = resolvePaymentAmounts(
-        statePayment.certificatePayment_amount_original != null
-          ? Number(statePayment.certificatePayment_amount_original)
-          : null,
-        statePayment.certificatePayment_amount_uzs != null
-          ? Number(statePayment.certificatePayment_amount_uzs)
-          : null,
-        statePayment.certificatePayment != null
-          ? Number(statePayment.certificatePayment)
-          : null,
-        paymentCurrency,
-        paymentExchangeRate
-      );
-      snapshotCertificatePayment = certificateAmounts.original as any;
-      snapshotCertificatePaymentExchangeRate = certificateAmounts.rate;
-      snapshotCertificatePaymentAmountUzs = certificateAmounts.uzs;
-
-      const psrAmounts = resolvePaymentAmounts(
-        statePayment.psrPrice_amount_original != null
-          ? Number(statePayment.psrPrice_amount_original)
-          : null,
-        statePayment.psrPrice_amount_uzs != null
-          ? Number(statePayment.psrPrice_amount_uzs)
-          : null,
-        statePayment.psrPrice != null
-          ? Number(statePayment.psrPrice)
-          : null,
-        paymentCurrency,
-        paymentExchangeRate
-      );
-      snapshotPsrPrice = psrAmounts.original as any;
-      snapshotPsrPriceExchangeRate = psrAmounts.rate;
-      snapshotPsrPriceAmountUzs = psrAmounts.uzs;
-
-      const workerAmounts = resolvePaymentAmounts(
-        statePayment.workerPrice_amount_original != null
-          ? Number(statePayment.workerPrice_amount_original)
-          : null,
-        statePayment.workerPrice_amount_uzs != null
-          ? Number(statePayment.workerPrice_amount_uzs)
-          : null,
-        statePayment.workerPrice != null
-          ? Number(statePayment.workerPrice)
-          : null,
-        paymentCurrency,
-        paymentExchangeRate
-      );
-      snapshotWorkerPrice = workerAmounts.original as any;
-      snapshotWorkerPriceExchangeRate = workerAmounts.rate;
-      snapshotWorkerPriceAmountUzs = workerAmounts.uzs;
-
-      // Agar CertifierFeeConfig mavjud bo'lsa, undan hiredWorkerRate ni ustun qilib olamiz
-      if ('certifierFeeConfig' in tx) {
-         try {
-             const certConfig = await (tx as any).certifierFeeConfig.findFirst({
-                 where: { branchId: parsed.data.branchId, createdAt: { lte: taskCreatedAt } },
-                 orderBy: { createdAt: 'desc' },
-             });
-             if (certConfig && certConfig.hiredWorkerRate !== undefined && certConfig.hiredWorkerRate !== null) {
-                 const hwRate = Number(certConfig.hiredWorkerRate);
-                 const hwAmounts = resolvePaymentAmounts(null, hwRate, hwRate, paymentCurrency, paymentExchangeRate);
-                 snapshotWorkerPrice = hwAmounts.original as any;
-                 snapshotWorkerPriceExchangeRate = hwAmounts.rate;
-                 snapshotWorkerPriceAmountUzs = hwAmounts.uzs;
-             }
-         } catch(e) {}
-      }
-
-      const customsAmounts = resolvePaymentAmounts(
-        statePayment.customsPayment_amount_original != null
-          ? Number(statePayment.customsPayment_amount_original)
-          : null,
-        statePayment.customsPayment_amount_uzs != null
-          ? Number(statePayment.customsPayment_amount_uzs)
-          : null,
-        statePayment.customsPayment != null
-          ? Number(statePayment.customsPayment)
-          : null,
-        paymentCurrency,
-        paymentExchangeRate
-      );
-      snapshotCustomsPayment = customsAmounts.original as any;
-      snapshotCustomsPaymentExchangeRate = customsAmounts.rate;
-      snapshotCustomsPaymentAmountUzs = customsAmounts.uzs;
-    }
-
-    // Prisma data object - faqat mavjud field'larni qo'shamiz
-    const taskData: Partial<Prisma.TaskUncheckedCreateInput> = {
-      clientId: parsed.data.clientId,
-      branchId: parsed.data.branchId,
-      title: parsed.data.title,
-      hasPsr: parsed.data.hasPsr,
-      afterHoursDeclaration: parsed.data.afterHoursDeclaration,
-      afterHoursPayer: parsed.data.afterHoursPayer as AfterHoursPayerType,
-      createdById: req.user?.id,
-    };
-
-    // Optional field'larni qo'shamiz - faqat mavjud va null bo'lmagan qiymatlarni
-    if (parsed.data.comments !== undefined && parsed.data.comments !== null && parsed.data.comments !== '') {
-      taskData.comments = parsed.data.comments;
-    }
-    if (parsed.data.driverPhone !== undefined && parsed.data.driverPhone !== null && parsed.data.driverPhone !== '') {
-      taskData.driverPhone = parsed.data.driverPhone;
-    }
-    // Decimal field'lar uchun - faqat mavjud va null bo'lmagan qiymatlarni (Prisma number qabul qiladi)
-    // Keep old fields for backward compatibility
-    if (snapshotDealAmount != null) {
-      taskData.snapshotDealAmount = snapshotDealAmount;
-    }
-    if (snapshotDealAmountExchangeRate != null) {
-      taskData.snapshotDealAmountExchangeRate = snapshotDealAmountExchangeRate;
-    }
-    if (snapshotCertificatePayment != null) {
-      taskData.snapshotCertificatePayment = snapshotCertificatePayment;
-      taskData.snapshotCertificatePaymentExchangeRate = snapshotCertificatePaymentExchangeRate;
-    }
-    if (snapshotPsrPrice != null) {
-      taskData.snapshotPsrPrice = snapshotPsrPrice;
-      taskData.snapshotPsrPriceExchangeRate = snapshotPsrPriceExchangeRate;
-    }
-    if (snapshotWorkerPrice != null) {
-      taskData.snapshotWorkerPrice = snapshotWorkerPrice;
-      taskData.snapshotWorkerPriceExchangeRate = snapshotWorkerPriceExchangeRate;
-    }
-    if (snapshotCustomsPayment != null) {
-      taskData.snapshotCustomsPayment = snapshotCustomsPayment;
-      taskData.snapshotCustomsPaymentExchangeRate = snapshotCustomsPaymentExchangeRate;
-    }
-
-    // Shartnoma to'lov turi snapshot (dealAmount snapshot bilan bir vaqtda)
-    taskData.snapshotContractPaymentType = snapshotContractPaymentType;
-    if (snapshotServiceFeeTransferUzs != null) {
-      taskData.snapshotServiceFeeTransferUzs = snapshotServiceFeeTransferUzs;
-    }
-
-    // Universal monetary fields for snapshots
-    if (snapshotDealAmount != null && snapshotDealAmountCurrency && snapshotDealAmountExchangeRateValue) {
-      taskData.snapshotDealAmount_amount_original = snapshotDealAmount;
-      taskData.snapshotDealAmount_currency = snapshotDealAmountCurrency;
-      taskData.snapshotDealAmount_exchange_rate = Number(snapshotDealAmountExchangeRateValue);
-      taskData.snapshotDealAmount_amount_uzs = snapshotDealAmountAmountUzs;
-      taskData.snapshotDealAmount_exchange_source = snapshotDealAmountExchangeSource;
-    }
-
-    const snapshotPaymentCurrency: Currency = snapshotDealAmountCurrency || 'USD';
-
-    if (snapshotCertificatePayment != null && snapshotCertificatePaymentAmountUzs != null) {
-      taskData.snapshotCertificatePayment_amount_original = snapshotCertificatePayment;
-      taskData.snapshotCertificatePayment_currency = snapshotPaymentCurrency;
-      taskData.snapshotCertificatePayment_exchange_rate = Number(snapshotCertificatePaymentExchangeRate || 1);
-      taskData.snapshotCertificatePayment_amount_uzs = snapshotCertificatePaymentAmountUzs;
-      taskData.snapshotCertificatePayment_exchange_source = 'MANUAL';
-    }
-    if (snapshotPsrPrice != null && snapshotPsrPriceAmountUzs != null) {
-      taskData.snapshotPsrPrice_amount_original = snapshotPsrPrice;
-      taskData.snapshotPsrPrice_currency = snapshotPaymentCurrency;
-      taskData.snapshotPsrPrice_exchange_rate = Number(snapshotPsrPriceExchangeRate || 1);
-      taskData.snapshotPsrPrice_amount_uzs = snapshotPsrPriceAmountUzs;
-      taskData.snapshotPsrPrice_exchange_source = 'MANUAL';
-    }
-    if (snapshotWorkerPrice != null && snapshotWorkerPriceAmountUzs != null) {
-      taskData.snapshotWorkerPrice_amount_original = snapshotWorkerPrice;
-      taskData.snapshotWorkerPrice_currency = snapshotPaymentCurrency;
-      taskData.snapshotWorkerPrice_exchange_rate = Number(snapshotWorkerPriceExchangeRate || 1);
-      taskData.snapshotWorkerPrice_amount_uzs = snapshotWorkerPriceAmountUzs;
-      taskData.snapshotWorkerPrice_exchange_source = 'MANUAL';
-    }
-    if (snapshotCustomsPayment != null && snapshotCustomsPaymentAmountUzs != null) {
-      taskData.snapshotCustomsPayment_amount_original = snapshotCustomsPayment;
-      taskData.snapshotCustomsPayment_currency = snapshotPaymentCurrency;
-      taskData.snapshotCustomsPayment_exchange_rate = Number(snapshotCustomsPaymentExchangeRate || 1);
-      taskData.snapshotCustomsPayment_amount_uzs = snapshotCustomsPaymentAmountUzs;
-      taskData.snapshotCustomsPayment_exchange_source = 'MANUAL';
-    }
-
-    if (parsed.data.customsPaymentMultiplier != null) {
-      taskData.customsPaymentMultiplier = parsed.data.customsPaymentMultiplier;
-    }
-    const createdTask = await tx.task.create({
-      data: taskData as Prisma.TaskUncheckedCreateInput,
-    });
-    await tx.taskStage.createMany({
-      data: stageTemplates.map((name, idx) => ({
-        taskId: createdTask.id,
-        name,
-        stageOrder: idx + 1,
-      })),
-    });
-    
-    return createdTask;
-  });
-
+    const task = await createTask(parsed.data, req.user.id);
     res.status(201).json(task);
-    // Real-time: barcha foydalanuvchilarga yangi task haqida xabar berish
-    socketEmitter.broadcastExcept(req.user!.id, 'task:created', { task, createdBy: req.user!.name });
-    // Dashboard keshni tozalash — yangi task qo'shildi
-    appCache.invalidate('dashboard:');
-    // Bildirishnoma
-    getAllActiveUserIds().then(userIds => {
-      notify({
-        userIds,
-        type: 'TASK_CREATED',
-        title: `Yangi task: ${task.title || 'Task #' + task.id}`,
-        message: `${req.user!.name} yangi task yaratdi`,
-        actionUrl: `/tasks/${task.id}`,
-        taskId: task.id,
-        excludeUserId: req.user!.id,
-      });
-    });
-  } catch (error: any) {
+    afterTaskCreated(task, req.user);
+  } catch (error) {
+    if (error instanceof TaskCreateError) {
+      return res.status(error.status).json({ error: error.message });
+    }
     console.error('Error creating task:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Xatolik yuz berdi',
       ...(process.env.NODE_ENV !== 'production' && {
         details: error instanceof Error ? error.message : String(error)

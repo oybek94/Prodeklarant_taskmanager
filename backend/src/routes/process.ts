@@ -3,19 +3,12 @@ import { prisma } from '../prisma';
 import { requireAuth, AuthRequest } from '../middleware/auth';
 import { z } from 'zod';
 import { ProcessType, TaskProcessLogAction } from '@prisma/client';
-import { computeDurations } from '../services/stage-duration';
-import { logKpiForStage } from '../services/kpi';
-import { updateTaskStatus, generateQrTokenIfNeeded } from '../services/task-status';
-import { socketEmitter } from '../services/socketEmitter';
 import { markProcessNotificationsRead } from '../services/notificationService';
+import { PROCESS_TYPE_TO_STAGE_NAMES } from '../services/process-stage-map';
+import { applyStageStatusChange, afterStageStatusCommitted, StageBefore, StageChangeResult } from '../services/stage.service';
 
 const router = Router();
 
-const PROCESS_TYPE_TO_STAGE_NAMES: Record<string, string[]> = {
-  TIR: ['TIR-SMR'],
-  CERT: ['Zayavka'], // Sertifikat tugmasi Zayavka jarayoniga bog'langan
-  DECLARATION: ['Deklaratsiya'],
-};
 
 const downloadSchema = z.object({
   taskId: z.number().int().positive(),
@@ -179,9 +172,8 @@ router.post('/confirm', requireAuth(), async (req: AuthRequest, res) => {
     }
 
     const now = new Date();
-    let needsQrToken = false;
-
-    await prisma.$transaction(async (tx) => {
+    // Bosqich TAYYOR qilingan bo'lsa — commit'dan keyingi ishlar uchun qaytariladi
+    const completedStage = await prisma.$transaction(async (tx): Promise<{ before: StageBefore; result: StageChangeResult } | null> => {
       await tx.tasksProcess.update({
         where: { id: taskProcessId },
         data: {
@@ -234,24 +226,26 @@ router.post('/confirm', requireAuth(), async (req: AuthRequest, res) => {
           orderBy: { stageOrder: 'asc' },
         });
         if (stage) {
-          await tx.taskStage.update({
-            where: { id: stage.id },
-            data: {
-              status: 'TAYYOR',
-              completedAt: now,
-              startedAt: stage.startedAt ?? now,
-              assignedToId: userId,
-            },
+          const result = await applyStageStatusChange(tx, {
+            stage,
+            newStatus: 'TAYYOR',
+            actorId: userId,
+            now,
           });
-          await computeDurations(tx, tp.taskId);
-          await logKpiForStage(tx, tp.taskId, stage.name, userId, now);
-          needsQrToken = await updateTaskStatus(tx, tp.taskId);
+          return { before: stage, result };
         }
       }
+      return null;
     });
 
-    if (needsQrToken) {
-      generateQrTokenIfNeeded(tp.taskId).catch(() => {});
+    if (completedStage) {
+      const { before, result } = completedStage;
+      await afterStageStatusCommitted({
+        stage: before,
+        newStatus: 'TAYYOR',
+        result,
+        actor: { id: userId, name: req.user!.name },
+      });
     }
 
     res.status(200).json({ success: true });

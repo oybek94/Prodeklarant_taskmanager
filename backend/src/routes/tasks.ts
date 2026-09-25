@@ -3,9 +3,6 @@ import { prisma } from '../prisma';
 import { appCache } from '../services/cache';
 import { z } from 'zod';
 import { AuthRequest, requireAuth } from '../middleware/auth';
-import { computeDurations } from '../services/stage-duration';
-import { logKpiForStage } from '../services/kpi';
-import { updateTaskStatus, generateQrTokenIfNeeded } from '../services/task-status';
 import { TaskStatus, Currency, ExchangeSource, Prisma } from '@prisma/client';
 
 type AfterHoursPayerType = 'CLIENT' | 'COMPANY';
@@ -18,7 +15,9 @@ import fs from 'fs/promises';
 import { ensureCmrForInvoice } from '../services/cmr-service';
 import { ensureTirForInvoice } from '../services/tir-service';
 import { socketEmitter } from '../services/socketEmitter';
-import { notify, getAllActiveUserIds, markProcessNotificationsRead } from '../services/notificationService';
+import { applyStageStatusChange, afterStageStatusCommitted } from '../services/stage.service';
+import { createTaskVersion } from '../services/task-version';
+import { notify, getAllActiveUserIds } from '../services/notificationService';
 
 import { TaskRepository } from '../repositories/task.repository';
 import { TaskService } from '../services/task.service';
@@ -1536,122 +1535,26 @@ router.patch('/:taskId/stages/:stageId', requireAuth(), async (req: AuthRequest,
     }
     
 
-    const upd = await (tx as any).taskStage.update({
-      where: { id: stageId },
-      data: {
-        status: parsed.data.status,
-        completedAt: parsed.data.status === 'TAYYOR' ? now : null,
-        startedAt: parsed.data.status === 'TAYYOR' && !stage.startedAt ? now : stage.startedAt,
-        assignedToId: parsed.data.status === 'TAYYOR' ? req.user?.id : stage.assignedToId,
-      },
-      include: {
-        assignedTo: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-      },
+    return applyStageStatusChange(tx, {
+      stage,
+      newStatus: parsed.data.status,
+      actorId: user.id,
+      now,
     });
-
-
-    // Create version for stage change
-    if (req.user && stage.status !== parsed.data.status) {
-      await createTaskVersion(tx, taskId, req.user.id, 'STAGE', {
-        id: upd.id,
-        name: upd.name,
-        status: upd.status,
-        assignedTo: upd.assignedTo,
-      });
-    }
-
-    if (parsed.data.status === 'TAYYOR') {
-      await computeDurations(tx, taskId);
-      // Pass completedAt date for exchange rate lookup
-      const completedAtDate = now; // Stage completion time
-      await logKpiForStage(tx, taskId, upd.name, req.user?.id, completedAtDate);
-
-      // Stage TAYYOR bo'lganda tegishli process bildirishnomalarini o'chirish
-      const STAGE_TO_PROCESS_TYPE: Record<string, string> = {
-        'TIR-SMR': 'TIR',
-        'Zayavka': 'CERT',
-        'Deklaratsiya': 'DECLARATION',
-      };
-      const relatedProcessType = STAGE_TO_PROCESS_TYPE[stage.name];
-      if (relatedProcessType) {
-        const relatedProcesses = await (tx as any).tasksProcess.findMany({
-          where: { taskId, processType: relatedProcessType },
-          select: { id: true },
-        });
-        for (const rp of relatedProcesses) {
-          await markProcessNotificationsRead(rp.id, tx);
-        }
-      }
-    } else if (parsed.data.status === 'BOSHLANMAGAN' && stage.status === 'TAYYOR') {
-      // Agar jarayonni TAYYORdan BOSHLANMAGANga o'zgartirsa, KPI log'ni o'chirish
-      // Stage nomini normalize qilish (logKpiForStage bilan bir xil)
-      let normalizedStageName = stage.name;
-      if (stage.name === 'ST' || stage.name === 'Fito' || stage.name === 'FITO') {
-        normalizedStageName = 'Sertifikat olib chiqish';
-      } else if (stage.name === 'Xujjat_topshirish' || stage.name === 'Xujjat topshirish') {
-        normalizedStageName = 'Topshirish';
-      }
-      
-      // Faqat o'sha jarayonni tayyor qilgan foydalanuvchining KPI log'ini o'chirish
-      if (stage.assignedToId) {
-        await (tx as any).kpiLog.deleteMany({
-          where: {
-            taskId: taskId,
-            stageName: normalizedStageName,
-            userId: stage.assignedToId, // Faqat o'sha foydalanuvchining log'ini o'chirish
-          },
-        });
-      }
-    }
-    
-    // Update task status based on all stages
-    const needsQrToken = await updateTaskStatus(tx, taskId);
-    
-      return { updated: upd, needsQrToken };
-    }, {
+  }, {
       maxWait: 30000, // 30 seconds max wait for transaction to start
       timeout: 30000, // 30 seconds timeout for transaction to complete (remote database uchun)
     });
 
 
-  // Generate QR token after transaction commits (non-blocking, idempotent)
-  if (updated.needsQrToken) {
-    // Fire and forget - don't wait for QR token generation
-    generateQrTokenIfNeeded(taskId).catch((error) => {
-      // Error already logged in generateQrTokenIfNeeded
-    });
-  }
-
-  const shouldGenerateCmr =
-    stage.name === 'Invoys' &&
-    parsed.data.status === 'TAYYOR' &&
-    stage.status !== 'TAYYOR';
-
-  if (shouldGenerateCmr && req.user) {
-    const invoice = await prisma.invoice.findUnique({
-      where: { taskId },
-      select: { id: true },
-    });
-    if (invoice) {
-      await ensureCmrForInvoice({
-        invoiceId: invoice.id,
-        uploadedById: req.user.id,
-      });
-      await ensureTirForInvoice({
-        invoiceId: invoice.id,
-        uploadedById: req.user.id,
-      });
-    }
-  }
+  await afterStageStatusCommitted({
+    stage,
+    newStatus: parsed.data.status,
+    result: updated,
+    actor: { id: user.id, name: user.name },
+  });
 
     res.json(updated.updated);
-    // Real-time: stage o'zgarishi haqida xabar berish
-    socketEmitter.broadcastExcept(user.id, 'task:stageUpdated', { taskId, stageId, stage: updated.updated, updatedBy: user.name });
   } catch (error: any) {
 
     console.error('Error updating stage:', error);
@@ -2059,97 +1962,6 @@ const updateTaskSchema = z.object({
   afterHoursPayer: z.enum(['CLIENT', 'COMPANY']).optional(),
   driverPhone: z.string().optional(),
 });
-
-// Helper function to create task version
-async function createTaskVersion(tx: any, taskId: number, changedBy: number, changeType: 'TASK' | 'STAGE' = 'TASK', stageInfo?: any) {
-  // Get current version number
-  const lastVersion = await tx.taskVersion.findFirst({
-    where: { taskId },
-    orderBy: { version: 'desc' },
-    select: { version: true },
-  });
-  const nextVersion = (lastVersion?.version || 0) + 1;
-
-  // Get current task data
-  const task = await tx.task.findUnique({ 
-    where: { id: taskId },
-    include: {
-      stages: {
-        orderBy: { stageOrder: 'asc' },
-        include: {
-          assignedTo: {
-            select: {
-              id: true,
-              name: true,
-            },
-          },
-        },
-      },
-    },
-  });
-  if (!task) return;
-
-  // Detect changes
-  const changes: any = {
-    changeType,
-  };
-  
-  if (changeType === 'TASK') {
-    // Task field changes
-    if (task.title) changes.title = task.title;
-    if (task.status) changes.status = task.status;
-    if (task.comments) changes.comments = task.comments;
-    if (task.hasPsr !== undefined) changes.hasPsr = task.hasPsr;
-    if (task.afterHoursDeclaration !== undefined) changes.afterHoursDeclaration = task.afterHoursDeclaration;
-    if (task.afterHoursPayer) changes.afterHoursPayer = task.afterHoursPayer;
-    if (task.driverPhone) changes.driverPhone = task.driverPhone;
-  } else if (changeType === 'STAGE' && stageInfo) {
-    // Stage changes
-    changes.stage = {
-      id: stageInfo.id,
-      name: stageInfo.name,
-      status: stageInfo.status,
-      assignedTo: stageInfo.assignedTo ? {
-        id: stageInfo.assignedTo.id,
-        name: stageInfo.assignedTo.name,
-      } : null,
-    };
-  }
-
-  // Include all stages in the version
-  const stagesData = task.stages.map((stage: any) => ({
-    id: stage.id,
-    name: stage.name,
-    status: stage.status,
-    stageOrder: stage.stageOrder,
-    assignedTo: stage.assignedTo ? {
-      id: stage.assignedTo.id,
-      name: stage.assignedTo.name,
-    } : null,
-    startedAt: stage.startedAt,
-    completedAt: stage.completedAt,
-  }));
-
-  // Create version
-  await tx.taskVersion.create({
-    data: {
-      taskId,
-      version: nextVersion,
-      title: task.title,
-      status: task.status,
-      comments: task.comments || null,
-      hasPsr: task.hasPsr,
-      driverPhone: task.driverPhone || null,
-      clientId: task.clientId,
-      branchId: task.branchId,
-      changedBy,
-      changes: {
-        ...changes,
-        stages: stagesData,
-      } as any,
-    },
-  });
-}
 
 router.patch('/:id', requireAuth(), async (req: AuthRequest, res) => {
   const id = Number(req.params.id);

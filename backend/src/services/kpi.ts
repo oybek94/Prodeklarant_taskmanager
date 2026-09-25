@@ -21,6 +21,17 @@ const STAGE_PRICES: Record<string, number> = {
   'Pochta': 1.0,
 };
 
+/** KpiLog/KpiConfig'dagi bosqich nomi (eski nomlar: ST/Fito → Sertifikat olib chiqish, Xujjat topshirish → Topshirish) */
+export function normalizeKpiStageName(stageName: string): string {
+  if (stageName === 'ST' || stageName === 'Fito' || stageName === 'FITO') {
+    return 'Sertifikat olib chiqish';
+  }
+  if (stageName === 'Xujjat_topshirish' || stageName === 'Xujjat topshirish') {
+    return 'Topshirish';
+  }
+  return stageName;
+}
+
 export async function logKpiForStage(
   tx: PrismaClient | Prisma.TransactionClient,
   taskId: number,
@@ -38,13 +49,7 @@ export async function logKpiForStage(
   });
   if (taskForClient?.client?.assignedUserId === userId) return;
 
-  // Stage nomini normalize qilish (Sertifikat olib chiqish va Topshirish uchun)
-  let normalizedStageName = stageName;
-  if (stageName === 'ST' || stageName === 'Fito' || stageName === 'FITO') {
-    normalizedStageName = 'Sertifikat olib chiqish';
-  } else if (stageName === 'Xujjat_topshirish' || stageName === 'Xujjat topshirish') {
-    normalizedStageName = 'Topshirish';
-  }
+  const normalizedStageName = normalizeKpiStageName(stageName);
 
   // Narxni aniqlash - effectiveFrom <= completedAt bo'lgan eng so'nggi yozuvdan
   const completionDate = completedAt || new Date();

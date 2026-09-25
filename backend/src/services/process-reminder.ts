@@ -1,6 +1,7 @@
 import { prisma } from '../prisma';
 import { TaskProcessLogAction } from '@prisma/client';
 import { notify, markProcessNotificationsRead } from './notificationService';
+import { PROCESS_TYPE_TO_STAGE_NAMES } from './process-stage-map';
 
 const PROCESS_TYPE_LABELS: Record<string, string> = {
   TIR: 'TIR-SMR',
@@ -14,11 +15,6 @@ const PROCESS_TYPE_QUESTIONS: Record<string, string> = {
   DECLARATION: 'Deklaratsiya tayyormi?',
 };
 
-const PROCESS_TYPE_TO_STAGE_NAMES: Record<string, string[]> = {
-  TIR: ['TIR-SMR'],
-  CERT: ['Zayavka'],
-  DECLARATION: ['Deklaratsiya'],
-};
 
 function getCarNumberFromTitle(title: string): string {
   if (!title || typeof title !== 'string') return '';

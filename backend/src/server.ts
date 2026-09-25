@@ -67,12 +67,15 @@ import medalsRouter from './routes/medals';
 import sellerKpiRouter from './routes/seller-kpi';
 import { initFinanceBot } from './services/finance-bot.service';
 import { initLeadReminderBot } from './services/lead-reminder-bot.service';
+import { stripSecretsReplacer } from './utils/json-secrets';
 
 const app = express();
 // Nginx reverse proxy orqasida ishlaymiz (1 ta hop). Busiz req.ip har doim 127.0.0.1
 // bo'lib qoladi va rate limit hamma foydalanuvchilar uchun bitta chelakka tushadi.
 // `true` emas, aynan `1` — mijoz X-Forwarded-For'ni soxtalashtira olmasligi uchun.
 app.set('trust proxy', 1);
+// Parol hashlari hech qaysi res.json javobiga chiqmaydi (qarang: utils/json-secrets.ts)
+app.set('json replacer', stripSecretsReplacer);
 const httpServer = createServer(app);
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3001;
 

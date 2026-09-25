@@ -1,6 +1,7 @@
 import OpenAIClient from './openai.client';
 import fs from 'fs';
 import path from 'path';
+import { crmModel, samplingParams } from './models';
 
 export interface ConversationAnalysisResult {
   sentiment: {
@@ -167,7 +168,7 @@ Natijani FAQAT quyidagi JSON formatida qaytaring:
 }`;
 
     const completion = await this.openai.chat.completions.create({
-      model: 'gpt-4o',
+      model: crmModel(),
       messages: [
         {
           role: 'system',
@@ -176,8 +177,8 @@ Natijani FAQAT quyidagi JSON formatida qaytaring:
         { role: 'user', content: prompt }
       ],
       response_format: { type: 'json_object' },
-      temperature: 0.3,
-      max_tokens: 4000,
+      ...samplingParams(crmModel(), 0.3),
+      max_completion_tokens: 4000,
     });
 
     const content = completion.choices[0].message.content;

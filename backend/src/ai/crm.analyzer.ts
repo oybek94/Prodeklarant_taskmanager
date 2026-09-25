@@ -1,4 +1,5 @@
 import OpenAIClient from './openai.client';
+import { crmModel, samplingParams } from './models';
 
 export interface LeadData {
   companyName: string;
@@ -98,13 +99,13 @@ Hamkorlar: ${lead.partners || 'Noma\'lum'}
 Natijani faqatgina quyidagi JSON formatida qaytaring: {"score": ball_natijasi, "explanation": "1-2 gap bilan ballning asosiy sabablari", "temperature": "HOT yoku WARM yoku COLD"}`;
 
     const completion = await this.openai.chat.completions.create({
-      model: 'gpt-4o',
+      model: crmModel(),
       messages: [
         { role: 'system', content: 'Siz CRM analizatorisiz. Har doim to\'g\'ri, qisqa va aniq javob berasiz.' },
         { role: 'user', content: prompt }
       ],
       response_format: { type: 'json_object' },
-      temperature: 0.3,
+      ...samplingParams(crmModel(), 0.3),
     });
 
     const content = completion.choices[0].message.content;
@@ -132,13 +133,13 @@ ${logsText}
 Natijani faqat JSON formatida qaytaring: {"summary": "...", "nextBestAction": "..."}`;
 
     const completion = await this.openai.chat.completions.create({
-      model: 'gpt-4o',
+      model: crmModel(),
       messages: [
         { role: 'system', content: 'Siz savdo bo\'limi boshqaruvchisi va maslahatchisisiz.' },
         { role: 'user', content: prompt }
       ],
       response_format: { type: 'json_object' },
-      temperature: 0.5,
+      ...samplingParams(crmModel(), 0.5),
     });
 
     const content = completion.choices[0].message.content;
@@ -164,13 +165,13 @@ Shu ma'lumotlarga asoslanib 3 ta ajoyib xulosa bering:
 Faqat JSON qaytaring: {"trend": "...", "forecast": "...", "anomaly": "..."}`;
 
     const completion = await this.openai.chat.completions.create({
-      model: 'gpt-4o',
+      model: crmModel(),
       messages: [
         { role: 'system', content: 'Siz kompaniyaning ma\'lumotlar tahlilchisi va strategisiz. Tahlillarni aniq va tushunarli tilda bildirasiz.' },
         { role: 'user', content: prompt }
       ],
       response_format: { type: 'json_object' },
-      temperature: 0.6,
+      ...samplingParams(crmModel(), 0.6),
     });
 
     const content = completion.choices[0].message.content;
@@ -192,13 +193,13 @@ Xabar maqsadi yoki foydalanuvchi ko'rsatmasi: ${context}
 Natijani faqat JSON formatida qaytaring: {"message": "..."}`;
 
     const completion = await this.openai.chat.completions.create({
-      model: 'gpt-4o',
+      model: crmModel(),
       messages: [
         { role: 'system', content: 'Siz mohir kopirayter va savdo menejerisiz. Siz yozgan matnlar konversiyasi juda yuqori.' },
         { role: 'user', content: prompt }
       ],
       response_format: { type: 'json_object' },
-      temperature: 0.7,
+      ...samplingParams(crmModel(), 0.7),
     });
 
     const content = completion.choices[0].message.content;

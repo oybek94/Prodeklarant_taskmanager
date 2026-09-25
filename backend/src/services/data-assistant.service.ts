@@ -1,6 +1,7 @@
 import OpenAI from 'openai';
 import { Client } from 'pg';
 import { PrismaClient } from '@prisma/client';
+import { assistantModel, samplingParams } from '../ai/models';
 
 let openai: OpenAI | null = null;
 function getOpenAI() {
@@ -49,9 +50,9 @@ export class DataAssistantService {
 
     try {
       const response = await getOpenAI().chat.completions.create({
-        model: 'gpt-4o',
+        model: assistantModel(),
         messages: messages,
-        temperature: 0,
+        ...samplingParams(assistantModel(), 0),
         tools: [
           {
             type: 'function',
@@ -98,9 +99,9 @@ export class DataAssistantService {
           });
 
           const finalResponse = await getOpenAI().chat.completions.create({
-            model: 'gpt-4o',
+            model: assistantModel(),
             messages: messages,
-            temperature: 0.2,
+            ...samplingParams(assistantModel(), 0.2),
           });
 
           return finalResponse.choices[0].message.content || 'Javob shakllantirishda xatolik.';

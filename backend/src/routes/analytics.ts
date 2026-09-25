@@ -10,6 +10,13 @@ import { AnalyticsAIService } from '../services/analytics-ai.service';
 
 const router = Router();
 
+// AI tahlil vaqtincha o'chirilgan (2026-09-25): foydalanilmaydi, model esa
+// (gpt-4-turbo-preview) OpenAI'da o'chirilgan. Qayta yoqish — ANALYTICS_AI_ENABLED=true.
+router.use((_req, res, next) => {
+  if (process.env.ANALYTICS_AI_ENABLED === 'true') return next();
+  res.status(503).json({ error: "AI tahlil vaqtincha o'chirilgan" });
+});
+
 /**
  * GET /api/analytics/employee/:userId
  * Get AI-powered analytics for a specific employee

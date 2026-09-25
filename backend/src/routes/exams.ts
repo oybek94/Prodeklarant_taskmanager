@@ -7,6 +7,12 @@ import { LessonProgressionService } from '../services/lesson-progression.service
 
 const router = Router();
 
+// AI imtihon (savol yaratish va baholash) vaqtincha o'chirilgan (2026-09-25):
+// foydalanilmaydi, model esa (gpt-4-turbo-preview) OpenAI'da o'chirilgan.
+// Qayta yoqish — EXAM_AI_ENABLED=true.
+const examAiEnabled = (): boolean => process.env.EXAM_AI_ENABLED === 'true';
+const EXAM_AI_DISABLED_ERROR = "AI imtihon vaqtincha o'chirilgan";
+
 // GET /exams - Get exams (with optional filters) - MUST BE BEFORE /:id routes
 router.get('/', requireAuth(), async (req: AuthRequest, res) => {
   try {
@@ -603,6 +609,11 @@ router.post('/ai/generate-stage/:stageId', requireAuth(), async (req: AuthReques
     }
 
     if (!exam || !exam.questions || exam.questions.length === 0) {
+      if (!examAiEnabled()) {
+        return res.status(400).json({
+          error: "Ushbu bosqichda savollar yo'q. Iltimos, admin tomonidan savollar qo'shilishi kerak."
+        });
+      }
       // If no manually added questions, try to generate via AI from stage content
       try {
         console.log(`No manual questions for stage ${stageId}, attempting AI generation...`);
@@ -707,6 +718,9 @@ router.post('/ai/generate-stage/:stageId', requireAuth(), async (req: AuthReques
  * Generate AI-powered exam for a lesson
  */
 router.post('/ai/generate/:lessonId', requireAuth(), async (req: AuthRequest, res) => {
+  if (!examAiEnabled()) {
+    return res.status(503).json({ error: EXAM_AI_DISABLED_ERROR });
+  }
   try {
     const lessonId = parseInt(req.params.lessonId);
 
@@ -805,6 +819,9 @@ router.post('/ai/generate/:lessonId', requireAuth(), async (req: AuthRequest, re
  * Submit exam attempt with AI evaluation
  */
 router.post('/:id/attempt', requireAuth(), async (req: AuthRequest, res) => {
+  if (!examAiEnabled()) {
+    return res.status(503).json({ error: EXAM_AI_DISABLED_ERROR });
+  }
   try {
     const examId = parseInt(req.params.id);
     const userId = req.user!.id;

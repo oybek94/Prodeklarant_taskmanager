@@ -1,4 +1,5 @@
 import OpenAIClient from '../ai/openai.client';
+import { samplingParams, translationModel } from '../ai/models';
 
 interface TranslatedRequisites {
   sellerName?: string;
@@ -82,14 +83,15 @@ export async function translateRequisites(
 
     const fieldsJson = JSON.stringify(Object.fromEntries(entries), null, 2);
 
+    const model = translationModel();
     const response = await client.chat.completions.create({
-      model: 'gpt-4o-mini',
-      temperature: 0.1,
+      model,
+      ...samplingParams(model, 0.1),
       response_format: { type: 'json_object' },
       messages: [
         {
           role: 'system',
-          content: `You are a professional translator for international trade documents. Translate the given JSON fields from Russian to English. Keep INN numbers, bank account numbers, SWIFT codes, phone numbers, email addresses, and other identifiers unchanged. For company names, transliterate them if they don't have a common English equivalent (e.g. "ООО" → "LLC", "ЗАО" → "CJSC"). For addresses, transliterate city/region names. Preserve the line structure of every value exactly: a value containing line breaks must come back with the same number of lines in the same order, translating each line in place — never merge lines into a paragraph, never split one line into several, never add or drop blank lines. Do not add any trademark symbols (like ™, ®, TM) or other special characters that are not present in the original text. Return a JSON object with the same keys but English values.`,
+          content: `You are a professional translator for international trade documents. Translate the given JSON fields from Russian to English. Keep INN numbers, bank account numbers, SWIFT codes, phone numbers, email addresses, and other identifiers unchanged. Write the labels "ИНН" and "КПП" as "INN" and "KPP" (never "TIN"). For company names, transliterate them if they don't have a common English equivalent (e.g. "ООО" → "LLC", "ЗАО" → "CJSC"). For addresses, transliterate city/region names. Preserve the line structure of every value exactly: a value containing line breaks must come back with the same number of lines in the same order, translating each line in place — never merge lines into a paragraph, never split one line into several, never add or drop blank lines. Do not add any trademark symbols (like ™, ®, TM) or other special characters that are not present in the original text. Return a JSON object with the same keys but English values.`,
         },
         {
           role: 'user',

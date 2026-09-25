@@ -10,13 +10,13 @@
 import { z } from 'zod';
 import OpenAIClient from './openai.client';
 import { ExtractionError, JsonSchemaResponseFormat } from './extraction.schemas';
+import { DEFAULT_EXTRACTION_MODEL, samplingParams } from './models';
 
 export const DEFAULT_EXTRACTION_TIMEOUT = 30000; // 30 sekund
-const DEFAULT_MODEL = 'gpt-4o-mini';
 
 /** Extraction uchun ishlatiladigan model (env orqali almashtiriladi) */
 export function extractionModel(): string {
-  return process.env.OPENAI_EXTRACTION_MODEL ?? DEFAULT_MODEL;
+  return process.env.OPENAI_EXTRACTION_MODEL ?? DEFAULT_EXTRACTION_MODEL;
 }
 
 export interface StructuredExtractionOptions<T> {
@@ -58,10 +58,11 @@ export async function runStructuredExtraction<T>({
       }, timeout);
     });
 
+    const model = extractionModel();
     const apiCall = openai.chat.completions.create({
-      model: extractionModel(),
+      model,
       messages,
-      temperature: 0,
+      ...samplingParams(model, 0),
       response_format: responseFormat,
     });
 

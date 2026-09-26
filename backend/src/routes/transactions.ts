@@ -48,6 +48,7 @@ async function deleteMatchingWorkerPayment(
   if (matching) {
     await client.workerPayment.delete({ where: { id: matching.id } });
   }
+  return matching;
 }
 
 const baseSchema = z.object({
@@ -681,14 +682,17 @@ router.put('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
 
   if (wasSalary || isSalary) {
     try {
+      let replacedLegacy = false;
       if (wasSalary) {
-        await deleteMatchingWorkerPayment(prisma, {
+        const removed = await deleteMatchingWorkerPayment(prisma, {
           workerId: oldTransaction.workerId!,
           amount: oldTransaction.amount,
           originalAmount: oldTransaction.originalAmount,
           currency: oldTransaction.currency,
           originalCurrency: oldTransaction.originalCurrency,
         });
+        // Eski mavsum to'lovi tahrirlansa, joriy mavsum qarziga o'tib ketmasin
+        replacedLegacy = removed?.isLegacyPayment === true && data.workerId === oldTransaction.workerId;
       }
 
       if (isSalary) {
@@ -697,6 +701,7 @@ router.put('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
           exchangeRate: originalCurrency === 'UZS' ? undefined : exchangeRate,
           paymentDate: data.date,
           comment: data.comment || undefined,
+          preserveLegacyFlag: replacedLegacy,
         });
       }
     } catch (error) {

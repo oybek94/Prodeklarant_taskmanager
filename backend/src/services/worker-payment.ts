@@ -239,6 +239,8 @@ export async function createWorkerPayment(
     paymentDate?: Date;
     comment?: string;
     tx?: PrismaClient | Prisma.TransactionClient;
+    /** Faqat tahrirda: o'rniga yaratilayotgan eski mavsum to'lovining belgisini saqlash */
+    preserveLegacyFlag?: boolean;
   }
 ): Promise<any> {
   const client = options?.tx || (await import('../prisma')).prisma;
@@ -298,7 +300,7 @@ export async function createWorkerPayment(
       paidAmountUsd,
       paymentDate,
       comment: options?.comment || null,
-      isLegacyPayment: false,
+      isLegacyPayment: options?.preserveLegacyFlag === true,
     },
     include: {
       worker: {

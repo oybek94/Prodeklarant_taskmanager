@@ -37,4 +37,10 @@ describe('eski (o\'tgan mavsum) qarz olib tashlangan', () => {
     expect(created[0]).toMatchObject({ isLegacyPayment: false, paidCurrency: 'UZS' });
     expect(Number(created[0].paidAmountUzs)).toBe(250000);
   });
+
+  it("tahrirda eski mavsum to'lovining belgisi saqlanadi (pul joriy mavsumga o'tmaydi)", async () => {
+    const { client, created } = fakeClient();
+    await createWorkerPayment(7, 'UZS', 100000, { tx: client as never, preserveLegacyFlag: true });
+    expect(created[0]).toMatchObject({ isLegacyPayment: true });
+  });
 });

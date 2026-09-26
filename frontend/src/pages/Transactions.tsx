@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import apiClient from '../lib/api';
@@ -13,6 +13,7 @@ import { TransactionsMobileList } from '../components/transactions/TransactionsM
 import { TransactionFormModal } from '../components/transactions/TransactionFormModal';
 import { useTransactionsList } from '../components/transactions/useTransactionsList';
 import { buildTransactionPayload, EMPTY_FILTERS } from '../components/transactions/listParams';
+import { shouldOpenEditFromRoute } from '../components/transactions/deepLink';
 import type { Client, MonthlyStats, Transaction, TransactionFilters, TransactionFormData, User } from '../components/transactions/types';
 
 const PAGE_SIZE = 15;
@@ -55,6 +56,7 @@ const Transactions = () => {
   const [toDelete, setToDelete] = useState<Transaction | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  const handledEditId = useRef<number | null>(null);
   const isNewRoute = location.pathname === '/transactions/new';
   const editMatch = location.pathname.match(/^\/transactions\/(\d+)\/edit$/);
   const editRouteId = editMatch ? Number(editMatch[1]) : null;
@@ -105,14 +107,22 @@ const Transactions = () => {
       clientId: t.client?.id ? String(t.client.id) : '', workerId: t.worker?.id ? String(t.worker.id) : '',
       expenseCategory: t.expenseCategory ?? '', virtualCardId: t.virtualCardId ? String(t.virtualCardId) : '',
     });
-    if (isMobile) navigate(`/transactions/${t.id}/edit`); else setFormOpen(true);
+    if (isMobile) {
+      handledEditId.current = t.id;
+      navigate(`/transactions/${t.id}/edit`);
+    } else {
+      setFormOpen(true);
+    }
   }, [isMobile, navigate]);
 
-  // Mobil tahrirlash havolasi to'g'ridan ochilsa
+  // Mobil tahrirlash havolasi to'g'ridan ochilsa — bir marta (yopilganda qayta ochilmasin)
   useEffect(() => {
-    if (!isMobile || !editRouteId || editing?.id === editRouteId) return;
+    if (editRouteId === null) { handledEditId.current = null; return; }
+    if (!shouldOpenEditFromRoute({ isMobile, editRouteId, handledId: handledEditId.current })) return;
     const t = list.items.find((x) => x.id === editRouteId);
-    if (t) openEdit(t);
+    if (!t) return;
+    handledEditId.current = editRouteId;
+    if (editing?.id !== editRouteId) openEdit(t);
   }, [isMobile, editRouteId, editing, list.items, openEdit]);
 
   const closeForm = useCallback(() => {

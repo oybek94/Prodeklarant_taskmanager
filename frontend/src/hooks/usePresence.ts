@@ -16,7 +16,6 @@ const PAGE_LABELS: Record<string, string> = {
   '/dashboard': 'Dashboard',
   '/clients': 'Mijozlar',
   '/transactions': 'Tranzaksiyalar',
-  '/finance': 'Moliya',
   '/invoices': 'Invoyslar',
   '/workers': 'Ishchilar',
   '/settings': 'Sozlamalar',

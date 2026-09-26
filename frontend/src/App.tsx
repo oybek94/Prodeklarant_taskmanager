@@ -32,7 +32,6 @@ const Exam = lazy(() => import('./pages/Exam'));
 const ExamResult = lazy(() => import('./pages/ExamResult'));
 const ClientLogin = lazy(() => import('./pages/ClientLogin'));
 const ClientDashboard = lazy(() => import('./pages/ClientDashboard'));
-const Finance = lazy(() => import('./pages/Finance'));
 const Invoice = lazy(() => import('./pages/Invoice'));
 const Invoices = lazy(() => import('./pages/Invoices'));
 const Reports = lazy(() => import('./pages/Reports'));
@@ -225,14 +224,6 @@ const AppRoutes = () => {
           element={
             <ProtectedRoute allowedRoles={['ADMIN']}>
               <Debts />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/finance"
-          element={
-            <ProtectedRoute allowedRoles={['ADMIN']}>
-              <Finance />
             </ProtectedRoute>
           }
         />

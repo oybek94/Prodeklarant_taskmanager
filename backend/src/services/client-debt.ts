@@ -7,8 +7,8 @@ import { psrIn, snapshotIn, taskUsdRate, taskFeeSelect } from './task-money';
  *
  *   qarz = Σ(vazifa shartnoma summasi + PSR) − Σ(INCOME to'lovlar) + boshlang'ich qarz
  *
- * Oldin 4 joyda (Moliya /ceo-stats, mijozlar ro'yxati, mijoz kartochkasi, dashboard
- * eslatmalari) har xil nusxa bor edi va to'lovlar valyutasiga qaramay qo'shilardi:
+ * Oldin har joyda (mijozlar ro'yxati, mijoz kartochkasi, dashboard eslatmalari)
+ * har xil nusxa bor edi va to'lovlar valyutasiga qaramay qo'shilardi:
  * USD shartnomali mijoz 1 000 000 so'm to'lasa, 1 000 000 USD to'lagan deb hisoblanardi.
  *
  * Valyutalar orasida o'tkazish:

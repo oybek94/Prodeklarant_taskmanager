@@ -734,7 +734,7 @@ const ClientDetail = () => {
               <div className="text-sm text-gray-500">Jami tushgan</div>
               <CurrencyDisplay
                 amount={Number(client.stats.totalIncome)}
-                originalCurrency="USD"
+                originalCurrency={(client.stats.currency || 'USD') as 'USD' | 'UZS'}
                 className="font-medium"
               />
             </div>

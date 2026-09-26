@@ -141,7 +141,9 @@ export class ClientService {
 
     return {
       ...client,
+      balanceCurrency: debt.currency,
       stats: {
+        currency: debt.currency,
         dealAmount: isAdmin ? dealAmount : 0,
         totalDealAmount: isAdmin ? totalDealAmount : 0,
         totalIncome: isAdmin ? totalIncome : 0,

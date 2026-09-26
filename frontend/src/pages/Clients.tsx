@@ -2105,7 +2105,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                           Jami to'lovlar
                         </div>
                         <div className="text-3xl font-bold text-green-600 dark:text-emerald-400">
-                          {isNonAdmin ? <span className="font-mono text-green-400/70">***</span> : <CurrencyDisplay amount={Number(selectedClient.stats.totalIncome)} originalCurrency="USD" />}
+                          {isNonAdmin ? <span className="font-mono text-green-400/70">***</span> : <CurrencyDisplay amount={Number(selectedClient.stats.totalIncome)} originalCurrency={selectedClient.balanceCurrency || 'USD'} />}
                         </div>
                       </div>
                       <div className={`p-5 rounded-2xl shadow-sm border ${selectedClient.stats.balance > 0

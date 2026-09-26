@@ -1,27 +1,23 @@
+export type TransactionType = 'INCOME' | 'EXPENSE' | 'SALARY';
+export type PaymentMethod = 'CASH' | 'CARD';
+
 export interface Transaction {
   id: number;
-  type: 'INCOME' | 'EXPENSE' | 'SALARY';
-  amount: number;
+  type: TransactionType;
+  amount: number | string;
   currency: string;
-  paymentMethod?: 'CASH' | 'CARD';
-  comment?: string;
+  paymentMethod?: PaymentMethod | null;
+  comment?: string | null;
   date: string;
   createdAt?: string;
-  client?: { id: number; name: string };
-  worker?: { id: number; name: string };
-  expenseCategory?: string;
-  virtualCardId?: number;
+  client?: { id: number; name: string } | null;
+  worker?: { id: number; name: string } | null;
+  expenseCategory?: string | null;
+  virtualCardId?: number | null;
 }
 
-export interface Client {
-  id: number;
-  name: string;
-}
-
-export interface User {
-  id: number;
-  name: string;
-}
+export interface Client { id: number; name: string }
+export interface User { id: number; name: string }
 
 export interface MonthlyStats {
   currency?: string;
@@ -30,47 +26,39 @@ export interface MonthlyStats {
   net: { current: number; change: number };
 }
 
-export interface WorkerStats {
-  totalEarned: number;
-  totalPaid: number;
-  totalPending: number;
-}
-
-export interface PreviousYearDebt {
-  totalEarned: number;
-  totalPaid: number;
-  balance: number;
-}
-
 export interface TransactionFilters {
   startDate: string;
   endDate: string;
-  type: string;
+  type: '' | TransactionType;
   clientId: string;
   workerId: string;
-  paymentMethod: string;
+  paymentMethod: '' | PaymentMethod;
   search: string;
 }
 
 export interface TransactionFormData {
-  type: 'INCOME' | 'EXPENSE' | 'SALARY';
+  type: TransactionType;
   amount: string;
   currency: 'USD' | 'UZS';
   exchangeRate: string;
-  paymentMethod: '' | 'CASH' | 'CARD';
+  paymentMethod: '' | PaymentMethod;
   comment: string;
   date: string;
   clientId: string;
   workerId: string;
   expenseCategory: string;
   virtualCardId: string;
-  isLegacyPayment: boolean;
 }
 
-export interface PreviousYearDebtFormData {
-  workerId: string;
-  totalEarned: string;
-  totalPaid: string;
-  year: string;
+export interface TransactionPayload {
+  type: TransactionType;
+  amount: number;
+  currency: 'USD' | 'UZS';
+  paymentMethod?: PaymentMethod;
   comment: string;
+  date: string;
+  clientId?: number;
+  workerId?: number;
+  expenseCategory?: string;
+  virtualCardId?: number;
 }

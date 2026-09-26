@@ -222,7 +222,6 @@ const Invoices = () => {
       await apiClient.post(`/tasks/${taskId}/errors`, {
         taskTitle: invoiceForErrorModal.task?.title ?? `#${invoiceForErrorModal.invoiceNumber}`,
         workerId: errorForm.workerId === 'CUSTOMER' ? null : parseInt(errorForm.workerId),
-        isClientError: errorForm.workerId === 'CUSTOMER',
         stageName: errorForm.stageName,
         amount: parseFloat(amountValue),
         comment: errorForm.comment || undefined,

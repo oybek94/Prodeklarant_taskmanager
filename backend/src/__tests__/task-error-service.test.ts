@@ -8,8 +8,7 @@ const m = vi.hoisted(() => ({
   errors: new Map<number, Row>(),
   xp: new Map<number, number>(),
   notifications: [] as { userId: number; title: string; metadata: Record<string, unknown> }[],
-  debts: [] as unknown[],
-  task: { id: 1, client: { name: ' Mijoz ' } } as { id: number; client: { name: string } | null } | null,
+  task: { id: 1 } as { id: number } | null,
   socket: [] as unknown[][],
 }));
 
@@ -45,8 +44,6 @@ function db() {
         return { ...data, id: m.notifications.length };
       }),
     },
-    debtPerson: { upsert: vi.fn(async ({ create }: { create: { name: string } }) => ({ id: 5, ...create })) },
-    debt: { create: vi.fn(async ({ data }: { data: unknown }) => { m.debts.push(data); }) },
   };
 }
 
@@ -84,8 +81,8 @@ async function expectStatus(p: Promise<unknown>, status: number) {
 }
 
 beforeEach(() => {
-  m.errors.clear(); m.xp.clear(); m.notifications.length = 0; m.debts.length = 0; m.socket.length = 0;
-  m.task = { id: 1, client: { name: ' Mijoz ' } };
+  m.errors.clear(); m.xp.clear(); m.notifications.length = 0; m.socket.length = 0;
+  m.task = { id: 1 };
 });
 
 describe('task-error.service', () => {
@@ -172,9 +169,9 @@ describe('task-error.service', () => {
     await expect(updateTaskError(1, 10, { workerId: 3, comment: 'ok' }, admin)).resolves.toBeTruthy();
   });
 
-  it('mijoz xatosi qarzga yoziladi; vazifa yo‘q bo‘lsa 404', async () => {
-    await createTaskError(1, { stageName: 'ST', workerId: null, isClientError: true, amount: 50000, date: new Date('2026-09-01') }, worker);
-    expect(m.debts).toEqual([expect.objectContaining({ debtPersonId: 5, amount: 50000, currency: 'UZS' })]);
+  it('xato yaratiladi (mijoz xatosi — workerId null); vazifa yo‘q bo‘lsa 404', async () => {
+    const created = await createTaskError(1, { stageName: 'ST', workerId: null, amount: 50000, date: new Date('2026-09-01') }, worker);
+    expect(created).toMatchObject({ workerId: null, amount: 50000, currency: 'UZS', createdById: 2 });
     m.task = null;
     await expectStatus(createTaskError(404, { stageName: 'ST', workerId: 3, amount: 1, date: new Date() }, worker), 404);
   });

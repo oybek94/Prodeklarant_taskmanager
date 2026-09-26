@@ -355,7 +355,6 @@ const Layout = () => {
     
     // Moliya
     ...((user?.role !== 'SELLER') ? [{ path: '/transactions', label: 'Tranzaksiyalar', icon: 'solar:bill-list-bold-duotone', group: 'Moliya' }] : []),
-    ...(user?.role === 'ADMIN' ? [{ path: '/debts', label: 'Qarzlar', icon: 'solar:wallet-bold-duotone', group: 'Moliya' }] : []),
 
     // Jamoa va O'quv
     ...(user?.role === 'ADMIN' ? [{ path: '/workers', label: 'Ishchilar', icon: 'solar:user-id-bold-duotone', group: 'Jamoa va O\'quv' }] : []),

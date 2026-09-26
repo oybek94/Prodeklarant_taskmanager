@@ -26,7 +26,6 @@ export interface ErrorActor {
 export const createErrorSchema = z.object({
   stageName: z.string(),
   workerId: z.number().nullable(),
-  isClientError: z.boolean().optional(),
   amount: z.number(),
   comment: z.string().optional(),
   date: z.coerce.date(),
@@ -113,41 +112,20 @@ export function listPendingDeleteErrors() {
 }
 
 export async function createTaskError(taskId: number, input: z.infer<typeof createErrorSchema>, actor: ErrorActor) {
-  const task = await prisma.task.findUnique({
-    where: { id: taskId },
-    select: { id: true, client: { select: { name: true } } },
-  });
+  const task = await prisma.task.findUnique({ where: { id: taskId }, select: { id: true } });
   if (!task) throw new TaskErrorError(404, 'Vazifa topilmadi');
 
-  const created = await prisma.$transaction(async (tx) => {
-    const error = await tx.taskError.create({
-      data: {
-        taskId,
-        stageName: input.stageName,
-        workerId: input.workerId,
-        ...uzsAmountFields(input.amount),
-        comment: input.comment,
-        date: input.date,
-        createdById: actor.id,
-      },
-      include: { worker: { select: { id: true, name: true } } },
-    });
-
-    // Mijoz xatosi — summa mijozning qarziga yoziladi
-    if (input.isClientError && task.client) {
-      const name = task.client.name.trim();
-      const person = await tx.debtPerson.upsert({ where: { name }, update: {}, create: { name } });
-      await tx.debt.create({
-        data: {
-          debtPersonId: person.id,
-          amount: input.amount,
-          currency: 'UZS',
-          comment: `Xatolik: Task #${taskId} uchun mijoz xatosi. ${input.comment || ''}`.trim(),
-          date: input.date,
-        },
-      });
-    }
-    return error;
+  const created = await prisma.taskError.create({
+    data: {
+      taskId,
+      stageName: input.stageName,
+      workerId: input.workerId,
+      ...uzsAmountFields(input.amount),
+      comment: input.comment,
+      date: input.date,
+      createdById: actor.id,
+    },
+    include: { worker: { select: { id: true, name: true } } },
   });
 
   socketEmitter.broadcast('admin_new_error_report', { error: created, event: 'Yangi xato hisoboti kelib tushdi' });

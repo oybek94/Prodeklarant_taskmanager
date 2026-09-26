@@ -40,7 +40,6 @@ const Leads = lazy(() => import('./pages/Leads'));
 const LeadDetail = lazy(() => import('./pages/LeadDetail'));
 const CrmDashboard = lazy(() => import('./pages/CrmDashboard'));
 const Notifications = lazy(() => import('./pages/Notifications'));
-const Debts = lazy(() => import('./pages/Debts'));
 const FAQ = lazy(() => import('./pages/FAQ'));
 const SellerKpi = lazy(() => import('./pages/SellerKpi'));
 const DataAssistant = lazy(() => import('./pages/DataAssistant').then(m => ({ default: m.DataAssistant })));
@@ -219,14 +218,6 @@ const AppRoutes = () => {
         />
         <Route path="/transactions/new" element={<ProtectedRoute allowedRoles={['ADMIN', 'MANAGER', 'DEKLARANT', 'CERTIFICATE_WORKER', 'WORKER', 'OPERATOR', 'ACCOUNTANT', 'OWNER']}><Transactions /></ProtectedRoute>} />
         <Route path="/transactions/:id/edit" element={<ProtectedRoute allowedRoles={['ADMIN', 'MANAGER', 'DEKLARANT', 'CERTIFICATE_WORKER', 'WORKER', 'OPERATOR', 'ACCOUNTANT', 'OWNER']}><Transactions /></ProtectedRoute>} />
-        <Route
-          path="/debts"
-          element={
-            <ProtectedRoute allowedRoles={['ADMIN']}>
-              <Debts />
-            </ProtectedRoute>
-          }
-        />
         <Route
           path="/reports"
           element={

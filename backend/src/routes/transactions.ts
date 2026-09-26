@@ -7,6 +7,7 @@ import { Decimal } from '@prisma/client/runtime/library';
 import { getLatestExchangeRate, getExchangeRate } from '../services/exchange-rate';
 import { validateMonetaryFields, calculateAmountUzs } from '../services/monetary-validation';
 import { applySelfSalaryRestrictions, canWorkerDeleteTransaction } from './transactions.guards';
+import { buildTransactionListArgs } from './transactions.query';
 import { amountInUzs, toMoneyNumber, warnSkippedUzs, ZERO } from '../utils/money';
 
 const router = Router();
@@ -67,63 +68,25 @@ const baseSchema = z.object({
 });
 
 router.get('/', requireAuth(), async (req: AuthRequest, res) => {
-  const { type, page = '1', limit = '15', clientId, workerId, paymentMethod, startDate, endDate, search } = req.query;
-  const user = req.user;
-  
-  // Build where clause based on user role and filters
-  const where: any = {};
-  
-  if (type) where.type = type as any;
-  if (clientId) where.clientId = Number(clientId);
-  if (workerId) where.workerId = Number(workerId);
-  if (paymentMethod) where.paymentMethod = paymentMethod as any;
-  
-  if (startDate || endDate) {
-    where.date = {};
-    if (startDate) where.date.gte = new Date(startDate as string);
-    if (endDate) {
-      const end = new Date(endDate as string);
-      end.setHours(23, 59, 59, 999);
-      where.date.lte = end;
-    }
-  }
-
-  if (search) {
-    where.comment = {
-      contains: search as string,
-      mode: 'insensitive'
-    };
-  }
-  
-  // If user is not ADMIN, show only transactions where they are the worker
-  if (user && user.role !== 'ADMIN') {
-    where.workerId = user.id;
-  }
-  
-  const pageNum = Number(page);
-  const take = Number(limit);
-  const skip = (pageNum - 1) * take;
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  const args = buildTransactionListArgs(req.query, req.user);
+  if (!args.ok) return res.status(400).json({ error: args.error });
 
   const [items, total] = await Promise.all([
     prisma.transaction.findMany({
-      where,
+      where: args.where,
       include: {
         client: { select: { id: true, name: true } },
         worker: { select: { id: true, name: true } },
       },
       orderBy: { date: 'desc' },
-      skip,
-      take,
+      skip: args.skip,
+      take: args.take,
     }),
-    prisma.transaction.count({ where })
+    prisma.transaction.count({ where: args.where }),
   ]);
 
-  res.json({
-    data: items,
-    total,
-    page: pageNum,
-    totalPages: Math.ceil(total / take)
-  });
+  res.json({ data: items, total, page: args.page, totalPages: Math.max(1, Math.ceil(total / args.take)) });
 });
 
 router.get('/stats/monthly', requireAuth(), async (req: AuthRequest, res) => {

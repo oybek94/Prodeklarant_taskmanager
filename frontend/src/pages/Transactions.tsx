@@ -14,16 +14,16 @@ import { TransactionFormModal } from '../components/transactions/TransactionForm
 import { useTransactionsList } from '../components/transactions/useTransactionsList';
 import { buildTransactionPayload, EMPTY_FILTERS } from '../components/transactions/listParams';
 import { shouldOpenEditFromRoute } from '../components/transactions/deepLink';
+import { canEditTransaction, formatAmountInput, localIsoDate } from '../components/transactions/formHelpers';
 import type { Client, MonthlyStats, Transaction, TransactionFilters, TransactionFormData, User } from '../components/transactions/types';
 
 const PAGE_SIZE = 15;
 const DEFAULT_CATEGORIES = ['Transport', 'Ofis', 'Boshqa', 'ST-1', 'FITO', 'AKT'];
-const today = () => new Date().toISOString().split('T')[0];
 
 function emptyForm(isAdmin: boolean, userId: number | null): TransactionFormData {
   return {
-    type: isAdmin ? 'INCOME' : 'SALARY', amount: '', currency: 'UZS', exchangeRate: '', paymentMethod: '',
-    comment: '', date: today(), clientId: '', workerId: isAdmin || userId == null ? '' : String(userId),
+    type: isAdmin ? 'INCOME' : 'SALARY', amount: '', currency: 'UZS', exchangeRate: '', paymentMethod: 'CASH',
+    comment: '', date: localIsoDate(), clientId: '', workerId: isAdmin || userId == null ? '' : String(userId),
     expenseCategory: '', virtualCardId: '',
   };
 }
@@ -53,6 +53,7 @@ const Transactions = () => {
   const [editing, setEditing] = useState<Transaction | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
   const [toDelete, setToDelete] = useState<Transaction | null>(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -94,16 +95,18 @@ const Transactions = () => {
 
   const openNew = useCallback(() => {
     setEditing(null);
+    setFormError(null);
     setForm(emptyForm(isAdmin, userId));
     if (isMobile) navigate('/transactions/new'); else setFormOpen(true);
   }, [isAdmin, userId, isMobile, navigate]);
 
   const openEdit = useCallback((t: Transaction) => {
     setEditing(t);
+    setFormError(null);
     setForm({
-      type: t.type, amount: String(t.amount), currency: 'UZS', exchangeRate: '',
+      type: t.type, amount: formatAmountInput(String(t.amount)), currency: 'UZS', exchangeRate: '',
       paymentMethod: t.paymentMethod ?? '', comment: t.comment ?? '',
-      date: new Date(t.date).toISOString().split('T')[0],
+      date: localIsoDate(new Date(t.date)),
       clientId: t.client?.id ? String(t.client.id) : '', workerId: t.worker?.id ? String(t.worker.id) : '',
       expenseCategory: t.expenseCategory ?? '', virtualCardId: t.virtualCardId ? String(t.virtualCardId) : '',
     });
@@ -135,7 +138,8 @@ const Transactions = () => {
 
   const submit = useCallback(async () => {
     const built = buildTransactionPayload(form, { isAdmin, userId });
-    if (!built.ok) { toast.error(built.error); return; }
+    if (!built.ok) { setFormError(built.error); return; }
+    setFormError(null);
     setSaving(true);
     try {
       const { data } = editing
@@ -146,7 +150,7 @@ const Transactions = () => {
       closeForm();
       refresh();
     } catch (error) {
-      toast.error(errorMessage(error));
+      setFormError(errorMessage(error));
     } finally {
       setSaving(false);
     }
@@ -167,7 +171,7 @@ const Transactions = () => {
     }
   }, [toDelete, refresh]);
 
-  const canEdit = useCallback(() => isAdmin, [isAdmin]);
+  const canEdit = useCallback((t: Transaction) => canEditTransaction(t, isAdmin), [isAdmin]);
   const canDelete = useCallback((t: Transaction) => {
     if (isAdmin) return true;
     if (userId == null || t.type !== 'SALARY' || t.worker?.id !== userId || !t.createdAt) return false;
@@ -207,11 +211,12 @@ const Transactions = () => {
         isAdmin={isAdmin}
         currentUserName={user?.name ?? ''}
         form={form}
-        onFormChange={(patch) => setForm((prev) => ({ ...prev, ...patch }))}
+        onFormChange={(patch) => { setFormError(null); setForm((prev) => ({ ...prev, ...patch })); }}
         clients={clients}
         workers={workers}
         expenseCategories={expenseCategories}
         saving={saving}
+        error={formError}
         onSubmit={submit}
         onClose={closeForm}
       />

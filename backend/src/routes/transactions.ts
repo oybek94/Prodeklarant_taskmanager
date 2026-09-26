@@ -6,7 +6,7 @@ import { Prisma, Currency, ExchangeSource } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 import { getLatestExchangeRate, getExchangeRate } from '../services/exchange-rate';
 import { validateMonetaryFields, calculateAmountUzs } from '../services/monetary-validation';
-import { applySelfSalaryRestrictions, canWorkerDeleteTransaction } from './transactions.guards';
+import { applySelfSalaryRestrictions, canWorkerDeleteTransaction, uzsOnlyError } from './transactions.guards';
 import { buildTransactionListArgs } from './transactions.query';
 import { amountInUzs, toMoneyNumber, warnSkippedUzs, ZERO } from '../utils/money';
 
@@ -345,6 +345,8 @@ router.get('/worker-stats', requireAuth('ADMIN'), async (req: AuthRequest, res) 
 router.post('/', requireAuth(), async (req: AuthRequest, res) => {
   const parsed = baseSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  const currencyError = uzsOnlyError(parsed.data.currency);
+  if (currencyError) return res.status(400).json({ error: currencyError });
 
   const data = parsed.data;
 
@@ -533,6 +535,8 @@ router.put('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
 
   const parsed = baseSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  const currencyError = uzsOnlyError(parsed.data.currency);
+  if (currencyError) return res.status(400).json({ error: currencyError });
 
   const data = parsed.data;
   if (data.type === 'INCOME' && !data.clientId) {

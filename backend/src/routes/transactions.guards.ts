@@ -62,3 +62,8 @@ export function canWorkerDeleteTransaction(
   startOfToday.setHours(0, 0, 0, 0);
   return transaction.createdAt >= startOfToday;
 }
+
+/** Tranzaksiyalar faqat so'mda: USD yozuv qabul qilinmaydi (yaratish va tahrirlash). */
+export function uzsOnlyError(currency: string): string | null {
+  return currency === 'UZS' ? null : "To'lovlar faqat so'mda (UZS) qabul qilinadi";
+}

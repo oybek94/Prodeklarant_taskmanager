@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   applySelfSalaryRestrictions,
   canWorkerDeleteTransaction,
+  uzsOnlyError,
   type SelfSalaryInput,
 } from './transactions.guards';
 
@@ -83,5 +84,12 @@ describe('canWorkerDeleteTransaction', () => {
 
   it('ish haqi bo\'lmagan yozuvni o\'chirishga ruxsat bermaydi', () => {
     expect(canWorkerDeleteTransaction({ ...own, type: 'EXPENSE' }, 7, NOW)).toBe(false);
+  });
+});
+
+describe('uzsOnlyError', () => {
+  it("faqat so'm qabul qilinadi", () => {
+    expect(uzsOnlyError('UZS')).toBeNull();
+    expect(uzsOnlyError('USD')).toBe("To'lovlar faqat so'mda (UZS) qabul qilinadi");
   });
 });

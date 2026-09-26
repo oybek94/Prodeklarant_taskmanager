@@ -1,15 +1,10 @@
 import { Router, Response } from 'express';
 import { prisma } from '../prisma';
-import { appCache } from '../services/cache';
-import { z } from 'zod';
 import { AuthRequest, requireAuth } from '../middleware/auth';
-import { TaskStatus, Prisma } from '@prisma/client';
+import { TaskStatus } from '@prisma/client';
 
-type AfterHoursPayerType = 'CLIENT' | 'COMPANY';
-import { ValidationService } from '../services/validation.service';
-import fs from 'fs/promises';
 import { socketEmitter } from '../services/socketEmitter';
-import { applyStageStatusChange, afterStageStatusCommitted } from '../services/stage.service';
+import { updateStageSchema, updateStageFromApi, StageUpdateError } from '../services/stage-update.service';
 import { notify, getAllActiveUserIds } from '../services/notificationService';
 import { createTaskSchema, createTask, afterTaskCreated, TaskCreateError } from '../services/task-create.service';
 import { getTaskLight, getTaskDetail } from '../services/task-detail.service';
@@ -19,7 +14,6 @@ import {
   listTaskErrors, listUnratedErrors, listPendingDeleteErrors, createTaskError, updateTaskError,
   deleteTaskError, approveDeleteRequest, rejectDeleteRequest, rateTaskError,
 } from '../services/task-error.service';
-import { declarationClientSelect, declarationCompletedFields, declarationResetFields, bxmAt } from '../services/declaration-pricing';
 
 import { TaskRepository } from '../repositories/task.repository';
 import { TaskService } from '../services/task.service';
@@ -390,188 +384,25 @@ router.get('/:id/versions', requireAuth(), async (req: AuthRequest, res) => {
   res.json(versions);
 });
 
-const updateStageSchema = z.object({
-  status: z.enum(['BOSHLANMAGAN', 'TAYYOR']),
-  customsPaymentMultiplier: z.coerce.number().min(0.5).max(4).optional(), // BXM multiplier for Deklaratsiya (0.5 to 4)
-  afterHoursDeclaration: z.boolean().optional(),
-  afterHoursPayer: z.enum(['CLIENT', 'COMPANY']).optional(),
-  skipValidation: z.boolean().optional(), // Skip document validation for ST stage
-  force: z.boolean().optional(), // Admin boshqa ishchining jarayonini qaytarish uchun
-});
-
+// PATCH /tasks/:taskId/stages/:stageId — mantiq: services/stage-update.service.ts
 router.patch('/:taskId/stages/:stageId', requireAuth(), async (req: AuthRequest, res) => {
   const taskId = Number(req.params.taskId);
   const stageId = Number(req.params.stageId);
-  const parsed = updateStageSchema.safeParse(req.body);
-
-  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
-
-  const user = req.user;
-  if (!user) {
-    return res.status(401).json({ error: 'Unauthorized' });
+  if (!Number.isInteger(taskId) || taskId <= 0 || !Number.isInteger(stageId) || stageId <= 0) {
+    return res.status(400).json({ error: 'Invalid task or stage ID' });
   }
+  const parsed = updateStageSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
 
   try {
-    // Check user access to task
-    const validationService = new ValidationService(prisma);
-    const canAccess = await validationService.canUserAccessTask(
-      taskId,
-      user.id,
-      user.role
-    );
-
-    if (!canAccess) {
-      return res.status(403).json({ error: 'Bu taskga kirish huquqingiz yo\'q' });
+    res.json(await updateStageFromApi(taskId, stageId, parsed.data, req.user));
+  } catch (error) {
+    if (error instanceof StageUpdateError) {
+      return res.status(error.status).json({ error: error.message, ...error.extra });
     }
-
-    const stage = await prisma.taskStage.findUnique({ 
-      where: { id: stageId },
-      include: {
-        assignedTo: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-      },
-    });
-
-    if (!stage || stage.taskId !== taskId) return res.status(404).json({ error: 'Stage not found' });
-
-    // Barcha stage'lar oddiy jarayon sifatida ishlaydi - PDF/JPG validation olib tashlandi
-
-    // Pochta jarayoni tayyor qilishda hujjatlar tekshiruvi
-    if (stage.name === 'Pochta' && parsed.data.status === 'TAYYOR' && stage.status !== 'TAYYOR') {
-      const documentCount = await prisma.taskDocument.count({
-        where: { taskId }
-      });
-
-      if (documentCount === 0) {
-          return res.status(400).json({ 
-          error: 'Pochta jarayonini tayyor qilish uchun kamida bitta hujjat yuklanishi kerak' 
-        });
-      }
-    }
-
-    // Jarayonni TAYYOR dan BOSHLANMAGAN ga qaytarish logikasi
-    if (stage.status === 'TAYYOR' && parsed.data.status !== 'TAYYOR') {
-      if (!req.user) {
-        return res.status(401).json({ error: 'Authentication required' });
-      }
-
-      const isStageOwner = stage.assignedToId === req.user.id;
-      const isAdmin = req.user.role === 'ADMIN';
-
-      if (!isStageOwner && !isAdmin) {
-        return res.status(403).json({ 
-          error: 'Faqat jarayonni tayyor qilgan odam yoki admin jarayon statusini o\'zgartirishi mumkin' 
-        });
-      }
-
-      // Agar admin boshqa ishchining jarayonini qaytarmoqchi bo'lsa, force talab qilinadi
-      if (isAdmin && !isStageOwner && !parsed.data.force) {
-        return res.status(409).json({
-          error: 'Bu jarayonni boshqa ishchi tugatgan. Qaytarishni tasdiqlang.',
-          requireConfirmation: true,
-          completedBy: stage.assignedTo?.name || 'Noma\'lum',
-          completedById: stage.assignedToId,
-          stageName: stage.name,
-        });
-      }
-    }
-
-    // Agar jarayonni tugallanmagan (BOSHLANMAGAN) qilishga harakat qilinayotgan bo'lsa
-    if (parsed.data.status === 'BOSHLANMAGAN' && stage.status === 'TAYYOR') {
-      if (!req.user) {
-        return res.status(401).json({ error: 'Authentication required' });
-      }
-
-      const isStageOwner = stage.assignedToId === req.user.id;
-      const isAdmin = req.user.role === 'ADMIN';
-
-      if (!isStageOwner && !isAdmin) {
-        return res.status(403).json({ 
-          error: 'Faqat jarayonni tayyor qilgan odam yoki admin jarayonni tugallanmagan qilishi mumkin' 
-        });
-      }
-
-      // Agar admin boshqa ishchining jarayonini qaytarmoqchi bo'lsa, force talab qilinadi
-      if (isAdmin && !isStageOwner && !parsed.data.force) {
-        return res.status(409).json({
-          error: 'Bu jarayonni boshqa ishchi tugatgan. Qaytarishni tasdiqlang.',
-          requireConfirmation: true,
-          completedBy: stage.assignedTo?.name || 'Noma\'lum',
-          completedById: stage.assignedToId,
-          stageName: stage.name,
-        });
-      }
-    }
-
-  const now = new Date();
-
-  const updated = await prisma.$transaction(async (tx) => {
-    // Deklaratsiya narxi (BXM × koef): bojxona to'lovi so'mda, CASH_ALL_INCLUSIVE da
-    // mijoz summasiga qo'shimcha — qarang services/declaration-pricing.ts
-    const declarationCompleting = stage.name === 'Deklaratsiya' && parsed.data.status === 'TAYYOR' && parsed.data.customsPaymentMultiplier;
-    const declarationReverting = stage.name === 'Deklaratsiya' && parsed.data.status === 'BOSHLANMAGAN' && stage.status === 'TAYYOR';
-    if (declarationCompleting || declarationReverting) {
-      const task = await tx.task.findUnique({
-        where: { id: taskId },
-        select: {
-          afterHoursDeclaration: true,
-          afterHoursPayer: true,
-          snapshotDealAmount_exchange_rate: true,
-          snapshotDealAmountExchangeRate: true,
-          client: { select: declarationClientSelect },
-        },
-      });
-      if (task && declarationCompleting && parsed.data.customsPaymentMultiplier) {
-        await tx.task.update({
-          where: { id: taskId },
-          data: declarationCompletedFields({
-            client: task.client,
-            task,
-            multiplier: Number(parsed.data.customsPaymentMultiplier),
-            afterHoursDeclaration: parsed.data.afterHoursDeclaration ?? task.afterHoursDeclaration ?? false,
-            afterHoursPayer: (parsed.data.afterHoursPayer ?? task.afterHoursPayer ?? 'CLIENT') as AfterHoursPayerType,
-            bxm: await bxmAt(tx, new Date()),
-          }),
-        });
-      } else if (task && declarationReverting) {
-        await tx.task.update({ where: { id: taskId }, data: declarationResetFields(task.client, task) });
-      }
-    }
-
-    return applyStageStatusChange(tx, {
-      stage,
-      newStatus: parsed.data.status,
-      actorId: user.id,
-      now,
-    });
-  }, {
-      maxWait: 30000, // 30 seconds max wait for transaction to start
-      timeout: 30000, // 30 seconds timeout for transaction to complete (remote database uchun)
-    });
-
-
-  await afterStageStatusCommitted({
-    stage,
-    newStatus: parsed.data.status,
-    result: updated,
-    actor: { id: user.id, name: user.name },
-  });
-
-    res.json(updated.updated);
-  } catch (error: any) {
-
     console.error('Error updating stage:', error);
-    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack');
-    res.status(500).json({ 
-      error: 'Stage yangilashda xatolik yuz berdi',
-      ...(process.env.NODE_ENV !== 'production' && {
-        details: error instanceof Error ? error.message : String(error)
-      })
-    });
+    res.status(500).json({ error: 'Stage yangilashda xatolik yuz berdi' });
   }
 });
 

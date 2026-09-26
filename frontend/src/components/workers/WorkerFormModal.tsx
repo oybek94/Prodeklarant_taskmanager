@@ -11,7 +11,6 @@ interface Worker {
     createdAt?: string;
     phone?: string;
     currentDebt?: number;
-    legacyDebt?: number;
     salaryCurrency?: 'USD' | 'UZS';
 }
 

@@ -53,12 +53,6 @@ export default function WorkerReport() {
   if (loading && !kpiStats) return <div className="p-8 text-center text-gray-500">Ma'lumotlar yuklanmoqda...</div>;
   if (!kpiStats) return <div className="p-8 text-center text-red-500">Xatolik yuz berdi.</div>;
 
-  const legacy = finStats ? {
-    initial: finStats.legacyDebt + (finStats.payments?.filter((p: any) => p.isLegacyPayment).reduce((s: number, p: any) => s + Number(p.paidAmountUsd), 0) || 0),
-    paid: finStats.payments?.filter((p: any) => p.isLegacyPayment).reduce((s: number, p: any) => s + Number(p.paidAmountUsd), 0) || 0,
-    remaining: finStats.legacyDebt || 0,
-  } : { initial: 0, paid: 0, remaining: 0 };
-
   const current = finStats ? {
     earned: finStats.totalEarned || 0,
     paid: finStats.totalPaid || 0,
@@ -67,8 +61,7 @@ export default function WorkerReport() {
     currency: finStats.salaryCurrency || 'UZS',
   } : { earned: 0, paid: 0, errors: 0, pending: 0, currency: 'UZS' };
 
-  const legacyPayments = finStats?.payments?.filter((p: any) => p.isLegacyPayment) || [];
-  const currentPayments = finStats?.payments?.filter((p: any) => !p.isLegacyPayment) || [];
+  const currentPayments = finStats?.payments || [];
 
   // Charts
   const stageStats = kpiStats.stageStats || [];
@@ -109,9 +102,6 @@ export default function WorkerReport() {
   };
   const barSeries = [{ name: 'Summa (UZS)', data: stageStats.map((s: any) => s.totalUzs) }];
 
-  // Legacy debt progress
-  const legacyPaidPct = legacy.initial > 0 ? Math.min(100, (legacy.paid / legacy.initial) * 100) : 0;
-
   // Current earned vs paid vs errors radial
   const currentPaidPct = current.earned > 0 ? Math.min(100, (current.paid / current.earned) * 100) : 0;
   const currentErrorsPct = current.earned > 0 ? Math.min(100, (current.errors / current.earned) * 100) : 0;
@@ -145,19 +135,7 @@ export default function WorkerReport() {
       </div>
 
       {/* Financial Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Legacy Debt */}
-        <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-2xl shadow-sm border border-amber-100/80 p-5 relative overflow-hidden group">
-          <div className="absolute -right-4 -top-4 w-20 h-20 bg-amber-200/20 rounded-full blur-2xl"></div>
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 bg-amber-500/15 rounded-xl flex items-center justify-center border border-amber-200/50">
-              <Icon icon="solar:buildings-bold-duotone" className="w-5 h-5 text-amber-600" />
-            </div>
-            <span className="text-xs font-bold text-amber-600/80 uppercase tracking-wider">Eski qarz (USD)</span>
-          </div>
-          <p className="text-2xl font-black text-amber-900 tracking-tight">{fmtUsd(legacy.remaining)}</p>
-          <p className="text-xs text-amber-600/70 mt-1">Boshlang'ich: {fmtUsd(legacy.initial)} · To'langan: {fmtUsd(legacy.paid)}</p>
-        </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
 
         {/* Current Earned */}
         <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-2xl shadow-sm border border-emerald-100/80 p-5 relative overflow-hidden">
@@ -222,41 +200,6 @@ export default function WorkerReport() {
           <p className="text-xs text-gray-500 font-medium mt-1">O'rtacha kun/vazifa</p>
         </div>
       </div>
-
-      {/* Legacy Debt Progress */}
-      {legacy.initial > 0 && (
-        <div className="bg-white/70 backdrop-blur-xl rounded-2xl shadow-sm border border-white/80 p-6 ring-1 ring-black/5">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-base font-bold text-gray-800 flex items-center gap-2">
-              <Icon icon="solar:buildings-bold-duotone" className="w-5 h-5 text-amber-500" />
-              O'tgan mavsum qarzini yopish jarayoni
-            </h3>
-            <span className="text-sm font-bold text-amber-600">{legacyPaidPct.toFixed(1)}%</span>
-          </div>
-          <div className="w-full bg-gray-100 rounded-full h-4 overflow-hidden">
-            <div className="h-full rounded-full bg-gradient-to-r from-amber-400 to-orange-500 transition-all duration-1000 ease-out relative"
-              style={{ width: `${legacyPaidPct}%` }}>
-              <div className="absolute inset-0 bg-white/20 animate-pulse rounded-full"></div>
-            </div>
-          </div>
-          <div className="flex justify-between mt-2 text-xs text-gray-500">
-            <span>To'langan: {fmtUsd(legacy.paid)}</span>
-            <span>Qolgan: {fmtUsd(legacy.remaining)}</span>
-          </div>
-          {legacyPayments.length > 0 && (
-            <div className="mt-4 space-y-2">
-              <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">To'lov tarixi</p>
-              {legacyPayments.map((p: any) => (
-                <div key={p.id} className="flex justify-between items-center bg-amber-50/60 rounded-lg px-3 py-2 text-sm">
-                  <span className="text-gray-600">{new Date(p.paymentDate).toLocaleDateString('en-US')}</span>
-                  <span className="text-gray-500 text-xs flex-1 mx-3 truncate">{p.comment || '-'}</span>
-                  <span className="font-bold text-amber-700">{fmtUsd(p.paidAmountUsd)}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

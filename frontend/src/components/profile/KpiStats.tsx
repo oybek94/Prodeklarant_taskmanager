@@ -22,7 +22,7 @@ export default function KpiStats({
   onOpenParticipations, onOpenEarnings, onOpenPayments, onOpenErrors
 }: KpiStatsProps) {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
       {/* Tasks */}
       <button onClick={onOpenParticipations} className="bg-gradient-to-br from-white to-blue-50/80 dark:from-gray-800 dark:to-blue-900/20 rounded-2xl p-5 border border-blue-100/50 dark:border-blue-800/40 hover:border-blue-300 dark:hover:border-blue-600 hover:shadow-md hover:shadow-blue-500/10 transition-all text-left group">
         <div className="flex items-center justify-between mb-3">
@@ -81,18 +81,6 @@ export default function KpiStats({
         </div>
       </div>
 
-      {/* Legacy Debt */}
-      <div className="bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-700/30 rounded-2xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm">
-        <div className="flex items-center justify-between mb-3">
-          <div className="w-10 h-10 rounded-full bg-gray-50 dark:bg-gray-700/50 flex items-center justify-center">
-            <Icon icon="solar:history-bold-duotone" className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-          </div>
-        </div>
-        <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">O'tgan mavsum</p>
-        <div className="text-xl font-extrabold text-gray-900 dark:text-white">
-          {loading ? <div className="animate-pulse w-24 h-6 bg-gray-200 dark:bg-gray-700 rounded"></div> : <CurrencyDisplay amount={stats?.legacyDebt || 0} originalCurrency="USD" forceOriginal={true} />}
-        </div>
-      </div>
 
       {/* Errors */}
       <button onClick={onOpenErrors} className="bg-gradient-to-br from-white to-red-50/80 dark:from-gray-800 dark:to-red-900/20 rounded-2xl p-5 border border-red-100/50 dark:border-red-800/40 hover:border-red-300 dark:hover:border-red-600 hover:shadow-md hover:shadow-red-500/10 transition-all text-left group">

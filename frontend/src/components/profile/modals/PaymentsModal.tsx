@@ -8,7 +8,7 @@ interface PaymentsModalProps {
 }
 
 export default function PaymentsModal({ payments, onClose }: PaymentsModalProps) {
-  const filteredPayments = useMemo(() => payments.filter(p => !p.isLegacyPayment), [payments]);
+  const filteredPayments = payments;
 
   const totalSum = useMemo(() => {
     return filteredPayments.reduce((sum, p) => sum + (p.paidCurrency === 'UZS' ? Number(p.paidAmountUzs) : Number(p.paidAmountUsd) * 12000), 0);

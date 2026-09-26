@@ -14,7 +14,6 @@ interface Worker {
     createdAt?: string;
     phone?: string;
     currentDebt?: number;
-    legacyDebt?: number;
     salaryCurrency?: 'USD' | 'UZS';
 }
 
@@ -146,14 +145,6 @@ const WorkerCard = React.memo(({
                     <span className="text-orange-400 dark:text-orange-500/80 text-xs font-medium">Joriy qarz</span>
                     <span className="text-lg font-bold text-orange-600 dark:text-orange-400">
                         <CurrencyDisplay amount={worker.currentDebt} originalCurrency={worker.salaryCurrency || 'UZS'} forceOriginal={true} />
-                    </span>
-                </div>
-            )}
-            {worker.legacyDebt !== undefined && worker.legacyDebt > 0 && (
-                <div className="flex items-center justify-between mt-1.5">
-                    <span className="text-red-400 dark:text-red-500/80 text-xs font-medium">Eski qarz</span>
-                    <span className="text-lg font-bold text-red-600 dark:text-red-400">
-                        <CurrencyDisplay amount={worker.legacyDebt} originalCurrency="USD" forceOriginal={true} />
                     </span>
                 </div>
             )}

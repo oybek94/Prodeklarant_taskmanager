@@ -9,7 +9,6 @@ export interface Stats {
   totalEarned: number;
   totalPaid: number;
   pending: number;
-  legacyDebt: number;
   salaryCurrency: 'USD' | 'UZS';
   payments?: PaymentStat[];
 }
@@ -22,7 +21,6 @@ export interface PaymentStat {
   paidCurrency: string;
   paymentDate: string;
   comment: string | null;
-  isLegacyPayment: boolean;
 }
 
 export interface StageStat {

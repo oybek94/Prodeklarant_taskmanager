@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, Response } from 'express';
 import { prisma } from '../prisma';
 import { appCache } from '../services/cache';
 import { z } from 'zod';
@@ -14,6 +14,11 @@ import { notify, getAllActiveUserIds } from '../services/notificationService';
 import { createTaskSchema, createTask, afterTaskCreated, TaskCreateError } from '../services/task-create.service';
 import { getTaskLight, getTaskDetail } from '../services/task-detail.service';
 import { updateTaskSchema, updateTask, TaskUpdateError, regenerateTransportDocs, broadcastTaskUpdated } from '../services/task-update.service';
+import {
+  createErrorSchema, updateErrorSchema, rateErrorSchema, TaskErrorError, parseId,
+  listTaskErrors, listUnratedErrors, listPendingDeleteErrors, createTaskError, updateTaskError,
+  deleteTaskError, approveDeleteRequest, rejectDeleteRequest, rateTaskError,
+} from '../services/task-error.service';
 import { declarationClientSelect, declarationCompletedFields, declarationResetFields, bxmAt } from '../services/declaration-pricing';
 
 import { TaskRepository } from '../repositories/task.repository';
@@ -24,40 +29,13 @@ const taskService = new TaskService(taskRepo);
 
 const router = Router();
 
-router.get('/errors/unrated', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
-  try {
-    const unratedErrors = await prisma.taskError.findMany({
-      where: { adminRating: null, workerId: { not: null } },
-      include: {
-        worker: { select: { id: true, name: true } },
-        createdBy: { select: { id: true, name: true } },
-        task: { select: { id: true, title: true } }
-      },
-      orderBy: { createdAt: 'desc' },
-      take: 20
-    });
-    res.json(unratedErrors);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
+// Xatolar (TaskError) — mantiq: services/task-error.service.ts
+router.get('/errors/unrated', requireAuth('ADMIN'), async (_req: AuthRequest, res) => {
+  res.json(await listUnratedErrors());
 });
 
-router.get('/errors/pending-delete', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
-  try {
-    const pendingErrors = await prisma.taskError.findMany({
-      where: { deleteRequested: true },
-      include: {
-        worker: { select: { id: true, name: true } },
-        createdBy: { select: { id: true, name: true } },
-        task: { select: { id: true, title: true } }
-      },
-      orderBy: { createdAt: 'desc' },
-      take: 20
-    });
-    res.json(pendingErrors);
-  } catch (error: any) {
-    res.status(500).json({ error: 'Xatolik yuz berdi' });
-  }
+router.get('/errors/pending-delete', requireAuth('ADMIN'), async (_req: AuthRequest, res) => {
+  res.json(await listPendingDeleteErrors());
 });
 
 // ==========================================
@@ -597,389 +575,63 @@ router.patch('/:taskId/stages/:stageId', requireAuth(), async (req: AuthRequest,
   }
 });
 
-const errorSchema = z.object({
-  stageName: z.string(),
-  workerId: z.number().nullable(),
-  isClientError: z.boolean().optional(),
-  amount: z.number(),
-  comment: z.string().optional(),
-  date: z.coerce.date(),
-});
+function sendTaskErrorError(res: Response, error: unknown): boolean {
+  if (!(error instanceof TaskErrorError)) return false;
+  res.status(error.status).json({ error: error.message });
+  return true;
+}
 
-const updateErrorSchema = z.object({
-  stageName: z.string().optional(),
-  workerId: z.number().nullable().optional(),
-  amount: z.number().optional(),
-  comment: z.string().optional(),
-  date: z.coerce.date().optional(),
-});
+/** /:taskId/errors* uchun umumiy o'rash: id parse + TaskErrorError → status. */
+function errorRoute(handler: (req: AuthRequest & { user: NonNullable<AuthRequest['user']> }, res: Response, taskId: number) => Promise<unknown>) {
+  return async (req: AuthRequest, res: Response) => {
+    if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+    try {
+      const taskId = parseId(req.params.taskId, 'vazifa ID');
+      await handler(req as AuthRequest & { user: NonNullable<AuthRequest['user']> }, res, taskId);
+    } catch (error) {
+      if (!sendTaskErrorError(res, error)) throw error;
+    }
+  };
+}
 
-router.get('/:taskId/errors', requireAuth(), async (req: AuthRequest, res) => {
-  const taskId = Number(req.params.taskId);
-  const errors = await prisma.taskError.findMany({
-    where: { taskId },
-    include: { worker: { select: { id: true, name: true } } },
-    orderBy: { date: 'desc' },
-  });
-  res.json(errors);
-});
+router.get('/:taskId/errors', requireAuth(), errorRoute(async (_req, res, taskId) => {
+  res.json(await listTaskErrors(taskId));
+}));
 
-router.post('/:taskId/errors', requireAuth(), async (req: AuthRequest, res) => {
-  const taskId = Number(req.params.taskId);
-  const parsed = errorSchema.safeParse(req.body);
+router.post('/:taskId/errors', requireAuth(), errorRoute(async (req, res, taskId) => {
+  const parsed = createErrorSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  res.status(201).json(await createTaskError(taskId, parsed.data, req.user));
+}));
 
-  if (!req.user) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-
-  // Create error and deduct from worker's earned amount using transaction
-  const result = await prisma.$transaction(async (tx) => {
-    // Create the error record
-      const error = await (tx as any).taskError.create({
-      data: {
-        taskId,
-        stageName: parsed.data.stageName,
-        workerId: parsed.data.workerId,
-        amount: parsed.data.amount,
-        amount_uzs: parsed.data.amount,
-        amount_original: parsed.data.amount,
-        convertedUzsAmount: parsed.data.amount,
-        currency: 'UZS',
-        currency_universal: 'UZS',
-        comment: parsed.data.comment,
-        date: parsed.data.date,
-        createdById: req.user!.id,
-      },
-      include: {
-        worker: { select: { id: true, name: true } },
-      },
-    });
-
-    if (parsed.data.isClientError) {
-      const task = await (tx as any).task.findUnique({
-        where: { id: taskId },
-        include: { client: true }
-      });
-      if (task && task.client) {
-        let person = await (tx as any).debtPerson.findUnique({ where: { name: task.client.name.trim() } });
-        if (!person) {
-          person = await (tx as any).debtPerson.create({ data: { name: task.client.name.trim() } });
-        }
-        await (tx as any).debt.create({
-          data: {
-            debtPersonId: person.id,
-            amount: parsed.data.amount,
-            currency: 'UZS',
-            comment: `Xatolik: Task #${taskId} uchun mijoz xatosi. ${parsed.data.comment || ''}`.trim(),
-            date: parsed.data.date,
-          }
-        });
-      }
-    }
-
-    return error;
-  });
-
-  res.status(201).json(result);
-  socketEmitter.broadcast('admin_new_error_report', { error: result, event: 'Yangi xato hisoboti kelib tushdi' });
-  socketEmitter.broadcast('task:errorUpdated', { taskId });
-});
-
-router.delete('/:taskId/errors/:errorId', requireAuth(), async (req: AuthRequest, res) => {
-  const errorId = Number(req.params.errorId);
-  if (!req.user) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-
-  const error = await prisma.taskError.findUnique({
-    where: { id: errorId },
-  });
-  if (!error) {
-    return res.status(404).json({ error: 'Xato topilmadi' });
-  }
-
-  const createdAt = new Date(error.createdAt);
-  const diffMs = Date.now() - createdAt.getTime();
-  const twoDaysMs = 2 * 24 * 60 * 60 * 1000;
-  const isAdmin = req.user.role === 'ADMIN';
-  if (!isAdmin && (error.createdById !== req.user.id || diffMs > twoDaysMs)) {
-    return res.status(403).json({ error: 'Xatoni faqat 2 kun ichida qo‘shgan odam o‘chira oladi' });
-  }
-
-  if (!isAdmin) {
-    // Non-adminlar o'chirishni so'raydi
-    await prisma.taskError.update({
-      where: { id: errorId },
-      data: { deleteRequested: true }
-    });
-    return res.status(200).json({ message: 'O\'chirish so\'rovi adminga yuborildi' });
-  }
-
-  await prisma.$transaction(async (tx) => {
-    // Agar xato baholangan bo'lsa, XPlarni qaytarish
-    if (error.adminRating !== null && error.bountyXp && error.workerId) {
-      if (error.workerId !== error.createdById) {
-        await (tx as any).user.update({
-          where: { id: error.workerId },
-          data: { xp: { increment: error.bountyXp } },
-        });
-        await (tx as any).user.update({
-          where: { id: error.createdById },
-          data: { xp: { decrement: error.bountyXp } },
-        });
-      } else {
-        await (tx as any).user.update({
-          where: { id: error.workerId },
-          data: { xp: { increment: error.bountyXp } },
-        });
-      }
-    }
-    await (tx as any).taskError.delete({ where: { id: errorId } });
-  });
-
+router.delete('/:taskId/errors/:errorId', requireAuth(), errorRoute(async (req, res, taskId) => {
+  const outcome = await deleteTaskError(taskId, parseId(req.params.errorId, 'xato ID'), req.user);
+  if (outcome === 'requested') return res.status(200).json({ message: "O'chirish so'rovi adminga yuborildi" });
   res.status(204).send();
-  socketEmitter.broadcast('task:errorUpdated', { taskId: error.taskId });
-});
+}));
 
-router.post('/:taskId/errors/:errorId/approve-delete', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
-  const errorId = Number(req.params.errorId);
-  const error = await prisma.taskError.findUnique({
-    where: { id: errorId },
-  });
-  if (!error) return res.status(404).json({ error: 'Xato topilmadi' });
-
-  await prisma.$transaction(async (tx) => {
-    // Agar xato baholangan bo'lsa, XPlarni qaytarish
-    if (error.adminRating !== null && error.bountyXp && error.workerId) {
-      if (error.workerId !== error.createdById) {
-        await (tx as any).user.update({
-          where: { id: error.workerId },
-          data: { xp: { increment: error.bountyXp } },
-        });
-        await (tx as any).user.update({
-          where: { id: error.createdById },
-          data: { xp: { decrement: error.bountyXp } },
-        });
-      } else {
-        await (tx as any).user.update({
-          where: { id: error.workerId },
-          data: { xp: { increment: error.bountyXp } },
-        });
-      }
-    }
-    await (tx as any).taskError.delete({ where: { id: errorId } });
-  });
-
+router.post('/:taskId/errors/:errorId/approve-delete', requireAuth('ADMIN'), errorRoute(async (req, res, taskId) => {
+  await approveDeleteRequest(taskId, parseId(req.params.errorId, 'xato ID'));
   res.status(204).send();
-  socketEmitter.broadcast('task:errorUpdated', { taskId: error.taskId });
-});
+}));
 
-router.post('/:taskId/errors/:errorId/reject-delete', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
-  const errorId = Number(req.params.errorId);
-  await prisma.taskError.update({
-    where: { id: errorId },
-    data: { deleteRequested: false }
-  });
+router.post('/:taskId/errors/:errorId/reject-delete', requireAuth('ADMIN'), errorRoute(async (req, res, taskId) => {
+  await rejectDeleteRequest(taskId, parseId(req.params.errorId, 'xato ID'));
   res.status(204).send();
-});
+}));
 
-const rateErrorSchema = z.object({
-  rating: z.number().min(0).max(100),
-});
-
-router.put('/:taskId/errors/:errorId/rate', requireAuth(), async (req: AuthRequest, res) => {
-  const errorId = Number(req.params.errorId);
+router.put('/:taskId/errors/:errorId/rate', requireAuth(), errorRoute(async (req, res, taskId) => {
   const parsed = rateErrorSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+  if (req.user.role !== 'ADMIN') return res.status(403).json({ error: 'Faqat admin xatolarni baholay oladi' });
+  res.json(await rateTaskError(taskId, parseId(req.params.errorId, 'xato ID'), parsed.data.rating));
+}));
 
-  if (!req.user || req.user.role !== 'ADMIN') {
-    return res.status(403).json({ error: 'Faqat admin xatolarni baholay oladi' });
-  }
-
-  const error = await prisma.taskError.findUnique({
-    where: { id: errorId },
-  });
-
-  if (!error) {
-    return res.status(404).json({ error: 'Xato topilmadi' });
-  }
-
-  if (error.adminRating !== null) {
-    return res.status(400).json({ error: 'Bu xato allaqachon baholangan' });
-  }
-
-  if (error.workerId === null) {
-    return res.status(400).json({ error: 'Mijoz tomonidan qilingan xato baholanmaydi' });
-  }
-
-  const rating = parsed.data.rating;
-  const bountyUzs = rating * 5000;
-  const bountyXp = rating;
-
-  const { updated, workerNotif, creatorNotif } = await prisma.$transaction(async (tx) => {
-    const errorUpdated = await (tx as any).taskError.update({
-      where: { id: errorId },
-      data: {
-        adminRating: rating,
-        adminRatedAt: new Date(),
-        bountyRewardUzs: bountyUzs,
-        bountyXp: bountyXp,
-      },
-      include: { 
-        worker: { select: { id: true, name: true } },
-        createdBy: { select: { id: true, name: true } },
-        task: { select: { id: true, title: true } }
-      },
-    });
-
-    let wNotif: any = null;
-    let cNotif: any = null;
-
-    if (errorUpdated.workerId !== errorUpdated.createdById) {
-      // Deduct XP from worker
-      await (tx as any).user.update({
-        where: { id: errorUpdated.workerId },
-        data: { xp: { decrement: bountyXp } },
-      });
-
-      // Add XP to creator
-      await (tx as any).user.update({
-        where: { id: errorUpdated.createdById },
-        data: { xp: { increment: bountyXp } },
-      });
-
-      // Notification for worker (XP loss)
-      wNotif = await (tx as any).notification.create({
-        data: {
-          userId: errorUpdated.workerId,
-          type: 'SYSTEM',
-          title: 'XP Ayrildi',
-          message: `${errorUpdated.stageName} da xato qilganingiz uchun ${bountyXp} XP ayrildi.`,
-          metadata: { 
-            isXpAnimation: true, 
-            type: 'XP_LOSS', 
-            xpAmount: bountyXp, 
-            stageName: errorUpdated.stageName,
-            taskTitle: errorUpdated.task?.title || '',
-            comment: errorUpdated.comment || ''
-          },
-        }
-      });
-
-      // Notification for creator (XP gain)
-      cNotif = await (tx as any).notification.create({
-        data: {
-          userId: errorUpdated.createdById,
-          type: 'SYSTEM',
-          title: 'XP Qo\'shildi',
-          message: `${errorUpdated.stageName} dagi xatoni topganingiz uchun ${bountyXp} XP qo'shildi.`,
-          metadata: { 
-            isXpAnimation: true, 
-            type: 'XP_GAIN', 
-            xpAmount: bountyXp, 
-            stageName: errorUpdated.stageName,
-            taskTitle: errorUpdated.task?.title || '',
-            comment: errorUpdated.comment || ''
-          },
-        }
-      });
-    } else if (errorUpdated.workerId === errorUpdated.createdById) {
-      // O'z xatosini topsa faqat XP jarima
-      await (tx as any).user.update({
-        where: { id: errorUpdated.workerId },
-        data: { xp: { decrement: bountyXp } },
-      });
-
-      wNotif = await (tx as any).notification.create({
-        data: {
-          userId: errorUpdated.workerId,
-          type: 'SYSTEM',
-          title: 'XP Ayrildi',
-          message: `O'z xatoyingizni tasdiqlaganingiz uchun ${bountyXp} XP jarima.`,
-          metadata: { 
-            isXpAnimation: true, 
-            type: 'XP_LOSS', 
-            xpAmount: bountyXp, 
-            stageName: errorUpdated.stageName,
-            taskTitle: errorUpdated.task?.title || '',
-            comment: errorUpdated.comment || ''
-          },
-        }
-      });
-    }
-
-    return { updated: errorUpdated, workerNotif: wNotif, creatorNotif: cNotif };
-  });
-
-  if (workerNotif) {
-    socketEmitter.toUser(updated.workerId, 'XP_ANIMATION', {
-      ...workerNotif.metadata,
-      notificationId: workerNotif.id
-    });
-  }
-
-  if (creatorNotif) {
-    socketEmitter.toUser(updated.createdById, 'XP_ANIMATION', {
-      ...creatorNotif.metadata,
-      notificationId: creatorNotif.id
-    });
-  }
-
-  socketEmitter.broadcast('user:bounty_awarded', updated);
-  res.json(updated);
-});
-
-router.patch('/:taskId/errors/:errorId', requireAuth(), async (req: AuthRequest, res) => {
-  const errorId = Number(req.params.errorId);
+router.patch('/:taskId/errors/:errorId', requireAuth(), errorRoute(async (req, res, taskId) => {
   const parsed = updateErrorSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
-
-  if (!req.user) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-
-  const error = await prisma.taskError.findUnique({
-    where: { id: errorId },
-  });
-  if (!error) {
-    return res.status(404).json({ error: 'Xato topilmadi' });
-  }
-
-  const createdAt = new Date(error.createdAt);
-  const diffMs = Date.now() - createdAt.getTime();
-  const twoDaysMs = 2 * 24 * 60 * 60 * 1000;
-  const isAdmin = req.user.role === 'ADMIN';
-  if (!isAdmin && (error.createdById !== req.user.id || diffMs > twoDaysMs)) {
-    return res.status(403).json({ error: 'Xatoni faqat 2 kun ichida qo‘shgan odam o‘zgartira oladi' });
-  }
-
-  const updated = await prisma.$transaction(async (tx) => {
-    const next = await (tx as any).taskError.update({
-      where: { id: errorId },
-      data: {
-        ...(parsed.data.stageName && { stageName: parsed.data.stageName }),
-        ...(parsed.data.workerId !== undefined && { workerId: parsed.data.workerId }),
-        ...(parsed.data.amount !== undefined && { 
-          amount: parsed.data.amount,
-          amount_uzs: parsed.data.amount,
-          amount_original: parsed.data.amount,
-          convertedUzsAmount: parsed.data.amount,
-          currency: 'UZS',
-          currency_universal: 'UZS',
-        }),
-        ...(parsed.data.comment !== undefined && { comment: parsed.data.comment }),
-        ...(parsed.data.date && { date: parsed.data.date }),
-      },
-      include: { worker: { select: { id: true, name: true } } },
-    });
-
-    return next;
-  });
-
-  res.json(updated);
-  socketEmitter.broadcast('task:errorUpdated', { taskId: updated.taskId });
-});
+  res.json(await updateTaskError(taskId, parseId(req.params.errorId, 'xato ID'), parsed.data, req.user));
+}));
 
 // PATCH /tasks/:id — mantiq: services/task-update.service.ts
 router.patch('/:id', requireAuth(), async (req: AuthRequest, res) => {

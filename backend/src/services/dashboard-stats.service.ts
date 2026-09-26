@@ -5,7 +5,8 @@ import { getWorkerPaymentReport } from './worker-payment';
 import { amountInUzs, toMoneyNumber, warnSkippedUzs, ZERO } from '../utils/money';
 import { appCache, CACHE_TTL } from './cache';
 import { shouldDeductGovernmentFees } from './contract-payment-split';
-import { taskFeeSelect, taskFeesIn, psrIn } from './task-money';
+import { taskFeeSelect, taskFeesIn } from './task-money';
+import { computeClientDebt, debtClientSelect, debtPaymentSelect, debtTaskSelect, loadUsdRateAt } from './client-debt';
 
 /**
  * GET /dashboard/stats — bosh sahifa statistikasi.
@@ -332,48 +333,26 @@ async function getPaymentReminders() {
       name: true,
       phone: true,
       createdAt: true,
-      dealAmount: true,
-      dealAmountCurrency: true,
+      ...debtClientSelect,
       creditType: true,
       creditLimit: true,
       creditStartDate: true,
-      initialDebt: true,
-      initialDebtCurrency: true,
-      initialDebtInUzs: true,
       tasks: {
-        select: { id: true, createdAt: true, snapshotDealAmount: true, ...taskFeeSelect },
+        select: { id: true, createdAt: true, ...debtTaskSelect },
         orderBy: { createdAt: 'asc' },
       },
       transactions: {
         where: { type: 'INCOME' },
-        select: { amount: true, date: true, currency: true },
+        select: debtPaymentSelect,
       },
     },
   });
 
+  const { rateAt, latest } = await loadUsdRateAt();
   const reminders: PaymentReminder[] = [];
   for (const client of clients) {
-    const dealCurrency = client.dealAmountCurrency || 'USD';
-    const dealAmount = Number(client.dealAmount || 0);
-
-    const totalDealAmount = client.tasks.reduce((sum, task) => {
-      const base = task.snapshotDealAmount != null ? Number(task.snapshotDealAmount) : dealAmount;
-      // PSR so'mda saqlanishi mumkin — mijoz valyutasiga o'giriladi
-      const psr = psrIn(task, dealCurrency, dealCurrency);
-      return sum + base + psr;
-    }, 0);
-    // DIQQAT: to'lovlar valyutasidan qat'i nazar qo'shiladi (eski xatti-harakat saqlangan)
-    const totalPaid = client.transactions.reduce((sum, t) => sum + Number(t.amount), 0);
-
-    let initialDebt = 0;
-    if (client.initialDebt) {
-      const debtCurrency = client.initialDebtCurrency || 'USD';
-      initialDebt = debtCurrency !== dealCurrency && client.initialDebtInUzs && dealCurrency === 'UZS'
-        ? Number(client.initialDebtInUzs)
-        : Number(client.initialDebt);
-    }
-
-    const currentDebt = totalDealAmount - totalPaid + initialDebt;
+    // Qarz — yagona qoida: services/client-debt.ts
+    const { debt: currentDebt, currency: dealCurrency } = computeClientDebt(client, rateAt, latest);
     if (currentDebt <= 0.01) continue; // suzuvchi nuqta xatosi uchun 0.01
 
     let dueReason: string | null = null;

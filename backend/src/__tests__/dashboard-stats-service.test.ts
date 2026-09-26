@@ -36,6 +36,7 @@ vi.mock('../prisma', () => ({
     branch: { findMany: m.branchFindMany, findFirst: m.branchFindFirst },
     certifierFeeConfig: { findFirst: m.certFindFirst },
     yearlyGoalConfig: { findUnique: m.goalFindUnique },
+    exchangeRate: { findMany: async () => [{ date: new Date('2026-01-01'), rate: 12500 }] },
   },
 }));
 vi.mock('../services/worker-payment', () => ({ getWorkerPaymentReport: m.getWorkerPaymentReport }));

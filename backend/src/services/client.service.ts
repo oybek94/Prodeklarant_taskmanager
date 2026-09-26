@@ -1,5 +1,5 @@
 import { ClientRepository, ClientFilters } from '../repositories/client.repository';
-import { psrIn } from './task-money';
+import { computeClientDebt, loadUsdRateAt, UsdRateAt } from './client-debt';
 
 export class ClientService {
   constructor(private clientRepo: ClientRepository) {}
@@ -29,9 +29,8 @@ export class ClientService {
     }
 
     // Calculate balance for each client in deal currency
-    const clientsWithBalance = await Promise.all(
-      clients.map(async (client: any) => this.calculateClientBalance(client))
-    );
+    const { rateAt, latest } = await loadUsdRateAt();
+    const clientsWithBalance = clients.map((client: any) => this.calculateClientBalance(client, rateAt, latest));
 
     let finalClients = clientsWithBalance;
 
@@ -71,45 +70,14 @@ export class ClientService {
     };
   }
 
-  private async calculateClientBalance(client: any) {
+  /** Qarz — yagona qoida: services/client-debt.ts */
+  private calculateClientBalance(client: any, rateAt: UsdRateAt, currentRate: number | null) {
     try {
-      const dealCurrency = client.dealAmount_currency || client.dealAmountCurrency || 'USD';
-      const dealAmount = Number(client.dealAmount || 0);
-
-      const totalDealAmount = (client.tasks || []).reduce((sum: number, task: any) => {
-        const baseAmount = task.snapshotDealAmount != null ? Number(task.snapshotDealAmount) : dealAmount;
-        // PSR so'mda saqlanishi mumkin — mijoz valyutasiga o'giriladi; snapshot yo'q eski vazifalarda 10
-        const psrAmount = task.snapshotPsrPrice != null ? psrIn(task, dealCurrency, dealCurrency) : (task.hasPsr ? 10 : 0);
-        return sum + baseAmount + psrAmount;
-      }, 0);
-
-      const totalIncome = (client.transactions || []).reduce((sum: number, t: any) => {
-        let txAmount = Number(t.amount || 0);
-        const txCurrency = t.currency || 'UZS';
-        
-        if (txCurrency !== dealCurrency) {
-          const rate = Number(t.exchangeRate || t.exchange_rate || 1);
-          if (dealCurrency === 'UZS' && txCurrency === 'USD') {
-            txAmount = t.amount_uzs != null ? Number(t.amount_uzs) : txAmount * rate;
-          } else if (dealCurrency === 'USD' && txCurrency === 'UZS') {
-            txAmount = t.amount_original != null ? Number(t.amount_original) : (rate > 1 ? txAmount / rate : txAmount);
-          }
-        }
-        return sum + txAmount;
-      }, 0);
-
-      let initialDebt = 0;
-      if (client.initialDebt) {
-        const clientInitialDebtCurrency = client.initialDebtCurrency || 'USD';
-        if (clientInitialDebtCurrency === dealCurrency) {
-          initialDebt = Number(client.initialDebt);
-        } else {
-          initialDebt = client.initialDebtInUzs && dealCurrency === 'UZS'
-            ? Number(client.initialDebtInUzs)
-            : Number(client.initialDebt);
-        }
-      }
-
+      const debt = computeClientDebt(client, rateAt, currentRate);
+      const dealCurrency = debt.currency;
+      const totalDealAmount = debt.totalDeal;
+      const totalIncome = debt.totalPaid;
+      const initialDebt = debt.initialDebt;
       const balance = totalDealAmount - totalIncome + initialDebt;
 
       return {
@@ -136,32 +104,14 @@ export class ClientService {
     const client = await this.clientRepo.findByIdWithRelations(id);
     if (!client) return null;
 
-    const dealCurrency = (client as any).dealAmountCurrency || 'USD';
-    const totalIncome = client.transactions.reduce((sum: number, t: any) => sum + Number(t.amount), 0);
+    const { rateAt, latest } = await loadUsdRateAt();
+    const debt = computeClientDebt(client as any, rateAt, latest);
+    const totalIncome = debt.totalPaid;
     const totalTasks = client.tasks.length;
     const dealAmount = Number(client.dealAmount || 0);
-
     const tasksWithPsr = client.tasks.filter((task: any) => task.hasPsr).length;
-
-    const totalDealAmount = client.tasks.reduce((sum: number, task: any) => {
-      const baseAmount = task.snapshotDealAmount != null ? Number(task.snapshotDealAmount) : dealAmount;
-      const psrAmount = task.hasPsr ? 10 : 0;
-      return sum + baseAmount + psrAmount;
-    }, 0);
-
-    let initialDebt = 0;
-    if ((client as any).initialDebt) {
-      const clientInitialDebtCurrency = (client as any).initialDebtCurrency || 'USD';
-      if (clientInitialDebtCurrency === dealCurrency) {
-        initialDebt = Number((client as any).initialDebt);
-      } else {
-        initialDebt = (client as any).initialDebtInUzs && dealCurrency === 'UZS'
-          ? Number((client as any).initialDebtInUzs)
-          : Number((client as any).initialDebt);
-      }
-    }
-
-    const balance = totalDealAmount - totalIncome + initialDebt;
+    const totalDealAmount = debt.totalDeal;
+    const balance = debt.debt;
 
     const tasksByBranch = client.tasks.reduce((acc: any, task: any) => {
       const branchName = task.branch?.name || 'Unknown';

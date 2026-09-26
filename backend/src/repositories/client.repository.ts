@@ -1,6 +1,6 @@
 import { Prisma, Client } from '@prisma/client';
 import { prisma } from '../prisma';
-import { taskFeeSelect } from '../services/task-money';
+import { debtTaskSelect, debtPaymentSelect } from '../services/client-debt';
 
 export interface ClientFilters {
   search?: string;
@@ -22,16 +22,12 @@ export class ClientRepository {
         tasks: {
           select: {
             id: true,
-            snapshotDealAmount: true,
-            ...taskFeeSelect,
+            ...debtTaskSelect,
           },
         },
         transactions: {
           where: { type: 'INCOME' as const },
-          select: {
-            amount: true,
-            currency: true,
-          },
+          select: debtPaymentSelect,
         },
       },
       orderBy: { createdAt: 'desc' as const },

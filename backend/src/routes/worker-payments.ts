@@ -16,7 +16,6 @@ const createPaymentSchema = z.object({
   exchangeRate: z.number().positive().optional(),
   paymentDate: z.coerce.date().optional(),
   comment: z.string().optional(),
-  isLegacyPayment: z.boolean().optional().default(false),
 });
 
 // POST /api/worker-payments - Create new worker payment
@@ -27,7 +26,7 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
       return res.status(400).json({ error: parsed.error.flatten() });
     }
 
-    const { workerId, paidCurrency, paidAmount, exchangeRate, paymentDate, comment, isLegacyPayment } = parsed.data;
+    const { workerId, paidCurrency, paidAmount, exchangeRate, paymentDate, comment } = parsed.data;
 
     // Verify worker exists
     const worker = await prisma.user.findUnique({
@@ -58,7 +57,6 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
         exchangeRate: exchangeRate ? new Decimal(exchangeRate) : undefined,
         paymentDate,
         comment,
-        isLegacyPayment,
       }
     );
 
@@ -72,7 +70,6 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
       paidAmountUzs: Number(payment.paidAmountUzs || 0),
       paymentDate: payment.paymentDate,
       comment: payment.comment,
-      isLegacyPayment: payment.isLegacyPayment,
       createdAt: payment.createdAt,
       worker: payment.worker,
     });

@@ -552,9 +552,9 @@ async function getWorkerDebts() {
       return {
         userId: worker.id,
         name: worker.name,
-        totalEarnedUsd: Number(report.current.totalEarned) + Number(report.legacy.initialDebtUsd),
-        totalPaidUsd: Number(report.current.totalPaid) + Number(report.legacy.totalPaidUsd),
-        pendingUsd: Number(report.legacy.difference) + Number(report.current.difference),
+        totalEarnedUsd: Number(report.current.totalEarned),
+        totalPaidUsd: Number(report.current.totalPaid),
+        pendingUsd: Number(report.current.difference),
       };
     })
   );

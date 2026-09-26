@@ -53,7 +53,6 @@ describe('applySelfSalaryRestrictions', () => {
       taskId: 11,
       branchId: 2,
       virtualCardId: 4,
-      isLegacyPayment: true,
     });
 
     expect(applySelfSalaryRestrictions(data, 7, NOW)).toBeNull();
@@ -62,7 +61,6 @@ describe('applySelfSalaryRestrictions', () => {
     expect(data.taskId).toBeUndefined();
     expect(data.branchId).toBeUndefined();
     expect(data.virtualCardId).toBeUndefined();
-    expect(data.isLegacyPayment).toBe(false);
   });
 });
 

@@ -239,13 +239,11 @@ export async function createWorkerPayment(
     paymentDate?: Date;
     comment?: string;
     tx?: PrismaClient | Prisma.TransactionClient;
-    isLegacyPayment?: boolean;
   }
 ): Promise<any> {
   const client = options?.tx || (await import('../prisma')).prisma;
   const paidAmountDecimal = new Decimal(paidAmount);
   const paymentDate = options?.paymentDate || new Date();
-  const isLegacyPayment = options?.isLegacyPayment || false;
 
   let paidAmountUsd: Decimal;
   let exchangeRate: Decimal | null = null;
@@ -286,30 +284,8 @@ export async function createWorkerPayment(
   const user = await client.user.findUnique({ where: { id: workerId } });
   if (!user) throw new Error('Worker not found');
 
-  let paymentInTargetCurrency = new Decimal(0);
-
-  if (isLegacyPayment) {
-    paymentInTargetCurrency = paidAmountUsd;
-    const legacyDebtUsd = new Decimal(user.legacyDebtUsd || 0);
-    const legacyTotalPaidUsd = await calculateTotalPaid(workerId, 'USD', true, { endDate: paymentDate }, client);
-    const legacyRemaining = legacyDebtUsd.minus(legacyTotalPaidUsd);
-
-    if (legacyRemaining.lt(paidAmountUsd) && legacyRemaining.gt(0)) {
-      // It's okay to overpay slightly or we can restrict it. We'll allow it but you may want to warn.
-    }
-  } else {
-    const salaryCurrency = user.salaryCurrency || 'UZS';
-    const totalEarned = await calculateTotalEarned(workerId, salaryCurrency, { endDate: paymentDate }, client);
-    const totalPaid = await calculateTotalPaid(workerId, salaryCurrency, false, { endDate: paymentDate }, client);
-    const earnedRemaining = totalEarned.minus(totalPaid);
-    
-    paymentInTargetCurrency = salaryCurrency === 'UZS' ? paidAmountUzs! : paidAmountUsd;
-    
-    if (earnedRemaining.lt(paymentInTargetCurrency)) {
-      // Allow slight overpayment due to exchange rate diffs, or reject if strictly enforced
-      // We will skip strict enforcement here to allow flexibility
-    }
-  }
+  const salaryCurrency = user.salaryCurrency || 'UZS';
+  const paymentInTargetCurrency = salaryCurrency === 'UZS' ? paidAmountUzs! : paidAmountUsd;
 
   // Create payment record
   const payment = await (client as any).workerPayment.create({
@@ -322,7 +298,7 @@ export async function createWorkerPayment(
       paidAmountUsd,
       paymentDate,
       comment: options?.comment || null,
-      isLegacyPayment,
+      isLegacyPayment: false,
     },
     include: {
       worker: {
@@ -340,7 +316,7 @@ export async function createWorkerPayment(
 
 /**
  * Get worker payment report
- * Returns both Legacy (USD) and Current (salaryCurrency) balances
+ * Returns current-season balance (salaryCurrency)
  */
 export async function getWorkerPaymentReport(
   workerId: number,
@@ -354,22 +330,6 @@ export async function getWorkerPaymentReport(
 
   const salaryCurrency = user.salaryCurrency || 'UZS';
 
-  // Legacy (USD)
-  const legacyDebtUsd = new Decimal(user.legacyDebtUsd || 0);
-  
-  // Legacy earnings are shown for info only. They are ALREADY included in legacyDebtUsd
-  const legacyEndDate = new Date(SEASON_SPLIT_DATE.getTime() - 1);
-  const legacyTotalEarnedUsd = await calculateTotalEarned(workerId, 'USD', { endDate: legacyEndDate }, client);
-  
-  // Legacy payments made after Feb 15
-  const legacyTotalPaidUsd = await calculateTotalPaid(workerId, 'USD', true, { startDate: SEASON_SPLIT_DATE }, client);
-  
-  // Legacy errors that occurred AFTER Feb 15 but BEFORE May 11
-  const legacyTotalErrorsUsd = await calculateTotalErrors(workerId, 'USD', true, { startDate: SEASON_SPLIT_DATE }, client);
-  
-  // Legacy difference is just the snapshot balance (legacyDebtUsd) minus any legacy payments and legacy errors that occurred AFTER Feb 15
-  const legacyDifference = legacyDebtUsd.minus(legacyTotalPaidUsd).minus(legacyTotalErrorsUsd);
-
   // Current season dates
   const currentStartDate = dateRange?.startDate && dateRange.startDate > SEASON_SPLIT_DATE ? dateRange.startDate : SEASON_SPLIT_DATE;
   const currentDateRange = { ...dateRange, startDate: currentStartDate };
@@ -379,7 +339,7 @@ export async function getWorkerPaymentReport(
   const currentTotalErrors = await calculateTotalErrors(workerId, salaryCurrency, false, currentDateRange, client);
   const currentDifference = currentTotalEarned.minus(currentTotalPaid).minus(currentTotalErrors);
 
-  const where: any = { workerId };
+  const where: Prisma.WorkerPaymentWhereInput & { paymentDate?: Prisma.DateTimeFilter } = { workerId, isLegacyPayment: false };
   if (dateRange) {
     if (dateRange.startDate || dateRange.endDate) {
       where.paymentDate = {};
@@ -395,13 +355,6 @@ export async function getWorkerPaymentReport(
 
   return {
     salaryCurrency,
-    legacy: {
-      initialDebtUsd: Number(legacyDebtUsd),
-      totalEarnedUsd: Number(legacyTotalEarnedUsd),
-      totalPaidUsd: Number(legacyTotalPaidUsd),
-      totalErrorsUsd: Number(legacyTotalErrorsUsd),
-      difference: Number(legacyDifference),
-    },
     current: {
       totalEarned: Number(currentTotalEarned),
       totalPaid: Number(currentTotalPaid),
@@ -416,7 +369,6 @@ export async function getWorkerPaymentReport(
       paidCurrency: p.paidCurrency,
       paymentDate: p.paymentDate,
       comment: p.comment,
-      isLegacyPayment: p.isLegacyPayment,
     })),
   };
 }

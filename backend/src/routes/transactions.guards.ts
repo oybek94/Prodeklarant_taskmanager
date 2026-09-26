@@ -12,13 +12,12 @@ export interface SelfSalaryInput {
   taskId?: number;
   branchId?: number;
   virtualCardId?: number | null;
-  isLegacyPayment?: boolean;
 }
 
 /**
  * Admin bo'lmagan xodim faqat o'zi olgan pulni (SALARY) yozishi mumkin.
- * Faqat admin belgilaydigan maydonlar (mijoz, xarajat, virtual karta,
- * o'tgan mavsum qarzi) tashlab yuboriladi, workerId esa o'ziga majburlanadi.
+ * Faqat admin belgilaydigan maydonlar (mijoz, xarajat, virtual karta)
+ * tashlab yuboriladi, workerId esa o'ziga majburlanadi.
  * Xatolik matni qaytsa — so'rov rad etiladi.
  */
 export function applySelfSalaryRestrictions(
@@ -45,7 +44,6 @@ export function applySelfSalaryRestrictions(
   data.taskId = undefined;
   data.branchId = undefined;
   data.virtualCardId = undefined;
-  data.isLegacyPayment = false;
   return null;
 }
 

@@ -1,207 +1,113 @@
-import React from 'react';
 import { Icon } from '@iconify/react';
-import EmptyValue from '../../components/common/EmptyValue';
-import type { Transaction } from './types';
+import { TableSkeleton } from '../common/Skeleton';
 import { formatDateTime } from '../../utils/dateFormatting';
+import { counterpartyOf, formatSom, PAYMENT_LABEL, TONE_CLASSES, TYPE_META } from './format';
+import type { Transaction } from './types';
 
 interface TransactionsTableProps {
-  transactions: Transaction[];
-  paginatedTransactions: Transaction[];
-  transactionsTotalPages: number;
-  transactionsTotalCount: number;
-  transactionsPage: number;
-  TRANSACTIONS_PAGE_SIZE: number;
-  canEdit: (transaction: Transaction) => boolean;
-  canDelete: (transaction: Transaction) => boolean;
-  onEdit: (transaction: Transaction) => void;
-  onDelete: (id: number) => void;
+  items: Transaction[];
+  loading: boolean;
+  total: number;
+  page: number;
+  totalPages: number;
+  pageSize: number;
+  canEdit: (t: Transaction) => boolean;
+  canDelete: (t: Transaction) => boolean;
+  onEdit: (t: Transaction) => void;
+  onDelete: (t: Transaction) => void;
   onPageChange: (page: number) => void;
 }
 
-export const TransactionsTable: React.FC<TransactionsTableProps> = React.memo(({
-  transactions,
-  paginatedTransactions,
-  transactionsTotalPages,
-  transactionsTotalCount,
-  transactionsPage,
-  TRANSACTIONS_PAGE_SIZE,
-  canEdit,
-  canDelete,
-  onEdit,
-  onDelete,
-  onPageChange,
-}) => {
+function pageList(page: number, totalPages: number): (number | '…')[] {
+  const pages = new Set([1, totalPages, page - 1, page, page + 1].filter((p) => p >= 1 && p <= totalPages));
+  const sorted = [...pages].sort((a, b) => a - b);
+  const out: (number | '…')[] = [];
+  sorted.forEach((p, i) => { if (i > 0 && p - sorted[i - 1] > 1) out.push('…'); out.push(p); });
+  return out;
+}
+
+export function TransactionsTable({ items, loading, total, page, totalPages, pageSize, canEdit, canDelete, onEdit, onDelete, onPageChange }: TransactionsTableProps) {
+  const from = total === 0 ? 0 : (page - 1) * pageSize + 1;
+  const to = Math.min(page * pageSize, total);
   return (
-    <div className="bg-white/70 dark:bg-slate-900/70 backdrop-blur-xl rounded-2xl shadow-sm border border-white/60 dark:border-slate-700/60 overflow-hidden ring-1 ring-black/5 dark:ring-white/5">
-      <div className="overflow-auto max-h-[calc(100vh-18rem)] custom-scrollbar">
-        <table className="min-w-full">
-          <thead className="sticky top-0 z-10">
-            <tr className="bg-white/80 dark:bg-slate-800/90 backdrop-blur-md border-b border-gray-100/80 dark:border-slate-700/80">
-              <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider hover:bg-gray-50/50 dark:hover:bg-slate-700/50 transition-colors">
-                <span className="inline-flex items-center justify-center gap-1.5 w-full">
-                  <Icon icon="solar:hashtag-bold-duotone" className="w-4 h-4 text-blue-500 dark:text-blue-400" />
-                  Type
-                </span>
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider hover:bg-gray-50/50 dark:hover:bg-slate-700/50 transition-colors">
-                <span className="inline-flex items-center gap-1.5">
-                  <Icon icon="solar:user-bold-duotone" className="w-4 h-4 text-emerald-500" />
-                  Client/Worker/Category
-                </span>
-              </th>
-              <th className="px-4 py-3 text-right text-xs font-bold text-gray-500 uppercase tracking-wider hover:bg-gray-50/50 transition-colors">
-                <span className="inline-flex items-center justify-end gap-1.5 w-full">
-                  <Icon icon="solar:dollar-minimalistic-bold-duotone" className="w-4 h-4 text-amber-500" />
-                  Amount
-                </span>
-              </th>
-              <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider hover:bg-gray-50/50 transition-colors">
-                <span className="inline-flex items-center justify-center gap-1.5 w-full">
-                  <Icon icon="solar:card-bold-duotone" className="w-4 h-4 text-indigo-500" />
-                  To'lov usuli
-                </span>
-              </th>
-              <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 uppercase tracking-wider hover:bg-gray-50/50 transition-colors">
-                <span className="inline-flex items-center justify-center gap-1.5 w-full">
-                  <Icon icon="solar:calendar-bold-duotone" className="w-4 h-4 text-cyan-500" />
-                  Date
-                </span>
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider hover:bg-gray-50/50 transition-colors">
-                <span className="inline-flex items-center gap-1.5">
-                  <Icon icon="solar:chat-square-bold-duotone" className="w-4 h-4 text-purple-500" />
-                  Comment
-                </span>
-              </th>
-              <th className="px-4 py-3 text-center text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider hover:bg-gray-50/50 dark:hover:bg-slate-700/50 transition-colors">
-                <span className="inline-flex items-center gap-1.5 justify-center w-full">
-                  <Icon icon="solar:tuning-2-bold-duotone" className="w-4 h-4 text-slate-500 dark:text-slate-400" />
-                  Actions
-                </span>
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100/60 dark:divide-slate-700/60 bg-white/40 dark:bg-slate-900/40">
-            {transactions.length === 0 ? (
-              <tr>
-                <td colSpan={7} className="px-4 py-16 text-center">
-                  <div className="flex flex-col items-center justify-center text-gray-500">
-                    <div className="bg-gradient-to-br from-gray-50 to-slate-100 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm border border-gray-200/50">
-                      <Icon icon="solar:magnifer-bold-duotone" className="w-10 h-10 text-gray-400" />
-                    </div>
-                    <h3 className="text-xl font-bold text-gray-800 mb-2">Ma'lumotlar yo'q</h3>
-                    <p className="text-gray-500 text-sm max-w-sm mx-auto leading-relaxed">Siz qidirayotgan qidiruv so'rovi yoki filtrlarga mos keluvchi tranzaksiya topilmadi.</p>
-                  </div>
-                </td>
+    <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
+      {loading ? (
+        <div className="p-4"><TableSkeleton columns={6} rows={8} /></div>
+      ) : items.length === 0 ? (
+        <div className="px-4 py-16 text-center">
+          <Icon icon="solar:bill-list-bold-duotone" className="mx-auto h-10 w-10 text-gray-300" />
+          <p className="mt-3 text-sm font-medium text-gray-700">Tranzaksiya topilmadi</p>
+          <p className="mt-1 text-sm text-gray-500">Filtrlarni o'zgartirib ko'ring</p>
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-sm">
+            <thead>
+              <tr className="border-b border-gray-200 bg-gray-50 text-left text-xs font-medium text-gray-500">
+                <th className="px-4 py-2.5">Sana</th>
+                <th className="px-4 py-2.5">Tur</th>
+                <th className="px-4 py-2.5">Kim / nima</th>
+                <th className="px-4 py-2.5">Izoh</th>
+                <th className="px-4 py-2.5">To'lov</th>
+                <th className="px-4 py-2.5 text-right">Summa, so'm</th>
+                <th className="w-20 px-2 py-2.5"><span className="sr-only">Amallar</span></th>
               </tr>
-            ) : (
-              paginatedTransactions.map((t) => (
-                <tr key={t.id} className="group transition-all duration-200 hover:bg-white/80 dark:hover:bg-slate-800/80 hover:shadow-sm">
-                  <td className="px-4 py-3 whitespace-nowrap text-center">
-                    <span
-                      className={`px-2 py-1 text-xs font-semibold rounded-full ${t.type === 'INCOME'
-                        ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-400 ring-1 ring-emerald-200 dark:ring-emerald-800/50'
-                        : t.type === 'EXPENSE'
-                          ? 'bg-rose-100 dark:bg-rose-900/30 text-rose-800 dark:text-rose-400 ring-1 ring-rose-200 dark:ring-rose-800/50'
-                          : 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-400 ring-1 ring-indigo-200 dark:ring-indigo-800/50'
-                        }`}
-                    >
-                      {t.type}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-800 dark:text-gray-200 font-medium">
-                    {t.type === 'INCOME' && t.client
-                      ? t.client.name
-                      : t.type === 'SALARY' && t.worker
-                        ? t.worker.name
-                        : <EmptyValue value={t.expenseCategory} />}
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap text-sm font-bold text-gray-800 dark:text-gray-100 text-right">
-                    {t.amount} {t.currency}
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-800 dark:text-gray-300 text-center">
-                    {t.paymentMethod ? (
-                      <span className={`px-2 py-1 text-xs font-semibold rounded-full ${t.paymentMethod === 'CASH'
-                        ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400 ring-1 ring-blue-200 dark:ring-blue-800/50'
-                        : 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-400 ring-1 ring-purple-200 dark:ring-purple-800/50'
-                        }`}>
-                        {t.paymentMethod === 'CASH' ? 'Naqt' : 'Karta'}
-                      </span>
-                    ) : (
-                      <span className="text-gray-400 dark:text-slate-500">-</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap text-sm text-center text-gray-700 dark:text-gray-400">
-                    {formatDateTime(t.date)}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
-                    <div className="max-w-xs truncate" title={t.comment || undefined}>
-                      <EmptyValue value={t.comment} />
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap text-center text-sm font-medium">
-                    {canEdit(t) || canDelete(t) ? (
-                      <div className="flex items-center justify-center gap-2">
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {items.map((t) => {
+                const meta = TYPE_META[t.type];
+                const tone = TONE_CLASSES[meta.tone];
+                return (
+                  <tr key={t.id} className="group hover:bg-gray-50">
+                    <td className="whitespace-nowrap px-4 py-2.5 tabular-nums text-gray-600">{formatDateTime(t.date)}</td>
+                    <td className="whitespace-nowrap px-4 py-2.5">
+                      <span className="inline-flex items-center gap-1.5 text-gray-700"><span className={`h-2 w-2 rounded-full ${tone.dot}`} />{meta.label}</span>
+                    </td>
+                    <td className="max-w-[220px] truncate px-4 py-2.5 font-medium text-gray-900" title={counterpartyOf(t)}>{counterpartyOf(t)}</td>
+                    <td className="max-w-[260px] truncate px-4 py-2.5 text-gray-500" title={t.comment || undefined}>{t.comment || '—'}</td>
+                    <td className="whitespace-nowrap px-4 py-2.5 text-gray-600">{t.paymentMethod ? PAYMENT_LABEL[t.paymentMethod] : '—'}</td>
+                    <td className={`whitespace-nowrap px-4 py-2.5 text-right font-semibold tabular-nums ${tone.amount}`}>
+                      {meta.sign}{formatSom(t.amount)}{t.currency !== 'UZS' && <span className="ml-1 text-xs text-gray-400">{t.currency}</span>}
+                    </td>
+                    <td className="whitespace-nowrap px-2 py-2.5 text-right">
+                      <div className="flex justify-end gap-1 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
                         {canEdit(t) && (
-                          <button
-                            onClick={() => onEdit(t)}
-                            className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-blue-500 hover:text-blue-700 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 shadow-sm ring-1 ring-blue-200/60 dark:ring-blue-800/60 transition-all hover:shadow hover:shadow-blue-500/20"
-                            title="O'zgartirish"
-                          >
-                            <Icon icon="solar:pen-bold-duotone" className="w-4 h-4" />
+                          <button type="button" onClick={() => onEdit(t)} title="Tahrirlash" className="rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-900">
+                            <Icon icon="solar:pen-bold-duotone" className="h-4 w-4" />
                           </button>
                         )}
                         {canDelete(t) && (
-                          <button
-                            onClick={() => onDelete(t.id)}
-                            className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-rose-500 hover:text-rose-700 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/30 shadow-sm ring-1 ring-rose-200/60 dark:ring-rose-800/60 transition-all hover:shadow hover:shadow-rose-500/20"
-                            title="O'chirish"
-                          >
-                            <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4" />
+                          <button type="button" onClick={() => onDelete(t)} title="O'chirish" className="rounded-md p-1.5 text-gray-500 hover:bg-rose-50 hover:text-rose-600">
+                            <Icon icon="solar:trash-bin-trash-bold-duotone" className="h-4 w-4" />
                           </button>
                         )}
                       </div>
-                    ) : (
-                      <span className="text-gray-400 dark:text-slate-500 text-xs">-</span>
-                    )}
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
-      {transactionsTotalPages > 1 && (
-        <div className="flex items-center justify-between px-6 py-3.5 border-t border-gray-100/60 dark:border-slate-700/60 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm rounded-b-2xl">
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            {((transactionsPage - 1) * TRANSACTIONS_PAGE_SIZE) + 1}–
-            {Math.min(transactionsPage * TRANSACTIONS_PAGE_SIZE, transactionsTotalCount)} / {transactionsTotalCount}
-          </p>
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              onClick={() => onPageChange(Math.max(1, transactionsPage - 1))}
-              disabled={transactionsPage <= 1}
-              className="inline-flex items-center justify-center w-9 h-9 rounded-lg text-gray-600 dark:text-gray-400 hover:bg-white dark:hover:bg-slate-800 shadow-sm ring-1 ring-gray-200 dark:ring-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:shadow"
-            >
-              <Icon icon="solar:alt-arrow-left-bold-duotone" className="w-5 h-5" />
-            </button>
-            <div className="flex items-center gap-0.5 mx-2">
-              <span className="px-3 py-1 bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-300 rounded-lg text-sm font-semibold border border-gray-200 dark:border-slate-700 shadow-sm">
-                {transactionsPage} / {transactionsTotalPages}
-              </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {!loading && total > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-gray-200 px-4 py-2.5 text-sm text-gray-500">
+          <span className="tabular-nums">{from}–{to} / {total}</span>
+          {totalPages > 1 && (
+            <div className="flex items-center gap-1">
+              <button type="button" disabled={page <= 1} onClick={() => onPageChange(page - 1)} className="rounded-md p-1.5 hover:bg-gray-100 disabled:opacity-40" title="Oldingi">
+                <Icon icon="solar:alt-arrow-left-bold-duotone" className="h-4 w-4" />
+              </button>
+              {pageList(page, totalPages).map((p, i) => p === '…'
+                ? <span key={`gap-${i}`} className="px-1">…</span>
+                : <button key={p} type="button" onClick={() => onPageChange(p)} className={`min-w-8 rounded-md px-2 py-1 tabular-nums ${p === page ? 'bg-gray-900 text-white' : 'hover:bg-gray-100'}`}>{p}</button>)}
+              <button type="button" disabled={page >= totalPages} onClick={() => onPageChange(page + 1)} className="rounded-md p-1.5 hover:bg-gray-100 disabled:opacity-40" title="Keyingi">
+                <Icon icon="solar:alt-arrow-right-bold-duotone" className="h-4 w-4" />
+              </button>
             </div>
-            <button
-              type="button"
-              onClick={() => onPageChange(Math.min(transactionsTotalPages, transactionsPage + 1))}
-              disabled={transactionsPage >= transactionsTotalPages}
-              className="inline-flex items-center justify-center w-9 h-9 rounded-lg text-gray-600 dark:text-gray-400 hover:bg-white dark:hover:bg-slate-800 shadow-sm ring-1 ring-gray-200 dark:ring-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:shadow"
-            >
-              <Icon icon="solar:alt-arrow-right-bold-duotone" className="w-5 h-5" />
-            </button>
-          </div>
+          )}
         </div>
       )}
     </div>
   );
-});
+}

@@ -1,613 +1,218 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import apiClient from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import { useIsMobile } from '../utils/useIsMobile';
-import { TableSkeleton } from '../components/common/Skeleton';
-import toast from 'react-hot-toast';
-
-// Extracted components
+import { ConfirmDialog } from '../components/common/ConfirmDialog';
 import { TransactionsHeader } from '../components/transactions/TransactionsHeader';
 import { TransactionsFilterPanel } from '../components/transactions/TransactionsFilterPanel';
 import { TransactionsStatsCards } from '../components/transactions/TransactionsStatsCards';
 import { TransactionsTable } from '../components/transactions/TransactionsTable';
 import { TransactionsMobileList } from '../components/transactions/TransactionsMobileList';
 import { TransactionFormModal } from '../components/transactions/TransactionFormModal';
-import { PreviousYearDebtModal } from '../components/transactions/PreviousYearDebtModal';
+import { useTransactionsList } from '../components/transactions/useTransactionsList';
+import { buildTransactionPayload, EMPTY_FILTERS } from '../components/transactions/listParams';
+import type { Client, MonthlyStats, Transaction, TransactionFilters, TransactionFormData, User } from '../components/transactions/types';
 
-// Shared types
-import type { 
-  Transaction, 
-  Client, 
-  User, 
-  MonthlyStats, 
-  TransactionFilters, 
-  TransactionFormData, 
-  PreviousYearDebtFormData 
-} from '../components/transactions/types';
+const PAGE_SIZE = 15;
+const DEFAULT_CATEGORIES = ['Transport', 'Ofis', 'Boshqa', 'ST-1', 'FITO', 'AKT'];
+const today = () => new Date().toISOString().split('T')[0];
 
-// Handle ESC key to close modal
-const useEscKey = (isOpen: boolean, onClose: () => void) => {
-  useEffect(() => {
-    if (!isOpen) return;
-    const handleEscKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        onClose();
-      }
-    };
-    window.addEventListener('keydown', handleEscKey);
-    return () => {
-      window.removeEventListener('keydown', handleEscKey);
-    };
-  }, [isOpen, onClose]);
-};
+function emptyForm(isAdmin: boolean, userId: number | null): TransactionFormData {
+  return {
+    type: isAdmin ? 'INCOME' : 'SALARY', amount: '', currency: 'UZS', exchangeRate: '', paymentMethod: '',
+    comment: '', date: today(), clientId: '', workerId: isAdmin || userId == null ? '' : String(userId),
+    expenseCategory: '', virtualCardId: '',
+  };
+}
+
+function errorMessage(error: unknown): string {
+  const data = (error as { response?: { data?: { error?: unknown } } })?.response?.data?.error;
+  return typeof data === 'string' ? data : 'Xatolik yuz berdi';
+}
 
 const Transactions = () => {
   const { user } = useAuth();
   const isMobile = useIsMobile();
   const location = useLocation();
   const navigate = useNavigate();
-
   const isAdmin = user?.role === 'ADMIN';
+  const userId = user?.id ?? null;
 
-  // State
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [loading, setLoading] = useState(true);
-  const TRANSACTIONS_PAGE_SIZE = 15;
-  const [transactionsPage, setTransactionsPage] = useState(1);
-  const [transactionsTotalPages, setTransactionsTotalPages] = useState(1);
-  const [transactionsTotalCount, setTransactionsTotalCount] = useState(0);
+  const [filters, setFilters] = useState<TransactionFilters>(EMPTY_FILTERS);
+  const [page, setPage] = useState(1);
+  const list = useTransactionsList(filters, page, PAGE_SIZE);
 
-  const [filters, setFilters] = useState<TransactionFilters>({
-    startDate: '',
-    endDate: '',
-    type: '',
-    clientId: '',
-    workerId: '',
-    paymentMethod: '',
-    search: '',
-  });
-
-  const [showForm, setShowForm] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [showPreviousYearDebtForm, setShowPreviousYearDebtForm] = useState(false);
-  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
-  
   const [clients, setClients] = useState<Client[]>([]);
   const [workers, setWorkers] = useState<User[]>([]);
-  const [monthlyStats, setMonthlyStats] = useState<MonthlyStats | null>(null);
-  const [workerStats, setWorkerStats] = useState<{
-    totalEarned: number;
-    totalPaid: number;
-    totalPending: number;
-  } | null>(null);
+  const [stats, setStats] = useState<MonthlyStats | null>(null);
 
-  const [previousYearDebts, setPreviousYearDebts] = useState<any[]>([]);
-  const [previousYearDebtForm, setPreviousYearDebtForm] = useState<PreviousYearDebtFormData>({
-    workerId: '',
-    totalEarned: '',
-    totalPaid: '',
-    year: (new Date().getFullYear() - 1).toString(),
-    comment: '',
-  });
+  const [form, setForm] = useState<TransactionFormData>(() => emptyForm(isAdmin, userId));
+  const [editing, setEditing] = useState<Transaction | null>(null);
+  const [formOpen, setFormOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [toDelete, setToDelete] = useState<Transaction | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
-  const [expenseCategories, setExpenseCategories] = useState<string[]>([
-    'Transport', 'Ofis', 'Boshqa', 'ST-1', 'FITO', 'AKT'
-  ]);
-  const [newExpenseCategory, setNewExpenseCategory] = useState('');
-
-  const [form, setForm] = useState<TransactionFormData>({
-    type: 'INCOME',
-    amount: '',
-    // Transaksiyalar faqat UZS'da kiritiladi
-    currency: 'UZS',
-    exchangeRate: '',
-    paymentMethod: '',
-    comment: '',
-    date: new Date().toISOString().split('T')[0],
-    clientId: '',
-    workerId: '',
-    expenseCategory: '',
-    virtualCardId: '',
-    isLegacyPayment: false,
-  });
-
-  const isNewTransactionRoute = location.pathname === '/transactions/new';
+  const isNewRoute = location.pathname === '/transactions/new';
   const editMatch = location.pathname.match(/^\/transactions\/(\d+)\/edit$/);
-  const editTransactionId = editMatch ? Number(editMatch[1]) : null;
-  const showTransactionForm = showForm || (isMobile && isNewTransactionRoute);
-  const showEditTransactionForm = showEditModal || (isMobile && !!editTransactionId);
+  const editRouteId = editMatch ? Number(editMatch[1]) : null;
 
-  // Callbacks
-  const handleFilterChange = useCallback((key: keyof TransactionFilters, value: string) => {
-    setFilters(prev => ({ ...prev, [key]: value }));
-    setTransactionsPage(1);
-  }, []);
-
-  const handlePageChange = useCallback((page: number) => {
-    setTransactionsPage(page);
-  }, []);
-
-  const handleOpenPreviousYearDebt = useCallback(() => {
-    setShowPreviousYearDebtForm(true);
-  }, []);
-
-  const handleOpenNewTransaction = useCallback(() => {
-    if (isMobile) {
-      navigate('/transactions/new');
-    } else {
-      setShowForm(true);
+  const loadStats = useCallback(async () => {
+    if (!isAdmin) return;
+    try {
+      const { data } = await apiClient.get('/transactions/stats/monthly');
+      setStats(data?.accounting ?? data ?? null);
+    } catch {
+      setStats(null);
     }
+  }, [isAdmin]);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    loadStats();
+    apiClient.get('/clients?selectList=true').then(({ data }) => setClients(Array.isArray(data) ? data : [])).catch(() => setClients([]));
+    apiClient.get('/workers?forDropdown=true')
+      .then(({ data }) => setWorkers(Array.isArray(data) ? data.filter((u: { role?: string }) => u.role === 'DEKLARANT' || u.role === 'ADMIN' || u.role === 'MANAGER') : []))
+      .catch(() => setWorkers([]));
+  }, [isAdmin, loadStats]);
+
+  const expenseCategories = useMemo(() => {
+    const set = new Set(DEFAULT_CATEGORIES);
+    list.items.forEach((t) => { const c = t.expenseCategory?.trim(); if (c) set.add(c); });
+    return [...set];
+  }, [list.items]);
+
+  const changeFilter = useCallback((key: keyof TransactionFilters, value: string) => {
+    setFilters((prev) => ({ ...prev, [key]: value }));
+    setPage(1);
+  }, []);
+  const resetFilters = useCallback(() => { setFilters(EMPTY_FILTERS); setPage(1); }, []);
+
+  const openNew = useCallback(() => {
+    setEditing(null);
+    setForm(emptyForm(isAdmin, userId));
+    if (isMobile) navigate('/transactions/new'); else setFormOpen(true);
+  }, [isAdmin, userId, isMobile, navigate]);
+
+  const openEdit = useCallback((t: Transaction) => {
+    setEditing(t);
+    setForm({
+      type: t.type, amount: String(t.amount), currency: 'UZS', exchangeRate: '',
+      paymentMethod: t.paymentMethod ?? '', comment: t.comment ?? '',
+      date: new Date(t.date).toISOString().split('T')[0],
+      clientId: t.client?.id ? String(t.client.id) : '', workerId: t.worker?.id ? String(t.worker.id) : '',
+      expenseCategory: t.expenseCategory ?? '', virtualCardId: t.virtualCardId ? String(t.virtualCardId) : '',
+    });
+    if (isMobile) navigate(`/transactions/${t.id}/edit`); else setFormOpen(true);
   }, [isMobile, navigate]);
 
-  const handleCloseNewTransaction = useCallback(() => {
-    if (isMobile && isNewTransactionRoute) {
-      navigate('/transactions');
-    } else {
-      setShowForm(false);
-    }
-  }, [isMobile, isNewTransactionRoute, navigate]);
+  // Mobil tahrirlash havolasi to'g'ridan ochilsa
+  useEffect(() => {
+    if (!isMobile || !editRouteId || editing?.id === editRouteId) return;
+    const t = list.items.find((x) => x.id === editRouteId);
+    if (t) openEdit(t);
+  }, [isMobile, editRouteId, editing, list.items, openEdit]);
 
-  const handleCloseEditTransaction = useCallback(() => {
-    if (isMobile && editTransactionId) {
-      navigate('/transactions');
-    } else {
-      setShowEditModal(false);
-      setEditingTransaction(null);
-    }
-  }, [isMobile, editTransactionId, navigate]);
+  const closeForm = useCallback(() => {
+    setFormOpen(false);
+    setEditing(null);
+    if (isMobile && (isNewRoute || editRouteId)) navigate('/transactions');
+  }, [isMobile, isNewRoute, editRouteId, navigate]);
 
-  useEscKey(showTransactionForm, handleCloseNewTransaction);
-  useEscKey(showEditTransactionForm, handleCloseEditTransaction);
-  useEscKey(showPreviousYearDebtForm, () => setShowPreviousYearDebtForm(false));
+  const refresh = useCallback(() => { list.reload(); void loadStats(); }, [list, loadStats]);
 
-  const loadTransactions = useCallback(async () => {
+  const submit = useCallback(async () => {
+    const built = buildTransactionPayload(form, { isAdmin, userId });
+    if (!built.ok) { toast.error(built.error); return; }
+    setSaving(true);
     try {
-      setLoading(true);
-      const limit = TRANSACTIONS_PAGE_SIZE;
-      const params = new URLSearchParams([
-        ['page', transactionsPage.toString()],
-        ['limit', limit.toString()],
-        ...Object.entries(filters).filter(([_, v]) => v !== '')
-      ]);
-      const response = await apiClient.get(`/transactions?${params.toString()}`);
-      
-      const data = response.data?.data || response.data;
-      setTransactions(Array.isArray(data) ? data : []);
-      
-      if (response.data?.totalPages) {
-        setTransactionsTotalPages(response.data.totalPages);
-        setTransactionsTotalCount(response.data.total);
-      } else {
-         setTransactionsTotalPages(Math.max(1, Math.ceil((Array.isArray(data) ? data.length : 0) / limit)));
-         setTransactionsTotalCount(Array.isArray(data) ? data.length : 0);
-      }
-
-      setExpenseCategories(prev => {
-        const categorySet = new Set<string>(prev);
-        let changed = false;
-        (Array.isArray(data) ? data : [])
-          .map((tx: Transaction) => tx.expenseCategory)
-          .filter((category: string | undefined): category is string => Boolean(category && category.trim()))
-          .forEach((category: string) => {
-            const trimmed = category.trim();
-            if (!categorySet.has(trimmed)) {
-              categorySet.add(trimmed);
-              changed = true;
-            }
-          });
-        return changed ? Array.from(categorySet) : prev;
-      });
+      const { data } = editing
+        ? await apiClient.put(`/transactions/${editing.id}`, built.payload)
+        : await apiClient.post('/transactions', built.payload);
+      if (data?.workerPaymentWarning) toast.error(data.workerPaymentWarning, { duration: 8000 });
+      else toast.success(editing ? 'Saqlandi' : "Qo'shildi");
+      closeForm();
+      refresh();
     } catch (error) {
-      console.error('Error loading transactions:', error);
+      toast.error(errorMessage(error));
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
-  }, [transactionsPage, filters]);
+  }, [form, isAdmin, userId, editing, closeForm, refresh]);
 
-  const loadClients = useCallback(async () => {
+  const confirmDelete = useCallback(async () => {
+    if (!toDelete) return;
+    setDeleting(true);
     try {
-      const response = await apiClient.get('/clients?selectList=true');
-      setClients(response.data);
+      await apiClient.delete(`/transactions/${toDelete.id}`);
+      toast.success("O'chirildi");
+      setToDelete(null);
+      refresh();
     } catch (error) {
-      console.error('Error loading clients:', error);
+      toast.error(errorMessage(error));
+    } finally {
+      setDeleting(false);
     }
-  }, []);
+  }, [toDelete, refresh]);
 
-  const loadWorkers = useCallback(async () => {
-    try {
-      const response = await apiClient.get('/workers');
-      if (Array.isArray(response.data)) {
-        setWorkers(response.data.filter((u: any) => u.role === 'DEKLARANT' || u.role === 'ADMIN' || u.role === 'MANAGER'));
-      } else {
-        setWorkers([]);
-      }
-    } catch (error: any) {
-      setWorkers([]);
-    }
-  }, []);
-
-  const loadMonthlyStats = useCallback(async () => {
-    try {
-      const response = await apiClient.get('/transactions/stats/monthly');
-      if (response.data?.accounting) {
-        setMonthlyStats(response.data.accounting);
-      } else {
-        setMonthlyStats(response.data);
-      }
-    } catch (error) {
-      setMonthlyStats(null);
-    }
-  }, []);
-
-  const loadWorkerStats = useCallback(async () => {
-    try {
-      const response = await apiClient.get('/transactions/worker-stats');
-      setWorkerStats(response.data);
-    } catch (error) {
-      console.error('Error loading worker stats:', error);
-    }
-  }, []);
-
-  const loadPreviousYearDebts = useCallback(async () => {
-    try {
-      const previousYear = new Date().getFullYear() - 1;
-      const response = await apiClient.get(`/workers/previous-year-debts?year=${previousYear}`);
-      setPreviousYearDebts(response.data || []);
-    } catch (error) {
-      console.error('Error loading previous year debts:', error);
-    }
-  }, []);
-
-  const loadWorkerStatsForUser = useCallback(async (workerId: number) => {
-    try {
-      const statsResponse = await apiClient.get(`/workers/${workerId}/stats?period=all`);
-      const totalKPI = statsResponse.data.totalKPI || 0;
-
-      const stageStatsResponse = await apiClient.get(`/workers/${workerId}/stage-stats?period=all`);
-      const totals = stageStatsResponse.data.totals;
-
-      const previousYear = new Date().getFullYear() - 1;
-      let previousYearDebtData = null;
-      try {
-        const debtResponse = await apiClient.get(`/workers/${workerId}/previous-year-debt?year=${previousYear}`);
-        if (debtResponse.data) {
-          previousYearDebtData = {
-            totalEarned: Number(debtResponse.data.totalEarned || 0),
-            totalPaid: Number(debtResponse.data.totalPaid || 0),
-            balance: Number(debtResponse.data.balance || 0),
-          };
-        }
-      } catch (debtError) {
-        // null
-      }
-
-      const previousYearBalance = previousYearDebtData?.balance || 0;
-
-      setWorkerStats({
-        totalEarned: totalKPI + (previousYearDebtData?.totalEarned || 0),
-        totalPaid: totals.totalReceived + (previousYearDebtData?.totalPaid || 0),
-        totalPending: (totalKPI - totals.totalReceived) + (previousYearBalance),
-      });
-    } catch (error) {
-      console.error('Error loading worker stats for user:', error);
-    }
-  }, []);
-
-  // Admin bo'lmagan xodim uchun forma har doim "o'zim olgan pul" (SALARY) rejimida
-  useEffect(() => {
-    if (isAdmin || !user) return;
-    const workerId = user.id.toString();
-    setForm(prev =>
-      prev.type === 'SALARY' && prev.workerId === workerId
-        ? prev
-        : { ...prev, type: 'SALARY', workerId }
-    );
-  }, [isAdmin, user]);
-
-  useEffect(() => {
-    loadTransactions();
-  }, [loadTransactions]);
-
-  useEffect(() => {
-    loadClients();
-    loadWorkers();
-    if (user?.role === 'ADMIN') {
-      loadMonthlyStats();
-      loadWorkerStats();
-      loadPreviousYearDebts();
-    } else if (user?.id) {
-      loadWorkerStatsForUser(user.id);
-    }
-  }, [user, loadClients, loadWorkers, loadMonthlyStats, loadWorkerStats, loadPreviousYearDebts, loadWorkerStatsForUser]);
-
-  const handleAddExpenseCategory = useCallback(() => {
-    const trimmed = newExpenseCategory.trim();
-    if (!trimmed) return;
-    if (!expenseCategories.includes(trimmed)) {
-      setExpenseCategories(prev => [...prev, trimmed]);
-    }
-    setForm(prev => ({ ...prev, expenseCategory: trimmed }));
-    setNewExpenseCategory('');
-  }, [newExpenseCategory, expenseCategories]);
-
-  const handleSubmit = useCallback(async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      const payload: any = {
-        type: form.type,
-        amount: parseFloat(form.amount),
-        currency: form.currency || 'UZS',
-        comment: form.comment,
-        date: new Date(form.date),
-      };
-
-      if (!isAdmin) {
-        // Xodim faqat o'zi olgan pulni yozadi — tur va ishchi majburlanadi
-        if (!user) return;
-        payload.type = 'SALARY';
-        payload.workerId = user.id;
-      } else if (form.type === 'INCOME') {
-        if (!form.clientId) { alert('Mijozni tanlang'); return; }
-        payload.clientId = parseInt(form.clientId);
-      } else if (form.type === 'EXPENSE') {
-        if (!form.expenseCategory) { alert('Xarajat kategoriyasini kiriting'); return; }
-        payload.expenseCategory = form.expenseCategory;
-      } else if (form.type === 'SALARY') {
-        if (!form.workerId) { alert('Ishchini tanlang'); return; }
-        payload.workerId = parseInt(form.workerId);
-        payload.isLegacyPayment = form.isLegacyPayment;
-      }
-
-      if (isAdmin && form.virtualCardId) {
-        payload.virtualCardId = parseInt(form.virtualCardId);
-      }
-
-      const { data: created } = await apiClient.post('/transactions', payload);
-      if (created?.workerPaymentWarning) {
-        toast.error(created.workerPaymentWarning, { duration: 8000 });
-      }
-      handleCloseNewTransaction();
-      setForm({
-        type: isAdmin ? 'INCOME' : 'SALARY', amount: '', currency: 'UZS', exchangeRate: '', paymentMethod: '',
-        comment: '', date: new Date().toISOString().split('T')[0], clientId: '',
-        workerId: isAdmin ? '' : (user?.id.toString() ?? ''),
-        expenseCategory: '', virtualCardId: '', isLegacyPayment: false,
-      });
-      await loadTransactions();
-      setNewExpenseCategory('');
-      if (isAdmin) {
-        await loadMonthlyStats();
-      } else if (user) {
-        await loadWorkerStatsForUser(user.id);
-      }
-    } catch (error: any) {
-      alert(error.response?.data?.error || 'Xatolik yuz berdi');
-    }
-  }, [form, user, handleCloseNewTransaction, loadTransactions, loadMonthlyStats, loadWorkerStatsForUser, isAdmin]);
-
-  const handleEdit = useCallback((transaction: Transaction) => {
-    setEditingTransaction(transaction);
-    setForm({
-      type: transaction.type,
-      amount: transaction.amount.toString(),
-      // Tahrirlangan transaksiya har doim UZS bo'lib saqlanadi
-      currency: 'UZS',
-      exchangeRate: '',
-      paymentMethod: (transaction.paymentMethod || '') as '' | 'CASH' | 'CARD',
-      comment: transaction.comment || '',
-      date: new Date(transaction.date).toISOString().split('T')[0],
-      clientId: transaction.client?.id ? transaction.client.id.toString() : '',
-      workerId: transaction.worker?.id ? transaction.worker.id.toString() : '',
-      expenseCategory: transaction.expenseCategory || '',
-      virtualCardId: (transaction as any).virtualCardId ? (transaction as any).virtualCardId.toString() : '',
-      isLegacyPayment: false,
-    });
-    setShowEditModal(true);
-  }, []);
-
-  useEffect(() => {
-    if (!isMobile || !editTransactionId) return;
-    const txn = transactions.find((t) => t.id === editTransactionId);
-    if (txn) {
-      handleEdit(txn);
-    }
-  }, [isMobile, editTransactionId, transactions, handleEdit]);
-
-  const handleUpdate = useCallback(async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingTransaction) return;
-
-    try {
-      const payload: any = {
-        type: form.type,
-        amount: parseFloat(form.amount),
-        currency: form.currency || 'UZS',
-        paymentMethod: form.paymentMethod || undefined,
-        comment: form.comment,
-        date: new Date(form.date),
-      };
-
-      if (form.type === 'INCOME') {
-        if (!form.clientId) { alert('Mijozni tanlang'); return; }
-        payload.clientId = parseInt(form.clientId);
-      } else if (form.type === 'EXPENSE') {
-        if (!form.expenseCategory) { alert('Xarajat kategoriyasini kiriting'); return; }
-        payload.expenseCategory = form.expenseCategory;
-      } else if (form.type === 'SALARY') {
-        if (!form.workerId) { alert('Ishchini tanlang'); return; }
-        payload.workerId = parseInt(form.workerId);
-        payload.isLegacyPayment = form.isLegacyPayment;
-      }
-
-      if (form.virtualCardId) {
-        payload.virtualCardId = parseInt(form.virtualCardId);
-      }
-
-      const { data: updated } = await apiClient.put(`/transactions/${editingTransaction.id}`, payload);
-      if (updated?.workerPaymentWarning) {
-        toast.error(updated.workerPaymentWarning, { duration: 8000 });
-      }
-      handleCloseEditTransaction();
-      setForm({
-        type: 'INCOME', amount: '', currency: 'UZS', exchangeRate: '', paymentMethod: '',
-        comment: '', date: new Date().toISOString().split('T')[0], clientId: '', workerId: '',
-        expenseCategory: '', virtualCardId: '', isLegacyPayment: false,
-      });
-      await loadTransactions();
-      if (isAdmin) await loadMonthlyStats();
-    } catch (error: any) {
-      alert(error.response?.data?.error || 'Xatolik yuz berdi');
-    }
-  }, [editingTransaction, form, handleCloseEditTransaction, loadTransactions, loadMonthlyStats, isAdmin]);
-
-  // Admin hammasini tahrirlaydi; xodim faqat o'zi bugun qo'shgan yozuvini o'chira oladi
-  const canEdit = useCallback((_t: Transaction) => isAdmin, [isAdmin]);
-
+  const canEdit = useCallback(() => isAdmin, [isAdmin]);
   const canDelete = useCallback((t: Transaction) => {
     if (isAdmin) return true;
-    if (!user || t.type !== 'SALARY' || t.worker?.id !== user.id) return false;
-    if (!t.createdAt) return false;
+    if (userId == null || t.type !== 'SALARY' || t.worker?.id !== userId || !t.createdAt) return false;
     const startOfToday = new Date();
     startOfToday.setHours(0, 0, 0, 0);
     return new Date(t.createdAt) >= startOfToday;
-  }, [isAdmin, user]);
+  }, [isAdmin, userId]);
 
-  const handleDelete = useCallback(async (id: number) => {
-    if (!confirm('Bu transactionni o\'chirishni xohlaysizmi?')) return;
-
-    try {
-      await apiClient.delete(`/transactions/${id}`);
-      await loadTransactions();
-      if (isAdmin) {
-        await loadMonthlyStats();
-      } else if (user) {
-        await loadWorkerStatsForUser(user.id);
-      }
-    } catch (error: any) {
-      alert(error.response?.data?.error || 'Xatolik yuz berdi');
-    }
-  }, [loadTransactions, loadMonthlyStats, loadWorkerStatsForUser, user, isAdmin]);
-
-  const handleSavePreviousYearDebt = useCallback(async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      await apiClient.post('/workers/previous-year-debts', previousYearDebtForm);
-      setShowPreviousYearDebtForm(false);
-      setPreviousYearDebtForm({
-        workerId: '',
-        totalEarned: '',
-        totalPaid: '',
-        year: (new Date().getFullYear() - 1).toString(),
-        comment: '',
-      });
-      await loadPreviousYearDebts();
-      await loadWorkerStats();
-    } catch (error: any) {
-      alert(error.response?.data?.error || 'Xatolik yuz berdi');
-    }
-  }, [previousYearDebtForm, loadPreviousYearDebts, loadWorkerStats]);
+  const formVisible = formOpen || (isMobile && (isNewRoute || (!!editRouteId && !!editing)));
 
   return (
-    <div className="px-2 sm:px-6 py-6 min-h-screen bg-gray-50/50 pb-24">
-      <TransactionsHeader 
-        isAdmin={isAdmin}
-        onOpenPreviousYearDebt={handleOpenPreviousYearDebt}
-        onOpenNewTransaction={handleOpenNewTransaction}
-      />
+    <div className="mx-auto max-w-7xl px-3 py-5 pb-24 sm:px-6">
+      <TransactionsHeader isAdmin={isAdmin} onNew={openNew} />
+      {isAdmin && stats?.income && <TransactionsStatsCards stats={stats} />}
+      <TransactionsFilterPanel filters={filters} onChange={changeFilter} onReset={resetFilters} isAdmin={isAdmin} workers={workers} clients={clients} />
 
-      <TransactionsFilterPanel 
-        filters={filters}
-        onFilterChange={handleFilterChange}
-        isAdmin={isAdmin}
-        workers={workers}
-        clients={clients}
-      />
-
-      {isAdmin && monthlyStats && (
-        <TransactionsStatsCards monthlyStats={monthlyStats} />
-      )}
-
-      {showTransactionForm && (
-        <TransactionFormModal
-          isMobile={isMobile}
-          isNewTransactionRoute={isNewTransactionRoute}
-          editTransactionId={null}
-          form={form}
-          setForm={setForm}
-          clients={clients}
-          workers={workers}
-          expenseCategories={expenseCategories}
-          newExpenseCategory={newExpenseCategory}
-          setNewExpenseCategory={setNewExpenseCategory}
-          onAddExpenseCategory={handleAddExpenseCategory}
-          isAdmin={isAdmin}
-          currentUserName={user?.name ?? ''}
-          onSubmit={handleSubmit}
-          onClose={handleCloseNewTransaction}
-          isEditing={false}
-        />
-      )}
-
-      {showEditTransactionForm && editingTransaction && (
-        <TransactionFormModal
-          isMobile={isMobile}
-          isNewTransactionRoute={isNewTransactionRoute}
-          editTransactionId={editTransactionId}
-          form={form}
-          setForm={setForm}
-          clients={clients}
-          workers={workers}
-          expenseCategories={expenseCategories}
-          newExpenseCategory={newExpenseCategory}
-          setNewExpenseCategory={setNewExpenseCategory}
-          onAddExpenseCategory={handleAddExpenseCategory}
-          isAdmin={isAdmin}
-          currentUserName={user?.name ?? ''}
-          onSubmit={handleUpdate}
-          onClose={handleCloseEditTransaction}
-          isEditing={true}
-        />
-      )}
-
-      {loading ? (
-        <div className="bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm rounded-2xl border border-white/60 dark:border-slate-700/60 shadow-sm p-4">
-          <TableSkeleton columns={6} rows={10} />
-        </div>
-      ) : isMobile ? (
-        <TransactionsMobileList
-          paginatedTransactions={transactions}
-          canEdit={canEdit}
-          canDelete={canDelete}
-          onEdit={handleEdit}
-          onDelete={handleDelete}
-        />
+      {isMobile ? (
+        <TransactionsMobileList items={list.items} loading={list.loading} canEdit={canEdit} canDelete={canDelete} onEdit={openEdit} onDelete={setToDelete} />
       ) : (
         <TransactionsTable
-          transactions={transactions}
-          paginatedTransactions={transactions}
-          transactionsTotalPages={transactionsTotalPages}
-          transactionsTotalCount={transactionsTotalCount}
-          transactionsPage={transactionsPage}
-          TRANSACTIONS_PAGE_SIZE={TRANSACTIONS_PAGE_SIZE}
-          canEdit={canEdit}
-          canDelete={canDelete}
-          onEdit={handleEdit}
-          onDelete={handleDelete}
-          onPageChange={handlePageChange}
+          items={list.items} loading={list.loading} total={list.total} page={page} totalPages={list.totalPages} pageSize={PAGE_SIZE}
+          canEdit={canEdit} canDelete={canDelete} onEdit={openEdit} onDelete={setToDelete} onPageChange={setPage}
         />
+      )}
+      {isMobile && list.totalPages > 1 && (
+        <div className="mt-3 flex items-center justify-between text-sm text-gray-600">
+          <button type="button" disabled={page <= 1} onClick={() => setPage(page - 1)} className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 disabled:opacity-40">Oldingi</button>
+          <span className="tabular-nums">{page} / {list.totalPages}</span>
+          <button type="button" disabled={page >= list.totalPages} onClick={() => setPage(page + 1)} className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 disabled:opacity-40">Keyingi</button>
+        </div>
       )}
 
-      {showPreviousYearDebtForm && (
-        <PreviousYearDebtModal
-          form={previousYearDebtForm}
-          setForm={setPreviousYearDebtForm}
-          workers={workers}
-          previousYearDebts={previousYearDebts}
-          onSubmit={handleSavePreviousYearDebt}
-          onClose={() => setShowPreviousYearDebtForm(false)}
-        />
-      )}
+      <TransactionFormModal
+        open={formVisible}
+        fullScreen={isMobile}
+        isEditing={!!editing}
+        isAdmin={isAdmin}
+        currentUserName={user?.name ?? ''}
+        form={form}
+        onFormChange={(patch) => setForm((prev) => ({ ...prev, ...patch }))}
+        clients={clients}
+        workers={workers}
+        expenseCategories={expenseCategories}
+        saving={saving}
+        onSubmit={submit}
+        onClose={closeForm}
+      />
+      <ConfirmDialog
+        open={!!toDelete}
+        title="Tranzaksiyani o'chirish"
+        message="Bu yozuv butunlay o'chiriladi. Davom etasizmi?"
+        loading={deleting}
+        onConfirm={confirmDelete}
+        onCancel={() => setToDelete(null)}
+      />
     </div>
   );
 };

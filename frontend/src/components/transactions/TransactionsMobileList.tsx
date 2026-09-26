@@ -1,101 +1,60 @@
-import React from 'react';
 import { Icon } from '@iconify/react';
-import EmptyValue from '../../components/common/EmptyValue';
-import type { Transaction } from './types';
+import { Skeleton } from '../common/Skeleton';
 import { formatDateTime } from '../../utils/dateFormatting';
+import { counterpartyOf, formatSom, PAYMENT_LABEL, TONE_CLASSES, TYPE_META } from './format';
+import type { Transaction } from './types';
 
 interface TransactionsMobileListProps {
-  paginatedTransactions: Transaction[];
-  canEdit: (transaction: Transaction) => boolean;
-  canDelete: (transaction: Transaction) => boolean;
-  onEdit: (transaction: Transaction) => void;
-  onDelete: (id: number) => void;
+  items: Transaction[];
+  loading: boolean;
+  canEdit: (t: Transaction) => boolean;
+  canDelete: (t: Transaction) => boolean;
+  onEdit: (t: Transaction) => void;
+  onDelete: (t: Transaction) => void;
 }
 
-export const TransactionsMobileList: React.FC<TransactionsMobileListProps> = React.memo(({
-  paginatedTransactions,
-  canEdit,
-  canDelete,
-  onEdit,
-  onDelete,
-}) => {
+export function TransactionsMobileList({ items, loading, canEdit, canDelete, onEdit, onDelete }: TransactionsMobileListProps) {
+  if (loading) {
+    return <div className="space-y-2">{[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-20 w-full rounded-xl" />)}</div>;
+  }
+  if (items.length === 0) {
+    return <div className="rounded-xl border border-gray-200 bg-white px-4 py-12 text-center text-sm text-gray-500">Tranzaksiya topilmadi</div>;
+  }
   return (
-    <div className="space-y-3">
-      {paginatedTransactions.map((t) => (
-        <div key={t.id} className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-200 dark:border-slate-700/60 p-3.5 space-y-2.5">
-          <div className="flex justify-between items-start gap-3">
-            <div className="flex-1 min-w-0">
-              <p className="font-black text-gray-900 dark:text-gray-100 text-base truncate leading-tight mb-1">
-                <span className="font-medium text-gray-800 dark:text-gray-200">
-                  {t.type === 'INCOME' && t.client
-                    ? t.client.name
-                    : t.type === 'SALARY' && t.worker
-                      ? t.worker.name
-                      : <EmptyValue value={t.expenseCategory} />}
-                </span>
-              </p>
-              <div className="flex items-center gap-2">
-                <span
-                  className={`px-1.5 py-0.5 text-[9px] font-black rounded uppercase tracking-wider border ${t.type === 'INCOME'
-                    ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 border-emerald-100 dark:border-emerald-800/50'
-                    : t.type === 'EXPENSE'
-                      ? 'bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-400 border-rose-100 dark:border-rose-800/50'
-                      : 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400 border-indigo-100 dark:border-indigo-800/50'
-                    }`}
-                >
-                  {t.type === 'INCOME' ? 'Kirim' : t.type === 'EXPENSE' ? 'Chiqim' : 'Oylik'}
-                </span>
-                <span className="text-[10px] font-medium text-gray-400">{formatDateTime(t.date)}</span>
+    <div className="divide-y divide-gray-100 overflow-hidden rounded-xl border border-gray-200 bg-white">
+      {items.map((t) => {
+        const meta = TYPE_META[t.type];
+        const tone = TONE_CLASSES[meta.tone];
+        return (
+          <div key={t.id} className="flex items-start gap-3 px-3.5 py-3">
+            <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${tone.dot}`} />
+            <div className="min-w-0 flex-1">
+              <div className="flex items-baseline justify-between gap-2">
+                <p className="truncate font-medium text-gray-900">{counterpartyOf(t)}</p>
+                <p className={`shrink-0 font-semibold tabular-nums ${tone.amount}`}>{meta.sign}{formatSom(t.amount)}</p>
               </div>
-            </div>
-            <div className="text-right shrink-0">
-              <p className={`text-base font-bold tracking-tight ${t.type === 'INCOME' ? 'text-emerald-600' : t.type === 'EXPENSE' ? 'text-rose-600' : 'text-indigo-600'}`}>
-                {t.type === 'EXPENSE' ? '-' : t.type === 'INCOME' ? '+' : ''}{new Intl.NumberFormat('en-US').format(t.amount).replace(/,/g, ' ').replace(/\./g, ',')} <small className="text-[10px] font-bold uppercase">{t.currency}</small>
+              <p className="mt-0.5 text-xs text-gray-500">
+                {meta.label} · {formatDateTime(t.date)}{t.paymentMethod ? ` · ${PAYMENT_LABEL[t.paymentMethod]}` : ''}
               </p>
+              {t.comment && <p className="mt-1 truncate text-xs text-gray-500">{t.comment}</p>}
             </div>
+            {(canEdit(t) || canDelete(t)) && (
+              <div className="flex shrink-0 gap-1">
+                {canEdit(t) && (
+                  <button type="button" onClick={() => onEdit(t)} className="rounded-md p-2 text-gray-500 active:bg-gray-100" aria-label="Tahrirlash">
+                    <Icon icon="solar:pen-bold-duotone" className="h-4 w-4" />
+                  </button>
+                )}
+                {canDelete(t) && (
+                  <button type="button" onClick={() => onDelete(t)} className="rounded-md p-2 text-rose-500 active:bg-rose-50" aria-label="O'chirish">
+                    <Icon icon="solar:trash-bin-trash-bold-duotone" className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+            )}
           </div>
-
-          <div className="flex justify-between items-end gap-3 pt-0.5">
-            <div className="flex-1 min-w-0">
-              {t.comment && (
-                <p className="text-gray-500 dark:text-gray-400 text-[11px] italic truncate leading-tight border-l-2 border-gray-100 dark:border-slate-800 pl-2">
-                  {t.comment}
-                </p>
-              )}
-            </div>
-
-            <div className="flex items-center gap-1.5 shrink-0">
-              {t.paymentMethod && (
-                <span className={`inline-flex items-center justify-center w-8 h-8 rounded-lg border ${t.paymentMethod === 'CASH'
-                  ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 border-blue-100 dark:border-blue-800/50'
-                  : 'bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-400 border-purple-100 dark:border-purple-800/50'
-                  }`}
-                  title={t.paymentMethod === 'CASH' ? 'Naqt' : 'Karta'}
-                >
-                  <Icon icon={t.paymentMethod === 'CASH' ? "solar:banknote-2-bold-duotone" : "solar:card-bold-duotone"} className="w-4 h-4" />
-                </span>
-              )}
-              
-              {canEdit(t) && (
-                <button
-                  onClick={() => onEdit(t)}
-                  className="w-8 h-8 flex items-center justify-center rounded-lg bg-gray-50 dark:bg-slate-800 text-gray-400 border border-gray-100 dark:border-slate-700 active:scale-95 transition-all"
-                >
-                  <Icon icon="solar:pen-bold-duotone" className="w-4 h-4" />
-                </button>
-              )}
-              {canDelete(t) && (
-                <button
-                  onClick={() => onDelete(t.id)}
-                  className="w-8 h-8 flex items-center justify-center rounded-lg bg-rose-50 dark:bg-rose-900/20 text-rose-500 border border-rose-100 dark:border-rose-800/50 active:scale-95 transition-all"
-                >
-                  <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4" />
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
-});
+}

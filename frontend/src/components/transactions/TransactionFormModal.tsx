@@ -1,339 +1,187 @@
-import React, { useState, useEffect } from 'react';
-import DateInput from '../../components/DateInput';
-import MonetaryInput from '../../components/MonetaryInput';
+import { useEffect, useState } from 'react';
+import { Icon } from '@iconify/react';
+import DateInput from '../DateInput';
+import MonetaryInput from '../MonetaryInput';
 import type { MonetaryValidationErrors } from '../../utils/validation';
-import type { TransactionFormData, Client, User } from './types';
+import type { Client, TransactionFormData, TransactionType, User } from './types';
 
 interface TransactionFormModalProps {
-  isMobile: boolean;
-  isNewTransactionRoute: boolean;
-  editTransactionId: number | null;
+  open: boolean;
+  fullScreen: boolean;
+  isEditing: boolean;
+  isAdmin: boolean;
+  currentUserName: string;
   form: TransactionFormData;
-  setForm: (form: TransactionFormData) => void;
+  onFormChange: (patch: Partial<TransactionFormData>) => void;
   clients: Client[];
   workers: User[];
   expenseCategories: string[];
-  newExpenseCategory: string;
-  setNewExpenseCategory: (val: string) => void;
-  onAddExpenseCategory: () => void;
-  onSubmit: (e: React.FormEvent) => void;
+  saving: boolean;
+  onSubmit: () => void;
   onClose: () => void;
-  isEditing: boolean;
-  /** Admin bo'lmagan xodim faqat o'zi olgan pulni (SALARY) qo'sha oladi */
-  isAdmin: boolean;
-  currentUserName: string;
 }
 
-export const TransactionFormModal: React.FC<TransactionFormModalProps> = React.memo(({
-  isMobile,
-  isNewTransactionRoute,
-  editTransactionId,
-  form,
-  setForm,
-  clients,
-  workers,
-  expenseCategories,
-  newExpenseCategory,
-  setNewExpenseCategory,
-  onAddExpenseCategory,
-  onSubmit,
-  onClose,
-  isEditing,
-  isAdmin,
-  currentUserName,
-}) => {
+const TYPE_OPTIONS: { value: TransactionType; label: string; active: string }[] = [
+  { value: 'INCOME', label: 'Kirim', active: 'border-emerald-500 bg-emerald-50 text-emerald-700' },
+  { value: 'EXPENSE', label: 'Chiqim', active: 'border-rose-500 bg-rose-50 text-rose-700' },
+  { value: 'SALARY', label: 'Ish haqi', active: 'border-blue-500 bg-blue-50 text-blue-700' },
+];
+
+const VIRTUAL_CARDS = [
+  { value: '1', label: '1-karta: Operatsion xarajatlar' },
+  { value: '2', label: '2-karta: Qarzlar kartasi' },
+  { value: '3', label: '3-karta: Korxona xarajatlari' },
+  { value: '4', label: '4-karta: Maosh kartam' },
+];
+
+const input = 'w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20';
+const labelCls = 'mb-1 block text-sm font-medium text-gray-700';
+
+export function TransactionFormModal({
+  open, fullScreen, isEditing, isAdmin, currentUserName, form, onFormChange,
+  clients, workers, expenseCategories, saving, onSubmit, onClose,
+}: TransactionFormModalProps) {
   const [monetaryErrors, setMonetaryErrors] = useState<MonetaryValidationErrors>({});
+  const [newCategory, setNewCategory] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
-    onSubmit(e);
-  };
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open, onClose]);
 
-  const isFullScreen = isMobile && (isEditing ? editTransactionId !== null : isNewTransactionRoute);
+  if (!open) return null;
+
+  const title = isEditing ? 'Tranzaksiyani tahrirlash' : isAdmin ? 'Yangi tranzaksiya' : "Olgan pulimni qo'shish";
+  const categories = form.expenseCategory && !expenseCategories.includes(form.expenseCategory)
+    ? [...expenseCategories, form.expenseCategory]
+    : expenseCategories;
 
   return (
     <div
-      className={isFullScreen
-        ? 'fixed inset-0 bg-white flex items-start justify-center z-50'
-        : 'fixed inset-0 bg-black/50 flex items-center justify-center z-50 backdrop-blur-sm'}
-      style={isFullScreen ? undefined : { animation: 'backdropFadeIn 0.3s ease-out' }}
-      onClick={(e) => {
-        if (e.target === e.currentTarget) {
-          onClose();
-        }
-      }}
+      className={fullScreen ? 'fixed inset-0 z-50 bg-white' : 'fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4'}
+      onClick={(e) => { if (!fullScreen && e.target === e.currentTarget) onClose(); }}
     >
-      <div
-        className={isFullScreen
-          ? 'bg-white w-full h-full p-6 overflow-y-auto'
-          : 'bg-white rounded-lg shadow-2xl p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto'}
-        style={isFullScreen ? undefined : { animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)' }}
-      >
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold text-gray-800">
-            {isEditing
-              ? 'Transactionni tahrirlash'
-              : isAdmin
-                ? 'Yangi transaction'
-                : 'Olgan pulimni qo\'shish'}
-          </h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 text-2xl font-bold leading-none"
-          >
-            ×
+      <div className={fullScreen ? 'h-full overflow-y-auto p-4' : 'max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl border border-gray-200 bg-white p-5 shadow-xl'}>
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-gray-900">{title}</h2>
+          <button type="button" onClick={onClose} className="rounded-md p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700" aria-label="Yopish">
+            <Icon icon="solar:close-circle-bold-duotone" className="h-5 w-5" />
           </button>
         </div>
-        <form onSubmit={handleSubmit} className="space-y-4">
+
+        <form onSubmit={(e) => { e.preventDefault(); onSubmit(); }} className="space-y-4">
           {!isAdmin && (
-            <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-3">
-              <p className="text-sm font-medium text-indigo-900">{currentUserName}</p>
-              <p className="text-xs text-indigo-700 mt-0.5">
-                Bu yozuv sizning ish haqingizdan olingan pul sifatida qayd etiladi
-              </p>
+            <div className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2.5">
+              <p className="text-sm font-medium text-blue-900">{currentUserName}</p>
+              <p className="mt-0.5 text-xs text-blue-700">Bu yozuv ish haqingizdan olingan pul sifatida qayd etiladi</p>
             </div>
           )}
 
           {isAdmin && (
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
-            <div className="grid grid-cols-3 gap-2">
-              <button
-                type="button"
-                onClick={() => setForm({ ...form, type: 'INCOME' })}
-                className={`px-4 py-2 rounded-lg border-2 font-medium transition-colors ${form.type === 'INCOME'
-                  ? 'bg-green-600 border-green-600 text-white'
-                  : 'bg-white border-gray-300 text-gray-700 hover:border-green-500'
-                  }`}
-              >
-                INCOME
-              </button>
-              <button
-                type="button"
-                onClick={() => setForm({ ...form, type: 'EXPENSE' })}
-                className={`px-4 py-2 rounded-lg border-2 font-medium transition-colors ${form.type === 'EXPENSE'
-                  ? 'bg-red-600 border-red-600 text-white'
-                  : 'bg-white border-gray-300 text-gray-700 hover:border-red-500'
-                  }`}
-              >
-                EXPENSE
-              </button>
-              <button
-                type="button"
-                onClick={() => setForm({ ...form, type: 'SALARY' })}
-                className={`px-4 py-2 rounded-lg border-2 font-medium transition-colors ${form.type === 'SALARY'
-                  ? 'bg-yellow-500 border-yellow-500 text-white'
-                  : 'bg-white border-gray-300 text-gray-700 hover:border-yellow-500'
-                  }`}
-              >
-                SALARY
-              </button>
-            </div>
-          </div>
-          )}
-
-          {form.type === 'INCOME' && isAdmin && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Mijoz</label>
-              <select
-                value={form.clientId}
-                onChange={(e) => setForm({ ...form, clientId: e.target.value })}
-                required
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-              >
-                <option value="">Tanlang...</option>
-                {clients.map((c) => (
-                  <option key={c.id} value={c.id.toString()}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          {form.type === 'EXPENSE' && isAdmin && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Xarajat kategoriyasi
-              </label>
-              <div className="space-y-2">
-                <select
-                  value={form.expenseCategory}
-                  onChange={(e) => setForm({ ...form, expenseCategory: e.target.value })}
-                  required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                >
-                  <option value="">Tanlang...</option>
-                  {expenseCategories.map((category) => (
-                    <option key={category} value={category}>
-                      {category}
-                    </option>
-                  ))}
-                </select>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={newExpenseCategory}
-                    onChange={(e) => setNewExpenseCategory(e.target.value)}
-                    placeholder="Yangi kategoriya"
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg"
-                  />
-                  <button
-                    type="button"
-                    onClick={onAddExpenseCategory}
-                    className="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-                  >
-                    Qo'shish
+              <span className={labelCls}>Tur</span>
+              <div className="grid grid-cols-3 gap-2">
+                {TYPE_OPTIONS.map((o) => (
+                  <button key={o.value} type="button" onClick={() => onFormChange({ type: o.value })}
+                    className={`rounded-lg border px-3 py-2 text-sm font-medium ${form.type === o.value ? o.active : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+                    {o.label}
                   </button>
-                </div>
+                ))}
               </div>
             </div>
           )}
 
-          {form.type === 'SALARY' && isAdmin && (
+          {isAdmin && form.type === 'INCOME' && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Ishchi</label>
-              <select
-                value={form.workerId}
-                onChange={(e) => setForm({ ...form, workerId: e.target.value })}
-                required
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-              >
-                <option value="">Tanlang...</option>
-                {workers.map((w) => (
-                  <option key={w.id} value={w.id.toString()}>
-                    {w.name}
-                  </option>
+              <label className={labelCls} htmlFor="tx-client">Mijoz</label>
+              <select id="tx-client" value={form.clientId} onChange={(e) => onFormChange({ clientId: e.target.value })} className={input} required>
+                <option value="">Tanlang</option>
+                {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </div>
+          )}
+
+          {isAdmin && form.type === 'EXPENSE' && (
+            <div>
+              <label className={labelCls} htmlFor="tx-category">Xarajat kategoriyasi</label>
+              <select id="tx-category" value={form.expenseCategory} onChange={(e) => onFormChange({ expenseCategory: e.target.value })} className={input} required>
+                <option value="">Tanlang</option>
+                {categories.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+              <div className="mt-2 flex gap-2">
+                <input value={newCategory} onChange={(e) => setNewCategory(e.target.value)} placeholder="Yangi kategoriya" className={input} />
+                <button type="button" onClick={() => { const v = newCategory.trim(); if (v) { onFormChange({ expenseCategory: v }); setNewCategory(''); } }}
+                  className="shrink-0 rounded-lg border border-gray-200 px-3 text-sm font-medium text-gray-700 hover:bg-gray-50">Qo'shish</button>
+              </div>
+            </div>
+          )}
+
+          {isAdmin && form.type === 'SALARY' && (
+            <div>
+              <label className={labelCls} htmlFor="tx-worker">Ishchi</label>
+              <select id="tx-worker" value={form.workerId} onChange={(e) => onFormChange({ workerId: e.target.value })} className={input} required>
+                <option value="">Tanlang</option>
+                {workers.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+              </select>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <label className={labelCls}>Sana</label>
+              <DateInput value={form.date} onChange={(v) => onFormChange({ date: v })} required className={input} />
+            </div>
+            <div>
+              <span className={labelCls}>To'lov usuli</span>
+              <div className="grid grid-cols-2 gap-2">
+                {(['CASH', 'CARD'] as const).map((m) => (
+                  <button key={m} type="button" onClick={() => onFormChange({ paymentMethod: m })}
+                    className={`rounded-lg border px-3 py-2 text-sm font-medium ${form.paymentMethod === m ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+                    {m === 'CASH' ? 'Naqd' : 'Karta'}
+                  </button>
                 ))}
-              </select>
-
-              {!isEditing && (
-                <div className="mt-3 flex items-center gap-2 bg-gray-50 p-3 rounded-lg border border-gray-200">
-                  <input
-                    type="checkbox"
-                    id="isLegacyPayment"
-                    checked={form.isLegacyPayment}
-                    onChange={(e) => {
-                      const checked = e.target.checked;
-                      setForm({ 
-                        ...form, 
-                        isLegacyPayment: checked,
-                        currency: checked ? 'USD' : 'UZS' 
-                      });
-                    }}
-                    className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
-                  />
-                  <label htmlFor="isLegacyPayment" className="text-sm font-medium text-gray-700 cursor-pointer">
-                    O'tgan mavsum qarzidan chegirish (USD balans)
-                  </label>
-                </div>
-              )}
+              </div>
             </div>
-          )}
-
-          {(form.type === 'EXPENSE' || form.type === 'SALARY') && isAdmin && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Virtual Karta (ixtiyoriy)
-              </label>
-              <select
-                value={form.virtualCardId}
-                onChange={(e) => setForm({ ...form, virtualCardId: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-              >
-                <option value="">Karta tanlang (ixtiyoriy)</option>
-                <option value="1">1-karta: Operatsion xarajatlar</option>
-                <option value="2">2-karta: Qarzlar kartasi</option>
-                <option value="3">3-karta: Korxona xarajatlari</option>
-                <option value="4">4-karta: Maosh kartam</option>
-              </select>
-              <p className="text-xs text-gray-500 mt-1">Tanlangan kartadan ushbu summa ayirib tashlanadi</p>
-            </div>
-          )}
-
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Sana</label>
-            <DateInput
-              value={form.date}
-              onChange={(value) => setForm({ ...form, date: value })}
-              required
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-            />
           </div>
 
           <MonetaryInput
             amount={form.amount}
             currency={form.currency || 'UZS'}
             date={form.date}
-            onAmountChange={(value) => {
-              setForm({ ...form, amount: value });
-              setMonetaryErrors({ ...monetaryErrors, amount: undefined });
-            }}
-            onCurrencyChange={(curr) => {
-              setForm({ ...form, currency: curr as 'USD' | 'UZS' });
-            }}
+            onAmountChange={(value) => { onFormChange({ amount: value }); setMonetaryErrors((e) => ({ ...e, amount: undefined })); }}
+            onCurrencyChange={(curr) => onFormChange({ currency: curr as 'USD' | 'UZS' })}
             label="Summa"
             required
-            showLabels={true}
+            showLabels
             currencyRules={undefined}
             errors={monetaryErrors}
           />
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              To'lov usuli
-            </label>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setForm({ ...form, paymentMethod: 'CASH' })}
-                className={`flex-1 px-4 py-2 border-2 rounded-lg font-medium transition-colors ${form.paymentMethod === 'CASH'
-                  ? 'bg-blue-600 text-white border-blue-600'
-                  : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500'
-                  }`}
-              >
-                Naqt
-              </button>
-              <button
-                type="button"
-                onClick={() => setForm({ ...form, paymentMethod: 'CARD' })}
-                className={`flex-1 px-4 py-2 border-2 rounded-lg font-medium transition-colors ${form.paymentMethod === 'CARD'
-                  ? 'bg-blue-600 text-white border-blue-600'
-                  : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500'
-                  }`}
-              >
-                Karta
-              </button>
+          {isAdmin && form.type !== 'INCOME' && (
+            <div>
+              <label className={labelCls} htmlFor="tx-card">Virtual karta <span className="font-normal text-gray-400">(ixtiyoriy)</span></label>
+              <select id="tx-card" value={form.virtualCardId} onChange={(e) => onFormChange({ virtualCardId: e.target.value })} className={input}>
+                <option value="">Tanlanmagan</option>
+                {VIRTUAL_CARDS.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+              </select>
             </div>
-          </div>
+          )}
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Comment</label>
-            <textarea
-              value={form.comment}
-              onChange={(e) => setForm({ ...form, comment: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-              rows={3}
-            />
+            <label className={labelCls} htmlFor="tx-comment">Izoh</label>
+            <textarea id="tx-comment" value={form.comment} onChange={(e) => onFormChange({ comment: e.target.value })} rows={2} className={input} />
           </div>
 
-          <div className="flex gap-2">
-            <button
-              type="submit"
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
-            >
-              Saqlash
-            </button>
-            <button
-              type="button"
-              onClick={onClose}
-              className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300"
-            >
-              Bekor
+          <div className="flex justify-end gap-2 pt-1">
+            <button type="button" onClick={onClose} className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Bekor qilish</button>
+            <button type="submit" disabled={saving} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60">
+              {saving ? 'Saqlanmoqda…' : 'Saqlash'}
             </button>
           </div>
         </form>
       </div>
     </div>
   );
-});
+}

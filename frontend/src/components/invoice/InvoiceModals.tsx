@@ -64,6 +64,10 @@ interface InvoiceModalsProps {
     selectedKeys: Set<string>;
     toggleKey: (key: string) => void;
     toggleAll: (checked: boolean) => void;
+    edits: Record<string, string>;
+    editValue: (key: string, value: string) => void;
+    revertValue: (key: string) => void;
+    hasInvalidEdits: boolean;
     analyze: () => void;
     applyCargo: () => void;
     reset: () => void;
@@ -226,6 +230,10 @@ export const InvoiceModals: React.FC<InvoiceModalsProps> = ({
             selectedKeys={cargoImport.selectedKeys}
             toggleKey={cargoImport.toggleKey}
             toggleAll={cargoImport.toggleAll}
+            edits={cargoImport.edits}
+            editValue={cargoImport.editValue}
+            revertValue={cargoImport.revertValue}
+            hasInvalidEdits={cargoImport.hasInvalidEdits}
             analyze={cargoImport.analyze}
             applyCargo={() => {
               cargoImport.applyCargo();

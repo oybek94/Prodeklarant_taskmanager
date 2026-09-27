@@ -60,7 +60,28 @@ export interface CargoPreviewRow {
   currentValue: string;
   /** Qiymat yozish emas, invoysdagi eski qiymatni tozalash qatori */
   clear?: boolean;
+  /** Preview oynasida qiymatni tahrirlash maydoni turi (standart: 'text') */
+  input?: CargoRowInput;
 }
+
+export type CargoRowInput = 'text' | 'multiline' | 'number' | 'date' | 'currency';
+
+/** Foydalanuvchi yozgan sonni o'qiydi: "19 170" → 19170, "5,25" → 5.25; noto'g'ri bo'lsa null */
+export const parseEditedNumber = (value: string): number | null => {
+  const cleaned = value.replace(/\s/g, '').replace(',', '.');
+  if (!cleaned) return null;
+  const num = Number(cleaned);
+  return Number.isFinite(num) ? num : null;
+};
+
+/** Tahrirlangan qiymat xatosi (yoki null) — xato bo'lsa "Qo'llash" bloklanadi */
+export const validateEditedValue = (row: CargoPreviewRow, value: string): string | null => {
+  if (!value.trim()) return "Bo'sh qiymat — kerak bo'lmasa belgini olib tashlang";
+  if (row.input === 'number' && parseEditedNumber(value) === null) return "Son kiriting";
+  if (row.input === 'date' && !/^\d{4}-\d{2}-\d{2}$/.test(value)) return "Sana noto'g'ri";
+  if (row.input === 'currency' && normalizeCurrency(value) === null) return 'Faqat USD yoki UZS';
+  return null;
+};
 
 /** Invoysning skalyar maydonlariga to'g'ridan-to'g'ri tushadigan qiymatlar */
 const FORM_FIELD_LABELS: Record<string, string> = {
@@ -93,6 +114,27 @@ const PRODUCT_FIELD_LABELS = {
 } satisfies Partial<Record<keyof InvoiceItem, string>>;
 
 type ProductFieldKey = keyof typeof PRODUCT_FIELD_LABELS;
+
+/** Son bilan saqlanadigan tovar maydonlari — tahrirlangan matn songa o'giriladi */
+const NUMERIC_PRODUCT_FIELDS = new Set<ProductFieldKey>([
+  'packagesCount',
+  'quantity',
+  'grossWeight',
+  'netWeight',
+  'unitPrice',
+]);
+
+/** Invoys skalyar maydonlarining tahrirlash turi */
+const FORM_FIELD_INPUTS: Record<string, CargoRowInput> = {
+  date: 'date',
+  currency: 'currency',
+  customsAddress: 'multiline',
+  destination: 'multiline',
+  notes: 'multiline',
+};
+
+/** Ko'p qatorli qiymat bo'lsa textarea, aks holda oddiy maydon */
+const textInputFor = (value: string): CargoRowInput => (value.includes('\n') ? 'multiline' : 'text');
 
 const PRODUCT_FIELD_KEYS = Object.keys(PRODUCT_FIELD_LABELS) as ProductFieldKey[];
 
@@ -279,6 +321,7 @@ export const buildPreviewRows = (
       label: FORM_FIELD_LABELS[field] ?? field,
       newValue: next,
       currentValue: asText(form[field]),
+      input: FORM_FIELD_INPUTS[field] ?? textInputFor(next),
     });
   };
 
@@ -308,6 +351,7 @@ export const buildPreviewRows = (
         label: `Товар ${idx + 1} — ${label}`,
         newValue: next,
         currentValue: asText(existing?.[field as keyof InvoiceItem]),
+        input: NUMERIC_PRODUCT_FIELDS.has(field as ProductFieldKey) ? 'number' : 'text',
       });
     });
   });
@@ -322,6 +366,7 @@ export const buildPreviewRows = (
         label: `Товар ${idx + 1} — ${KVANT_COLUMN_LABEL} (yangi ustun)`,
         newValue: String(product.kvant),
         currentValue: '',
+        input: 'number',
       });
     });
   } else if (kvantPlacement === 'info') {
@@ -331,6 +376,7 @@ export const buildPreviewRows = (
       label: `${KVANT_COLUMN_LABEL} (Доп. информация)`,
       newValue: String(kvant),
       currentValue: asText(customFields.find((f) => f.label === KVANT_COLUMN_LABEL)?.value),
+      input: 'number',
     });
   }
 
@@ -341,8 +387,8 @@ export const buildPreviewRows = (
       if (!product.calibre?.trim()) return;
       rows.push({
         key: `product:${idx}:calibre`,
-        label: `Товар ${idx + 1} — ${CALIBRE_LABEL} (nomga qo'shiladi)`,
-        newValue: appendCalibreToName(product.name, product.calibre),
+        label: `Товар ${idx + 1} — ${CALIBRE_LABEL} (nomga qo'shiladi: «, калибр: …»)`,
+        newValue: product.calibre.trim(),
         currentValue: '',
       });
     });
@@ -374,6 +420,7 @@ export const buildPreviewRows = (
       label: `${field.label} (Доп. информация)`,
       newValue: field.value,
       currentValue: asText(customFields.find((f) => f.label === field.label)?.value),
+      input: textInputFor(field.value),
     });
   });
 
@@ -384,6 +431,7 @@ export const buildPreviewRows = (
       label: `${field.label} (Упаковочный лист)`,
       newValue: field.value,
       currentValue: asText(packingCustomFields.find((f) => f.label === field.label)?.value),
+      input: textInputFor(field.value),
     });
   });
 
@@ -469,13 +517,36 @@ export const useCargoImport = ({
   const [parsed, setParsed] = useState<CargoTextExtraction | null>(null);
   const [rows, setRows] = useState<CargoPreviewRow[]>([]);
   const [selectedKeys, setSelectedKeys] = useState<Set<string>>(new Set());
+  /** Preview oynasida qo'lda tahrirlangan qiymatlar (qator kaliti → matn) — AI natijasidan ustun */
+  const [edits, setEdits] = useState<Record<string, string>>({});
 
   const reset = useCallback(() => {
     setText('');
     setParsed(null);
     setRows([]);
     setSelectedKeys(new Set());
+    setEdits({});
   }, []);
+
+  /** Qiymat tahrirlanganda qator avtomatik belgilanadi — tahrirlangan narsa qo'llanishi kutiladi */
+  const editValue = useCallback((key: string, value: string) => {
+    setEdits((prev) => ({ ...prev, [key]: value }));
+    setSelectedKeys((prev) => (prev.has(key) ? prev : new Set(prev).add(key)));
+  }, []);
+
+  /** AI qaytargan asl qiymatga qaytaradi */
+  const revertValue = useCallback((key: string) => {
+    setEdits((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  }, []);
+
+  /** Belgilangan qatorlardan birida noto'g'ri tahrir bo'lsa qo'llash bloklanadi */
+  const hasInvalidEdits = rows.some(
+    (row) => row.key in edits && selectedKeys.has(row.key) && validateEditedValue(row, edits[row.key]) !== null
+  );
 
   const toggleKey = useCallback((key: string) => {
     setSelectedKeys((prev) => {
@@ -511,6 +582,7 @@ export const useCargoImport = ({
       setParsed(data);
       setRows(previewRows);
       setSelectedKeys(new Set(previewRows.map((r) => r.key)));
+      setEdits({});
     } catch (error: unknown) {
       console.error(error);
       toast.error('Matnni tahlil qilishda xatolik yuz berdi');
@@ -530,13 +602,18 @@ export const useCargoImport = ({
 
   /** Belgilangan qatorlarni formaga, jadvalga va custom maydonlarga yozadi */
   const applyCargo = useCallback(() => {
-    if (!parsed) return;
+    if (!parsed || hasInvalidEdits) return;
     const isSelected = (key: string) => selectedKeys.has(key);
+    /** Qo'lda tahrirlangan qiymat bo'lsa o'sha, aks holda AI qiymati */
+    const valueOf = <T,>(key: string, original: T): string | T =>
+      key in edits ? edits[key].trim() : original;
 
     /* --- Skalyar maydonlar --- */
     const formPatch: Partial<InvoiceFormData> = {};
     const setIf = (field: keyof InvoiceFormData, value: string | null) => {
-      if (value && isSelected(`form:${field}`)) formPatch[field] = value;
+      const key = `form:${field}`;
+      const next = valueOf(key, value);
+      if (next && isSelected(key)) formPatch[field] = next;
     };
     setIf('invoiceNumber', parsed.invoice_number);
     setIf('date', parsed.invoice_date);
@@ -549,7 +626,9 @@ export const useCargoImport = ({
     setIf('customsAddress', parsed.customs_address);
     setIf('notes', buildPalletNote(parsed.products));
 
-    const currency = normalizeCurrency(parsed.products.find((p) => p.currency)?.currency ?? null);
+    const currency = normalizeCurrency(
+      valueOf('form:currency', parsed.products.find((p) => p.currency)?.currency ?? null)
+    );
     if (currency && isSelected('form:currency')) formPatch.currency = currency;
 
     if (Object.keys(formPatch).length > 0) {
@@ -594,8 +673,14 @@ export const useCargoImport = ({
           : { ...createDefaultItem(), unit: items[0]?.unit ?? 'кг' };
         const fields = productToItemFields(product);
         PRODUCT_FIELD_KEYS.forEach((field) => {
-          if (!isSelected(`product:${idx}:${field}`)) return;
-          const value = fields[field];
+          const key = `product:${idx}:${field}`;
+          if (!isSelected(key)) return;
+          let value: string | number | undefined = fields[field];
+          if (key in edits) {
+            value = NUMERIC_PRODUCT_FIELDS.has(field)
+              ? parseEditedNumber(edits[key]) ?? value
+              : edits[key].trim();
+          }
           if (value === undefined) return;
           Object.assign(base, { [field]: value });
         });
@@ -615,20 +700,22 @@ export const useCargoImport = ({
         if (!base.unitPrice && defaults.unitPrice != null) base.unitPrice = defaults.unitPrice;
 
         // Kalibrlar har xil bo'lsa tovar nomiga qo'shiladi
-        if (
-          calibrePlacement === 'per-product' &&
-          product.calibre?.trim() &&
-          isSelected(`product:${idx}:calibre`)
-        ) {
-          base.name = appendCalibreToName(base.name, product.calibre);
+        const calibreKey = `product:${idx}:calibre`;
+        if (calibrePlacement === 'per-product' && product.calibre?.trim() && isSelected(calibreKey)) {
+          base.name = appendCalibreToName(base.name, valueOf(calibreKey, product.calibre));
         }
 
         // Квант / РЦ — jadval ustuni sifatida item.customFields ichiga
-        if (kvantColumnKey && product.kvant != null && isSelected(`product:${idx}:kvant`)) {
-          base.customFields = { ...base.customFields, [kvantColumnKey]: String(product.kvant) };
+        const kvantKey = `product:${idx}:kvant`;
+        if (kvantColumnKey && product.kvant != null && isSelected(kvantKey)) {
+          base.customFields = { ...base.customFields, [kvantColumnKey]: valueOf(kvantKey, String(product.kvant)) };
         }
-        if (rcColumnKey && product.distribution_center?.trim() && isSelected(`product:${idx}:rc`)) {
-          base.customFields = { ...base.customFields, [rcColumnKey]: product.distribution_center.trim() };
+        const rcKey = `product:${idx}:rc`;
+        if (rcColumnKey && product.distribution_center?.trim() && isSelected(rcKey)) {
+          base.customFields = {
+            ...base.customFields,
+            [rcColumnKey]: valueOf(rcKey, product.distribution_center.trim()),
+          };
         }
 
         // Brutto/netto qo'lda kelgani uchun eski formulalar kuchini yo'qotadi
@@ -647,9 +734,10 @@ export const useCargoImport = ({
       if (selected.length === 0) return null;
       const merged = [...existing];
       selected.forEach((field, idx) => {
+        const value = valueOf(`${prefix}:${field.label}`, field.value);
         const at = merged.findIndex((f) => f.label === field.label);
-        if (at >= 0) merged[at] = { ...merged[at], value: field.value };
-        else merged.push({ id: `${Date.now()}_${idx}`, label: field.label, value: field.value });
+        if (at >= 0) merged[at] = { ...merged[at], value };
+        else merged.push({ id: `${Date.now()}_${idx}`, label: field.label, value });
       });
       return merged;
     };
@@ -715,6 +803,8 @@ export const useCargoImport = ({
     parsed,
     rows,
     selectedKeys,
+    edits,
+    hasInvalidEdits,
     items,
     customFields,
     packingCustomFields,
@@ -738,6 +828,10 @@ export const useCargoImport = ({
     selectedKeys,
     toggleKey,
     toggleAll,
+    edits,
+    editValue,
+    revertValue,
+    hasInvalidEdits,
     analyze,
     applyCargo,
     reset,

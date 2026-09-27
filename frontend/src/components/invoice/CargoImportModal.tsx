@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
 import { Icon } from '@iconify/react';
+import { validateEditedValue } from './useCargoImport';
 import type { CargoPreviewRow } from './useCargoImport';
 
 interface CargoImportModalProps {
@@ -10,9 +11,65 @@ interface CargoImportModalProps {
   selectedKeys: Set<string>;
   toggleKey: (key: string) => void;
   toggleAll: (checked: boolean) => void;
+  /** Qo'lda tahrirlangan qiymatlar (qator kaliti → matn) */
+  edits: Record<string, string>;
+  editValue: (key: string, value: string) => void;
+  revertValue: (key: string) => void;
+  /** Belgilangan qatorlardan birida noto'g'ri qiymat bor — qo'llash bloklanadi */
+  hasInvalidEdits: boolean;
   analyze: () => void;
   applyCargo: () => void;
   onClose: () => void;
+}
+
+const INPUT_CLASS =
+  'w-full mt-1 px-2 py-1 border rounded-lg text-sm bg-white text-gray-900 focus:outline-none focus:ring-2 transition-all';
+
+/** Qator qiymatini tahrirlash maydoni — turi qatorga qarab (son, sana, valyuta, ko'p qatorli matn) */
+function RowValueInput({
+  row,
+  value,
+  invalid,
+  onChange,
+}: {
+  row: CargoPreviewRow;
+  value: string;
+  invalid: boolean;
+  onChange: (value: string) => void;
+}) {
+  const className = `${INPUT_CLASS} ${
+    invalid
+      ? 'border-rose-400 focus:ring-rose-500/20 focus:border-rose-500'
+      : 'border-gray-200 focus:ring-indigo-500/20 focus:border-indigo-500'
+  }`;
+
+  if (row.input === 'multiline') {
+    return (
+      <textarea
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        rows={Math.min(Math.max(value.split('\n').length, 2), 6)}
+        className={`${className} leading-snug resize-y`}
+      />
+    );
+  }
+  if (row.input === 'currency') {
+    return (
+      <select value={value} onChange={(e) => onChange(e.target.value)} className={className}>
+        <option value="USD">USD</option>
+        <option value="UZS">UZS</option>
+      </select>
+    );
+  }
+  return (
+    <input
+      type={row.input === 'date' ? 'date' : 'text'}
+      inputMode={row.input === 'number' ? 'decimal' : undefined}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className={className}
+    />
+  );
 }
 
 const PLACEHOLDER = `Mijoz yuborgan matnni shu yerga qo'ying, masalan:
@@ -36,6 +93,10 @@ export function CargoImportModal({
   selectedKeys,
   toggleKey,
   toggleAll,
+  edits,
+  editValue,
+  revertValue,
+  hasInvalidEdits,
   analyze,
   applyCargo,
   onClose,
@@ -68,7 +129,7 @@ export function CargoImportModal({
               <h2 className="text-lg font-bold text-gray-800 leading-tight">Matndan to&apos;ldirish</h2>
               <p className="text-[11px] text-gray-400 leading-tight">
                 {hasPreview
-                  ? 'Qaysi maydonlar to\'ldirilishini tekshiring'
+                  ? 'Qaysi maydonlar to\'ldirilishini tekshiring — qiymatni shu yerda tuzatish mumkin'
                   : 'Отправитель, Изготовитель va Клиент qatorlari e\'tiborga olinmaydi'}
               </p>
             </div>
@@ -108,10 +169,13 @@ export function CargoImportModal({
 
               {rows.map((row) => {
                 const checked = selectedKeys.has(row.key);
+                const edited = row.key in edits;
+                const value = edited ? edits[row.key] : row.newValue;
+                const error = edited && checked ? validateEditedValue(row, value) : null;
                 return (
-                  <label
+                  <div
                     key={row.key}
-                    className={`flex items-start gap-2.5 p-2.5 rounded-xl border cursor-pointer transition-all ${
+                    className={`flex items-start gap-2.5 p-2.5 rounded-xl border transition-all ${
                       checked ? 'bg-indigo-50/50 border-indigo-200' : 'bg-white border-gray-200 hover:bg-gray-50'
                     }`}
                   >
@@ -119,18 +183,48 @@ export function CargoImportModal({
                       type="checkbox"
                       checked={checked}
                       onChange={() => toggleKey(row.key)}
-                      className="w-4 h-4 mt-0.5 accent-indigo-600 shrink-0"
+                      aria-label={row.label}
+                      className="w-4 h-4 mt-0.5 accent-indigo-600 shrink-0 cursor-pointer"
                     />
                     <div className="min-w-0 flex-1">
-                      <div className="text-xs font-medium text-gray-500 leading-tight">{row.label}</div>
-                      <div
-                        className={`text-sm break-words whitespace-pre-wrap leading-snug mt-0.5 ${
-                          row.clear ? 'text-rose-600 italic' : 'text-gray-900'
-                        }`}
-                      >
-                        {row.clear ? "Matnda bo'sh — maydon tozalanadi" : row.newValue}
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => toggleKey(row.key)}
+                          className="text-xs font-medium text-gray-500 leading-tight text-left cursor-pointer"
+                        >
+                          {row.label}
+                        </button>
+                        {edited && (
+                          <>
+                            <span className="text-[10px] font-semibold text-indigo-600 uppercase tracking-wider">
+                              tahrirlandi
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => revertValue(row.key)}
+                              title={`Asl qiymatga qaytarish: ${row.newValue}`}
+                              className="ml-auto text-gray-400 hover:text-indigo-600 transition-colors"
+                            >
+                              <Icon icon="solar:undo-left-round-bold-duotone" className="w-4 h-4" />
+                            </button>
+                          </>
+                        )}
                       </div>
-                      {row.currentValue && row.currentValue !== row.newValue && (
+                      {row.clear ? (
+                        <div className="text-sm leading-snug mt-0.5 text-rose-600 italic">
+                          Matnda bo&apos;sh — maydon tozalanadi
+                        </div>
+                      ) : (
+                        <RowValueInput
+                          row={row}
+                          value={value}
+                          invalid={error !== null}
+                          onChange={(next) => editValue(row.key, next)}
+                        />
+                      )}
+                      {error && <div className="text-[11px] text-rose-600 mt-0.5">{error}</div>}
+                      {row.currentValue && row.currentValue !== value && (
                         <div className="text-[11px] text-amber-600 mt-0.5 break-words">
                           {row.clear
                             ? `O'chiriladigan eski qiymat: ${row.currentValue}`
@@ -138,7 +232,7 @@ export function CargoImportModal({
                         </div>
                       )}
                     </div>
-                  </label>
+                  </div>
                 );
               })}
             </div>
@@ -168,7 +262,8 @@ export function CargoImportModal({
             <button
               type="button"
               onClick={applyCargo}
-              disabled={selectedKeys.size === 0}
+              disabled={selectedKeys.size === 0 || hasInvalidEdits}
+              title={hasInvalidEdits ? 'Qizil belgilangan qiymatlarni tuzating' : undefined}
               className="px-5 py-2 bg-indigo-600 text-white font-semibold rounded-xl hover:bg-indigo-700 transition-colors shadow-sm shadow-indigo-500/25 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Qo&apos;llash ({selectedKeys.size})

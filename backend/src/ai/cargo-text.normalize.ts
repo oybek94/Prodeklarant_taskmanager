@@ -26,17 +26,50 @@ const DESTINATION_MARKER = /выгрузка/i;
  * "Номер ТС" qatorida mijozlar ba'zan "40|202GCA / 40|6509BA" kabi ortiqcha
  * ajratgichlar (probel, "|") bilan yozadi. Standart ko'rinish — ortiqcha
  * belgilarsiz, bir nechta raqam "/" bilan ajratilgan: "40202GCA/406509BA".
- * AI promptga "shundayligicha qaytaring" deyilgan bo'lsa ham, bu tozalash
- * kod darajasida kafolatlanadi.
+ * Harflar QAYSI ALIFBODA bo'lsa ham saqlanadi — rus raqamlari kirillcha
+ * ("Е200ЕЕ164/АУ699164"); belgilar tartibi o'zgartirilmaydi.
  */
-function normalizeVehicleNumber(value: string | null): string | null {
+export function normalizeVehicleNumber(value: string | null): string | null {
   if (!value) return value;
   const cleaned = value
     .split('/')
-    .map((part) => part.replace(/[^0-9A-Za-z]/g, ''))
+    .map((part) => part.replace(/[^\p{L}\p{N}]/gu, ''))
     .filter((part) => part.length > 0)
     .join('/');
   return cleaned.length > 0 ? cleaned : null;
+}
+
+/**
+ * Matndagi "Номер ТС: ..." qatorining qiymati. AI raqamni "tuzatib" yuborishi
+ * mumkin (kirill harfini lotinchaga almashtirish, tartibni o'zgartirish) —
+ * shuning uchun qator matnda bo'lsa qiymat aynan o'sha yerdan olinadi.
+ */
+const VEHICLE_NUMBER_LINE = /^\s*номер\s+т\.?\s*с\.?\s*[:\-–—]?\s*(.+?)\s*$/i;
+
+function vehicleNumberFromText(rawText: string): string | null {
+  for (const line of rawText.split(/\r?\n/)) {
+    const match = line.match(VEHICLE_NUMBER_LINE);
+    // "Номер ТС / прицепа: ..." kabi boshqa yorliqli qatorlarni tanimaymiz — AI qiymati qoladi
+    if (match && !match[1].includes(':')) return normalizeVehicleNumber(match[1]);
+  }
+  return null;
+}
+
+/**
+ * Tizimda shartnoma va mijoz yozuvlaridan olinadigan tomonlar — matndan
+ * hech qayerga yozilmaydi (prompt ham shuni so'raydi, bu esa kafolat).
+ */
+const PARTY_LINE = /^\s*(отправител\S*|изготовител\S*|клиент\S*|экспортер\S*|экспортёр\S*)\s*[:\-–—]\s*(.*?)\s*$/i;
+const PARTY_LABELS = ['отправитель', 'изготовитель', 'клиент', 'экспортер', 'экспортёр'];
+
+/** Matndagi tomonlar qatorlarining qiymatlari (kichik harfda) */
+function partyValues(rawText: string): Set<string> {
+  const values = new Set<string>();
+  rawText.split(/\r?\n/).forEach((line) => {
+    const value = line.match(PARTY_LINE)?.[2]?.trim().toLowerCase();
+    if (value) values.add(value);
+  });
+  return values;
 }
 
 /**
@@ -116,9 +149,20 @@ export function normalizeCargoExtraction(
   // 1) Квант / Калибр / РЦ tovar maydonlarida yashaydi, Итого esa jadval o'zi
   //    hisoblaydigan yig'indi — ikkalasi ham extra_fields dan olib tashlanadi,
   //    aks holda bir xil ma'lumot ikki joyda ikki xil ko'rinishda paydo bo'ladi
+  //    Отправитель / Изготовитель / Клиент / Экспортер ham — yorlig'i bo'yicha yoki
+  //    (AI boshqa yorliq qo'ygan bo'lsa) qiymati matndagi o'sha qatorga tengligi bo'yicha
+  const parties = partyValues(rawText);
+  const isPartyField = (field: { label: string; value: string }): boolean =>
+    matchesAny(normalizeLabel(field.label), PARTY_LABELS) ||
+    parties.has(field.value.trim().toLowerCase());
+
   const kept = data.extra_fields.filter((field) => {
     const label = normalizeLabel(field.label);
-    return !matchesAny(label, PER_PRODUCT_LABELS) && !matchesAny(label, TOTALS_LABELS);
+    return (
+      !matchesAny(label, PER_PRODUCT_LABELS) &&
+      !matchesAny(label, TOTALS_LABELS) &&
+      !isPartyField(field)
+    );
   });
 
   // 2) "В упаковочный лист:" bo'limidagi qatorlar packing_fields ga tegishli, lekin
@@ -130,7 +174,7 @@ export function normalizeCargoExtraction(
     return label.length > 0 && sectionLines.some((line) => line.startsWith(label));
   };
 
-  const packing_fields = [...data.packing_fields];
+  const packing_fields = data.packing_fields.filter((field) => !isPartyField(field));
   const seen = new Set(packing_fields.map((field) => normalizeLabel(field.label)));
   const extra_fields = kept.filter((field) => {
     if (!belongsToPacking(field.label)) return true;
@@ -146,8 +190,9 @@ export function normalizeCargoExtraction(
   //    AI ba'zan uni "DAP Москва" dan to'qib chiqaradi
   const destination = DESTINATION_MARKER.test(rawText) ? data.destination : null;
 
-  // 4) Номер ТС — ortiqcha probel/"|" kabi belgilarsiz standart ko'rinishga keltiriladi
-  const vehicle_number = normalizeVehicleNumber(data.vehicle_number);
+  // 4) Номер ТС — matndagi qatorning o'zidan (AI "tuzatgan" bo'lsa ham), ortiqcha
+  //    probel/"|" kabi belgilarsiz; harflar alifbosi va tartibi saqlanadi
+  const vehicle_number = vehicleNumberFromText(rawText) ?? normalizeVehicleNumber(data.vehicle_number);
 
   // 5) Номер инвойса qatoridagi "от DD.MM.YYYY" sanasi invoice_date ga ajratiladi
   const { invoice_number, invoice_date } = normalizeInvoiceNumberAndDate(

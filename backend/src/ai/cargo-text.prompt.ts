@@ -92,8 +92,9 @@ E'TIBORSIZ QOLDIRILADIGAN QATORLAR (ULARNI HECH QAYERGA YOZMANG):
 - "Отправитель: ..." — yuk jo'natuvchi
 - "Изготовитель: ..." — ishlab chiqaruvchi
 - "Клиент: ..." — mijoz
-Bu uchtasi tizimda shartnoma va mijoz yozuvlaridan olinadi, matndan olinmaydi.
-Ularni extra_fields ga ham QO'SHMANG.
+- "Экспортер: ..." — eksportyor
+Bular tizimda shartnoma va mijoz yozuvlaridan olinadi, matndan olinmaydi.
+Ularni extra_fields ga ham, packing_fields ga ham QO'SHMANG.
 
 YIG'INDI qatorlari ("Итого", "Всего") — masalan
 "Итого: 18 800 нетто / 20 390 брутто" — tovarlar yig'indisi bo'lib, invoys
@@ -110,7 +111,9 @@ MAYDONLAR MAZMUNI:
 - vehicle_number — "Номер ТС" qiymati BUTUN HOLICHA, qismlarga ajratmang
   (masalan "40906MCA/405284BA" — shundayligicha). Agar qatorda "|" kabi
   ortiqcha ajratgichlar yoki probellar bo'lsa (masalan "40|202GCA / 40|6509BA"),
-  ularni OLIB TASHLANG va "40202GCA/406509BA" ko'rinishida qaytaring
+  ularni OLIB TASHLANG va "40202GCA/406509BA" ko'rinishida qaytaring.
+  Harflarni ALMASHTIRMANG va belgilar tartibini o'zgartirmang: kirillcha
+  harflar kirillchaligicha qoladi ("Е200ЕЕ164/АУ699164" — aynan shunday)
 - harvest_year — "Год урожая" qiymati
 - order_number — buyurtma/partiya kodi: alohida turgan uzun defisli kod
   (masalan "RVI-2026-29-31-TKGARDENS-3682719-BGR-DSC_1")

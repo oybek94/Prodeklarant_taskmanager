@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Icon } from '@iconify/react';
 import { useNavigate } from 'react-router-dom';
+import apiClient from '../../lib/api';
+import type { TaskDetail } from './types';
 
-interface EditForm {
+export interface EditForm {
   title: string;
   clientId: string;
   branchId: string;
@@ -11,10 +13,26 @@ interface EditForm {
   hasPsr: boolean;
   afterHoursPayer: 'CLIENT' | 'COMPANY';
   driverPhone: string;
+  contractId: string;
+}
+
+/** Tahrirlash formasi vazifa ma'lumotidan (desktop modal va mobil /tasks/:id/edit uchun bir xil) */
+export function taskToEditForm(task: TaskDetail): EditForm {
+  return {
+    title: task.title,
+    clientId: task.client.id.toString(),
+    branchId: task.branch.id.toString(),
+    comments: task.comments || '',
+    hasPsr: task.hasPsr || false,
+    afterHoursPayer: task.afterHoursPayer || 'CLIENT',
+    driverPhone: task.driverPhone || '',
+    contractId: task.invoice?.contractId ? String(task.invoice.contractId) : '',
+  };
 }
 
 interface Client { id: number; name: string }
 interface Branch { id: number; name: string; isActive?: boolean }
+interface ContractOption { id: number; contractNumber: string; contractDate: string; sellerName?: string | null }
 
 interface EditTaskModalProps {
   show: boolean;
@@ -22,6 +40,9 @@ interface EditTaskModalProps {
   setEditForm: React.Dispatch<React.SetStateAction<EditForm>>;
   clients: Client[];
   branches: Branch[];
+  hasInvoice: boolean;
+  /** Vazifaning saqlangan mijozi — mijoz almashtirilsa shartnoma majburiy */
+  initialClientId: string;
   isMobile: boolean;
   editTaskId: number | null;
   isArchiveRoute: boolean;
@@ -30,10 +51,35 @@ interface EditTaskModalProps {
 }
 
 const EditTaskModal: React.FC<EditTaskModalProps> = ({
-  show, editForm, setEditForm, clients, branches,
+  show, editForm, setEditForm, clients, branches, hasInvoice, initialClientId,
   isMobile, editTaskId, isArchiveRoute, onClose, onSubmit,
 }) => {
   const navigate = useNavigate();
+  const [contracts, setContracts] = useState<ContractOption[]>([]);
+  const [contractsLoading, setContractsLoading] = useState(false);
+
+  // Shartnomalar tanlangan mijoz bo'yicha (shartnoma invoysga bog'lanadi)
+  useEffect(() => {
+    if (!show || !hasInvoice || !editForm.clientId) {
+      setContracts([]);
+      return;
+    }
+    let cancelled = false;
+    setContractsLoading(true);
+    apiClient.get<ContractOption[]>(`/contracts/client/${editForm.clientId}`, { params: { selectList: true } })
+      .then((res) => { if (!cancelled) setContracts(Array.isArray(res.data) ? res.data : []); })
+      .catch(() => { if (!cancelled) setContracts([]); })
+      .finally(() => { if (!cancelled) setContractsLoading(false); });
+    return () => { cancelled = true; };
+  }, [show, hasInvoice, editForm.clientId]);
+
+  // Invoys eski mijoz shartnomasida qolmasligi uchun
+  const contractRequired = hasInvoice && editForm.clientId !== initialClientId;
+
+  const formatContractDate = (value: string) => {
+    const d = new Date(value);
+    return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString('ru-RU');
+  };
 
   const handleClose = () => {
     if (isMobile && editTaskId) {
@@ -87,11 +133,38 @@ const EditTaskModal: React.FC<EditTaskModalProps> = ({
                 <Icon icon="solar:user-bold-duotone" className="w-4 h-4 text-blue-600" />
                 Mijoz <span className="text-red-500">*</span>
               </label>
-              <select value={editForm.clientId} onChange={(e) => setEditForm({ ...editForm, clientId: e.target.value })}
+              <select value={editForm.clientId} onChange={(e) => setEditForm({ ...editForm, clientId: e.target.value, contractId: '' })}
                 required className={selectStyle}>
                 <option value="">Tanlang...</option>
                 {Array.isArray(clients) && clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
+            </div>
+
+            {/* Shartnoma (invoysga bog'lanadi) */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 flex items-center gap-2">
+                <Icon icon="solar:document-add-bold-duotone" className="w-4 h-4 text-blue-600" />
+                Shartnoma {contractRequired && <span className="text-red-500">*</span>}
+              </label>
+              {hasInvoice ? (
+                <select value={editForm.contractId} onChange={(e) => setEditForm({ ...editForm, contractId: e.target.value })}
+                  required={contractRequired} disabled={contractsLoading || !editForm.clientId} className={`${selectStyle} disabled:opacity-60`}>
+                  <option value="" disabled>
+                    {contractsLoading ? 'Yuklanmoqda...' : contracts.length ? 'Tanlang...' : "Mijozda shartnoma yo'q"}
+                  </option>
+                  {contracts.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      № {c.contractNumber}{c.contractDate ? ` от ${formatContractDate(c.contractDate)}` : ''}{c.sellerName ? ` — ${c.sellerName}` : ''}
+                    </option>
+                  ))}
+                </select>
+              ) : null}
+              {hasInvoice && contractRequired && !contractsLoading && contracts.length === 0 && (
+                <div className="text-xs text-red-600 dark:text-red-400 mt-1">Yangi mijozda shartnoma yo'q — avval mijozga shartnoma qo'shing</div>
+              )}
+              {!hasInvoice && (
+                <div className="text-sm text-gray-500 dark:text-gray-400 py-2">Invoys hali yaratilmagan — shartnoma invoysda tanlanadi</div>
+              )}
             </div>
 
             {/* 3. Filial */}

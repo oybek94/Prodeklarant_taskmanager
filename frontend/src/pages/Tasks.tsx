@@ -8,6 +8,7 @@ import { TaskDetailSkeleton } from '../components/tasks/Skeletons';
 import type { ArchiveFiltersState } from '../components/tasks/ArchiveFiltersPanel';
 import { useTaskModals } from '../components/tasks/useTaskModals';
 import { useTaskActions } from '../components/tasks/useTaskActions';
+import { taskToEditForm, type EditForm } from '../components/tasks/EditTaskModal';
 import {
   handleTelegramClick as handleTelegramClickHelper,
   formatInvoiceExtractedText,
@@ -50,8 +51,8 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
   const [form, setForm] = useState({
     title: '', clientId: '', branchId: '', comments: '', hasPsr: false, afterHoursPayer: 'CLIENT' as 'CLIENT' | 'COMPANY', driverPhone: '',
   });
-  const [editForm, setEditForm] = useState({
-    title: '', clientId: '', branchId: '', comments: '', hasPsr: false, afterHoursPayer: 'CLIENT' as 'CLIENT' | 'COMPANY', driverPhone: '',
+  const [editForm, setEditForm] = useState<EditForm>({
+    title: '', clientId: '', branchId: '', comments: '', hasPsr: false, afterHoursPayer: 'CLIENT', driverPhone: '', contractId: '',
   });
   const filters = useMemo(() => ({ status: '', clientId: '', branchId: '' }), []);
   const [showArchive, setShowArchive] = useState(false);
@@ -113,6 +114,26 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
       }
     });
   };
+
+  // Mobil /tasks/:id/edit: vazifa yuklanadi va forma bir marta to'ldiriladi
+  // (keyingi socket yangilanishlari foydalanuvchi kiritganini o'chirmasin)
+  const editFormFilledRef = useRef<number | null>(null);
+  const editTaskRequestedRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!isMobile || !editTaskId) {
+      editFormFilledRef.current = null;
+      editTaskRequestedRef.current = null;
+      return;
+    }
+    if (editFormFilledRef.current === editTaskId) return;
+    if (selectedTask?.id === editTaskId) {
+      editFormFilledRef.current = editTaskId;
+      setEditForm(taskToEditForm(selectedTask));
+    } else if (editTaskRequestedRef.current !== editTaskId) {
+      editTaskRequestedRef.current = editTaskId;
+      loadTaskDetail(editTaskId);
+    }
+  }, [isMobile, editTaskId, selectedTask, loadTaskDetail]);
 
   const hasLoadedTaskModalRef = useRef<number | null>(null);
 

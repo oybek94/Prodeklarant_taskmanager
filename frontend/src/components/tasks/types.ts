@@ -100,6 +100,7 @@ export interface TaskDetail {
   errors?: TaskError[];
   invoice?: {
     contractNumber?: string | null;
+    contractId?: number | null;
     contract?: { contractNumber: string; contractDate: string; emails?: string | null } | null;
   } | null;
 }

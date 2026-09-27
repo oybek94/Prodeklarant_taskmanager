@@ -479,8 +479,8 @@ router.patch('/:id', requireAuth(), async (req: AuthRequest, res) => {
   }
 
   try {
-    const { updated, branchChanged } = await updateTask(id, parsed.data, user);
-    if (branchChanged) await regenerateTransportDocs(id, user.id);
+    const { updated, branchChanged, contractChanged } = await updateTask(id, parsed.data, user);
+    if (branchChanged || contractChanged) await regenerateTransportDocs(id, user.id);
     res.json(updated);
     broadcastTaskUpdated(id, parsed.data, user);
   } catch (error) {

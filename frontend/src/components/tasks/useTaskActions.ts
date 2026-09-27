@@ -445,12 +445,16 @@ export function useTaskActions(params: UseTaskActionsParams) {
 
   const handleEditSubmit = useCallback(async (
     e: React.FormEvent,
-    editForm: { title: string; clientId: string; branchId: string; comments: string; hasPsr: boolean; afterHoursPayer: 'CLIENT' | 'COMPANY'; driverPhone: string },
+    editForm: { title: string; clientId: string; branchId: string; comments: string; hasPsr: boolean; afterHoursPayer: 'CLIENT' | 'COMPANY'; driverPhone: string; contractId: string },
   ) => {
     e.preventDefault();
     if (!selectedTask) return;
     if (!editForm.branchId) {
       toast.error('Filialni tanlang');
+      return;
+    }
+    if (selectedTask.invoice && editForm.clientId !== String(selectedTask.client.id) && !editForm.contractId) {
+      toast.error('Mijoz almashtirilganda invoys shartnomasini ham tanlang');
       return;
     }
     try {
@@ -462,6 +466,7 @@ export function useTaskActions(params: UseTaskActionsParams) {
         hasPsr: editForm.hasPsr,
         afterHoursPayer: editForm.afterHoursPayer,
         driverPhone: editForm.driverPhone || undefined,
+        contractId: editForm.contractId ? parseInt(editForm.contractId) : undefined,
       });
       if (isMobile && editTaskId) {
         navigate(isArchiveRoute ? '/tasks/archive' : '/tasks');

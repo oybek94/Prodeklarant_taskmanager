@@ -7,7 +7,9 @@ type State = {
   clientCurrency: string | null;
   certConfig: unknown;
   branches: Record<number, unknown>;
-  invoice: { id: number; additionalInfo: unknown } | null;
+  invoice: { id: number; additionalInfo: unknown; invoiceNumber?: string; contractId?: number | null } | null;
+  contracts?: Record<number, Record<string, unknown>>;
+  duplicateNumber?: boolean;
 };
 const m = vi.hoisted(() => ({
   state: {} as State,
@@ -37,7 +39,13 @@ vi.mock('../prisma', () => ({
     task: { findUnique: vi.fn(async () => m.state.task) },
     client: { findUnique: vi.fn(async ({ where }: { where: { id: number } }) => (where.id === 404 ? null : { id: where.id })) },
     branch: { findUnique: vi.fn(async ({ where }: { where: { id: number } }) => (m.state.branches[where.id] ? { id: where.id } : null)) },
-    invoice: { findUnique: vi.fn(async () => (m.state.invoice ? { id: m.state.invoice.id } : null)) },
+    invoice: {
+      findUnique: vi.fn(async () => (m.state.invoice
+        ? { id: m.state.invoice.id, invoiceNumber: m.state.invoice.invoiceNumber ?? '1', contractId: m.state.invoice.contractId ?? null }
+        : null)),
+      findFirst: vi.fn(async () => (m.state.duplicateNumber ? { id: 77 } : null)),
+    },
+    contract: { findUnique: vi.fn(async ({ where }: { where: { id: number } }) => m.state.contracts?.[where.id] ?? null) },
     $transaction: async (fn: (tx: unknown) => unknown) => fn(makeTx()),
   },
 }));
@@ -207,5 +215,71 @@ describe("updateTask — narx qayta hisobi (vazifa yaratish bilan bir qoida, to'
     expect(d.snapshotDealAmount_amount_uzs).toBe(2000000 + 412000);
     expectUzs(d, 'snapshotCustomsPayment', 412000 * 2);
     expect(d.customsPaymentMultiplier).toBe(2);
+  });
+});
+
+describe('updateTask — shartnoma almashtirish (invoys shartnomasi)', () => {
+  const contracts = {
+    21: {
+      id: 21, clientId: 3, contractNumber: 'A-21',
+      deliveryTerms: 'FCA Oltiariq\nDAP Moskva', customsAddress: 'Oltiariq posti\nMoskva posti',
+      gln: '4600000000001', paymentMethod: 'Bank',
+    },
+    22: { id: 22, clientId: 5, contractNumber: 'B-22', deliveryTerms: null, customsAddress: null, gln: null, paymentMethod: null },
+  };
+  const invoice = { id: 9, invoiceNumber: '15', contractId: 20, additionalInfo: { deliveryTerms: 'EXW', gln: 'eski', vehicleNumber: '01A' } };
+
+  it('invoys shartnomasi va shartnomadan keladigan maydonlar yangilanadi', async () => {
+    m.state = { ...base, invoice, contracts };
+    const { updated, contractChanged } = await updateTask(1, { contractId: 21 }, m.user);
+    expect(contractChanged).toBe(true);
+    expect(updated).toEqual({ id: 1, updated: true });
+    const upd = m.log.find((e) => Array.isArray(e) && e[0] === 'invoice.update') as [string, { where: unknown; data: Record<string, unknown> }];
+    expect(upd[1]).toEqual({
+      where: { id: 9 },
+      data: {
+        contractId: 21,
+        contractNumber: 'A-21',
+        additionalInfo: {
+          deliveryTerms: 'FCA Oltiariq', vehicleNumber: '01A', gln: '4600000000001',
+          paymentTerms: 'FCA Oltiariq\nDAP Moskva', customsAddress: 'Oltiariq posti', paymentMethod: 'Bank',
+        },
+      },
+    });
+    expect(m.log.some((e) => Array.isArray(e) && e[0] === 'version')).toBe(true);
+  });
+
+  it("o'sha shartnoma qayta yuborilsa hech narsa yozilmaydi", async () => {
+    m.state = { ...base, invoice: { ...invoice, contractId: 21 }, contracts };
+    const { contractChanged } = await updateTask(1, { contractId: 21 }, m.user);
+    expect(contractChanged).toBe(false);
+    expect(m.log.filter((e) => Array.isArray(e) && (e[0] === 'invoice.update' || e[0] === 'version'))).toEqual([]);
+  });
+
+  it.each([
+    ["invoys yo'q", { invoice: null }, { contractId: 21 }, "Vazifada invoys yo'q"],
+    ['boshqa mijoz shartnomasi', { invoice }, { contractId: 22 }, 'bu mijozga tegishli emas'],
+    ["mavjud bo'lmagan shartnoma", { invoice }, { contractId: 99 }, 'bu mijozga tegishli emas'],
+    ['invoys raqami yangi shartnomada band', { invoice, duplicateNumber: true }, { contractId: 21 }, '15-raqamli invoys allaqachon bor'],
+    ['mijoz almashdi, shartnoma tanlanmagan', { invoice }, { clientId: 5 }, 'shartnomasini ham tanlang'],
+    ['mijoz almashdi, eski mijoz shartnomasi qoldi', { invoice: { ...invoice, contractId: 21 } }, { clientId: 5, contractId: 21 }, 'bu mijozga tegishli emas'],
+  ])('%s → 400, hech narsa yozilmaydi', async (_n, patch, body, msg) => {
+    m.state = { ...base, contracts, ...patch };
+    const result = await viaService(body);
+    expect(result.status).toBe(400);
+    expect(String((result.body as { error: string }).error)).toContain(msg);
+    expect(m.log).toEqual([]);
+  });
+
+  it("mijoz bilan birga: shartnoma yangi mijozga tegishli bo'lishi kerak", async () => {
+    m.state = { ...base, invoice, contracts };
+    const { contractChanged } = await updateTask(1, { clientId: 5, contractId: 22 }, m.user);
+    expect(contractChanged).toBe(true);
+  });
+
+  it("invoyssiz vazifada mijoz shartnomasiz almashadi", async () => {
+    m.state = { ...base, invoice: null, contracts };
+    const result = await viaService({ clientId: 5 });
+    expect(result.status).toBe(200);
   });
 });

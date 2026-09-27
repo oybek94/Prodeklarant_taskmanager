@@ -16,6 +16,8 @@ import { taskUsdRate } from './task-money';
  * hisoblanadi (repriceTask — to'lovlar so'mda, shartnoma yangi mijoz narxida). Filial o'zgarsa
  * invoysning filiali va filialga bog'liq avtomatik maydonlari ko'chadi
  * (rebaseInvoiceBranchInfo), commit'dan keyin CMR/TIR qayta yaratiladi.
+ * Shartnoma (contractId) o'zgarsa invoys shartnomasi va shartnomadan keladigan maydonlar
+ * invoys sahifasidagi shartnoma tanlash bilan bir xil yangilanadi (applyContractToInvoiceInfo).
  */
 
 export const updateTaskSchema = z.object({
@@ -27,6 +29,7 @@ export const updateTaskSchema = z.object({
   afterHoursDeclaration: z.boolean().optional(),
   afterHoursPayer: z.enum(['CLIENT', 'COMPANY']).optional(),
   driverPhone: z.string().optional(),
+  contractId: z.number().int().positive().optional(),
 });
 
 export type UpdateTaskInput = z.infer<typeof updateTaskSchema>;
@@ -67,7 +70,7 @@ type TaskBefore = Prisma.TaskGetPayload<{ select: typeof taskBeforeSelect }>;
 export function isOnlyAfterHoursUpdate(input: UpdateTaskInput): boolean {
   const hasOtherFields = input.title !== undefined || input.clientId !== undefined
     || input.branchId !== undefined || input.comments !== undefined
-    || input.hasPsr !== undefined || input.driverPhone !== undefined;
+    || input.hasPsr !== undefined || input.driverPhone !== undefined || input.contractId !== undefined;
   return !hasOtherFields && (input.afterHoursDeclaration !== undefined || input.afterHoursPayer !== undefined);
 }
 
@@ -126,6 +129,91 @@ export function rebaseInvoiceBranchInfo(
   }
 
   return changed ? info : null;
+}
+
+interface ContractInvoiceFields {
+  deliveryTerms: string | null;
+  customsAddress: string | null;
+  gln: string | null;
+  paymentMethod: string | null;
+}
+
+/**
+ * Shartnomadan keladigan invoys maydonlari — invoys sahifasidagi handleContractSelect bilan bir qoida:
+ * birinchi yetkazib berish sharti va unga juft bojxona manzili, to'lov shartlari, GLN, to'lov usuli.
+ */
+export function applyContractToInvoiceInfo(
+  rawInfo: Prisma.JsonValue | null,
+  contract: ContractInvoiceFields
+): Record<string, unknown> {
+  const info: Record<string, unknown> =
+    rawInfo && typeof rawInfo === 'object' && !Array.isArray(rawInfo) ? { ...(rawInfo as Record<string, unknown>) } : {};
+
+  const deliveryTerms = String(contract.deliveryTerms ?? '').split('\n').map((s) => s.trim());
+  const customsAddresses = String(contract.customsAddress ?? '').split('\n').map((s) => s.trim());
+  const firstTerm = deliveryTerms.find(Boolean) ?? '';
+
+  info.paymentTerms = contract.deliveryTerms ?? '';
+  if (firstTerm) info.deliveryTerms = firstTerm;
+  info.customsAddress = firstTerm ? (customsAddresses[deliveryTerms.indexOf(firstTerm)] ?? '') : '';
+  if (contract.gln != null) info.gln = contract.gln;
+  if (contract.paymentMethod) info.paymentMethod = contract.paymentMethod;
+  return info;
+}
+
+const contractInvoiceSelect = {
+  id: true,
+  clientId: true,
+  contractNumber: true,
+  deliveryTerms: true,
+  customsAddress: true,
+  gln: true,
+  paymentMethod: true,
+} satisfies Prisma.ContractSelect;
+
+type ContractForInvoice = Prisma.ContractGetPayload<{ select: typeof contractInvoiceSelect }>;
+
+/**
+ * Shartnoma almashtirish tekshiruvi — hech narsa yozilmasidan oldin. O'zgarish bo'lmasa null.
+ * Invoysli vazifada mijoz almashtirilsa shartnoma majburiy (invoys eski mijoz shartnomasida qolmasin).
+ */
+async function resolveContractChange(
+  taskId: number,
+  contractId: number | undefined,
+  targetClientId: number,
+  clientChanged: boolean
+): Promise<{ invoiceId: number; contract: ContractForInvoice } | null> {
+  if (contractId === undefined && !clientChanged) return null;
+
+  const invoice = await prisma.invoice.findUnique({
+    where: { taskId },
+    select: { id: true, invoiceNumber: true, contractId: true },
+  });
+  if (contractId === undefined) {
+    if (invoice) throw new TaskUpdateError(400, 'Mijoz almashtirilganda invoys shartnomasini ham tanlang');
+    return null;
+  }
+  if (!invoice) {
+    throw new TaskUpdateError(400, "Vazifada invoys yo'q — shartnoma invoys yaratilganda tanlanadi");
+  }
+  if (invoice.contractId === contractId && !clientChanged) return null;
+
+  const contract = await prisma.contract.findUnique({ where: { id: contractId }, select: contractInvoiceSelect });
+  if (!contract || contract.clientId !== targetClientId) {
+    throw new TaskUpdateError(400, 'Shartnoma topilmadi yoki bu mijozga tegishli emas');
+  }
+  if (invoice.contractId === contractId) return null;
+
+  // Invoys raqami shartnoma ichida yagona
+  const duplicate = await prisma.invoice.findFirst({
+    where: { contractId, invoiceNumber: invoice.invoiceNumber, NOT: { id: invoice.id } },
+    select: { id: true },
+  });
+  if (duplicate) {
+    throw new TaskUpdateError(400, `Tanlangan shartnomada ${invoice.invoiceNumber}-raqamli invoys allaqachon bor — avval invoys raqamini o'zgartiring`);
+  }
+
+  return { invoiceId: invoice.id, contract };
 }
 
 const branchPlaceSelect = {
@@ -221,8 +309,11 @@ export async function updateTask(id: number, input: UpdateTaskInput, actor: Acto
   if (!clientExists) throw new TaskUpdateError(404, 'Mijoz topilmadi');
   if (!branchExists) throw new TaskUpdateError(404, 'Filial topilmadi');
 
+  const contractChange = await resolveContractChange(id, input.contractId, input.clientId ?? task.clientId, clientChanged);
+  const contractChanged = contractChange !== null;
+
   const updated = await prisma.$transaction(async (tx) => {
-    if (changed) await createTaskVersion(tx, id, actor.id);
+    if (changed || contractChanged) await createTaskVersion(tx, id, actor.id);
 
     const data: Prisma.TaskUncheckedUpdateInput = {
       ...(input.title && { title: input.title }),
@@ -233,7 +324,7 @@ export async function updateTask(id: number, input: UpdateTaskInput, actor: Acto
       ...(input.afterHoursDeclaration !== undefined && { afterHoursDeclaration: input.afterHoursDeclaration }),
       ...(input.afterHoursPayer !== undefined && { afterHoursPayer: input.afterHoursPayer }),
       ...(input.driverPhone !== undefined && { driverPhone: input.driverPhone || null }),
-      ...(changed && { updatedById: actor.id }),
+      ...((changed || contractChanged) && { updatedById: actor.id }),
     };
 
     if (branchChanged || clientChanged) {
@@ -263,13 +354,27 @@ export async function updateTask(id: number, input: UpdateTaskInput, actor: Acto
       }
     }
 
+    if (contractChange) {
+      const { invoiceId, contract } = contractChange;
+      // Filial bloki additionalInfo'ni yangilagan bo'lishi mumkin — joriy qiymatdan davom etiladi
+      const current = await tx.invoice.findUnique({ where: { id: invoiceId }, select: { additionalInfo: true } });
+      await tx.invoice.update({
+        where: { id: invoiceId },
+        data: {
+          contractId: contract.id,
+          contractNumber: contract.contractNumber,
+          additionalInfo: applyContractToInvoiceInfo(current?.additionalInfo ?? null, contract) as Prisma.InputJsonObject,
+        },
+      });
+    }
+
     return updatedTask;
   }, { timeout: 30000, maxWait: 10000 });
 
-  return { updated, branchChanged };
+  return { updated, branchChanged, contractChanged };
 }
 
-/** Commit'dan keyin: filial o'zgargan bo'lsa CMR/TIR (viloyat matni filialdan) qayta yaratiladi */
+/** Commit'dan keyin: filial yoki shartnoma o'zgargan bo'lsa CMR/TIR qayta yaratiladi */
 export async function regenerateTransportDocs(taskId: number, actorId: number): Promise<void> {
   try {
     const invoice = await prisma.invoice.findUnique({ where: { taskId }, select: { id: true } });

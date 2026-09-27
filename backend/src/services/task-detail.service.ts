@@ -55,6 +55,7 @@ const taskDetailInclude = {
   invoice: {
     select: {
       contractNumber: true,
+      contractId: true,
       contract: { select: { contractNumber: true, contractDate: true, emails: true } },
     },
   },

@@ -4,7 +4,7 @@ import TaskDetailPanel from './TaskDetailPanel';
 import BXMModal from './BxmModal';
 import FileUploadModal from './FileUploadModal';
 import SendEmailModal from './SendEmailModal';
-import EditTaskModal from './EditTaskModal';
+import EditTaskModal, { taskToEditForm } from './EditTaskModal';
 import DocumentUploadModal from './DocumentUploadModal';
 import PreviewModal from './PreviewModal';
 import ErrorModal from './ErrorModal';
@@ -146,15 +146,7 @@ export const TasksModalsManager: React.FC<TasksModalsManagerProps> = ({
               if (isMobile) {
                 taskActions.navigate(`/tasks/${selectedTask.id}/edit`);
               } else {
-                setEditForm({
-                  title: selectedTask.title,
-                  clientId: selectedTask.client.id.toString(),
-                  branchId: selectedTask.branch.id.toString(),
-                  comments: selectedTask.comments || '',
-                  hasPsr: selectedTask.hasPsr || false,
-                  afterHoursPayer: selectedTask.afterHoursPayer || 'CLIENT',
-                  driverPhone: selectedTask.driverPhone || '',
-                });
+                setEditForm(taskToEditForm(selectedTask));
                 modals.setShowEditModal(true);
               }
             }
@@ -294,6 +286,8 @@ export const TasksModalsManager: React.FC<TasksModalsManagerProps> = ({
         setEditForm={setEditForm}
         clients={clients}
         branches={branches}
+        hasInvoice={!!selectedTask?.invoice}
+        initialClientId={selectedTask?.client?.id != null ? String(selectedTask.client.id) : ''}
         isMobile={isMobile}
         editTaskId={editTaskId}
         isArchiveRoute={isArchiveRoute}

@@ -417,29 +417,29 @@ const ClientDetail = () => {
         // Sotuvchi
         sellerName: contractForm.sellerName,
         sellerLegalAddress: contractForm.sellerLegalAddress,
-        sellerDetails: contractForm.sellerDetails || undefined, // To'g'ridan-to'g'ri textarea ma'lumotlari
+        sellerDetails: contractForm.sellerDetails ?? '', // To'g'ridan-to'g'ri textarea ma'lumotlari
         // Sotib oluvchi
         buyerName: contractForm.buyerName,
         buyerAddress: contractForm.buyerAddress,
         destinationCountry: contractForm.destinationCountry,
-        buyerDetails: contractForm.buyerDetails || undefined, // To'g'ridan-to'g'ri textarea ma'lumotlari
+        buyerDetails: contractForm.buyerDetails ?? '', // To'g'ridan-to'g'ri textarea ma'lumotlari
         // Yuk jo'natuvchi
-        shipperName: contractForm.shipperName || undefined,
-        shipperAddress: contractForm.shipperAddress || undefined,
-        shipperDetails: contractForm.shipperDetails || undefined, // To'g'ridan-to'g'ri textarea ma'lumotlari
+        shipperName: contractForm.shipperName ?? '',
+        shipperAddress: contractForm.shipperAddress ?? '',
+        shipperDetails: contractForm.shipperDetails ?? '', // To'g'ridan-to'g'ri textarea ma'lumotlari
         // Yuk qabul qiluvchi
-        consigneeName: contractForm.consigneeName || undefined,
-        consigneeAddress: contractForm.consigneeAddress || undefined,
-        consigneeDetails: contractForm.consigneeDetails || undefined, // To'g'ridan-to'g'ri textarea ma'lumotlari
-        deliveryTerms: contractForm.deliveryTerms || undefined,
-        paymentMethod: contractForm.paymentMethod || undefined,
-        gln: contractForm.gln || undefined, // Глобальный идентификационный номер GS1 (GLN)
-        supplierDirector: contractForm.supplierDirector || undefined, // Руководитель Поставщика
-        goodsReleasedBy: contractForm.goodsReleasedBy || undefined, // Товар отпустил
+        consigneeName: contractForm.consigneeName ?? '',
+        consigneeAddress: contractForm.consigneeAddress ?? '',
+        consigneeDetails: contractForm.consigneeDetails ?? '', // To'g'ridan-to'g'ri textarea ma'lumotlari
+        deliveryTerms: contractForm.deliveryTerms ?? '',
+        paymentMethod: contractForm.paymentMethod ?? '',
+        gln: contractForm.gln ?? '', // Глобальный идентификационный номер GS1 (GLN)
+        supplierDirector: contractForm.supplierDirector ?? '', // Руководитель Поставщика
+        goodsReleasedBy: contractForm.goodsReleasedBy ?? '', // Товар отпустил
         signatureUrl: (contractForm.signatureUrl?.trim() ?? '') === '' ? '' : contractForm.signatureUrl,
         sealUrl: (contractForm.sealUrl?.trim() ?? '') === '' ? '' : contractForm.sealUrl,
         companyLogoUrl: (contractForm.companyLogoUrl?.trim() ?? '') === '' ? '' : contractForm.companyLogoUrl,
-        requirements: contractForm.requirements || undefined,
+        requirements: contractForm.requirements ?? '',
         files: contractForm.files || [],
       };
 

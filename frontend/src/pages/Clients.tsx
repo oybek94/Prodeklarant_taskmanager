@@ -779,23 +779,23 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
         contractNumber: form.contractNumber,
         contractDate: form.contractDate,
         contractCurrency: (form.contractCurrency?.trim() || 'USD'),
-        emails: form.emails?.trim() || undefined,
+        emails: form.emails?.trim() ?? '',
         sellerName: form.sellerName,
-        sellerInn: form.sellerInn || undefined,
+        sellerInn: form.sellerInn ?? '',
         sellerLegalAddress: form.sellerLegalAddress,
-        sellerDetails: form.sellerDetails || undefined,
-        gln: form.gln || undefined,
+        sellerDetails: form.sellerDetails ?? '',
+        gln: form.gln ?? '',
         buyerName: form.buyerName,
-        buyerInn: form.buyerInn || undefined,
+        buyerInn: form.buyerInn ?? '',
         buyerAddress: form.buyerAddress,
         destinationCountry: form.destinationCountry.trim(),
-        buyerDetails: form.buyerDetails || undefined,
+        buyerDetails: form.buyerDetails ?? '',
         deliveryTerms: hasAnyValue(form.deliveryTerms) ? deliveryTermsValue : undefined,
         customsAddress: hasAnyValue(form.customsAddress) ? customsAddressValue : undefined,
         supplierDirector: form.supplierDirector?.trim() || '',
         buyerDirector: form.buyerDirector?.trim() || '',
         consigneeDirector: form.consigneeDirector?.trim() || '',
-        goodsReleasedBy: form.goodsReleasedBy || undefined,
+        goodsReleasedBy: form.goodsReleasedBy ?? '',
         signatureUrl: (form.signatureUrl?.trim() ?? '') === '' ? '' : form.signatureUrl,
         sealUrl: (form.sealUrl?.trim() ?? '') === '' ? '' : form.sealUrl,
         sellerSignatureUrl: (form.sellerSignatureUrl?.trim() ?? '') === '' ? '' : form.sellerSignatureUrl,
@@ -808,10 +808,10 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
       };
 
       if (hasShipper) {
-        payload.shipperName = form.shipperName || undefined;
-        payload.shipperInn = form.shipperInn || undefined;
-        payload.shipperAddress = form.shipperAddress || undefined;
-        payload.shipperDetails = form.shipperDetails || undefined;
+        payload.shipperName = form.shipperName ?? '';
+        payload.shipperInn = form.shipperInn ?? '';
+        payload.shipperAddress = form.shipperAddress ?? '';
+        payload.shipperDetails = form.shipperDetails ?? '';
       } else {
         payload.shipperName = '';
         payload.shipperInn = '';
@@ -820,10 +820,10 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
       }
 
       if (hasConsignee) {
-        payload.consigneeName = form.consigneeName || undefined;
-        payload.consigneeInn = form.consigneeInn || undefined;
-        payload.consigneeAddress = form.consigneeAddress || undefined;
-        payload.consigneeDetails = form.consigneeDetails || undefined;
+        payload.consigneeName = form.consigneeName ?? '';
+        payload.consigneeInn = form.consigneeInn ?? '';
+        payload.consigneeAddress = form.consigneeAddress ?? '';
+        payload.consigneeDetails = form.consigneeDetails ?? '';
       } else {
         payload.consigneeName = '';
         payload.consigneeInn = '';

@@ -15,8 +15,13 @@ export const cargoLabeledFieldSchema = z.strictObject({
 });
 
 export const cargoProductSchema = z.strictObject({
-  /** Tovar nomi, masalan "Нектарины свежие" */
+  /** Tovar nomi matnda qanday yozilgan bo'lsa shunday, masalan "Виноград Тайфи свежий" */
   name: z.string(),
+  /**
+   * Bazadagi ro'yxatdan ma'nan mos nom (masalan "Виноград свежий столовых сортов") —
+   * invoysga YOZILMAYDI, faqat Код ТН ВЭД va narxni topish uchun ishora
+   */
+  catalog_name: z.string().nullable(),
   /** PLU kod(lar)i matn holicha, masalan "3682719 / 3639748" */
   plu_code: z.string().nullable(),
   /** Qadoq turi, masalan "Пластиковый ящик" */

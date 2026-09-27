@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 import toast from 'react-hot-toast';
 import apiClient from '../../lib/api';
 import { calculateTotalPrice, resolveProductDefaults } from './hooks/useInvoiceItems';
+import { findClosestProductName, sharesCoreWord } from './productNameMatch';
 import { createDefaultItem, DEFAULT_COLUMN_LABELS } from './types';
 import type { CustomField, InvoiceFormData, InvoiceItem, SpecRow } from './types';
 
@@ -14,6 +15,8 @@ interface CargoLabeledField {
 
 interface CargoProduct {
   name: string;
+  /** Bazadagi mos nom (AI tavsiyasi) — invoysga yozilmaydi, faqat kod qidirishda */
+  catalog_name: string | null;
   plu_code: string | null;
   package_type: string | null;
   packages_count: number | null;
@@ -194,6 +197,52 @@ export const buildPalletNote = (products: CargoProduct[]): string | null => {
 /** Tovar nomiga kalibrni qo'shadi: "Нектарины свежие, калибр: 40mm+" */
 export const appendCalibreToName = (name: string, calibre: string): string =>
   `${name.trim()}, калибр: ${calibre.trim()}`;
+
+type ProductOption = { name: string; code: string };
+
+/**
+ * Matndan kelgan tovar uchun Код ТН ВЭД va shartnoma narxini aniqlaydi.
+ * Tovar nomi O'ZGARTIRILMAYDI — faqat qaysi bazaviy nom bo'yicha kod olinishi hal qilinadi:
+ *  1) matndagi nomning o'zi ro'yxatda bo'lsa — o'sha
+ *  2) AI tavsiya qilgan catalog_name nom bilan umumiy tur so'ziga ega bo'lsa — o'sha
+ *  3) umumiy so'z bo'yicha eng yaqin nom (spetsifikatsiya → TNVED ro'yxati → tarix)
+ *  4) AI tavsiyasi (sinonim holati: umumiy so'z yo'q, lekin ma'nan bir tovar)
+ */
+export const resolveImportedProductDefaults = (
+  name: string,
+  catalogName: string | null,
+  invoiceProductOptions: ProductOption[],
+  selectedContractSpec: SpecRow[],
+  globalTnvedProducts: ProductOption[]
+): { tnvedCode?: string; unitPrice?: number } => {
+  const resolve = (candidate: string) =>
+    resolveProductDefaults(candidate, invoiceProductOptions, selectedContractSpec, globalTnvedProducts);
+
+  const direct = resolve(name);
+  if (direct.tnvedCode) return direct;
+
+  const hint = catalogName?.trim() ?? '';
+  if (hint && sharesCoreWord(name, hint)) {
+    const fromHint = resolve(hint);
+    if (fromHint.tnvedCode) return fromHint;
+  }
+
+  const closest = findClosestProductName(name, [
+    ...selectedContractSpec.map((row) => row.productName ?? ''),
+    ...globalTnvedProducts.map((p) => p.name),
+    ...invoiceProductOptions.map((p) => p.name),
+  ]);
+  if (closest) {
+    const fromClosest = resolve(closest);
+    if (fromClosest.tnvedCode) return fromClosest;
+  }
+
+  if (hint) {
+    const fromHint = resolve(hint);
+    if (fromHint.tnvedCode) return fromHint;
+  }
+  return direct;
+};
 
 /** Bitta product elementini invoys qatori maydonlariga o'giradi */
 const productToItemFields = (p: CargoProduct): Partial<InvoiceItem> => ({
@@ -551,10 +600,16 @@ export const useCargoImport = ({
           Object.assign(base, { [field]: value });
         });
 
-        // Nom bazadagi variant bilan mos kelsa Код ТН ВЭД (va narx) avtomatik to'ladi —
-        // qo'lda tanlanganidagi bilan bir xil qoida. Kalibr qo'shilishidan OLDIN
-        // bajariladi, aks holda nom ro'yxatga mos kelmay kod bo'sh qolardi.
-        const defaults = resolveProductDefaults(base.name, invoiceProductOptions, selectedContractSpec, globalTnvedProducts);
+        // Nom matndagidek qoladi; Код ТН ВЭД (va narx) nomdagi umumiy so'z bo'yicha
+        // bazadagi mos variantdan olinadi. Kalibr qo'shilishidan OLDIN bajariladi,
+        // aks holda nomga qo'shilgan "калибр" so'zi solishtirishni buzardi.
+        const defaults = resolveImportedProductDefaults(
+          base.name,
+          product.catalog_name,
+          invoiceProductOptions,
+          selectedContractSpec,
+          globalTnvedProducts
+        );
         if (defaults.tnvedCode) base.tnvedCode = defaults.tnvedCode;
         // Matnda narx berilgan bo'lsa u ustun turadi; bo'lmasa shartnoma narxi olinadi
         if (!base.unitPrice && defaults.unitPrice != null) base.unitPrice = defaults.unitPrice;

@@ -32,6 +32,32 @@ ${example}
 Faqat ro'yxatda ma'nan yaqin variant UMUMAN bo'lmagandagina matndagi xom qiymatni qaytaring.`;
 }
 
+/**
+ * Tovar nomi ro'yxat varianti bilan ALMASHTIRILMAYDI — invoysga matndagi nom
+ * yoziladi ("Виноград Тайфи свежий"). Ro'yxatdagi mos nom alohida
+ * catalog_name maydoniga tushadi va faqat Код ТН ВЭД qidirish uchun ishlatiladi.
+ */
+function productNameCatalogBlock(options: string[]): string {
+  const nameRule =
+    '- name — tovar nomi MATNDA QANDAY YOZILGAN BO\'LSA AYNAN SHUNDAY (nav, sort, ' +
+    'so\'z tartibi saqlanadi). Uni ro\'yxatdagi nom bilan ALMASHTIRMANG va qisqartirmang.';
+  if (options.length === 0) {
+    return `\n${nameRule}\n- catalog_name — null.`;
+  }
+  return `
+TOVAR NOMLARI (bazadan, Код ТН ВЭД shu nomlarga bog'langan):
+${options.map((opt) => `- ${opt}`).join('\n')}
+
+${nameRule}
+- catalog_name — shu ro'yxatdan matndagi tovarga MOS keladigan variantning TO'LIQ
+  matni. Mos kelishni nomdagi umumiy so'z (tovar turi) bo'yicha aniqlang: nav,
+  sort, kelishik, son (birlik/ko'plik) va so'z tartibi farq qilishi mumkin.
+  Masalan matnda "Виноград Тайфи свежий", ro'yxatda "Виноград свежий столовых
+  сортов" → name = "Виноград Тайфи свежий", catalog_name = "Виноград свежий
+  столовых сортов". "Персик свежий" → catalog_name = "Персики свежие".
+  Ro'yxatda shu turdagi tovar UMUMAN bo'lmasa → null.`;
+}
+
 export function buildCargoTextPrompt({
   deliveryTermsOptions = [],
   packagingTypeOptions = [],
@@ -51,15 +77,7 @@ export function buildCargoTextPrompt({
     'Masalan "Пластиковый ящик" → "пласт.ящик", "Картонная коробка" → "картон.короб.".'
   );
 
-  const productNameBlock = optionBlock(
-    'TOVAR NOMLARI (bazadan)',
-    'name',
-    productNameOptions,
-    'Masalan matnda "Персик свежий" bo\'lsa va ro\'yxatda "Персики свежие" tursa — ' +
-      '"Персики свежие" ni qaytaring. "Томат свежий" → "Томаты свежие", ' +
-      '"Свежий гранат" → "Гранат свежий". Bu nom bo\'yicha Код ТН ВЭД topiladi, ' +
-      'shuning uchun xom yozuv qaytarilsa kod bo\'sh qolib ketadi.'
-  );
+  const productNameBlock = productNameCatalogBlock(productNameOptions);
 
   return `Siz bojxona deklaranti uchun ishlaydigan AI siz. Mijoz Telegram orqali yuborgan
 erkin shablon matnidan invoys maydonlarini AJRATIB OLING.

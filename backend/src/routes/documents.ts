@@ -796,14 +796,17 @@ router.get('/task/:taskId/download-all', requireAuth(), async (req: AuthRequest,
       if (!filePath) continue;
 
       if (fs.existsSync(filePath)) {
-        // Fayl nomini tozalash
-        const cleanFileName = doc.name
+        // Fayl nomini tozalash — kengaytma alohida qo'shiladi, shuning uchun
+        // nomdan olib tashlanadi (aks holda "hujjat.PDF.PDF" bo'lib qoladi)
+        const nameExt = path.extname(doc.name);
+        const baseName = nameExt ? doc.name.slice(0, -nameExt.length) : doc.name;
+        const cleanFileName = baseName
           .replace(/[^a-zA-Z0-9\u0400-\u04FF\s.-]/g, '_')
           .replace(/\s+/g, '_')
           .replace(/_+/g, '_')
           .replace(/^_+|_+$/g, '') || 'file';
 
-        const ext = path.extname(doc.name) || path.extname(filePath);
+        const ext = nameExt || path.extname(filePath);
         const finalFileName = `${cleanFileName}${ext}`;
 
         archive.file(filePath, { name: finalFileName });

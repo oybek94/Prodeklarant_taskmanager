@@ -9,7 +9,9 @@ import {
   PointElement,
   LineElement,
   Tooltip,
-  Filler
+  Filler,
+  type ChartOptions,
+  type ScriptableContext,
 } from 'chart.js';
 
 ChartJS.register(
@@ -32,7 +34,7 @@ const buildSparklineData = (labels: string[], data: number[], color: string) => 
     {
       data,
       borderColor: color,
-      backgroundColor: (context: any) => {
+      backgroundColor: (context: ScriptableContext<'line'>) => {
         const chart = context.chart;
         const { ctx, chartArea } = chart;
         if (!chartArea) return 'transparent';
@@ -54,7 +56,7 @@ const buildSparklineData = (labels: string[], data: number[], color: string) => 
   ],
 });
 
-const sparklineOptions: any = {
+const sparklineOptions: ChartOptions<'line'> = {
   responsive: true,
   maintainAspectRatio: false,
   layout: {
@@ -77,7 +79,7 @@ export const DashboardSummaryCards: React.FC<DashboardSummaryCardsProps> = ({
   loadingCompletedSummary,
 }) => {
   const cards = [
-    { key: 'today', title: 'BUGUN', suffix: 'kechagiga nisbatan', icon: 'solar:calendar-bold-duotone', bg: 'bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20', text: 'text-emerald-700 dark:text-emerald-400', border: 'border-emerald-100/60 dark:border-emerald-800/30', spark: '#10b981', showChart: true },
+    { key: 'today', title: 'BUGUN KELGAN', suffix: 'kechagiga nisbatan', icon: 'solar:calendar-bold-duotone', bg: 'bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20', text: 'text-emerald-700 dark:text-emerald-400', border: 'border-emerald-100/60 dark:border-emerald-800/30', spark: '#10b981', showChart: true },
     { key: 'week', title: 'HAFTALIK', suffix: 'o‘tgan haftadan', icon: 'solar:calendar-minimalistic-bold-duotone', bg: 'bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20', text: 'text-blue-700 dark:text-blue-400', border: 'border-blue-100/60 dark:border-blue-800/30', spark: '#3b82f6', showChart: true },
     { key: 'month', title: 'OYLIK', suffix: 'o‘tgan oydan', icon: 'solar:calendar-date-bold-duotone', bg: 'bg-gradient-to-br from-purple-50 to-fuchsia-50 dark:from-purple-900/20 dark:to-fuchsia-900/20', text: 'text-purple-700 dark:text-purple-400', border: 'border-purple-100/60 dark:border-purple-800/30', spark: '#8b5cf6', showChart: true },
     { key: 'year', title: 'YILLIK', suffix: 'o‘tgan yildan', icon: 'solar:calendar-bold-duotone', bg: 'bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20', text: 'text-orange-700 dark:text-orange-400', border: 'border-orange-100/60 dark:border-orange-800/30', spark: '#f97316', showChart: true },

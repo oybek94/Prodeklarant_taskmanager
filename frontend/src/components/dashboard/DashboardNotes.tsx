@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Icon } from '@iconify/react';
 import api from '../../lib/api';
 import { useSocket } from '../../contexts/SocketContext';
@@ -35,38 +35,44 @@ const DashboardNotes: React.FC = () => {
   const [editingContent, setEditingContent] = useState('');
   const socket = useSocket();
 
-  useEffect(() => {
-    fetchData();
-    
-    if (socket) {
-      const handleUpdate = () => fetchData(true);
-      socket.on('dashboardNote:updated', handleUpdate);
-      
-      return () => {
-        socket.off('dashboardNote:updated', handleUpdate);
-      };
-    }
-  }, [showArchive, socket]);
-
-  const fetchData = async (silent = false) => {
+  const fetchData = useCallback(async (silent = false) => {
     try {
       if (!silent) setLoading(true);
-      const [notesRes, usersRes] = await Promise.all([
-        api.get(showArchive ? '/dashboard-notes/archive' : '/dashboard-notes'),
-        api.get('/workers') // fetch workers for assignment instead of /users to bypass admin check
-      ]);
+      const notesRes = await api.get(showArchive ? '/dashboard-notes/archive' : '/dashboard-notes');
       setNotes(notesRes.data);
-      if (usersRes.data?.users) {
-        setUsers(usersRes.data.users);
-      } else if (Array.isArray(usersRes.data)) {
-        setUsers(usersRes.data);
-      }
     } catch (error) {
       console.error('Failed to fetch dashboard notes:', error);
     } finally {
       if (!silent) setLoading(false);
     }
-  };
+  }, [showArchive]);
+
+  // Xodimlar ro'yxati (topshiriq biriktirish uchun) — bir marta; oldin har eslatma
+  // yangilanishida qayta yuklanardi. /users emas — admin tekshiruvini chetlab o'tish uchun
+  useEffect(() => {
+    api.get('/workers')
+      .then((usersRes) => {
+        if (usersRes.data?.users) {
+          setUsers(usersRes.data.users);
+        } else if (Array.isArray(usersRes.data)) {
+          setUsers(usersRes.data);
+        }
+      })
+      .catch((error) => console.error('Failed to fetch workers:', error));
+  }, []);
+
+  useEffect(() => {
+    fetchData();
+
+    if (socket) {
+      const handleUpdate = () => fetchData(true);
+      socket.on('dashboardNote:updated', handleUpdate);
+
+      return () => {
+        socket.off('dashboardNote:updated', handleUpdate);
+      };
+    }
+  }, [fetchData, socket]);
 
   const handleAddNote = async (e: React.FormEvent) => {
     e.preventDefault();

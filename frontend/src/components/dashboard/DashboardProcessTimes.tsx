@@ -1,8 +1,10 @@
 import React from 'react';
 import { Icon } from '@iconify/react';
 
+import type { PremiumStats } from '../../types/dashboard';
+
 interface DashboardProcessTimesProps {
-  premiumStats: any;
+  premiumStats: PremiumStats | null;
 }
 
 export const DashboardProcessTimes: React.FC<DashboardProcessTimesProps> = ({ premiumStats }) => {
@@ -17,7 +19,7 @@ export const DashboardProcessTimes: React.FC<DashboardProcessTimesProps> = ({ pr
         </div>
         <div>
           <h2 className="text-lg sm:text-xl font-black text-gray-900 dark:text-white tracking-tight leading-tight">Jarayonga sarflangan vaqt</h2>
-          <p className="text-[10px] uppercase tracking-widest text-gray-500 dark:text-gray-400 font-bold mt-1">O'rtacha ko'rsatkichlar</p>
+          <p className="text-[10px] uppercase tracking-widest text-gray-500 dark:text-gray-400 font-bold mt-1">O'rtacha · so'nggi 7 kun</p>
         </div>
       </div>
 
@@ -38,7 +40,7 @@ export const DashboardProcessTimes: React.FC<DashboardProcessTimesProps> = ({ pr
           );
         }
 
-        const maxTime = Math.max(...processTimes.map((p: any) => p.averageMinutes), 1);
+        const maxTime = Math.max(...processTimes.map((p) => p.averageMinutes), 1);
 
         return (
           <div className="relative z-10 flex flex-col flex-1 mt-1 overflow-hidden">
@@ -54,7 +56,7 @@ export const DashboardProcessTimes: React.FC<DashboardProcessTimesProps> = ({ pr
             )}
             
             <div className="space-y-3 w-full overflow-y-auto pr-2 pb-2 custom-scrollbar">
-              {processTimes.map((p: any) => {
+              {processTimes.map((p) => {
                 const widthPercent = Math.min((p.averageMinutes / maxTime) * 100, 100);
                 const hours = Math.floor(p.averageMinutes / 60);
                 const mins = p.averageMinutes % 60;

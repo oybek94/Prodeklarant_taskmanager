@@ -1,14 +1,9 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useIsMobile } from '../utils/useIsMobile';
 import DashboardNotes from '../components/dashboard/DashboardNotes';
 import { UnratedErrorsModal } from '../components/dashboard/UnratedErrorsModal';
-import MedalsNominationPanel from '../components/medals/MedalsNominationPanel';
 import { useDashboardStats } from '../hooks/useDashboardStats';
-
-// Re-export for backward compatibility
-import { getCsgoRank, RANK_GROUPS } from '../utils/csgoRanks';
-export { getCsgoRank, RANK_GROUPS };
 
 // Child Components
 import { DashboardHeader } from '../components/dashboard/DashboardHeader';
@@ -31,7 +26,6 @@ const Dashboard = () => {
   const [rankingPeriod, setRankingPeriod] = useState<'weekly' | 'monthly' | 'yearly'>('weekly');
 
   const [showUnratedModal, setShowUnratedModal] = useState(false);
-  const [showNominationsModal, setShowNominationsModal] = useState<false | 'WEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'YEARLY'>(false);
 
   const handleCloseUnratedModal = useCallback(() => setShowUnratedModal(false), []);
 
@@ -137,15 +131,6 @@ const Dashboard = () => {
           onRateSuccess={handleRateSuccess}
         />
 
-        {showNominationsModal && (
-          <MedalsNominationPanel 
-            initialTab={showNominationsModal as any}
-            onClose={() => {
-              setShowNominationsModal(false);
-              // Need to trigger reload here maybe through context or window event if not passed
-            }} 
-          />
-        )}
       </div>
     </div>
   );

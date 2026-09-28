@@ -1,13 +1,22 @@
 import React from 'react';
 import { Icon } from '@iconify/react';
+import toast from 'react-hot-toast';
+import apiClient from '../../lib/api';
+import type { DashboardTaskError } from '../../types/dashboard';
 
 interface DashboardHeaderProps {
-  user: any;
-  unratedErrors: any[];
+  user: { name: string; role: string } | null;
+  unratedErrors: DashboardTaskError[];
   setShowUnratedModal: (show: boolean) => void;
-  pendingDeleteErrors?: any[];
+  pendingDeleteErrors?: DashboardTaskError[];
   loadPendingDeleteErrors?: () => void;
 }
+
+const getGreeting = (hour: number) => {
+  if (hour < 10) return 'Xayrli tong';
+  if (hour < 17) return 'Xayrli kun';
+  return 'Xayrli kech';
+};
 
 
 export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
@@ -17,17 +26,23 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   pendingDeleteErrors,
   loadPendingDeleteErrors = () => {}
 }) => {
-  const hour = new Date().getHours();
-  let greeting = 'Xayrli kun';
-  if (hour < 10) greeting = 'Xayrli tong';
-  else if (hour < 17) greeting = 'Xayrli kun';
-  else greeting = 'Xayrli kech';
-
   const now = new Date();
+  const greeting = getGreeting(now.getHours());
   const months = ['yanvar','fevral','mart','aprel','may','iyun','iyul','avgust','sentyabr','oktyabr','noyabr','dekabr'];
   const weekdays = ['Yakshanba','Dushanba','Seshanba','Chorshanba','Payshanba','Juma','Shanba'];
   const day = String(now.getDate()).padStart(2, '0');
   const dateString = `${day} ${months[now.getMonth()]}, ${weekdays[now.getDay()]}`;
+
+  // O'chirish so'rovini tasdiqlash / rad etish. Oldin xato jimgina console'ga ketardi
+  const resolveDeleteRequest = async (err: DashboardTaskError, action: 'approve-delete' | 'reject-delete') => {
+    try {
+      await apiClient.post(`/tasks/${err.taskId}/errors/${err.id}/${action}`);
+      loadPendingDeleteErrors();
+    } catch (e: unknown) {
+      const message = (e as { response?: { data?: { error?: string } } })?.response?.data?.error;
+      toast.error(message || "Amalni bajarib bo'lmadi");
+    }
+  };
 
   return (
     <div className="relative h-full bg-white/60 dark:bg-gray-900/60 backdrop-blur-2xl rounded-[32px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border-[1.5px] border-white/80 dark:border-white/10 p-6 sm:p-8 flex flex-col justify-center transition-all duration-300">
@@ -95,22 +110,12 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                   </div>
                   <div className="flex gap-2">
                     <button 
-                      onClick={async () => {
-                        try {
-                          await import('../../lib/api').then(m => m.default.post(`/tasks/${err.taskId}/errors/${err.id}/approve-delete`));
-                          loadPendingDeleteErrors();
-                        } catch (e) { console.error(e); }
-                      }} 
+                      onClick={() => resolveDeleteRequest(err, 'approve-delete')}
                       className="px-2 py-1 bg-red-500 hover:bg-red-600 text-white font-bold rounded shadow transition-all text-xs">
                       Tasdiqlash
                     </button>
                     <button 
-                      onClick={async () => {
-                        try {
-                          await import('../../lib/api').then(m => m.default.post(`/tasks/${err.taskId}/errors/${err.id}/reject-delete`));
-                          loadPendingDeleteErrors();
-                        } catch (e) { console.error(e); }
-                      }}
+                      onClick={() => resolveDeleteRequest(err, 'reject-delete')}
                       className="px-2 py-1 bg-gray-500 hover:bg-gray-600 text-white font-bold rounded shadow transition-all text-xs">
                       Bekor qilish
                     </button>

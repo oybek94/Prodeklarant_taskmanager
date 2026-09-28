@@ -45,8 +45,6 @@ import {
   statsQuerySchema,
   toStatsFilters,
   calculateWorkerRanking,
-  sumNetProfitForRange,
-  classifyCertifierCategory,
   getDashboardStats,
 } from '../services/dashboard-stats.service';
 import { appCache } from '../services/cache';
@@ -118,40 +116,6 @@ describe('calculateWorkerRanking', () => {
   });
 });
 
-describe('sumNetProfitForRange', () => {
-  it('davlat to\'lovlari faqat CASH_ALL_INCLUSIVE da ayiriladi; valyuta bo\'yicha alohida', async () => {
-    m.taskFindMany.mockResolvedValue([
-      {
-        hasPsr: true, snapshotDealAmount: 100, snapshotPsrPrice: 20, snapshotCertificatePayment: 10,
-        snapshotWorkerPrice: 15, snapshotCustomsPayment: 5, snapshotContractPaymentType: 'CASH_ALL_INCLUSIVE',
-        client: { dealAmount: 0, dealAmount_currency: null, dealAmountCurrency: 'USD', contractPaymentType: null },
-      },
-      {
-        hasPsr: false, snapshotDealAmount: null, snapshotPsrPrice: null, snapshotCertificatePayment: 1000,
-        snapshotWorkerPrice: 200, snapshotCustomsPayment: 1000, snapshotContractPaymentType: 'TRANSFER_ONLY',
-        client: { dealAmount: 5000, dealAmount_currency: 'UZS', dealAmountCurrency: 'UZS', contractPaymentType: null },
-      },
-    ]);
-    const r = await sumNetProfitForRange(START, END, 2);
-    // USD: (100+20) − (10+15+20+5) = 70
-    expect(r.usd).toBe(70);
-    expect(r.usdCount).toBe(1);
-    expect(r.uzsCount).toBe(1);
-    expect(m.taskFindMany.mock.calls[0][0].where.branchId).toBe(2);
-  });
-});
-
-describe('classifyCertifierCategory', () => {
-  it.each([
-    ['ST-1 to\'lovi', 'st1'],
-    ['fito', 'fito'],
-    ['AKT', 'akt'],
-    ['Ijara', null],
-  ])('%s → %s', (raw, expected) => {
-    expect(classifyCertifierCategory(raw)).toBe(expected);
-  });
-});
-
 describe('getDashboardStats', () => {
   it('REGRESSIYA: workerId filtri assignedToId bilan (oldin relation\'ga raqam → 500)', async () => {
     await getDashboardStats({ workerId: 7 });
@@ -159,24 +123,12 @@ describe('getDashboardStats', () => {
     expect(where.stages).toEqual({ some: { assignedToId: 7 } });
   });
 
-  it('javob shakli frontend kutgan maydonlarga ega', async () => {
+  it('faqat dashboard ishlatadigan maydonlar qaytadi (moliya/qarz ma\'lumotlari chiqmaydi)', async () => {
     const res = (await getDashboardStats({ branchId: 3 })) as Record<string, unknown>;
-    for (const key of [
-      'newTasks', 'completedTasks', 'tasksByStatus', 'processStats', 'workerActivity',
-      'workerCompletionRanking', 'workerErrorRanking', 'workerDebts', 'financialStats',
-      'paymentReminders', 'certifierDebt', 'yearlyGoalTarget', 'todayNetProfit',
-      'weeklyNetProfit', 'monthlyNetProfit', 'yearlyNetProfit', 'tasksByBranch',
-    ]) {
-      expect(res).toHaveProperty(key);
-    }
+    expect(Object.keys(res).sort()).toEqual(['tasksByBranch', 'workerCompletionRanking', 'yearlyGoalTarget']);
     expect(res.yearlyGoalTarget).toBe(2000);
-  });
-
-  it('Oltiariq to\'lovlari bazada filial bo\'yicha filtrlanadi', async () => {
-    m.branchFindFirst.mockResolvedValue({ id: 5, name: 'Oltiariq' });
-    m.taskCount.mockResolvedValue(2);
-    await getDashboardStats({});
-    const expenseCall = m.txFindMany.mock.calls.find((c) => c[0].where.type === 'EXPENSE');
-    expect(expenseCall?.[0].where.OR).toEqual([{ branchId: null }, { branchId: 5 }]);
+    expect(m.getWorkerPaymentReport).not.toHaveBeenCalled();
+    expect(m.clientFindMany).not.toHaveBeenCalled();
+    expect(m.txFindMany).not.toHaveBeenCalled();
   });
 });

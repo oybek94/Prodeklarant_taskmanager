@@ -15,25 +15,26 @@ export default defineConfig({
     }),
   ],
   build: {
-    rollupOptions: {
+    rolldownOptions: {
       output: {
-        manualChunks(id) {
-          if (!id.includes('node_modules')) return;
-          // MUHIM: og'ir/sahifaga-xos kutubxonalarni keng 'react' qoidasidan OLDIN tekshiramiz.
-          // @react-pdf (og'ir, faqat invoice'da) ilgari 'react' bilan mos kelib eager
-          // vendor-react'ga tushib qolardi — endi alohida, faqat kerak bo'lganda yuklanadi.
-          if (id.includes('@react-pdf') || id.includes('jspdf') || id.includes('html2canvas')) return 'vendor-pdf';
-          if (id.includes('apexcharts') || id.includes('chart.js') || id.includes('chartjs') || id.includes('recharts')) return 'vendor-charts';
-          if (id.includes('@tiptap') || id.includes('tinymce')) return 'vendor-editor';
-          if (id.includes('xlsx')) return 'vendor-xlsx';
-          if (id.includes('framer-motion') || id.includes('@iconify')) return 'vendor-ui';
-          // React YADROSI — faqat aniq paketlar (react-* o'rovchilar bu yerga tushmaydi).
-          if (
-            id.includes('/react/') ||
-            id.includes('/react-dom/') ||
-            id.includes('/react-router') ||
-            id.includes('/scheduler/')
-          ) return 'vendor-react';
+        // Rolldown: har guruh o'z modullarining bog'liqliklarini ham "tortib oladi".
+        // Oldingi manualChunks'da React yadrosi grafik/PDF chunk'lariga tushib qolardi va
+        // shu sabab har sahifada og'ir grafik kutubxonalari yuklanardi. Endi React guruhi
+        // eng yuqori ustuvorlikda — uni hech kim tortib ololmaydi.
+        codeSplitting: {
+          groups: [
+            // React YADROSI — faqat aniq paketlar (react-* o'rovchilar bu yerga tushmaydi).
+            { name: 'vendor-react', test: /node_modules\/(react|react-dom|react-router|react-router-dom|scheduler)\//, priority: 100 },
+            // Og'ir/sahifaga-xos kutubxonalar — faqat kerak bo'lganda yuklanadi.
+            { name: 'vendor-pdf', test: /node_modules\/(@react-pdf|jspdf|html2canvas)/, priority: 50 },
+            // Grafiklar alohida: dashboard faqat chart.js ishlatadi, ApexCharts/Recharts'ni yuklamasin.
+            { name: 'vendor-apexcharts', test: /node_modules\/(apexcharts|react-apexcharts)\//, priority: 40 },
+            { name: 'vendor-recharts', test: /node_modules\/(recharts|victory-vendor|d3-[^/]+)\//, priority: 40 },
+            { name: 'vendor-charts', test: /node_modules\/(chart\.js|chartjs-[^/]+|react-chartjs-2)\//, priority: 40 },
+            { name: 'vendor-editor', test: /node_modules\/(@tiptap|tinymce)/, priority: 30 },
+            { name: 'vendor-xlsx', test: /node_modules\/xlsx/, priority: 30 },
+            { name: 'vendor-ui', test: /node_modules\/(framer-motion|@iconify)/, priority: 30 },
+          ],
         },
       },
     },

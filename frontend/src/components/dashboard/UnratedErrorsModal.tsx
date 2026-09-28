@@ -3,11 +3,12 @@ import { AnimatePresence, motion } from 'framer-motion';
 import apiClient from '../../lib/api';
 import toast from 'react-hot-toast';
 import { formatMoney } from '../tasks/taskHelpers';
+import type { DashboardTaskError } from '../../types/dashboard';
 
 interface UnratedErrorsModalProps {
   show: boolean;
   onClose: () => void;
-  errors: any[];
+  errors: DashboardTaskError[];
   onRateSuccess: () => void;
 }
 
@@ -25,8 +26,8 @@ export const UnratedErrorsModal: React.FC<UnratedErrorsModalProps> = ({ show, on
       toast.success("Xato baholandi va xodim mukofotlandi!");
       setRatingErrorId(null);
       onRateSuccess();
-    } catch (err: any) {
-      toast.error(err.response?.data?.error || 'Baholashda xatolik yuz berdi');
+    } catch (err: unknown) {
+      toast.error((err as { response?: { data?: { error?: string } } }).response?.data?.error || 'Baholashda xatolik yuz berdi');
     }
   };
 

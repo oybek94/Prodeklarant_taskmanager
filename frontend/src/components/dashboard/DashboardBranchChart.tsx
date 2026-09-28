@@ -1,7 +1,10 @@
 import React from 'react';
 import { Icon } from '@iconify/react';
-import Chart from 'react-apexcharts';
+import { Doughnut } from 'react-chartjs-2';
 import type { DashboardStats } from '../../types/dashboard';
+import { TOOLTIP_STYLE, percentOf } from './chartSetup';
+
+const BRANCH_COLORS = ['#4f46e5', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#ef4444', '#06b6d4', '#84cc16'];
 
 interface DashboardBranchChartProps {
   stats: DashboardStats | null;
@@ -36,7 +39,7 @@ export const DashboardBranchChart: React.FC<DashboardBranchChartProps> = ({ stat
         const hasValidData = branches &&
           Array.isArray(branches) &&
           branches.length > 0 &&
-          branches.some((b: any) => b && b.count > 0);
+          branches.some((b) => b && b.count > 0);
 
         if (statsError) {
           return (
@@ -56,11 +59,12 @@ export const DashboardBranchChart: React.FC<DashboardBranchChartProps> = ({ stat
           );
         }
 
-        const validBranches = branches.filter((b: any) => b && b.branchName && b.count > 0);
-        const labels = validBranches.map((b: any) => b.branchName);
-        const series = validBranches.map((b: any) => b.count);
+        const validBranches = branches.filter((b) => b && b.branchName && b.count > 0);
+        const labels = validBranches.map((b) => b.branchName);
+        const series = validBranches.map((b) => b.count);
+        const total = series.reduce((sum, n) => sum + n, 0);
 
-        if (labels.length === 0 || series.length === 0 || series.every((s: number) => s === 0)) {
+        if (labels.length === 0 || series.length === 0 || total === 0) {
           return (
             <div className="flex-1 flex flex-col items-center justify-center text-center py-12 text-gray-400 relative z-10">
               <Icon icon="solar:buildings-2-bold-duotone" className="w-10 h-10 mx-auto mb-3 opacity-30" />
@@ -72,72 +76,43 @@ export const DashboardBranchChart: React.FC<DashboardBranchChartProps> = ({ stat
         return (
           <div className="relative z-10 flex flex-col flex-1 mt-2">
             <div className="flex justify-center shrink-0">
-              <Chart
-                key={`branch-chart-${series.join('-')}-${labels.join('-')}`}
-                options={{
-                  chart: {
-                    type: 'donut',
-                    height: 250,
-                    toolbar: { show: false },
-                    animations: { speed: 600 }
-                  },
-                  plotOptions: {
-                    pie: {
-                      donut: {
-                        size: '75%',
-                        labels: {
-                          show: true,
-                          name: { show: true, fontSize: '11px', fontFamily: 'inherit', fontWeight: 700, color: '#9ca3af', offsetY: -5 },
-                          value: { show: true, fontSize: '28px', fontFamily: 'inherit', fontWeight: 900, color: '#4f46e5', offsetY: 5 },
-                          total: {
-                            show: true,
-                            showAlways: true,
-                            label: 'Jami task',
-                            color: '#9ca3af',
-                            formatter: function (w: any) {
-                              return w.globals.seriesTotals.reduce((a: any, b: any) => a + b, 0).toLocaleString('uz-UZ') + ' ta';
-                            }
-                          }
-                        }
-                      }
-                    }
-                  },
-                  labels: labels,
-                  colors: ['#4f46e5', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#ef4444', '#06b6d4', '#84cc16'],
-                  legend: {
-                    show: false, // Hidden standard legend, manual below
-                  },
-                  dataLabels: {
-                    enabled: false, // Keeps chart clean
-                  },
-                  stroke: {
-                    width: 0, // Seamless gradient-like cuts
-                  },
-                  tooltip: {
-                    theme: 'dark',
-                    style: {
-                      fontSize: '13px',
-                      fontFamily: 'inherit',
+              <div className="relative w-[250px] h-[250px]">
+                <Doughnut
+                  data={{
+                    labels,
+                    datasets: [{
+                      data: series,
+                      backgroundColor: labels.map((_, idx) => BRANCH_COLORS[idx % BRANCH_COLORS.length]),
+                      borderWidth: 0,
+                      hoverOffset: 6,
+                    }],
+                  }}
+                  options={{
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '75%',
+                    plugins: {
+                      legend: { display: false },
+                      datalabels: { display: false },
+                      tooltip: {
+                        ...TOOLTIP_STYLE,
+                        callbacks: {
+                          label: (ctx) => ` ${ctx.label}: ${ctx.parsed} ta (${percentOf(ctx.parsed, total)}%)`,
+                        },
+                      },
                     },
-                    y: {
-                      formatter: function (value: number, opts: any) {
-                        const total = opts.globals.seriesTotals.reduce((a: any, b: any) => a + b, 0);
-                        const percent = total > 0 ? ((value / total) * 100).toFixed(1) : '0.0';
-                        return `${value} ta (${percent}%)`;
-                      }
-                    },
-                  },
-                }}
-                series={series}
-                type="donut"
-                height={250}
-              />
+                  }}
+                />
+                <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                  <span className="text-[11px] font-bold text-gray-400">Jami task</span>
+                  <span className="text-[28px] font-black text-indigo-600 dark:text-indigo-400 leading-tight">{total.toLocaleString('uz-UZ')} ta</span>
+                </div>
+              </div>
             </div>
             
             <div className="mt-auto pt-4 border-t border-gray-100 dark:border-white/5 flex flex-wrap justify-center gap-2">
-              {validBranches.map((branch: any, idx: number) => {
-                const colors = ['#4f46e5', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#ef4444', '#06b6d4', '#84cc16'];
-                const color = colors[idx % colors.length];
+              {validBranches.map((branch, idx) => {
+                const color = BRANCH_COLORS[idx % BRANCH_COLORS.length];
                 return (
                   <div key={branch.branchId ?? branch.branchName} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm border border-gray-100/50 dark:border-gray-700/50 transition-all hover:bg-white dark:hover:bg-gray-700 hover:shadow-sm hover:scale-105">
                     <span className="w-2.5 h-2.5 rounded-full shadow-sm" style={{ backgroundColor: color }}></span>

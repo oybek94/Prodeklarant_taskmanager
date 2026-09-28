@@ -1,7 +1,21 @@
 import React from 'react';
 import { Icon } from '@iconify/react';
-import Chart from 'react-apexcharts';
+import { Doughnut } from 'react-chartjs-2';
+import type { ScriptableContext } from 'chart.js';
 import type { DashboardStats, CompletedSummary } from '../../types/dashboard';
+import { useTheme } from '../../contexts/ThemeContext';
+import './chartSetup';
+
+/** Gauge: 0-bo'lak — ko'kdan binafshaga gradient (oldingi Apex ko'rinishi), 1-bo'lak — yo'lak */
+const gaugeFill = (trackColor: string) => (ctx: ScriptableContext<'doughnut'>) => {
+  if (ctx.dataIndex !== 0) return trackColor;
+  const { ctx: canvas, chartArea } = ctx.chart;
+  if (!chartArea) return '#4f46e5';
+  const gradient = canvas.createLinearGradient(chartArea.left, 0, chartArea.right, 0);
+  gradient.addColorStop(0, '#3b82f6');
+  gradient.addColorStop(1, '#8b5cf6');
+  return gradient;
+};
 
 interface DashboardYearlyGoalProps {
   stats: DashboardStats | null;
@@ -14,6 +28,7 @@ export const DashboardYearlyGoal: React.FC<DashboardYearlyGoalProps> = ({
   completedSummary,
   loadingCompletedSummary,
 }) => {
+  const isDark = useTheme().theme === 'dark';
   return (
     <div className="relative bg-white/60 dark:bg-gray-900/60 backdrop-blur-2xl rounded-[32px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border-[1.5px] border-white/80 dark:border-white/10 p-5 sm:p-6 lg:p-8 flex flex-col h-[540px] overflow-hidden group">
       {/* Premium Glow Effect */}
@@ -39,73 +54,36 @@ export const DashboardYearlyGoal: React.FC<DashboardYearlyGoalProps> = ({
         const percentage = Math.min((completed / TARGET_TASKS) * 100, 100);
         const remaining = Math.max(TARGET_TASKS - completed, 0);
 
-        const gaugeOptions: any = {
-          chart: {
-            type: 'radialBar',
-            height: 280,
-            sparkline: { enabled: true },
-          },
-          series: [percentage],
-          plotOptions: {
-            radialBar: {
-              startAngle: -90,
-              endAngle: 90,
-              track: {
-                background: 'rgba(150, 150, 150, 0.15)',
-                strokeWidth: '97%',
-                margin: 5,
-              },
-              dataLabels: {
-                name: {
-                  show: true,
-                  fontSize: '13px',
-                  fontFamily: 'inherit',
-                  fontWeight: 700,
-                  color: '#9ca3af',
-                  offsetY: -20,
-                },
-                value: {
-                  show: true,
-                  fontSize: '32px',
-                  fontFamily: 'inherit',
-                  fontWeight: 900,
-                  color: '#4f46e5',
-                  offsetY: -5,
-                  formatter: function (val: number) {
-                    return Math.round((val / 100) * TARGET_TASKS).toString();
-                  },
-                },
-              },
-            },
-          },
-          fill: {
-            type: 'gradient',
-            gradient: {
-              shade: 'light',
-              type: 'horizontal',
-              shadeIntensity: 0.5,
-              gradientToColors: ['#3b82f6', '#8b5cf6'],
-              inverseColors: true,
-              opacityFrom: 1,
-              opacityTo: 1,
-              stops: [0, 100],
-            },
-          },
-          stroke: {
-            lineCap: 'round',
-          },
-          labels: ['Yakunlangan'],
-        };
-
         return (
           <div className="relative z-10 flex flex-col flex-1 mt-2">
-            <div className="flex justify-center shrink-0 mb-4" style={{ height: '180px' }}>
-              <Chart
-                options={gaugeOptions}
-                series={gaugeOptions.series}
-                type="radialBar"
-                height={280}
+            <div className="relative flex justify-center shrink-0 mb-4" style={{ height: '180px' }}>
+              <Doughnut
+                data={{
+                  datasets: [{
+                    data: [percentage, 100 - percentage],
+                    backgroundColor: gaugeFill(isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(150, 150, 150, 0.15)'),
+                    borderWidth: 0,
+                    borderRadius: percentage > 0 && percentage < 100 ? [12, 0] : 0,
+                  }],
+                }}
+                options={{
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  rotation: -90,
+                  circumference: 180,
+                  cutout: '80%',
+                  events: [],
+                  plugins: {
+                    legend: { display: false },
+                    tooltip: { enabled: false },
+                    datalabels: { display: false },
+                  },
+                }}
               />
+              <div className="absolute inset-x-0 bottom-2 flex flex-col items-center pointer-events-none">
+                <span className="text-[13px] font-bold text-gray-400">Yakunlangan</span>
+                <span className="text-[32px] font-black text-indigo-600 dark:text-indigo-400 leading-none">{completed.toLocaleString('uz-UZ')}</span>
+              </div>
             </div>
             
             <div className="flex-1 flex flex-col justify-end gap-2.5 mt-auto">

@@ -1,12 +1,19 @@
 import React from 'react';
 import { Icon } from '@iconify/react';
-import Chart from 'react-apexcharts';
+import { Bar } from 'react-chartjs-2';
+import { useTheme } from '../../contexts/ThemeContext';
+import type { PremiumStats } from '../../types/dashboard';
+import { ChartDataLabels, TOOLTIP_STYLE } from './chartSetup';
+
+const STAGE_COLORS = ['#3b82f6', '#ec4899', '#f59e0b', '#10b981', '#8b5cf6', '#06b6d4', '#f43f5e', '#84cc16', '#d946ef', '#14b8a6'];
 
 interface DashboardActiveTasksProps {
-  premiumStats: any;
+  premiumStats: PremiumStats | null;
 }
 
 export const DashboardActiveTasks: React.FC<DashboardActiveTasksProps> = ({ premiumStats }) => {
+  // Kontekstdan — mavzu almashtirilganda diagramma ranglari ham yangilanadi
+  const isDark = useTheme().theme === 'dark';
   return (
     <div className="relative bg-white/60 dark:bg-gray-900/60 backdrop-blur-2xl rounded-[32px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border-[1.5px] border-white/80 dark:border-white/10 p-5 sm:p-6 lg:p-8 flex flex-col h-[540px] overflow-hidden group">
       {/* Premium Glow Effect */}
@@ -18,7 +25,7 @@ export const DashboardActiveTasks: React.FC<DashboardActiveTasksProps> = ({ prem
         </div>
         <div>
           <h2 className="text-lg sm:text-xl font-black text-gray-900 dark:text-white tracking-tight leading-tight">Kim qaysi ishni ko'proq bajaryapti</h2>
-          <p className="text-[10px] uppercase tracking-widest text-gray-500 dark:text-gray-400 font-bold mt-1">Xizmatlar kesimida</p>
+          <p className="text-[10px] uppercase tracking-widest text-gray-500 dark:text-gray-400 font-bold mt-1">Bajarilgan bosqichlar · so'nggi 30 kun</p>
         </div>
       </div>
 
@@ -32,138 +39,74 @@ export const DashboardActiveTasks: React.FC<DashboardActiveTasksProps> = ({ prem
           return (
             <div className="flex-1 flex flex-col items-center justify-center text-center py-12 text-gray-400 dark:text-gray-500 relative z-10">
               <Icon icon="solar:pulse-bold-duotone" className="w-10 h-10 mx-auto mb-3 opacity-30" />
-              <p className="font-bold text-sm">Jarayonda vazifalar yo'q</p>
+              <p className="font-bold text-sm">So'nggi 30 kunda bajarilgan bosqich yo'q</p>
             </div>
           );
         }
 
-        const isDark = document.documentElement.classList.contains('dark');
 
         // Extract all unique stage names across top 3 of every worker
-        const allUniqueStages = Array.from(new Set(activeTasks.flatMap((w: any) => w.stages?.map((s: any) => s.name) || [])));
+        const allUniqueStages = Array.from(new Set(activeTasks.flatMap((w) => w.stages?.map((s) => s.name) || [])));
 
-        const series = allUniqueStages.map((stageName) => ({
-          name: stageName as string,
-          data: activeTasks.map((w: any) => {
-            const stageObj = w.stages?.find((s: any) => s.name === stageName);
-            return stageObj ? stageObj.count : 0;
-          })
+        const datasets = allUniqueStages.map((stageName, idx) => ({
+          label: stageName,
+          data: activeTasks.map((w) => w.stages?.find((s) => s.name === stageName)?.count ?? 0),
+          backgroundColor: STAGE_COLORS[idx % STAGE_COLORS.length],
+          borderColor: isDark ? '#1f2937' : '#ffffff',
+          borderWidth: 1.5,
+          borderRadius: 4,
+          barPercentage: 0.7,
         }));
 
-        const categories = activeTasks.map((w: any) => w.name);
+        const categories = activeTasks.map((w) => w.name);
+        const axisColor = isDark ? '#9ca3af' : '#4b5563';
 
         return (
           <div className="relative z-10 flex flex-col flex-1 mt-2 w-full">
-            <Chart
-              options={{
-                chart: { 
-                  type: 'bar', 
-                  stacked: true, 
-                  toolbar: { show: false },
-                  animations: {
-                    enabled: true,
-                    speed: 800,
-                    animateGradually: {
-                        enabled: true,
-                        delay: 150
+            <div className="relative w-full h-[400px]">
+              <Bar
+                plugins={[ChartDataLabels]}
+                data={{ labels: categories, datasets }}
+                options={{
+                  indexAxis: 'y',
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  scales: {
+                    x: {
+                      stacked: true,
+                      beginAtZero: true,
+                      border: { display: false },
+                      grid: { color: isDark ? '#374151' : '#f3f4f6' },
+                      ticks: { color: axisColor, font: { family: 'inherit', size: 11, weight: 600 }, precision: 0 },
                     },
-                    dynamicAnimation: {
-                        enabled: true,
-                        speed: 350
-                    }
-                  }
-                },
-                plotOptions: {
-                  bar: {
-                    horizontal: true,
-                    borderRadius: 4,
-                    columnWidth: '60%',
-                    barHeight: '70%',
-                    dataLabels: { 
-                      total: { 
-                        enabled: true, 
-                        style: { 
-                          fontSize: '12px', 
-                          fontWeight: 900, 
-                          fontFamily: 'inherit',
-                          color: isDark ? '#fff' : '#111827' 
-                        } 
-                      } 
-                    }
-                  }
-                },
-                colors: [
-                  '#3b82f6', '#ec4899', '#f59e0b', '#10b981', '#8b5cf6',
-                  '#06b6d4', '#f43f5e', '#84cc16', '#d946ef', '#14b8a6'
-                ],
-                dataLabels: {
-                  enabled: true,
-                  style: { 
-                    fontSize: '11px', 
-                    fontFamily: 'inherit',
-                    fontWeight: 800,
-                    colors: ['#fff'] 
+                    y: {
+                      stacked: true,
+                      border: { display: false },
+                      grid: { display: false },
+                      ticks: { color: axisColor, font: { family: 'inherit', size: 12, weight: 700 } },
+                    },
                   },
-                  dropShadow: { enabled: true, top: 1, left: 1, blur: 1, color: '#000', opacity: 0.3 },
-                  formatter: function (val: number) {
-                    return val > 0 ? val : '';
-                  }
-                },
-                stroke: { width: 1.5, colors: [isDark ? '#1f2937' : '#ffffff'] },
-                xaxis: {
-                  categories: categories,
-                  labels: { 
-                    style: { 
-                      colors: isDark ? '#9ca3af' : '#4b5563', 
-                      fontSize: '11px',
-                      fontFamily: 'inherit',
-                      fontWeight: 600
-                    } 
+                  plugins: {
+                    legend: {
+                      position: 'bottom',
+                      labels: {
+                        color: isDark ? '#d1d5db' : '#374151',
+                        font: { family: 'inherit', size: 11, weight: 600 },
+                        usePointStyle: true,
+                        boxWidth: 8,
+                        padding: 12,
+                      },
+                    },
+                    datalabels: {
+                      color: '#fff',
+                      font: { family: 'inherit', size: 11, weight: 800 },
+                      display: (ctx) => (Number(ctx.dataset.data[ctx.dataIndex]) || 0) > 0,
+                    },
+                    tooltip: { ...TOOLTIP_STYLE, mode: 'index', intersect: false },
                   },
-                  axisBorder: { show: false },
-                  axisTicks: { show: false }
-                },
-                yaxis: {
-                  labels: {
-                    maxWidth: 120,
-                    style: {
-                      fontSize: '12px',
-                      fontFamily: 'inherit',
-                      fontWeight: 700,
-                      colors: isDark ? '#9ca3af' : '#4b5563'
-                    }
-                  }
-                },
-                grid: {
-                  borderColor: isDark ? '#374151' : '#f3f4f6',
-                  strokeDashArray: 4,
-                  xaxis: { lines: { show: true } },
-                  yaxis: { lines: { show: false } },
-                  padding: { top: 0, right: 20, bottom: 0, left: 10 }
-                },
-                legend: {
-                  position: 'bottom',
-                  horizontalAlign: 'center',
-                  labels: { colors: isDark ? '#d1d5db' : '#374151' },
-                  fontSize: '11px',
-                  fontWeight: 600,
-                  fontFamily: 'inherit',
-                  markers: { strokeWidth: 0, offsetX: -2, offsetY: 1 },
-                  itemMargin: { horizontal: 8, vertical: 4 }
-                },
-                tooltip: {
-                  theme: isDark ? 'dark' : 'light',
-                  style: {
-                    fontSize: '12px',
-                    fontFamily: 'inherit'
-                  }
-                }
-              }}
-              series={series}
-              type="bar"
-              height={400}
-              width="100%"
-            />
+                }}
+              />
+            </div>
           </div>
         );
       })()}

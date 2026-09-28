@@ -1,12 +1,21 @@
 import React from 'react';
 import { Icon } from '@iconify/react';
-import Chart from 'react-apexcharts';
+import { Pie } from 'react-chartjs-2';
+import { useTheme } from '../../contexts/ThemeContext';
+import type { PremiumStats } from '../../types/dashboard';
+import { ChartDataLabels, TOOLTIP_STYLE, percentOf } from './chartSetup';
+
+const CLIENT_COLORS = ['#eab308', '#f97316', '#3b82f6', '#8b5cf6', '#ec4899', '#10b981', '#06b6d4', '#f43f5e', '#14b8a6'];
+/** "Boshqalar" bo'lagi — kulrang */
+const OTHER_COLOR = '#9ca3af';
 
 interface DashboardTopClientsProps {
-  premiumStats: any;
+  premiumStats: PremiumStats | null;
 }
 
 export const DashboardTopClients: React.FC<DashboardTopClientsProps> = ({ premiumStats }) => {
+  // Kontekstdan — mavzu almashtirilganda diagramma ranglari ham yangilanadi
+  const isDark = useTheme().theme === 'dark';
   return (
     <div className="relative bg-white/60 dark:bg-gray-900/60 backdrop-blur-2xl rounded-[32px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border-[1.5px] border-white/80 dark:border-white/10 p-5 sm:p-6 lg:p-8 flex flex-col h-[540px] overflow-hidden group">
       {/* Premium Glow Effect */}
@@ -28,7 +37,10 @@ export const DashboardTopClients: React.FC<DashboardTopClientsProps> = ({ premiu
         </div>
       ) : (() => {
         const allClients = premiumStats.topClients || [];
-        const clients = allClients.filter((c: any) => (c.count || 0) > 0);
+        const clients = allClients.filter((c) => (c.count || 0) > 0);
+        const total = clients.reduce((sum, c) => sum + c.count, 0);
+        const colorOf = (client: (typeof clients)[number], index: number) =>
+          client.clientId === null ? OTHER_COLOR : CLIENT_COLORS[index % CLIENT_COLORS.length];
         
         if (clients.length === 0) {
           return (
@@ -39,92 +51,57 @@ export const DashboardTopClients: React.FC<DashboardTopClientsProps> = ({ premiu
           );
         }
 
-        const isDark = document.documentElement.classList.contains('dark');
         
         return (
           <div className="relative z-10 flex-1 w-full mt-2 flex flex-col justify-between">
             <div className="flex-1 flex items-center justify-center min-h-[220px]">
-              <Chart
-                options={{
-                  chart: { 
-                    type: 'pie', 
-                    toolbar: { show: false },
-                    animations: {
-                      enabled: true,
-                      speed: 800,
-                      animateGradually: {
-                          enabled: true,
-                          delay: 150
+              <div className="relative w-full h-[260px]">
+                <Pie
+                  plugins={[ChartDataLabels]}
+                  data={{
+                    labels: clients.map((c) => c.name),
+                    datasets: [{
+                      data: clients.map((c) => c.count),
+                      backgroundColor: clients.map(colorOf),
+                      borderColor: isDark ? '#111827' : '#ffffff',
+                      borderWidth: 3,
+                      hoverOffset: 8,
+                    }],
+                  }}
+                  options={{
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                      legend: { display: false },
+                      datalabels: {
+                        color: '#fff',
+                        font: { family: 'inherit', size: 12, weight: 800 },
+                        textShadowColor: 'rgba(0, 0, 0, 0.5)',
+                        textShadowBlur: 2,
+                        // Kichik bo'laklarga yozuv sig'maydi
+                        display: (ctx) => (Number(ctx.dataset.data[ctx.dataIndex]) || 0) / (total || 1) >= 0.05,
+                        formatter: (value: number) => `${value} ta`,
                       },
-                      dynamicAnimation: {
-                          enabled: true,
-                          speed: 350
-                      }
-                    }
-                  },
-                  labels: clients.map((c: any) => c.name),
-                  colors: ['#eab308', '#f97316', '#3b82f6', '#8b5cf6', '#ec4899', '#10b981', '#06b6d4', '#9ca3af', '#f43f5e', '#14b8a6'],
-                  dataLabels: {
-                    enabled: true,
-                    formatter: (val: any, opts: any) => {
-                      const count = opts.w.config.series[opts.seriesIndex];
-                      return `${count} ta`;
+                      tooltip: {
+                        ...TOOLTIP_STYLE,
+                        callbacks: {
+                          label: (ctx) => ` ${ctx.parsed} ta vazifa (${percentOf(ctx.parsed, total)}%)`,
+                        },
+                      },
                     },
-                    style: { 
-                      fontSize: '12px', 
-                      fontWeight: 800, 
-                      colors: ['#fff'],
-                      fontFamily: 'inherit'
-                    },
-                    dropShadow: { enabled: true, top: 1, left: 1, blur: 2, color: '#000', opacity: 0.5 }
-                  },
-                  stroke: { 
-                    width: 3, 
-                    colors: [isDark ? '#111827' : '#ffffff'] 
-                  },
-                  legend: {
-                    show: false
-                  },
-                  plotOptions: {
-                    pie: {
-                      expandOnClick: true,
-                      dataLabels: {
-                        offset: -10,
-                      }
-                    }
-                  },
-                  tooltip: {
-                    theme: isDark ? 'dark' : 'light',
-                    style: {
-                      fontSize: '12px',
-                      fontFamily: 'inherit'
-                    },
-                    y: {
-                      formatter: (val: any) => {
-                        const total = clients.reduce((sum: number, c: any) => sum + (c.count || 0), 0);
-                        const percent = total > 0 ? ((val / total) * 100).toFixed(1) : 0;
-                        return `${val} ta vazifa (${percent}%)`;
-                      }
-                    }
-                  }
-                }}
-                series={clients.map((c: any) => c.count)}
-                type="pie"
-                height={300}
-                width="100%"
-              />
+                  }}
+                />
+              </div>
             </div>
 
             {/* Custom Top 5 Legend */}
             <div className="w-full flex flex-col gap-1.5 mt-2 pb-1">
-              {clients.slice(0, 5).map((client: any, index: number) => {
-                const colors = ['#eab308', '#f97316', '#3b82f6', '#8b5cf6', '#ec4899', '#10b981', '#06b6d4', '#9ca3af', '#f43f5e', '#14b8a6'];
-                const color = colors[index % colors.length];
-                const total = clients.reduce((sum: number, c: any) => sum + (c.count || 0), 0);
-                const percent = total > 0 ? ((client.count / total) * 100).toFixed(1) : 0;
+              {clients.slice(0, 5).map((client, index) => {
+                const color = colorOf(client, index);
+                const percent = percentOf(client.count, total);
 
                 return (
-                  <div key={index} className="flex items-center justify-between text-xs p-1.5 px-2.5 rounded-lg bg-white/40 dark:bg-gray-800/40 backdrop-blur-md border border-white/60 dark:border-white/5 transition-colors hover:bg-white/60 dark:hover:bg-gray-700/50 group/item cursor-default">
+                  <div key={client.clientId ?? 'other'} className="flex items-center justify-between text-xs p-1.5 px-2.5 rounded-lg bg-white/40 dark:bg-gray-800/40 backdrop-blur-md border border-white/60 dark:border-white/5 transition-colors hover:bg-white/60 dark:hover:bg-gray-700/50 group/item cursor-default">
                     <div className="flex items-center gap-2">
                       <div className="w-2.5 h-2.5 rounded-full shadow-sm" style={{ backgroundColor: color }}></div>
                       <span className="font-bold text-gray-700 dark:text-gray-200 truncate max-w-[140px] sm:max-w-[200px] transition-colors group-hover/item:text-gray-900 dark:group-hover/item:text-white">

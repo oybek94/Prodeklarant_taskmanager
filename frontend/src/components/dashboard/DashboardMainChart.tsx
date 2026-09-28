@@ -10,8 +10,10 @@ import {
   Title,
   Tooltip,
   Legend,
-  Filler
+  Filler,
+  type ScriptableContext,
 } from 'chart.js';
+import type {} from 'chartjs-plugin-datalabels';
 
 ChartJS.register(
   CategoryScale,
@@ -23,6 +25,35 @@ ChartJS.register(
   Legend,
   Filler
 );
+/** "YYYY-MM-DD" → qismlar (month 0-11) */
+const parseKey = (key: string) => {
+  const [year, month, day] = key.split('-').map(Number);
+  return { year, month: month - 1, day };
+};
+
+/** 0 = dushanba ... 6 = yakshanba */
+const weekdayMon0 = (key: string) => {
+  const { year, month, day } = parseKey(key);
+  return (new Date(Date.UTC(year, month, day)).getUTCDay() + 6) % 7;
+};
+
+const dayKeysBetween = (startKey: string, endKey: string) => {
+  const keys: string[] = [];
+  const start = parseKey(startKey);
+  for (let t = Date.UTC(start.year, start.month, start.day); ; t += 24 * 60 * 60 * 1000) {
+    const key = new Date(t).toISOString().slice(0, 10);
+    if (key > endKey) break;
+    keys.push(key);
+  }
+  return keys;
+};
+
+const PERIOD_TITLES: Record<'weekly' | 'monthly' | 'yearly', string> = {
+  weekly: 'Haftalik monitoring',
+  monthly: 'Oylik monitoring',
+  yearly: 'Yillik monitoring',
+};
+
 interface DashboardMainChartProps {
   chartData: ChartData | null;
   period: 'weekly' | 'monthly' | 'yearly';
@@ -39,8 +70,10 @@ export const DashboardMainChart: React.FC<DashboardMainChartProps> = ({
       return { labels: [], current: [], previous: [] };
     }
 
-    const startDate = new Date(chartData.dateRange.start);
-    const endDate = new Date(chartData.dateRange.end);
+    // Backend kunlarni Toshkent vaqti bilan "YYYY-MM-DD" kalit sifatida beradi — brauzer
+    // vaqt zonasidan qat'i nazar kalitlar bilan ishlaymiz (new Date(key) UTC deb o'qiladi)
+    const startKey = chartData.dateRange.startKey ?? chartData.dateRange.start.slice(0, 10);
+    const endKey = chartData.dateRange.endKey ?? chartData.dateRange.end.slice(0, 10);
     const previousTasks = chartData.previousTasksCompleted || [];
 
     const labels: string[] = [];
@@ -53,68 +86,52 @@ export const DashboardMainChart: React.FC<DashboardMainChartProps> = ({
       const previousByWeekday = Array.from({ length: 7 }, () => 0);
 
       chartData.tasksCompleted.forEach((item) => {
-        const date = new Date(item.date);
-        const dayIndex = (date.getDay() + 6) % 7;
-        currentByWeekday[dayIndex] += 1;
+        currentByWeekday[weekdayMon0(item.date)] += item.count;
       });
       previousTasks.forEach((item) => {
-        const date = new Date(item.date);
-        const dayIndex = (date.getDay() + 6) % 7;
-        previousByWeekday[dayIndex] += 1;
+        previousByWeekday[weekdayMon0(item.date)] += item.count;
       });
 
-      const cursor = new Date(startDate);
-      while (cursor <= endDate) {
-        const dayIndex = (cursor.getDay() + 6) % 7;
+      for (const key of dayKeysBetween(startKey, endKey)) {
+        const dayIndex = weekdayMon0(key);
         labels.push(weekDays[dayIndex]);
-        current.push(currentByWeekday[dayIndex] || 0);
-        previous.push(previousByWeekday[dayIndex] || 0);
-        cursor.setDate(cursor.getDate() + 1);
+        current.push(currentByWeekday[dayIndex]);
+        previous.push(previousByWeekday[dayIndex]);
       }
     } else if (period === 'monthly') {
       const monthShort = ['yan.', 'fev.', 'mar.', 'apr.', 'may', 'iyun', 'iyul', 'avg.', 'sen.', 'okt.', 'noy.', 'dek.'];
-      const currentByDay = new Map<number, number>();
+      const currentByKey = new Map(chartData.tasksCompleted.map((item) => [item.date, item.count]));
       const previousByDay = new Map<number, number>();
-
-      chartData.tasksCompleted.forEach((item) => {
-        const date = new Date(item.date);
-        currentByDay.set(date.getDate(), (currentByDay.get(date.getDate()) || 0) + 1);
-      });
       previousTasks.forEach((item) => {
-        const date = new Date(item.date);
-        previousByDay.set(date.getDate(), (previousByDay.get(date.getDate()) || 0) + 1);
+        const day = parseKey(item.date).day;
+        previousByDay.set(day, (previousByDay.get(day) || 0) + item.count);
       });
 
-      const cursor = new Date(startDate);
-      while (cursor <= endDate) {
-        const day = cursor.getDate();
-        labels.push(`${day} ${monthShort[cursor.getMonth()]}`);
-        current.push(currentByDay.get(day) || 0);
+      for (const key of dayKeysBetween(startKey, endKey)) {
+        const { month, day } = parseKey(key);
+        labels.push(`${day} ${monthShort[month]}`);
+        current.push(currentByKey.get(key) || 0);
         previous.push(previousByDay.get(day) || 0);
-        cursor.setDate(cursor.getDate() + 1);
       }
     } else if (period === 'yearly') {
       const monthNames = ['yanvar', 'fevral', 'mart', 'aprel', 'may', 'iyun', 'iyul', 'avgust', 'sentyabr', 'oktyabr', 'noyabr', 'dekabr'];
-      const targetYear = startDate.getFullYear();
-      const endMonth = endDate.getMonth();
+      const targetYear = parseKey(startKey).year;
+      const endMonth = parseKey(endKey).month;
       const currentByMonth = Array.from({ length: 12 }, () => 0);
       const previousByMonth = Array.from({ length: 12 }, () => 0);
 
       chartData.tasksCompleted.forEach((item) => {
-        const date = new Date(item.date);
-        if (date.getFullYear() === targetYear) {
-          currentByMonth[date.getMonth()] += 1;
-        }
+        const { year, month } = parseKey(item.date);
+        if (year === targetYear) currentByMonth[month] += item.count;
       });
       previousTasks.forEach((item) => {
-        const date = new Date(item.date);
-        previousByMonth[date.getMonth()] += 1;
+        previousByMonth[parseKey(item.date).month] += item.count;
       });
 
       for (let month = 0; month <= endMonth; month++) {
         labels.push(monthNames[month]);
-        current.push(currentByMonth[month] || 0);
-        previous.push(previousByMonth[month] || 0);
+        current.push(currentByMonth[month]);
+        previous.push(previousByMonth[month]);
       }
     }
 
@@ -129,8 +146,8 @@ export const DashboardMainChart: React.FC<DashboardMainChartProps> = ({
 
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 shrink-0 relative z-10">
         <div className="flex flex-col">
-          <h2 className="text-xl font-black text-gray-900 dark:text-white tracking-tight leading-tight">Oylik monitoring</h2>
-          <p className="text-[10px] font-black tracking-widest text-gray-400 dark:text-gray-500 uppercase mt-1">Bajarilgan vazifalar dinamikasi</p>
+          <h2 className="text-xl font-black text-gray-900 dark:text-white tracking-tight leading-tight">{PERIOD_TITLES[period]}</h2>
+          <p className="text-[10px] font-black tracking-widest text-gray-400 dark:text-gray-500 uppercase mt-1">Yangi kelgan vazifalar dinamikasi</p>
         </div>
         <div className="flex gap-1.5 sm:gap-2 bg-gray-100/50 dark:bg-gray-800/50 p-1 rounded-xl backdrop-blur-md border border-gray-200/50 dark:border-gray-700/50">
           <button
@@ -174,7 +191,7 @@ export const DashboardMainChart: React.FC<DashboardMainChartProps> = ({
                   label: 'Joriy davr',
                   data: chartDataWithLabels.current,
                   borderColor: 'rgb(99, 102, 241)',
-                  backgroundColor: (context: any) => {
+                  backgroundColor: (context: ScriptableContext<'line'>) => {
                     const chart = context.chart;
                     const { ctx, chartArea } = chart;
                     if (!chartArea) return 'rgba(99, 102, 241, 0.1)';
@@ -210,7 +227,7 @@ export const DashboardMainChart: React.FC<DashboardMainChartProps> = ({
                   pointBackgroundColor: 'rgb(148, 163, 184)',
                   pointBorderColor: '#fff',
                   pointBorderWidth: 1,
-                  yAxisID: 'y1',
+                  yAxisID: 'y',
                 },
               ],
             }}
@@ -222,6 +239,8 @@ export const DashboardMainChart: React.FC<DashboardMainChartProps> = ({
                 intersect: false,
               },
               plugins: {
+                // Profile.tsx datalabels'ni global yoqadi — aks holda har nuqtada raqam chiqadi
+                datalabels: { display: false },
                 legend: {
                   display: true,
                   position: 'top' as const,
@@ -269,20 +288,6 @@ export const DashboardMainChart: React.FC<DashboardMainChartProps> = ({
                   grid: {
                     color: 'rgba(0, 0, 0, 0.04)',
                     drawTicks: false,
-                  },
-                },
-                y1: {
-                  type: 'linear' as const,
-                  display: true,
-                  position: 'right' as const,
-                  beginAtZero: true,
-                  ticks: {
-                    stepSize: 1,
-                    precision: 0,
-                    display: false,
-                  },
-                  grid: {
-                    drawOnChartArea: false,
                   },
                 },
                 x: {

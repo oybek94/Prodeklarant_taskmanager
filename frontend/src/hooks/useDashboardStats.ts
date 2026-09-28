@@ -1,257 +1,209 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import apiClient from '../lib/api';
 import { useSocket } from '../contexts/SocketContext';
 import { useAuth } from '../contexts/AuthContext';
-import type { DashboardStats, ChartData, Task, CompletedSummary } from '../types/dashboard';
+import type { DashboardStats, ChartData, CompletedSummary, PremiumStats, DashboardTaskError } from '../types/dashboard';
 import type { UserMedal } from '../types/medals';
+
+/** Socket hodisalari ketma-ket kelganda (bitta amal bir nechta event chiqaradi) bitta yangilash */
+const SOCKET_REFRESH_DEBOUNCE_MS = 1500;
+
+const EMPTY_STATS: DashboardStats = {
+  workerCompletionRanking: { weekly: [], monthly: [], yearly: [] },
+  tasksByBranch: [],
+};
+
+const isAbort = (error: unknown) => {
+  const name = (error as { name?: string } | null)?.name;
+  return name === 'CanceledError' || name === 'AbortError';
+};
 
 export const useDashboardStats = (period: 'weekly' | 'monthly' | 'yearly') => {
   const { user } = useAuth();
   const socket = useSocket();
+  const isAdmin = user?.role === 'ADMIN';
 
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [statsError, setStatsError] = useState<string | null>(null);
   const [chartData, setChartData] = useState<ChartData | null>(null);
-  const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const [premiumStats, setPremiumStats] = useState<any>(null);
+  const [premiumStats, setPremiumStats] = useState<PremiumStats | null>(null);
   const [completedSummary, setCompletedSummary] = useState<CompletedSummary | null>(null);
   const [loadingCompletedSummary, setLoadingCompletedSummary] = useState(true);
 
-  const [achievements, setAchievements] = useState<any[]>([]);
   const [allMedals, setAllMedals] = useState<UserMedal[]>([]);
-  const [myMedals, setMyMedals] = useState<UserMedal[]>([]);
-  const [unratedErrors, setUnratedErrors] = useState<any[]>([]);
-  const [pendingDeleteErrors, setPendingDeleteErrors] = useState<any[]>([]);
+  const [unratedErrors, setUnratedErrors] = useState<DashboardTaskError[]>([]);
+  const [pendingDeleteErrors, setPendingDeleteErrors] = useState<DashboardTaskError[]>([]);
 
-  const loadUnratedErrors = async () => {
-    if (user?.role !== 'ADMIN') return;
+  // Socket orqali yangilanadigan davr — effekt qayta obuna bo'lmasligi uchun ref
+  const periodRef = useRef(period);
+  useEffect(() => {
+    periodRef.current = period;
+  }, [period]);
+
+  const loadUnratedErrors = useCallback(async () => {
+    if (!isAdmin) return;
     try {
       const response = await apiClient.get('/tasks/errors/unrated');
       setUnratedErrors(response.data);
     } catch (error) {
       console.error('Error loading unrated errors:', error);
     }
-  };
+  }, [isAdmin]);
 
-  const loadPendingDeleteErrors = async () => {
-    if (user?.role !== 'ADMIN') return;
+  const loadPendingDeleteErrors = useCallback(async () => {
+    if (!isAdmin) return;
     try {
       const response = await apiClient.get('/tasks/errors/pending-delete');
       setPendingDeleteErrors(response.data);
     } catch (error) {
       console.error('Error loading pending delete errors:', error);
     }
-  };
+  }, [isAdmin]);
 
-  const loadAchievements = async () => {
+  const loadMedals = useCallback(async () => {
     try {
-      const response = await apiClient.get('/auth/me/achievements');
-      setAchievements(response.data);
-    } catch (error) {
-      console.error('Error loading achievements:', error);
-    }
-  };
-
-  const loadMedals = async () => {
-    try {
-      const [allRes, myRes] = await Promise.all([
-        apiClient.get('/medals/all'),
-        apiClient.get('/medals/my-medals')
-      ]);
-      setAllMedals(allRes.data);
-      setMyMedals(myRes.data);
+      const response = await apiClient.get('/medals/all');
+      setAllMedals(response.data);
     } catch (error) {
       console.error('Error loading medals:', error);
     }
-  };
+  }, []);
 
-  const loadCompletedSummary = async () => {
+  /** silent=true — fondagi yangilash: spinner ko'rsatilmaydi, eski ma'lumot turadi */
+  const loadCompletedSummary = useCallback(async (silent = false) => {
     try {
-      setLoadingCompletedSummary(true);
+      if (!silent) setLoadingCompletedSummary(true);
       const response = await apiClient.get('/dashboard/completed-summary');
       setCompletedSummary(response.data);
     } catch (error) {
       console.error('Error loading completed summary:', error);
-      setCompletedSummary(null);
+      if (!silent) setCompletedSummary(null);
     } finally {
       setLoadingCompletedSummary(false);
     }
-  };
+  }, []);
 
-
-  const loadStats = async (signal?: AbortSignal) => {
+  const loadStats = useCallback(async (silent = false, signal?: AbortSignal) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       setStatsError(null);
       const [response, premiumResponse] = await Promise.all([
         apiClient.get('/dashboard/stats', { signal }),
-        apiClient.get('/dashboard/premium-stats', { signal }).catch(() => null)
+        apiClient.get('/dashboard/premium-stats', { signal }).catch((error: unknown) => {
+          if (isAbort(error)) throw error;
+          return null;
+        }),
       ]);
 
-      if (premiumResponse && premiumResponse.data) {
+      if (premiumResponse?.data) {
         setPremiumStats(premiumResponse.data);
       }
       if (response.status >= 400 || response.data?.error) {
-        const errorMessage = response.data?.error || `Dashboard statistikasi yuklanmadi (status: ${response.status})`;
-        setStatsError(errorMessage);
-        setStats({
-          newTasks: 0,
-          completedTasks: 0,
-          tasksByStatus: [],
-          processStats: [],
-          workerActivity: [],
-          financialStats: [],
-          tasksByBranch: [],
-          certifierDebt: null,
-          workerDebts: [],
-        });
+        setStatsError(response.data?.error || `Dashboard statistikasi yuklanmadi (status: ${response.status})`);
+        setStats(EMPTY_STATS);
         return;
       }
 
-      const statsData = {
-        ...response.data,
-        tasksByBranch: Array.isArray(response.data?.tasksByBranch)
-          ? response.data.tasksByBranch
-          : [],
-      };
-
-      setStats(statsData);
-    } catch (error: any) {
-      if (error?.name === 'CanceledError' || error?.name === 'AbortError') return;
-      console.error('Error loading stats:', error);
-      const errorMessage =
-        error?.response?.data?.details ||
-        error?.response?.data?.error ||
-        error?.message ||
-        'Dashboard statistikasi yuklanmadi';
-      setStatsError(errorMessage);
       setStats({
-        newTasks: 0,
-        completedTasks: 0,
-        tasksByStatus: [],
-        processStats: [],
-        workerActivity: [],
-        financialStats: [],
-        tasksByBranch: [],
-        certifierDebt: null,
-        workerDebts: [],
+        ...response.data,
+        tasksByBranch: Array.isArray(response.data?.tasksByBranch) ? response.data.tasksByBranch : [],
       });
+    } catch (error: unknown) {
+      if (isAbort(error)) return;
+      console.error('Error loading stats:', error);
+      const err = error as { response?: { data?: { details?: string; error?: string } }; message?: string };
+      setStatsError(
+        err?.response?.data?.details ||
+        err?.response?.data?.error ||
+        err?.message ||
+        'Dashboard statistikasi yuklanmadi'
+      );
+      if (!silent) setStats(EMPTY_STATS);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const loadChartData = async (signal?: AbortSignal) => {
+  const loadChartData = useCallback(async (chartPeriod: typeof period, signal?: AbortSignal) => {
     try {
-      const params: any = { period };
-      const response = await apiClient.get('/dashboard/charts', { params, signal });
+      const response = await apiClient.get('/dashboard/charts', { params: { period: chartPeriod }, signal });
       setChartData(response.data);
-    } catch (error: any) {
-      if (error?.name === 'CanceledError' || error?.name === 'AbortError') return;
+    } catch (error: unknown) {
+      if (isAbort(error)) return;
       console.error('Error loading chart data:', error);
     }
-  };
+  }, []);
 
-  const loadRecentTasks = async (signal?: AbortSignal) => {
-    try {
-      const response = await apiClient.get('/tasks?status=JARAYONDA', { signal });
-      setTasks(response.data.slice(0, 5));
-    } catch (error: any) {
-      if (error?.name === 'CanceledError' || error?.name === 'AbortError') return;
-      console.error('Error loading tasks:', error);
-    }
-  };
-
+  // Davrga bog'liq bo'lmagan ma'lumotlar — bir marta
   useEffect(() => {
     const controller = new AbortController();
-    loadStats(controller.signal);
-    loadChartData(controller.signal);
-    loadRecentTasks(controller.signal);
-    return () => controller.abort();
-  }, [period]);
-
-  useEffect(() => {
+    loadStats(false, controller.signal);
     loadCompletedSummary();
-    loadAchievements();
     loadMedals();
-    if (user?.role === 'ADMIN') {
-      loadUnratedErrors();
-      loadPendingDeleteErrors();
-    }
-  }, [user]);
+    return () => controller.abort();
+  }, [loadStats, loadCompletedSummary, loadMedals]);
+
+  // Grafik — davr o'zgarganda faqat u qayta yuklanadi
+  useEffect(() => {
+    const controller = new AbortController();
+    loadChartData(period, controller.signal);
+    return () => controller.abort();
+  }, [period, loadChartData]);
+
+  useEffect(() => {
+    loadUnratedErrors();
+    loadPendingDeleteErrors();
+  }, [loadUnratedErrors, loadPendingDeleteErrors]);
 
   useEffect(() => {
     if (!socket) return;
 
+    let timer: ReturnType<typeof setTimeout> | null = null;
     const triggerUpdate = () => {
-      loadStats();
-      loadChartData();
-      loadCompletedSummary();
-      loadRecentTasks();
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        timer = null;
+        loadStats(true);
+        loadChartData(periodRef.current);
+        loadCompletedSummary(true);
+      }, SOCKET_REFRESH_DEBOUNCE_MS);
     };
 
-    socket.on('task:created', triggerUpdate);
-    socket.on('task:updated', triggerUpdate);
-    socket.on('task:deleted', triggerUpdate);
-    socket.on('task:stageUpdated', triggerUpdate);
-    socket.on('invoice:saved', triggerUpdate);
-    socket.on('invoice:deleted', triggerUpdate);
+    const events = ['task:created', 'task:updated', 'task:deleted', 'task:stageUpdated', 'invoice:saved', 'invoice:deleted'];
+    events.forEach((event) => socket.on(event, triggerUpdate));
 
     return () => {
-      socket.off('task:created', triggerUpdate);
-      socket.off('task:updated', triggerUpdate);
-      socket.off('task:deleted', triggerUpdate);
-      socket.off('task:stageUpdated', triggerUpdate);
-      socket.off('invoice:saved', triggerUpdate);
-      socket.off('invoice:deleted', triggerUpdate);
+      if (timer) clearTimeout(timer);
+      events.forEach((event) => socket.off(event, triggerUpdate));
     };
-  }, [socket, period, user]); // added user because triggerUpdate might use it
+  }, [socket, loadStats, loadChartData, loadCompletedSummary]);
 
   useEffect(() => {
-    if (!socket) return;
+    if (!socket || !isAdmin) return;
 
-    const handleBounty = (data: any) => {
-      loadAchievements();
-      loadUnratedErrors();
-    };
-
-    const handleQuality = (data: any) => {
-      loadAchievements();
-    };
-
-    const handleAdminError = (data: any) => {
-      if (user?.role === 'ADMIN') loadUnratedErrors();
-    };
-
-    socket.on('user:bounty_awarded', handleBounty);
-    socket.on('user:quality_award', handleQuality);
-    socket.on('admin_new_error_report', handleAdminError);
+    socket.on('user:bounty_awarded', loadUnratedErrors);
+    socket.on('admin_new_error_report', loadUnratedErrors);
 
     return () => {
-      socket.off('user:bounty_awarded', handleBounty);
-      socket.off('user:quality_award', handleQuality);
-      socket.off('admin_new_error_report', handleAdminError);
+      socket.off('user:bounty_awarded', loadUnratedErrors);
+      socket.off('admin_new_error_report', loadUnratedErrors);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [socket, user]);
+  }, [socket, isAdmin, loadUnratedErrors]);
 
   return {
     stats,
     statsError,
     chartData,
-    tasks,
     loading,
     premiumStats,
     completedSummary,
     loadingCompletedSummary,
-    achievements,
     allMedals,
-    myMedals,
     unratedErrors,
     loadUnratedErrors,
     pendingDeleteErrors,
-    loadPendingDeleteErrors
+    loadPendingDeleteErrors,
   };
 };

@@ -76,7 +76,7 @@ export const DashboardLeaderboard: React.FC<DashboardLeaderboardProps> = ({
       ) : (() => {
         const rankingData = stats?.workerCompletionRanking;
         const rawRanking = rankingData?.[rankingPeriod] || [];
-        const ranking = rawRanking.filter((w: any) => w.completedStages > 0).slice(0, 7); // Top 7 peshqadamlar, faqat natijasi yozilganlar
+        const ranking = rawRanking.filter((w) => w.completedStages > 0).slice(0, 7); // Top 7 peshqadamlar, faqat natijasi yozilganlar
 
         if (!Array.isArray(ranking) || ranking.length === 0) {
           return (
@@ -90,19 +90,20 @@ export const DashboardLeaderboard: React.FC<DashboardLeaderboardProps> = ({
         return (
           <div className="relative z-10 flex flex-col flex-1 h-full mt-1 overflow-hidden">
             <div className="space-y-1.5 w-full pr-2 pb-2 overflow-y-auto custom-scrollbar">
-              {ranking.map((w: any, index: number) => {
+              {ranking.map((w, index) => {
                 const yearlyData = stats?.workerCompletionRanking?.yearly || [];
-                const yearlyMatch = yearlyData.find((y: any) => y.userId === w.userId);
-                const totalAllTime = yearlyMatch ? yearlyMatch.completedStages : 0;
+                const yearlyMatch = yearlyData.find((y) => y.userId === w.userId);
+                // Unvon mavsum (1-maydan) XP si bo'yicha
+                const seasonXp = yearlyMatch ? yearlyMatch.completedStages : 0;
 
-                const rank = getCsgoRank(totalAllTime);
-                const progressPct = rank.target ? Math.min(100, Math.max(0, (totalAllTime / rank.target) * 100)) : 100;
+                const rank = getCsgoRank(seasonXp);
+                const progressPct = rank.target ? Math.min(100, Math.max(0, (seasonXp / rank.target) * 100)) : 100;
 
                 const isMvp = w.errorCount === 0 && w.invoiceCount > 0;
                 const posColor = index === 0 ? 'text-yellow-400' : index === 1 ? 'text-slate-200' : index === 2 ? 'text-amber-600' : 'text-slate-500';
 
                 return (
-                  <div key={w.name} className="relative group/row">
+                  <div key={w.userId} className="relative group/row">
                     {/* CS:GO scoreboard row — angular cut */}
                     <div
                       className="relative overflow-hidden bg-slate-800/70 hover:bg-slate-700/70 transition-colors border-y border-slate-700/40"
@@ -142,7 +143,7 @@ export const DashboardLeaderboard: React.FC<DashboardLeaderboardProps> = ({
                             if (userMedals.length === 0) return null;
                             return (
                               <div className="flex gap-0.5 items-center mb-1">
-                                {userMedals.map((medal: any, medalIndex: number) => {
+                                {userMedals.map((medal, medalIndex) => {
                                   const details = MEDAL_DETAILS[medal.medalType as keyof typeof MEDAL_DETAILS];
                                   if (!details) return null;
                                   return (

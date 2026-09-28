@@ -1,11 +1,47 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Icon } from '@iconify/react';
+import type { PremiumStats } from '../../types/dashboard';
 
 interface DashboardActivityHeatmapProps {
-  premiumStats: any;
+  premiumStats: PremiumStats | null;
 }
 
+type HeatmapDay = { date: string; count: number; isFuture: boolean };
+
+/** So'nggi 180 kun, haftalarga (ustunlar) bo'lingan */
+const buildWeeks = (activityList: PremiumStats['githubActivity']): HeatmapDay[][] => {
+  const map = new Map<string, number>();
+  activityList.forEach((a) => map.set(a.date, a.count));
+
+  const today = new Date();
+  const daysToSubtract = 180;
+  const startDate = new Date(today.getTime() - daysToSubtract * 24 * 60 * 60 * 1000);
+
+  const startDay = startDate.getDay();
+  const startOfGrid = new Date(startDate.getTime() - startDay * 24 * 60 * 60 * 1000);
+  const weeks: HeatmapDay[][] = [];
+  let currentWeek: HeatmapDay[] = [];
+
+  for (let d = new Date(startOfGrid); d <= today; d.setDate(d.getDate() + 1)) {
+    const dLocal = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0);
+    const dateStr = dLocal.toISOString().split('T')[0];
+    const count = map.get(dateStr) || 0;
+
+    currentWeek.push({ date: dateStr, count, isFuture: dLocal > today });
+
+    if (currentWeek.length === 7) {
+      weeks.push(currentWeek);
+      currentWeek = [];
+    }
+  }
+  if (currentWeek.length > 0) {
+    weeks.push(currentWeek);
+  }
+  return weeks;
+};
+
 export const DashboardActivityHeatmap: React.FC<DashboardActivityHeatmapProps> = ({ premiumStats }) => {
+  const weeks = useMemo(() => (premiumStats ? buildWeeks(premiumStats.githubActivity || []) : []), [premiumStats]);
   return (
     <div className="relative h-full bg-white/60 dark:bg-gray-900/60 backdrop-blur-2xl rounded-[32px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border-[1.5px] border-white/80 dark:border-white/10 p-5 sm:p-6 flex flex-col transition-all duration-300 overflow-hidden group">
       
@@ -28,34 +64,6 @@ export const DashboardActivityHeatmap: React.FC<DashboardActivityHeatmapProps> =
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
           </div>
         ) : (() => {
-          const activityList = premiumStats.githubActivity || [];
-          const map = new Map();
-          activityList.forEach((a: any) => map.set(a.date, a.count));
-
-          const today = new Date();
-          const daysToSubtract = 180;
-          const startDate = new Date(today.getTime() - daysToSubtract * 24 * 60 * 60 * 1000);
-
-          const startDay = startDate.getDay();
-          const startOfGrid = new Date(startDate.getTime() - startDay * 24 * 60 * 60 * 1000);
-          const weeks = [];
-          let currentWeek = [];
-
-          for (let d = new Date(startOfGrid); d <= today; d.setDate(d.getDate() + 1)) {
-            const dLocal = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0);
-            const dateStr = dLocal.toISOString().split('T')[0];
-            const count = map.get(dateStr) || 0;
-
-            currentWeek.push({ date: dateStr, count, isFuture: dLocal > today });
-
-            if (currentWeek.length === 7) {
-              weeks.push(currentWeek);
-              currentWeek = [];
-            }
-          }
-          if (currentWeek.length > 0) {
-            weeks.push(currentWeek);
-          }
 
           return (
             <div className="w-full mt-1">

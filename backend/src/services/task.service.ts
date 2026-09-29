@@ -1,6 +1,9 @@
 import { TaskRepository, TaskFilters } from '../repositories/task.repository';
 import { TaskStatus } from '@prisma/client';
 
+/** Bitta so'rovda qaytariladigan maksimal vazifalar soni (arxiv Excel eksporti shu chegarada) */
+export const MAX_TASKS_PER_REQUEST = 2000;
+
 export class TaskService {
   constructor(private taskRepo: TaskRepository) {}
 
@@ -10,7 +13,7 @@ export class TaskService {
     userAuth: { role?: string; branchId?: number | null }
   ) {
     const pageNum = pagination.page;
-    const limitNum = pagination.limit;
+    const limitNum = pagination.limit ? Math.min(pagination.limit, MAX_TASKS_PER_REQUEST) : undefined;
     
     const skip = pageNum && limitNum ? (pageNum - 1) * limitNum : undefined;
     const take = limitNum || 500; // Default limit

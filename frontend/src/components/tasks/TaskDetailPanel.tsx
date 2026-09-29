@@ -153,7 +153,8 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
     const currency: 'USD' | 'UZS' = rep ? 'UZS' : getClientCurrency(selectedTask.client);
     const psrAmount = getPsrAmount(selectedTask, currency);
     const netProfit = rep?.netProfit ?? (dealAmount - getBranchPaymentsDisplay(selectedTask, afterHoursDeclaration, currency));
-    const isPositive = netProfit >= 0;
+    // Xodimga foyda yuborilmaydi (backend) — blok rangi ham foyda belgisini oshkor qilmasin
+    const isPositive = user?.role !== 'ADMIN' || netProfit >= 0;
     const totalProfit = netProfit + Number(selectedTask.adminEarnedAmount || 0);
 
     // Rang va stil
@@ -176,7 +177,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
       currency, isPositive, totalProfit,
       containerClass, iconBgClass, icon, titleClass, btnClass, labelClass, valueClass,
     };
-  }, [selectedTask, afterHoursDeclaration]);
+  }, [selectedTask, afterHoursDeclaration, user?.role]);
 
   return (
     <div
@@ -594,8 +595,8 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
           </div>
         </div>
 
-        {/* Foyda hisoboti - barcha foydalanuvchilar uchun */}
-        {selectedTask.netProfit !== null && selectedTask.netProfit !== undefined && (
+        {/* Foyda hisoboti: ADMIN — to'liq hisobot; boshqalar — faqat o'z KPI daromadi (netProfit ularga kelmaydi) */}
+        {(user?.role !== 'ADMIN' || (selectedTask.netProfit !== null && selectedTask.netProfit !== undefined)) && (
           <div className={`mb-5 relative z-10 p-4 rounded-2xl border-2 shadow-sm ${financial.containerClass}`}>
             <div className="flex items-center justify-between gap-3 mb-2">
               <div className="flex items-center gap-3">

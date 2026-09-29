@@ -1,92 +1,32 @@
 import { useMemo } from 'react';
 import type { Task, Branch } from '../components/tasks/types';
-import type { ArchiveFiltersState } from '../components/tasks/ArchiveFiltersPanel';
 
 interface UseTaskFiltersProps {
   tasks: Task[] | null;
   branches: Branch[];
   showArchive: boolean;
-  archiveSearchQuery: string;
-  archiveFilters: ArchiveFiltersState;
-  page: number;
-  archiveLimit: number;
-  user: any;
+  /** Arxivda: serverdagi filtrlangan yozuvlar soni va sahifalar soni */
+  totalTasks: number;
+  totalPages: number;
+  user: { role?: string; branchId?: number | null } | null;
 }
 
 export const useTaskFilters = ({
   tasks,
   branches,
   showArchive,
-  archiveSearchQuery,
-  archiveFilters,
-  page,
-  archiveLimit,
+  totalTasks,
+  totalPages,
   user
 }: UseTaskFiltersProps) => {
 
-  // Filter archive tasks
-  const filteredArchiveTasks = useMemo(() => {
-    if (!showArchive || !Array.isArray(tasks)) return [];
-
-    let filtered = tasks;
-
-    // Search filter
-    if (archiveSearchQuery.trim()) {
-      const query = archiveSearchQuery.toLowerCase().trim();
-      filtered = filtered.filter((task) =>
-        task.title.toLowerCase().includes(query) ||
-        task.client.name.toLowerCase().includes(query)
-      );
-    }
-
-    // Branch filter
-    if (archiveFilters.branchId) {
-      filtered = filtered.filter((task) =>
-        task.branch.id.toString() === archiveFilters.branchId
-      );
-    }
-
-    // Client filter
-    if (archiveFilters.clientId) {
-      filtered = filtered.filter((task) =>
-        task.client.id.toString() === archiveFilters.clientId
-      );
-    }
-
-    // Date range filter
-    if (archiveFilters.startDate) {
-      const startDate = new Date(archiveFilters.startDate);
-      startDate.setHours(0, 0, 0, 0);
-      filtered = filtered.filter((task) => {
-        const taskDate = new Date(task.createdAt);
-        taskDate.setHours(0, 0, 0, 0);
-        return taskDate >= startDate;
-      });
-    }
-
-    if (archiveFilters.endDate) {
-      const endDate = new Date(archiveFilters.endDate);
-      endDate.setHours(23, 59, 59, 999);
-      filtered = filtered.filter((task) => {
-        const taskDate = new Date(task.createdAt);
-        return taskDate <= endDate;
-      });
-    }
-
-    // PSR filter
-    if (archiveFilters.hasPsr !== '') {
-      const hasPsr = archiveFilters.hasPsr === 'true';
-      filtered = filtered.filter((task) => {
-        return task.hasPsr === hasPsr;
-      });
-    }
-
-    return filtered;
-  }, [tasks, showArchive, archiveSearchQuery, archiveFilters]);
-
-  const archiveTotalTasks = filteredArchiveTasks.length;
-  const archiveTotalPages = Math.max(1, Math.ceil(archiveTotalTasks / archiveLimit));
-  const archivePageTasks = filteredArchiveTasks.slice((page - 1) * archiveLimit, page * archiveLimit);
+  // Arxiv qidiruvi, filtrlari va sahifalash serverda (GET /tasks) — `tasks` joriy sahifaning o'zi
+  const archiveTotalTasks = showArchive ? totalTasks : 0;
+  const archiveTotalPages = showArchive ? totalPages : 1;
+  const archivePageTasks = useMemo(
+    () => (showArchive && Array.isArray(tasks) ? tasks : []),
+    [showArchive, tasks]
+  );
 
   // Separate tasks by branch - dynamically group by all branches
   const tasksByBranch = useMemo(() => {
@@ -113,14 +53,14 @@ export const useTaskFilters = ({
   }, [tasks, branches]);
 
   // Check if user is DEKLARANT with a branch assigned
-  const isDeklarantWithBranch = user?.role === 'DEKLARANT' && user?.branchId;
+  const isDeklarantWithBranch = user?.role === 'DEKLARANT' && !!user?.branchId;
   const userBranch = isDeklarantWithBranch
-    ? branches.find((b) => b.id === user.branchId)
+    ? branches.find((b) => b.id === user?.branchId)
     : null;
 
   // Filter tasks for DEKLARANT - only show their branch
   const userBranchTasks = isDeklarantWithBranch && userBranch
-    ? (Array.isArray(tasks) ? tasks.filter((task) => task.branch.id === user.branchId) : [])
+    ? (Array.isArray(tasks) ? tasks.filter((task) => task.branch.id === user?.branchId) : [])
     : [];
 
   const getPageNumbers = (current: number, total: number) => {
@@ -131,7 +71,6 @@ export const useTaskFilters = ({
   };
 
   return {
-    filteredArchiveTasks,
     archiveTotalTasks,
     archiveTotalPages,
     archivePageTasks,

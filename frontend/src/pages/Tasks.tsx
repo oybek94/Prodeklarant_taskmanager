@@ -15,6 +15,8 @@ import {
   formatBxmAmountInSum as formatBxmAmountInSumHelper,
 } from '../components/tasks/taskBusinessHelpers';
 import type { TasksProps } from '../components/tasks/types';
+import type { TaskListQuery } from '../components/tasks/useTaskData';
+import { useDebouncedValue } from '../hooks/useDebouncedValue';
 
 import { useTaskFilters } from '../hooks/useTaskFilters';
 import { useTaskExport } from '../hooks/useTaskExport';
@@ -25,15 +27,15 @@ import { TaskStatsCards } from '../components/tasks/TaskStatsCards';
 import { TasksModalsManager } from '../components/tasks/TasksModalsManager';
 import { TasksView } from '../components/tasks/TasksView';
 
-const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onCloseModal }) => {
-  const limit = 50; 
-  const archiveLimit = 20; 
+/** Arxivda bir sahifadagi vazifalar soni */
+const ARCHIVE_PAGE_SIZE = 20;
 
+const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onCloseModal }) => {
   const modals = useTaskModals();
   const { user } = useAuth();
   const {
     tasks, loading, clients, branches, workers, stats,
-    page, setPage,
+    page, setPage, totalPages, totalTasks,
     selectedTask, setSelectedTask, loadingTask,
     taskDocuments, loadingDocuments,
     aiChecks, loadingAiChecks, taskVersions, loadingVersions,
@@ -54,13 +56,23 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
   const [editForm, setEditForm] = useState<EditForm>({
     title: '', clientId: '', branchId: '', comments: '', hasPsr: false, afterHoursPayer: 'CLIENT', driverPhone: '', contractId: '',
   });
-  const filters = useMemo(() => ({ status: '', clientId: '', branchId: '' }), []);
   // /tasks/archive'ga to'g'ridan kirilganda avval faol ro'yxat keraksiz yuklanmasin
   const [showArchive, setShowArchive] = useState(() => location.pathname.startsWith('/tasks/archive'));
   const [archiveSearchQuery, setArchiveSearchQuery] = useState('');
   const [archiveFilters, setArchiveFilters] = useState<ArchiveFiltersState>({
     branchId: '', clientId: '', startDate: '', endDate: '', hasPsr: '',
   });
+  // Qidiruv har harfda serverga so'rov yubormasin
+  const debouncedArchiveSearch = useDebouncedValue(archiveSearchQuery, 400);
+  // Ro'yxat so'rovi. Arxivda qidiruv, filtrlar va sahifalash serverda bajariladi.
+  // Faol rejimda archiveQuery doim undefined — arxiv filtrlari tozalanganda faol ro'yxat qayta yuklanmaydi
+  const archiveQuery = useMemo(() => (showArchive
+    ? { page, limit: ARCHIVE_PAGE_SIZE, search: debouncedArchiveSearch, ...archiveFilters }
+    : undefined), [showArchive, page, debouncedArchiveSearch, archiveFilters]);
+  const filters = useMemo<TaskListQuery>(
+    () => ({ status: '', clientId: '', branchId: '', archive: archiveQuery }),
+    [archiveQuery]
+  );
   const [showArchiveFilters, setShowArchiveFilters] = useState(false);
 
   const isArchiveRoute = location.pathname.startsWith('/tasks/archive');
@@ -74,14 +86,13 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
   const taskActions = useTaskActions({
     modals,
     selectedTask, setSelectedTask,
-    showArchive, filters: filters as any,
+    showArchive, filters,
     loadTaskDetail, loadTaskDocuments, loadTasks,
     user: user as any, branches: branches as any, isMobile,
     isNewTaskRoute, isArchiveRoute, editTaskId, navigate,
   });
 
   const {
-    filteredArchiveTasks,
     archiveTotalTasks,
     archiveTotalPages,
     archivePageTasks,
@@ -91,11 +102,11 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
     userBranchTasks,
     getPageNumbers,
   } = useTaskFilters({
-    tasks, branches, showArchive, archiveSearchQuery, archiveFilters, page, archiveLimit, user
+    tasks, branches, showArchive, totalTasks, totalPages, user
   });
 
   const { exportToExcel, exportArchiveReport, reportLoading } = useTaskExport({
-    tasks, filteredArchiveTasks, showArchive, archiveFilters, archiveSearchQuery
+    tasks, showArchive, taskQuery: filters, archiveFilters, archiveSearchQuery
   });
 
   useTaskSocket({ socket, isModalMode, loadTasks, showArchive, filters });
@@ -158,7 +169,7 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
   // Rejim yoki arxiv filtrlari o'zgarganda 1-sahifaga qaytish.
   // `page` dependency'da bo'lmasligi shart — aks holda har sahifa almashganda darhol 1 ga qaytadi.
   const pageResetKey = [
-    showArchive, archiveSearchQuery, archiveFilters.branchId, archiveFilters.clientId,
+    showArchive, debouncedArchiveSearch, archiveFilters.branchId, archiveFilters.clientId,
     archiveFilters.startDate, archiveFilters.endDate, archiveFilters.hasPsr,
   ].join('|');
   useEffect(() => {
@@ -268,7 +279,7 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
           setArchiveFilters={setArchiveFilters}
           branches={branches}
           clients={clients}
-          filteredArchiveTasksLength={filteredArchiveTasks.length}
+          filteredArchiveTasksLength={archiveTotalTasks}
           exportArchiveReport={exportArchiveReport}
           reportLoading={reportLoading}
           showArchiveFiltersPanel={showArchiveFiltersPanel}

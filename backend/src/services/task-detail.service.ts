@@ -287,6 +287,42 @@ export async function computeFinancialReport(
   };
 }
 
+// ─── Rolga qarab javob ─────────────────────────────────────────────
+
+/** Moliyaviy hisobot faqat ADMIN'ga (UI: TaskDetailPanel ham faqat ADMIN'ga ko'rsatadi) */
+export const canSeeTaskFinancials = (role: string | undefined) => role === 'ADMIN';
+
+/** Xodimga yuborilmaydigan kalitlar: foyda, admin daromadi, tranzaksiyalar */
+const STAFF_HIDDEN_KEYS = new Set([
+  'netProfit', 'operationalProfit', 'adminEarnedAmount', 'exchangeRateInfo', 'financialReport', 'transactions',
+]);
+
+/** Kartochka uchun xodimga kerakli mijoz maydonlari (shartnoma summasi, bank rekvizitlari, qarzlar yo'q) */
+const STAFF_CLIENT_KEYS = [
+  'id', 'name', 'phone', 'email', 'contractNumber',
+  'dealAmountCurrency', 'dealAmount_currency', 'defaultAfterHoursPayer',
+] as const;
+
+/**
+ * ADMIN bo'lmagan foydalanuvchi uchun GET /tasks/:id javobi.
+ * Snapshot narxlaridan faqat bojxona to'lovi qoladi (Deklaratsiya bosqichida BXM summasi ko'rsatiladi);
+ * KPI yozuvlaridan faqat o'ziniki ("Jarayonlardan topilgan mablag'").
+ */
+export function redactTaskDetailForStaff(detail: TaskDetailResponse, userId: number): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(detail)) {
+    if (STAFF_HIDDEN_KEYS.has(key)) continue;
+    if (key.startsWith('snapshot') && !key.startsWith('snapshotCustomsPayment')) continue;
+    out[key] = value;
+  }
+  out.client = Object.fromEntries(STAFF_CLIENT_KEYS.map((k) => [k, detail.client[k]]));
+  out.stages = detail.stages.map((stage) => ({ ...stage, price: undefined }));
+  out.kpiLogs = detail.kpiLogs.filter((log) => log.userId === userId);
+  return out;
+}
+
+export type TaskDetailResponse = NonNullable<Awaited<ReturnType<typeof getTaskDetail>>>;
+
 /** GET /tasks/:id javobi; vazifa topilmasa null */
 export async function getTaskDetail(id: number, rateAt: RateLookup = cbuUsdRate) {
   const task = await prisma.task.findUnique({ where: { id }, include: taskDetailInclude });

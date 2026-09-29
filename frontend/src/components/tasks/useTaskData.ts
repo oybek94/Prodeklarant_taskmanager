@@ -5,11 +5,60 @@ import { useSocket } from '../../contexts/SocketContext';
 import type { Task, TaskDetail, TaskVersion, TaskDocument, AiCheck, Client, Branch, TaskStats } from './types';
 
 /**
- * Arxivda bir marta yuklanadigan maksimal yozuvlar soni.
- * Qidiruv va sahifalash client-side bo'lgani uchun kerak (useTaskFilters).
- * Arxiv shu chegaraga yetganda server-side qidiruvga o'tish shart.
+ * Faol (yakunlanmagan) vazifalar bitta so'rovda to'liq yuklanadi — ular filiallar bo'yicha
+ * guruhlanadi va sahifalanmaydi. Server YAKUNLANDI'larni o'zi chiqarib tashlaydi.
  */
-const ARCHIVE_FETCH_LIMIT = 2000;
+const ACTIVE_FETCH_LIMIT = 1000;
+/** Excel eksporti uchun arxivdan bir martada olinadigan maksimum (server chegarasi bilan bir xil) */
+export const ARCHIVE_EXPORT_LIMIT = 2000;
+
+/** Arxiv so'rovi: qidiruv, filtrlar va sahifalash serverda */
+export interface ArchiveQuery {
+  page: number;
+  limit: number;
+  search: string;
+  branchId: string;
+  clientId: string;
+  startDate: string;
+  endDate: string;
+  hasPsr: string;
+}
+
+export interface TaskListQuery {
+  status: string;
+  clientId: string;
+  branchId: string;
+  /** Faqat arxiv rejimida */
+  archive?: ArchiveQuery;
+}
+
+/** GET /tasks query parametrlari */
+export function buildTaskListParams(showArchive: boolean, query: TaskListQuery): Record<string, string> {
+  const params: Record<string, string> = {};
+  const set = (key: string, value: string | number | undefined) => {
+    if (value !== undefined && value !== '') params[key] = String(value);
+  };
+  if (showArchive) {
+    const a = query.archive;
+    params.status = 'YAKUNLANDI';
+    set('page', a?.page ?? 1);
+    set('limit', a?.limit ?? 20);
+    set('search', a?.search.trim());
+    set('branchId', a?.branchId);
+    set('clientId', a?.clientId);
+    set('startDate', a?.startDate);
+    set('endDate', a?.endDate);
+    set('hasPsr', a?.hasPsr);
+  } else {
+    if (query.status) params.status = query.status;
+    else params.excludeCompleted = 'true';
+    params.page = '1';
+    params.limit = String(ACTIVE_FETCH_LIMIT);
+    set('clientId', query.clientId);
+    set('branchId', query.branchId);
+  }
+  return params;
+}
 
 /**
  * useTaskData — Tasks sahifasi uchun asosiy data-fetching hook.
@@ -136,50 +185,24 @@ export function useTaskData(userRole?: string) {
 
   const loadTasks = useCallback(async (
     showArchive: boolean,
-    filters: { status: string; clientId: string; branchId: string }
+    query: TaskListQuery
   ) => {
     const seq = ++tasksRequestSeqRef.current;
     // Skeleton faqat rejim almashganda; fondagi yangilashda jadval joyida qoladi
     const isModeChange = loadedArchiveModeRef.current !== showArchive;
     try {
       if (isModeChange) setLoading(true);
-      const params: any = {};
-      if (showArchive) {
-        params.status = 'YAKUNLANDI';
-        // Arxivda qidiruv va sahifalash hozircha client-side (useTaskFilters),
-        // shuning uchun barcha yozuvlar kerak. Limitni aniq yuboramiz —
-        // aks holda serverdagi standart 500 jimgina kesib qo'yadi.
-        params.page = '1';
-        params.limit = String(ARCHIVE_FETCH_LIMIT);
-      } else {
-        if (filters.status) params.status = filters.status;
-        params.page = '1';
-        params.limit = '200'; // 5000 dan kamaytrildi — server-side limit bilan himoyalangan
-      }
-      if (filters.clientId) params.clientId = filters.clientId;
-      if (filters.branchId) params.branchId = filters.branchId;
-
-      const response = await apiClient.get('/tasks', { params });
+      const response = await apiClient.get('/tasks', { params: buildTaskListParams(showArchive, query) });
       if (seq !== tasksRequestSeqRef.current) return;
 
-      // Limit to'lgan bo'lsa — arxiv to'liq ko'rinmayapti, server-side qidiruvga o'tish vaqti keldi
-      if (showArchive && response.data?.pagination?.total > ARCHIVE_FETCH_LIMIT) {
-        console.warn(
-          `[Tasks] Arxivda ${response.data.pagination.total} ta yozuv bor, ` +
-          `faqat ${ARCHIVE_FETCH_LIMIT} tasi yuklandi. Qidiruv to'liq ishlamaydi — ` +
-          `arxivni server-side qidiruvga o'tkazish kerak.`
-        );
+      const tasksData: Task[] = Array.isArray(response.data?.tasks) ? response.data.tasks : [];
+      const pagination = response.data?.pagination as { total: number; totalPages: number } | undefined;
+      if (!showArchive && pagination && pagination.total > tasksData.length) {
+        console.warn(`[Tasks] ${pagination.total} ta faol vazifadan ${tasksData.length} tasi ko'rsatilmoqda`);
       }
-
-      const tasksData: Task[] = response.data?.pagination
-        ? response.data.tasks
-        : (Array.isArray(response.data) ? response.data : []);
-      const filteredTasks = tasksData.filter((task) =>
-        showArchive ? task.status === 'YAKUNLANDI' : task.status !== 'YAKUNLANDI'
-      );
-      setTasks(filteredTasks);
-      setTotalPages(1);
-      setTotalTasks(filteredTasks.length);
+      setTasks(tasksData);
+      setTotalPages(Math.max(1, pagination?.totalPages ?? 1));
+      setTotalTasks(pagination?.total ?? tasksData.length);
       loadedArchiveModeRef.current = showArchive;
     } catch (error) {
       console.error('Error loading tasks:', error);

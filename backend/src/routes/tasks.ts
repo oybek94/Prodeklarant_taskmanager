@@ -2,12 +2,13 @@ import { Router, Response } from 'express';
 import { prisma } from '../prisma';
 import { AuthRequest, requireAuth } from '../middleware/auth';
 import { TaskStatus } from '@prisma/client';
+import { z } from 'zod';
 
 import { socketEmitter } from '../services/socketEmitter';
 import { updateStageSchema, updateStageFromApi, StageUpdateError } from '../services/stage-update.service';
 import { notify, getAllActiveUserIds } from '../services/notificationService';
 import { createTaskSchema, createTask, afterTaskCreated, TaskCreateError } from '../services/task-create.service';
-import { getTaskLight, getTaskDetail } from '../services/task-detail.service';
+import { getTaskLight, getTaskDetail, canSeeTaskFinancials, redactTaskDetailForStaff } from '../services/task-detail.service';
 import { updateTaskSchema, updateTask, TaskUpdateError, regenerateTransportDocs, broadcastTaskUpdated } from '../services/task-update.service';
 import {
   createErrorSchema, updateErrorSchema, rateErrorSchema, TaskErrorError, parseId,
@@ -15,7 +16,7 @@ import {
   deleteTaskError, approveDeleteRequest, rejectDeleteRequest, rateTaskError,
 } from '../services/task-error.service';
 
-import { TaskRepository } from '../repositories/task.repository';
+import { TaskRepository, tashkentDayRange } from '../repositories/task.repository';
 import { TaskService } from '../services/task.service';
 
 const taskRepo = new TaskRepository();
@@ -57,20 +58,13 @@ router.get('/archive-report', requireAuth(), async (req: AuthRequest, res) => {
     if (hasPsr === 'true') where.hasPsr = true;
     if (hasPsr === 'false') where.hasPsr = false;
 
-    // Sana filtri
-    if (startDate || endDate) {
-      where.createdAt = {};
-      if (startDate) {
-        const sd = new Date(startDate as string);
-        sd.setHours(0, 0, 0, 0);
-        where.createdAt.gte = sd;
-      }
-      if (endDate) {
-        const ed = new Date(endDate as string);
-        ed.setHours(23, 59, 59, 999);
-        where.createdAt.lte = ed;
-      }
-    }
+    // Sana filtri — Toshkent kuni bo'yicha (GET / bilan bir xil)
+    const day = /^\d{4}-\d{2}-\d{2}$/;
+    const createdAt = tashkentDayRange(
+      typeof startDate === 'string' && day.test(startDate) ? startDate : undefined,
+      typeof endDate === 'string' && day.test(endDate) ? endDate : undefined,
+    );
+    if (createdAt) where.createdAt = createdAt;
 
     // Qidiruv filtri — task nomi yoki client nomi bo'yicha
     if (search && typeof search === 'string' && search.trim()) {
@@ -152,25 +146,32 @@ router.get('/archive-report', requireAuth(), async (req: AuthRequest, res) => {
   }
 });
 
+// Bo'sh query qiymatlari ("?status=") berilmagan deb olinadi
+const optionalQuery = <T extends z.ZodTypeAny>(schema: T) =>
+  z.preprocess((v) => (v === '' ? undefined : v), schema.optional());
+const boolQuery = optionalQuery(z.enum(['true', 'false']).transform((v) => v === 'true'));
+const dayQuery = optionalQuery(z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'YYYY-MM-DD formatida bo\'lishi kerak'));
+const positiveInt = optionalQuery(z.coerce.number().int().positive());
+
+const listTasksQuerySchema = z.object({
+  branchId: positiveInt,
+  clientId: positiveInt,
+  status: optionalQuery(z.nativeEnum(TaskStatus)),
+  excludeCompleted: boolQuery,
+  hasPsr: boolQuery,
+  search: optionalQuery(z.string().trim().max(200)),
+  startDate: dayQuery,
+  endDate: dayQuery,
+  page: positiveInt,
+  limit: positiveInt,
+});
+
 router.get('/', requireAuth(), async (req: AuthRequest, res) => {
   try {
-    const { branchId, status, clientId, page, limit } = req.query;
-
-    const safeInt = (val: unknown): number | undefined => {
-      const n = Number(val);
-      return Number.isFinite(n) ? Math.floor(n) : undefined;
-    };
-
-    const filters = {
-      branchId: safeInt(branchId),
-      clientId: safeInt(clientId),
-      status: status as TaskStatus,
-    };
-
-    const pagination = {
-      page: safeInt(page),
-      limit: safeInt(limit),
-    };
+    const parsed = listTasksQuerySchema.safeParse(req.query);
+    if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
+    const { page, limit, ...filters } = parsed.data;
+    const pagination = { page, limit };
 
     const userAuth = {
       role: req.user?.role,
@@ -362,7 +363,9 @@ router.get('/:id', requireAuth(), async (req: AuthRequest, res) => {
 
   const detail = await getTaskDetail(id);
   if (!detail) return res.status(404).json({ error: 'Not found' });
-  res.json(detail);
+  // Foyda, admin daromadi, boshqa xodimlar KPI'si faqat ADMIN'ga
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  res.json(canSeeTaskFinancials(req.user.role) ? detail : redactTaskDetailForStaff(detail, req.user.id));
 });
 
 // Get task versions

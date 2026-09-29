@@ -24,7 +24,7 @@ vi.mock('../services/exchange-rate', () => ({
   }),
 }));
 
-import { getTaskDetail, getTaskLight } from '../services/task-detail.service';
+import { getTaskDetail, getTaskLight, redactTaskDetailForStaff, canSeeTaskFinancials } from '../services/task-detail.service';
 import { getExchangeRate } from '../services/exchange-rate';
 
 const D = (v: number | null) => (v == null ? null : new Decimal(v));
@@ -127,5 +127,45 @@ describe('getTaskDetail — moliyaviy hisobot', () => {
   it('yengil rejim', async () => {
     m.state = scenarios[0][1];
     expect(await getTaskLight(1)).toMatchObject({ id: 1 });
+  });
+});
+
+describe("redactTaskDetailForStaff — xodimga moliyaviy ma'lumot chiqmaydi", () => {
+  const load = async () => {
+    m.state = {
+      ...scenarios[0][1],
+      task: task({
+        ...(scenarios[0][1].task as Record<string, unknown>),
+        client: client({ bankAccount: '2020...', inn: '123', email: 'm@x', phone: '+998' }),
+        stages: [{ id: 5, name: 'Deklaratsiya', price: D(50000), assignedTo: null }],
+        transactions: [{ id: 9, amount: D(100) }],
+      }),
+    };
+    return (await getTaskDetail(1, rate))!;
+  };
+
+  it("faqat ADMIN moliyaviy hisobotni ko'radi", () => {
+    expect(canSeeTaskFinancials('ADMIN')).toBe(true);
+    for (const role of ['MANAGER', 'DEKLARANT', 'WORKER', 'ACCOUNTANT', 'OWNER', undefined]) {
+      expect(canSeeTaskFinancials(role)).toBe(false);
+    }
+  });
+
+  it("foyda, tranzaksiyalar, shartnoma snapshotlari va boshqalar KPI'si olib tashlanadi", async () => {
+    const out = norm(redactTaskDetailForStaff(await load(), 2));
+    for (const key of ['netProfit', 'operationalProfit', 'adminEarnedAmount', 'exchangeRateInfo', 'financialReport', 'transactions',
+      'snapshotDealAmount', 'snapshotDealAmount_amount_uzs', 'snapshotCertificatePayment', 'snapshotPsrPrice', 'snapshotWorkerPrice',
+      'snapshotContractPaymentType', 'snapshotServiceFeeTransferUzs']) {
+      expect(out).not.toHaveProperty(key);
+    }
+    expect(out.kpiLogs.map((l: { userId: number }) => l.userId)).toEqual([2]);
+    expect(out.stages[0]).not.toHaveProperty('price');
+    expect(out.stages[0]).toMatchObject({ id: 5, name: 'Deklaratsiya' });
+  });
+
+  it('kartochka uchun kerakli maydonlar qoladi', async () => {
+    const out = norm(redactTaskDetailForStaff(await load(), 2));
+    expect(out).toMatchObject({ id: 1, title: 'T', customsPaymentMultiplier: '2', snapshotCustomsPayment: '6', snapshotCustomsPayment_currency: 'USD' });
+    expect(out.client).toEqual({ id: 3, name: 'Mijoz', phone: '+998', email: 'm@x', dealAmountCurrency: 'USD', dealAmount_currency: null });
   });
 });

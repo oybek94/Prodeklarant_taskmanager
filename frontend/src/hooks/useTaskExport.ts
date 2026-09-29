@@ -6,19 +6,34 @@ import type { ArchiveFiltersState, ReportColumnKey } from '../components/tasks/A
 import { REPORT_COLUMNS } from '../components/tasks/ArchiveFiltersPanel';
 import { calculateTotalDuration } from '../components/tasks/TaskTable';
 import { getStatusInfo, formatDate } from '../components/tasks/taskHelpers';
+import { buildTaskListParams, ARCHIVE_EXPORT_LIMIT, type TaskListQuery } from '../components/tasks/useTaskData';
 
 interface UseTaskExportProps {
   tasks: Task[] | null;
-  filteredArchiveTasks: Task[];
   showArchive: boolean;
+  /** Arxiv rejimidagi joriy so'rov (filtrlar) — eksportda barcha sahifalar olinadi */
+  taskQuery: TaskListQuery;
   archiveFilters: ArchiveFiltersState;
   archiveSearchQuery: string;
 }
 
+/** Arxivning filtrlangan barcha yozuvlari (sahifa emas) */
+async function fetchAllArchiveTasks(taskQuery: TaskListQuery): Promise<Task[]> {
+  const archive = taskQuery.archive;
+  if (!archive) return [];
+  const params = buildTaskListParams(true, { ...taskQuery, archive: { ...archive, page: 1, limit: ARCHIVE_EXPORT_LIMIT } });
+  const response = await apiClient.get('/tasks', { params });
+  const total: number | undefined = response.data?.pagination?.total;
+  if (total && total > ARCHIVE_EXPORT_LIMIT) {
+    toast(`Faqat oxirgi ${ARCHIVE_EXPORT_LIMIT} ta yozuv eksport qilindi (jami ${total})`, { icon: '⚠️' });
+  }
+  return Array.isArray(response.data?.tasks) ? response.data.tasks : [];
+}
+
 export const useTaskExport = ({
   tasks,
-  filteredArchiveTasks,
   showArchive,
+  taskQuery,
   archiveFilters,
   archiveSearchQuery
 }: UseTaskExportProps) => {
@@ -26,7 +41,14 @@ export const useTaskExport = ({
 
   // Export to Excel function
   const exportToExcel = async () => {
-    const tasksToExport = showArchive ? filteredArchiveTasks : (Array.isArray(tasks) ? tasks : []);
+    let tasksToExport: Task[];
+    try {
+      tasksToExport = showArchive ? await fetchAllArchiveTasks(taskQuery) : (Array.isArray(tasks) ? tasks : []);
+    } catch (error) {
+      console.error('Error loading archive for export:', error);
+      toast.error('Eksport uchun ma\'lumotlarni yuklashda xatolik');
+      return;
+    }
 
     if (tasksToExport.length === 0) {
       toast.error('Eksport qilish uchun ma\'lumotlar yo\'q');

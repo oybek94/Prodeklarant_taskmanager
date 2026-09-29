@@ -1,20 +1,45 @@
 import { Prisma, TaskStatus } from '@prisma/client';
 import { prisma } from '../prisma';
+import { tashkentDate } from '../utils/tashkent-time';
 
 export interface TaskFilters {
   branchId?: number;
   clientId?: number;
   status?: TaskStatus;
+  /** Faol ro'yxat: YAKUNLANDI'dan boshqa barcha statuslar (status berilsa e'tiborsiz) */
+  excludeCompleted?: boolean;
   hasPsr?: boolean;
   search?: string;
-  startDate?: string | Date;
-  endDate?: string | Date;
+  /** "YYYY-MM-DD" — Toshkent kuni */
+  startDate?: string;
+  endDate?: string;
+}
+
+/**
+ * "YYYY-MM-DD" (Toshkent kuni) → createdAt oralig'i. Server TZ'ga bog'liq emas:
+ * Toshkentda 00:00–05:00 da yaratilgan vazifalar oldingi kunga tushib qolmaydi.
+ */
+export function tashkentDayRange(startDate?: string, endDate?: string): { gte?: Date; lte?: Date } | undefined {
+  if (!startDate && !endDate) return undefined;
+  const parse = (s: string) => s.split('-').map(Number);
+  const range: { gte?: Date; lte?: Date } = {};
+  if (startDate) {
+    const [y, m, d] = parse(startDate);
+    range.gte = tashkentDate(y, m - 1, d);
+  }
+  if (endDate) {
+    const [y, m, d] = parse(endDate);
+    range.lte = tashkentDate(y, m - 1, d, 23, 59, 59, 999);
+  }
+  return range;
 }
 
 export class TaskRepository {
   async findManyWithRelations(filters: TaskFilters, skip?: number, take?: number, userRole?: string, userBranchId?: number) {
     const where = this.buildWhereClause(filters, userRole, userBranchId);
 
+    // Faqat ro'yxat jadvali va Excel eksporti uchun kerakli maydonlar.
+    // Mijoz telefoni/shartnoma summasi bu yerda yuborilmaydi — ular vazifa kartochkasida.
     const baseQuery = {
       where,
       select: {
@@ -23,29 +48,14 @@ export class TaskRepository {
         status: true,
         comments: true,
         hasPsr: true,
-        afterHoursDeclaration: true,
-        afterHoursPayer: true,
         driverPhone: true,
         customsPaymentMultiplier: true,
         createdAt: true,
-        client: { select: { id: true, name: true, phone: true, dealAmount: true, dealAmountCurrency: true } },
-        branch: true,
-        createdBy: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-        stages: {
-          select: {
-            name: true,
-            status: true,
-            durationMin: true,
-            completedAt: true,
-          },
-          orderBy: { stageOrder: 'asc' as const },
-        },
+        client: { select: { id: true, name: true } },
+        branch: { select: { id: true, name: true } },
+        createdBy: { select: { id: true, name: true } },
+        // Umumiy vaqt (durationMin yig'indisi) uchun
+        stages: { select: { durationMin: true } },
       },
       orderBy: { createdAt: 'desc' as const },
     };
@@ -65,8 +75,8 @@ export class TaskRepository {
     return prisma.task.count({ where });
   }
 
-  private buildWhereClause(filters: TaskFilters, userRole?: string, userBranchId?: number) {
-    const where: any = {};
+  private buildWhereClause(filters: TaskFilters, userRole?: string, userBranchId?: number): Prisma.TaskWhereInput {
+    const where: Prisma.TaskWhereInput = {};
 
     if (userRole === 'DEKLARANT' && userBranchId) {
       where.branchId = userBranchId;
@@ -79,23 +89,13 @@ export class TaskRepository {
 
     if (filters.clientId) where.clientId = filters.clientId;
     if (filters.status) where.status = filters.status;
+    else if (filters.excludeCompleted) where.status = { not: 'YAKUNLANDI' };
     if (filters.hasPsr !== undefined) where.hasPsr = filters.hasPsr;
 
-    if (filters.startDate || filters.endDate) {
-      where.createdAt = {};
-      if (filters.startDate) {
-        const sd = new Date(filters.startDate);
-        sd.setHours(0, 0, 0, 0);
-        where.createdAt.gte = sd;
-      }
-      if (filters.endDate) {
-        const ed = new Date(filters.endDate);
-        ed.setHours(23, 59, 59, 999);
-        where.createdAt.lte = ed;
-      }
-    }
+    const createdAt = tashkentDayRange(filters.startDate, filters.endDate);
+    if (createdAt) where.createdAt = createdAt;
 
-    if (filters.search && typeof filters.search === 'string' && filters.search.trim()) {
+    if (filters.search && filters.search.trim()) {
       const q = filters.search.trim();
       where.OR = [
         { title: { contains: q, mode: 'insensitive' } },

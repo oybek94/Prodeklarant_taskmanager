@@ -10,6 +10,8 @@ interface UseTaskSocketProps {
   loadTasks: (showArchive: boolean, filters: TaskListFilters) => void;
   showArchive: boolean;
   filters: TaskListFilters;
+  /** Vazifa yaratilgan/o'chirilganda (statistika kartalarini yangilash uchun) */
+  onTaskCountChanged?: () => void;
 }
 
 /**
@@ -23,19 +25,26 @@ export const useTaskSocket = ({
   loadTasks,
   showArchive,
   filters,
+  onTaskCountChanged,
 }: UseTaskSocketProps) => {
   const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const countChangedRef = useRef(false);
 
   useEffect(() => {
     if (!socket || isModalMode) return;
-    const refresh = () => {
+    const refresh = (countChanged = false) => {
+      if (countChanged) countChangedRef.current = true;
       // Debounce: 1.5 sekundda faqat bitta so'rov yuboriladi
       if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
-      refreshTimerRef.current = setTimeout(() => loadTasks(showArchive, filters), 1500);
+      refreshTimerRef.current = setTimeout(() => {
+        loadTasks(showArchive, filters);
+        if (countChangedRef.current && !showArchive) onTaskCountChanged?.();
+        countChangedRef.current = false;
+      }, 1500);
     };
     const onTaskCreated = (data: { createdBy: string }) => {
       toast(`${data.createdBy} yangi task yaratdi`, { icon: '📋' });
-      refresh();
+      refresh(true);
     };
     const onTaskUpdated = (data: { updatedBy: string }) => {
       toast(`${data.updatedBy} taskni yangiladi`, { icon: '✏️' });
@@ -43,7 +52,7 @@ export const useTaskSocket = ({
     };
     const onTaskDeleted = (data: { deletedBy: string }) => {
       toast(`${data.deletedBy} taskni o'chirdi`, { icon: '🗑️' });
-      refresh();
+      refresh(true);
     };
     const onStageUpdated = (data: { updatedBy: string }) => {
       toast(`${data.updatedBy} jarayonni yangiladi`, { icon: '🔄' });
@@ -60,5 +69,5 @@ export const useTaskSocket = ({
       socket.off('task:deleted', onTaskDeleted);
       socket.off('task:stageUpdated', onStageUpdated);
     };
-  }, [socket, showArchive, filters, isModalMode, loadTasks]);
+  }, [socket, showArchive, filters, isModalMode, loadTasks, onTaskCountChanged]);
 };

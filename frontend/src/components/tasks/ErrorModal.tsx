@@ -7,7 +7,7 @@ import DateInput from '../DateInput';
 import { formatMoney } from './taskHelpers';
 import type { TaskDetail, TaskError, TaskStage } from './types';
 
-interface ErrorForm {
+export interface ErrorForm {
   workerId: string;
   stageName: string;
   amount: string;

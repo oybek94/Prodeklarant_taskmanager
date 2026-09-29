@@ -6,16 +6,19 @@ import { getClientCurrency, formatMoney } from './taskHelpers';
 import { playNotificationSound } from '../../utils/sound';
 import type { TaskStage, TaskDetail } from './types';
 import type { TaskModalsReturn } from './useTaskModals';
+import type { TaskListQuery } from './useTaskData';
 
 interface UseTaskActionsParams {
   modals: TaskModalsReturn;
   selectedTask: TaskDetail | null;
   setSelectedTask: (task: TaskDetail | null) => void;
   showArchive: boolean;
-  filters: { status: string; clientId: string; branchId: string };
+  filters: TaskListQuery;
   loadTaskDetail: (taskId: number, callbacks?: { onLoaded?: (data: TaskDetail) => void }) => Promise<void>;
   loadTaskDocuments: (taskId: number) => Promise<void>;
-  loadTasks: (showArchive: boolean, filters: any) => Promise<void>;
+  loadTasks: (showArchive: boolean, filters: TaskListQuery) => Promise<void>;
+  /** Statistika kartalari — vazifa yaratilgan/o'chirilganda */
+  loadStats: () => Promise<void>;
   user: { id: number; name: string; role: string; branchId?: number | null } | null;
   branches: { id: number; name: string }[];
   isMobile: boolean;
@@ -35,7 +38,7 @@ export function useTaskActions(params: UseTaskActionsParams) {
   const {
     modals, selectedTask, setSelectedTask,
     showArchive, filters,
-    loadTaskDetail, loadTaskDocuments, loadTasks,
+    loadTaskDetail, loadTaskDocuments, loadTasks, loadStats,
     user, branches, isMobile, isNewTaskRoute, isArchiveRoute, editTaskId, navigate,
   } = params;
 
@@ -433,11 +436,24 @@ export function useTaskActions(params: UseTaskActionsParams) {
         modals.setShowForm(false);
       }
       resetForm();
-      await loadTasks(showArchive, filters as any);
+      await Promise.all([loadTasks(showArchive, filters), loadStats()]);
     } catch (error: any) {
       toast.error(error.response?.data?.error || 'Xatolik yuz berdi');
     }
-  }, [isMobile, isNewTaskRoute, navigate, modals, showArchive, filters, loadTasks]);
+  }, [isMobile, isNewTaskRoute, navigate, modals, showArchive, filters, loadTasks, loadStats]);
+
+  const handleDeleteTask = useCallback(async () => {
+    if (!selectedTask) return;
+    if (!confirm("Bu taskni o'chirishni xohlaysizmi?")) return;
+    try {
+      await apiClient.delete(`/tasks/${selectedTask.id}`);
+      modals.setShowTaskModal(false);
+      setSelectedTask(null);
+      await Promise.all([loadTasks(showArchive, filters), loadStats()]);
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Xatolik yuz berdi');
+    }
+  }, [selectedTask, modals, setSelectedTask, showArchive, filters, loadTasks, loadStats]);
 
   const handleEditSubmit = useCallback(async (
     e: React.FormEvent,
@@ -552,7 +568,7 @@ export function useTaskActions(params: UseTaskActionsParams) {
       modals.setShowSendEmailModal(false);
       modals.setShowTaskModal(false);
       setSelectedTask(null);
-      await loadTasks(showArchive, filters as any);
+      await loadTasks(showArchive, filters);
       toast.success('Email muvaffaqiyatli yuborildi');
     } catch (err: any) {
       modals.setSendEmailError(sendTaskEmailErrorToMessage(err.response?.data, err.response?.data?.error || err.message || "Email jonatib bo'lmadi."));
@@ -584,6 +600,7 @@ export function useTaskActions(params: UseTaskActionsParams) {
     // Task CRUD
     handleSubmit,
     handleEditSubmit,
+    handleDeleteTask,
     // Email
     handleOpenSendEmailModal,
     handleSendTaskEmail,

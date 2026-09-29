@@ -17,6 +17,7 @@ import {
 } from '../services/task-error.service';
 
 import { TaskRepository, tashkentDayRange } from '../repositories/task.repository';
+import { taskStatsPeriods } from '../services/task-stats-periods';
 import { TaskService } from '../services/task.service';
 
 const taskRepo = new TaskRepository();
@@ -210,33 +211,10 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
       if (branchId) baseWhere.branchId = Number(branchId);
     }
 
-    // Vaqt diapazonlarini hisoblash
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
-    // Hafta boshi (Yakshanba)
-    const weekStart = new Date(today);
-    weekStart.setDate(today.getDate() - today.getDay());
-
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const yearStart = new Date(now.getFullYear(), 0, 1);
-
-    // Oldingi davrlar
-    const yesterday = new Date(today);
-    yesterday.setDate(today.getDate() - 1);
-    const yesterdayEnd = new Date(yesterday);
-    yesterdayEnd.setHours(23, 59, 59, 999);
-
-    const lastWeekStart = new Date(weekStart);
-    lastWeekStart.setDate(weekStart.getDate() - 7);
-    const lastWeekEnd = new Date(weekStart);
-    lastWeekEnd.setMilliseconds(-1); // weekStart dan 1ms oldin
-
-    const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
-
-    const lastYearStart = new Date(now.getFullYear() - 1, 0, 1);
-    const lastYearEnd = new Date(now.getFullYear() - 1, 11, 31, 23, 59, 59, 999);
+    // Davrlar Toshkent vaqti bo'yicha (services/task-stats-periods.ts)
+    const periods = taskStatsPeriods(new Date());
+    const count = (createdAt: { gte: Date; lte: Date }) =>
+      prisma.task.count({ where: { ...baseWhere, createdAt } });
 
     // Parallel count so'rovlar — tez va samarali
     const [
@@ -245,18 +223,10 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
       weeklyCurrent, weeklyPrevious,
       dailyCurrent, dailyPrevious,
     ] = await Promise.all([
-      // Yillik
-      prisma.task.count({ where: { ...baseWhere, createdAt: { gte: yearStart, lte: now } } }),
-      prisma.task.count({ where: { ...baseWhere, createdAt: { gte: lastYearStart, lte: lastYearEnd } } }),
-      // Oylik
-      prisma.task.count({ where: { ...baseWhere, createdAt: { gte: monthStart, lte: now } } }),
-      prisma.task.count({ where: { ...baseWhere, createdAt: { gte: lastMonthStart, lte: lastMonthEnd } } }),
-      // Haftalik
-      prisma.task.count({ where: { ...baseWhere, createdAt: { gte: weekStart, lte: now } } }),
-      prisma.task.count({ where: { ...baseWhere, createdAt: { gte: lastWeekStart, lte: lastWeekEnd } } }),
-      // Kunlik
-      prisma.task.count({ where: { ...baseWhere, createdAt: { gte: today, lte: now } } }),
-      prisma.task.count({ where: { ...baseWhere, createdAt: { gte: yesterday, lte: yesterdayEnd } } }),
+      count(periods.yearly.current), count(periods.yearly.previous),
+      count(periods.monthly.current), count(periods.monthly.previous),
+      count(periods.weekly.current), count(periods.weekly.previous),
+      count(periods.daily.current), count(periods.daily.previous),
     ]);
 
     res.json({

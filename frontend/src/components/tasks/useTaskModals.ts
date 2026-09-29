@@ -67,9 +67,6 @@ export function useTaskModals() {
   // ---- Financial report panel ----
   const [showFinancialReport, setShowFinancialReport] = useState(false);
 
-  // ---- Versions panel ----
-  const [showVersions, setShowVersions] = useState(false);
-
   // ---- Stage updating indicator ----
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [updatingStage, setUpdatingStage] = useState<number | null>(null);
@@ -145,9 +142,6 @@ export function useTaskModals() {
 
     // Financial report
     showFinancialReport, setShowFinancialReport,
-
-    // Versions
-    showVersions, setShowVersions,
 
     // Stage updating
     updatingStage, setUpdatingStage,

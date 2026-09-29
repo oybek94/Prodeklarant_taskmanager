@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { Icon } from '@iconify/react';
 import { useNavigate } from 'react-router-dom';
 
-interface CreateForm {
+export interface CreateForm {
   title: string;
   clientId: string;
   branchId: string;

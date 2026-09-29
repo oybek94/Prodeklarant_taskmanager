@@ -2,7 +2,7 @@ import toast from 'react-hot-toast';
 import { useState, useCallback, useEffect, useRef } from 'react';
 import apiClient from '../../lib/api';
 import { useSocket } from '../../contexts/SocketContext';
-import type { Task, TaskDetail, TaskVersion, TaskDocument, AiCheck, Client, Branch, TaskStats } from './types';
+import type { Task, TaskDetail, TaskDocument, AiCheck, Client, Branch, TaskStats } from './types';
 
 /**
  * Faol (yakunlanmagan) vazifalar bitta so'rovda to'liq yuklanadi — ular filiallar bo'yicha
@@ -91,10 +91,6 @@ export function useTaskData(userRole?: string) {
   // === AI Checks ===
   const [aiChecks, setAiChecks] = useState<AiCheck[]>([]);
   const [loadingAiChecks, setLoadingAiChecks] = useState(false);
-
-  // === Task versions ===
-  const [taskVersions, setTaskVersions] = useState<TaskVersion[]>([]);
-  const [loadingVersions, setLoadingVersions] = useState(false);
 
   // === Document expansion/OCR ===
   const [expandedDocuments, setExpandedDocuments] = useState<Set<number>>(new Set());
@@ -213,23 +209,7 @@ export function useTaskData(userRole?: string) {
         setTotalTasks(0);
       }
     } finally {
-      if (seq === tasksRequestSeqRef.current) {
-        setLoading(false);
-        if (!showArchive) loadStats();
-      }
-    }
-  }, [loadStats]);
-
-  const loadTaskVersions = useCallback(async (taskId: number) => {
-    try {
-      setLoadingVersions(true);
-      const response = await apiClient.get(`/tasks/${taskId}/versions`);
-      setTaskVersions(Array.isArray(response.data) ? response.data : []);
-    } catch (error) {
-      console.error('Error loading task versions:', error);
-      setTaskVersions([]);
-    } finally {
-      setLoadingVersions(false);
+      if (seq === tasksRequestSeqRef.current) setLoading(false);
     }
   }, []);
 
@@ -409,10 +389,6 @@ export function useTaskData(userRole?: string) {
     loadingDocuments,
     aiChecks,
     loadingAiChecks,
-    taskVersions,
-    setTaskVersions,
-    loadingVersions,
-    setLoadingVersions,
     expandedDocuments,
     documentExtractedTexts,
     loadingExtractedTexts,
@@ -423,7 +399,6 @@ export function useTaskData(userRole?: string) {
     loadBranches,
     loadWorkers,
     loadTaskDetail,
-    loadTaskVersions,
     loadTaskDocuments,
     loadAiChecks,
     loadExtractedText,

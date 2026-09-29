@@ -25,6 +25,7 @@ import { useTaskSocket } from '../hooks/useTaskSocket';
 import { TasksHeader } from '../components/tasks/TasksHeader';
 import { TaskStatsCards } from '../components/tasks/TaskStatsCards';
 import { TasksModalsManager } from '../components/tasks/TasksModalsManager';
+import { prefetchTaskDetailPanel } from '../components/tasks/taskDetailPanelLoader';
 import { TasksView } from '../components/tasks/TasksView';
 
 /** Arxivda bir sahifadagi vazifalar soni */
@@ -38,11 +39,11 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
     page, setPage, totalPages, totalTasks,
     selectedTask, setSelectedTask, loadingTask,
     taskDocuments, loadingDocuments,
-    aiChecks, loadingAiChecks, taskVersions, loadingVersions,
+    aiChecks, loadingAiChecks,
     expandedDocuments, documentExtractedTexts, loadingExtractedTexts,
     loadTasks, loadClients, loadBranches, loadWorkers,
-    loadTaskDetail, loadTaskVersions, loadTaskDocuments,
-    loadAiChecks
+    loadTaskDetail, loadTaskDocuments,
+    loadAiChecks, loadStats
   } = useTaskData(user?.role);
   
   const socket = useSocket();
@@ -87,7 +88,7 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
     modals,
     selectedTask, setSelectedTask,
     showArchive, filters,
-    loadTaskDetail, loadTaskDocuments, loadTasks,
+    loadTaskDetail, loadTaskDocuments, loadTasks, loadStats,
     user: user as any, branches: branches as any, isMobile,
     isNewTaskRoute, isArchiveRoute, editTaskId, navigate,
   });
@@ -109,9 +110,10 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
     tasks, showArchive, taskQuery: filters, archiveFilters, archiveSearchQuery
   });
 
-  useTaskSocket({ socket, isModalMode, loadTasks, showArchive, filters });
+  useTaskSocket({ socket, isModalMode, loadTasks, showArchive, filters, onTaskCountChanged: loadStats });
 
   const handleTaskClick = (taskId: number) => {
+    prefetchTaskDetailPanel();
     loadTaskDetail(taskId, {
       onLoaded: (taskData) => {
         modals.setAfterHoursDeclaration(Boolean(taskData.afterHoursDeclaration));
@@ -181,11 +183,16 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
     loadClients(); loadBranches(); loadWorkers();
   }, [loadClients, loadBranches, loadWorkers]);
 
-  // Arxiv sahifalash client-side — sahifa almashganda qayta yuklash kerak emas
+  // Arxivda `filters` sahifa/qidiruv/filtrlarni o'z ichiga oladi — ular o'zgarsa server qayta so'raladi
   useEffect(() => {
     if (isModalMode) return;
     loadTasks(showArchive, filters);
   }, [showArchive, isModalMode, loadTasks, filters]);
+
+  // Statistika kartalari faqat faol rejimda; vazifalar soni o'zgarganda (yaratish/o'chirish) alohida yangilanadi
+  useEffect(() => {
+    if (!isModalMode && !showArchive) loadStats();
+  }, [isModalMode, showArchive, loadStats]);
 
   useEffect(() => {
     if (!showArchive) {
@@ -309,11 +316,9 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
           selectedTask={selectedTask}
           setSelectedTask={setSelectedTask}
           taskDocuments={taskDocuments}
-          taskVersions={taskVersions}
           aiChecks={aiChecks}
           expandedDocuments={expandedDocuments}
           documentExtractedTexts={documentExtractedTexts}
-          loadingVersions={loadingVersions}
           loadingDocuments={loadingDocuments}
           loadingTask={loadingTask}
           loadingAiChecks={loadingAiChecks}
@@ -321,7 +326,6 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
           user={user}
           isModalMode={isModalMode}
           onCloseModal={onCloseModal}
-          loadTaskVersions={loadTaskVersions}
           loadAiChecks={loadAiChecks}
           loadTasks={loadTasks}
           loadTaskDocuments={loadTaskDocuments}

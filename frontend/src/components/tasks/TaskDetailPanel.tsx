@@ -9,7 +9,7 @@ import {
   getStatusInfo, getFileIcon, canPreview, canShowOCR,
   calculateStageDuration, evaluateStageTime,
 } from './taskHelpers';
-import type { TaskDetail, TaskStage, TaskVersion, TaskDocument, AiCheck, AiCheckDetails, AiCheckError, AiCheckFinding } from './types';
+import type { TaskDetail, TaskStage, TaskDocument, AiCheck, AiCheckDetails, AiCheckError, AiCheckFinding } from './types';
 import { DocumentVerificationReport } from './DocumentVerificationReport';
 import { getPsrAmount, getDealAmountDisplay, getDealAmountBaseDisplay, getBranchPaymentsDisplay } from './taskBusinessHelpers';
 
@@ -20,10 +20,6 @@ interface TaskDetailPanelProps {
   setShowFinancialReport: (v: boolean) => void;
   afterHoursDeclaration: boolean;
   taskDocuments: TaskDocument[];
-  taskVersions: TaskVersion[];
-  showVersions: boolean;
-  setShowVersions: (v: boolean) => void;
-  loadingVersions: boolean;
   loadingDocuments: boolean;
   loadingTask: boolean;
   workers: { id: number; name: string; role: string }[];
@@ -50,9 +46,7 @@ interface TaskDetailPanelProps {
   onAfterHoursChange: (checked: boolean) => void;
   onBXMEdit: (stage: TaskStage) => void;
   onOpenPreview: (fileUrl: string, fileType: string, fileName: string) => void;
-  onLoadVersions: (taskId: number) => void;
   onLoadAiChecks: (taskId: number) => void;
-  onRefreshTasks: () => void;
   onDropFiles: (files: File[]) => Promise<void>;
   formatInvoiceExtractedText: (text: string, documentType?: string) => string;
   formatBxmAmountInSum: (multiplier: number) => string;
@@ -64,10 +58,6 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
   setShowFinancialReport,
   afterHoursDeclaration,
   taskDocuments,
-  taskVersions,
-  showVersions,
-  setShowVersions,
-  loadingVersions,
   loadingDocuments,
   loadingTask,
   workers,
@@ -94,9 +84,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
   onAfterHoursChange: handleAfterHoursDeclarationChange,
   onBXMEdit: handleBXMEdit,
   onOpenPreview: openPreview,
-  onLoadVersions: loadTaskVersions,
   onLoadAiChecks: loadAiChecks,
-  onRefreshTasks: loadTasks,
   onDropFiles,
   formatInvoiceExtractedText,
   formatBxmAmountInSum,

@@ -1,54 +1,61 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import { useNavigate } from 'react-router-dom';
-import CreateTaskModal from './CreateTaskModal';
-import TaskDetailPanel from './TaskDetailPanel';
+import toast from 'react-hot-toast';
+import apiClient from '../../lib/api';
+import CreateTaskModal, { type CreateForm } from './CreateTaskModal';
 import BXMModal from './BxmModal';
 import FileUploadModal from './FileUploadModal';
 import SendEmailModal from './SendEmailModal';
-import EditTaskModal, { taskToEditForm } from './EditTaskModal';
+import EditTaskModal, { taskToEditForm, type EditForm } from './EditTaskModal';
 import DocumentUploadModal from './DocumentUploadModal';
 import PreviewModal from './PreviewModal';
-import ErrorModal from './ErrorModal';
+import ErrorModal, { type ErrorForm } from './ErrorModal';
+import { TaskDetailSkeleton } from './Skeletons';
+import type { TaskModalsReturn } from './useTaskModals';
+import type { useTaskActions } from './useTaskActions';
+import type { TaskListQuery } from './useTaskData';
+import type { AiCheck, Branch, Client, TaskDetail, TaskDocument } from './types';
+import { LazyTaskDetailPanel as TaskDetailPanel } from './taskDetailPanelLoader';
+
+type TaskActions = ReturnType<typeof useTaskActions> & { handleTelegramClick: () => Promise<void> };
+type Worker = { id: number; name: string; role: string };
 
 interface TasksModalsManagerProps {
-  modals: any; // Result from useTaskModals
-  taskActions: any; // Result from useTaskActions
-  form: any;
-  setForm: any;
-  editForm: any;
-  setEditForm: any;
-  errorForm: any;
-  setErrorForm: any;
-  clients: any;
-  branches: any;
-  workers: any;
+  modals: TaskModalsReturn;
+  taskActions: TaskActions;
+  form: CreateForm;
+  setForm: React.Dispatch<React.SetStateAction<CreateForm>>;
+  editForm: EditForm;
+  setEditForm: React.Dispatch<React.SetStateAction<EditForm>>;
+  errorForm: ErrorForm;
+  setErrorForm: React.Dispatch<React.SetStateAction<ErrorForm>>;
+  clients: Client[];
+  branches: Branch[];
+  workers: Worker[];
   isMobile: boolean;
   isNewTaskRoute: boolean;
   isArchiveRoute: boolean;
   editTaskId: number | null;
-  selectedTask: any;
-  setSelectedTask: any;
-  taskDocuments: any;
-  taskVersions: any;
-  aiChecks: any;
-  expandedDocuments: any;
-  documentExtractedTexts: any;
-  loadingVersions: boolean;
+  selectedTask: TaskDetail | null;
+  setSelectedTask: (task: TaskDetail | null) => void;
+  taskDocuments: TaskDocument[];
+  aiChecks: AiCheck[];
+  expandedDocuments: Set<number>;
+  documentExtractedTexts: Map<number, string>;
   loadingDocuments: boolean;
   loadingTask: boolean;
   loadingAiChecks: boolean;
-  loadingExtractedTexts: any;
-  user: any;
+  loadingExtractedTexts: Set<number>;
+  user: { id: number; role: string; name?: string; email?: string } | null;
   isModalMode: boolean;
   onCloseModal?: () => void;
-  loadTaskVersions: any;
-  loadAiChecks: any;
-  loadTasks: any;
-  loadTaskDocuments: any;
+  loadAiChecks: (taskId: number) => void;
+  loadTasks: (showArchive: boolean, filters: TaskListQuery) => Promise<void>;
+  loadTaskDocuments: (taskId: number) => Promise<void>;
   showArchive: boolean;
-  filters: any;
-  formatInvoiceExtractedText: any;
-  formatBxmAmountInSum: any;
+  filters: TaskListQuery;
+  formatInvoiceExtractedText: (text: string, documentType?: string) => string;
+  formatBxmAmountInSum: (multiplier: number) => string;
 }
 
 export const TasksModalsManager: React.FC<TasksModalsManagerProps> = ({
@@ -70,11 +77,9 @@ export const TasksModalsManager: React.FC<TasksModalsManagerProps> = ({
   selectedTask,
   setSelectedTask,
   taskDocuments,
-  taskVersions,
   aiChecks,
   expandedDocuments,
   documentExtractedTexts,
-  loadingVersions,
   loadingDocuments,
   loadingTask,
   loadingAiChecks,
@@ -82,7 +87,6 @@ export const TasksModalsManager: React.FC<TasksModalsManagerProps> = ({
   user,
   isModalMode,
   onCloseModal,
-  loadTaskVersions,
   loadAiChecks,
   loadTasks,
   loadTaskDocuments,
@@ -112,16 +116,13 @@ export const TasksModalsManager: React.FC<TasksModalsManagerProps> = ({
       />
 
       {modals.showTaskModal && selectedTask && (
+        <Suspense fallback={<TaskDetailPanelFallback />}>
         <TaskDetailPanel
           task={selectedTask}
           showFinancialReport={modals.showFinancialReport}
           setShowFinancialReport={modals.setShowFinancialReport}
           afterHoursDeclaration={modals.afterHoursDeclaration}
           taskDocuments={taskDocuments}
-          taskVersions={taskVersions}
-          showVersions={modals.showVersions}
-          setShowVersions={modals.setShowVersions}
-          loadingVersions={loadingVersions}
           loadingDocuments={loadingDocuments}
           loadingTask={loadingTask}
           workers={workers}
@@ -170,21 +171,7 @@ export const TasksModalsManager: React.FC<TasksModalsManagerProps> = ({
             modals.setDocumentNames([]);
             modals.setDocumentDescriptions([]);
           }}
-          onDeleteTask={async () => {
-            if (confirm('Bu taskni o\'chirishni xohlaysizmi?')) {
-              try {
-                // API call is handled here directly instead of hook, for simplicity
-                const apiClient = (await import('../../lib/api')).default;
-                await apiClient.delete(`/tasks/${selectedTask.id}`);
-                modals.setShowTaskModal(false);
-                setSelectedTask(null);
-                await loadTasks(showArchive, filters as any);
-              } catch (error: any) {
-                const toast = (await import('react-hot-toast')).default;
-                toast.error(error.response?.data?.error || 'Xatolik yuz berdi');
-              }
-            }
-          }}
+          onDeleteTask={taskActions.handleDeleteTask}
           onStageClick={taskActions.handleStageClick}
           onDeleteDocument={taskActions.handleDeleteDocument}
           onDownloadDocument={taskActions.downloadDocument}
@@ -194,9 +181,7 @@ export const TasksModalsManager: React.FC<TasksModalsManagerProps> = ({
           onAfterHoursChange={taskActions.handleAfterHoursDeclarationChange}
           onBXMEdit={taskActions.handleBXMEdit}
           onOpenPreview={taskActions.openPreview}
-          onLoadVersions={loadTaskVersions}
           onLoadAiChecks={loadAiChecks}
-          onRefreshTasks={() => loadTasks(showArchive, filters as any)}
           onDropFiles={async (files: File[]) => {
             if (!selectedTask) return;
             try {
@@ -204,21 +189,19 @@ export const TasksModalsManager: React.FC<TasksModalsManagerProps> = ({
               files.forEach((f) => formData.append('files', f));
               formData.append('names', JSON.stringify(files.map((f) => f.name)));
               formData.append('descriptions', JSON.stringify(files.map(() => '')));
-              const apiClient = (await import('../../lib/api')).default;
               await apiClient.post(`/documents/task/${selectedTask.id}`, formData, {
                 headers: { 'Content-Type': 'multipart/form-data' },
               });
-              const toast = (await import('react-hot-toast')).default;
               toast.success(`${files.length} ta hujjat yuklandi`);
               await loadTaskDocuments(selectedTask.id);
             } catch (error: any) {
-              const toast = (await import('react-hot-toast')).default;
               toast.error(error.response?.data?.error || 'Hujjat yuklashda xatolik');
             }
           }}
           formatInvoiceExtractedText={formatInvoiceExtractedText}
           formatBxmAmountInSum={formatBxmAmountInSum}
         />
+        </Suspense>
       )}
 
       <BXMModal
@@ -329,9 +312,18 @@ export const TasksModalsManager: React.FC<TasksModalsManagerProps> = ({
         editingErrorId={modals.editingErrorId}
         setEditingErrorId={modals.setEditingErrorId}
         onClose={() => { modals.setEditingErrorId(null); modals.setShowErrorModal(false); }}
-        onSuccess={() => loadTasks(showArchive, filters as any)}
+        onSuccess={() => loadTasks(showArchive, filters)}
         setSelectedTask={setSelectedTask}
       />
     </>
   );
 };
+
+/** Kartochka chunk'i yuklanayotganda (odatda detail so'rovi bilan birga tugaydi) */
+const TaskDetailPanelFallback: React.FC = () => (
+  <div className="fixed inset-0 bg-gray-900/60 flex items-center justify-center z-[100] backdrop-blur-md p-4">
+    <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
+      <TaskDetailSkeleton />
+    </div>
+  </div>
+);

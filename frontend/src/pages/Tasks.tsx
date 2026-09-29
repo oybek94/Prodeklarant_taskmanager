@@ -55,7 +55,8 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
     title: '', clientId: '', branchId: '', comments: '', hasPsr: false, afterHoursPayer: 'CLIENT', driverPhone: '', contractId: '',
   });
   const filters = useMemo(() => ({ status: '', clientId: '', branchId: '' }), []);
-  const [showArchive, setShowArchive] = useState(false);
+  // /tasks/archive'ga to'g'ridan kirilganda avval faol ro'yxat keraksiz yuklanmasin
+  const [showArchive, setShowArchive] = useState(() => location.pathname.startsWith('/tasks/archive'));
   const [archiveSearchQuery, setArchiveSearchQuery] = useState('');
   const [archiveFilters, setArchiveFilters] = useState<ArchiveFiltersState>({
     branchId: '', clientId: '', startDate: '', endDate: '', hasPsr: '',
@@ -97,14 +98,7 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
     tasks, filteredArchiveTasks, showArchive, archiveFilters, archiveSearchQuery
   });
 
-  const selectedTaskIdRef = useRef<number | null>(null);
-  useEffect(() => {
-    selectedTaskIdRef.current = selectedTask?.id || null;
-  }, [selectedTask]);
-
-  useTaskSocket({
-    socket, isModalMode, loadTasks, showArchive, filters, selectedTaskIdRef, loadTaskDetail
-  });
+  useTaskSocket({ socket, isModalMode, loadTasks, showArchive, filters });
 
   const handleTaskClick = (taskId: number) => {
     loadTaskDetail(taskId, {
@@ -161,22 +155,26 @@ const Tasks: React.FC<TasksProps> = ({ isModalMode = false, modalTaskId, onClose
     }
   }, [isModalMode, modals.showTaskModal, onCloseModal]);
 
+  // Rejim yoki arxiv filtrlari o'zgarganda 1-sahifaga qaytish.
+  // `page` dependency'da bo'lmasligi shart — aks holda har sahifa almashganda darhol 1 ga qaytadi.
+  const pageResetKey = [
+    showArchive, archiveSearchQuery, archiveFilters.branchId, archiveFilters.clientId,
+    archiveFilters.startDate, archiveFilters.endDate, archiveFilters.hasPsr,
+  ].join('|');
   useEffect(() => {
-    if (page !== 1) setPage(1);
-  }, [filters.status, filters.clientId, showArchive, page, setPage]);
+    setPage(1);
+  }, [pageResetKey, setPage]);
 
+  // Ma'lumotnomalar (mijozlar, filiallar, xodimlar) bir marta yuklanadi
   useEffect(() => {
-    if (showArchive && page !== 1) setPage(1);
-  }, [showArchive, archiveSearchQuery, archiveFilters.branchId, archiveFilters.clientId, archiveFilters.startDate, archiveFilters.endDate, archiveFilters.hasPsr, page, setPage]);
-
-  useEffect(() => {
-    if (isModalMode) {
-      loadClients(); loadBranches(); loadWorkers();
-      return;
-    }
-    loadTasks(showArchive, filters as any);
     loadClients(); loadBranches(); loadWorkers();
-  }, [showArchive, page, filters.status, filters.clientId, filters.branchId, isModalMode, loadTasks, loadClients, loadBranches, loadWorkers, filters]);
+  }, [loadClients, loadBranches, loadWorkers]);
+
+  // Arxiv sahifalash client-side — sahifa almashganda qayta yuklash kerak emas
+  useEffect(() => {
+    if (isModalMode) return;
+    loadTasks(showArchive, filters);
+  }, [showArchive, isModalMode, loadTasks, filters]);
 
   useEffect(() => {
     if (!showArchive) {

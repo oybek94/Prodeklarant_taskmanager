@@ -1,5 +1,5 @@
 import toast from 'react-hot-toast';
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import apiClient from '../../lib/api';
 import { useSocket } from '../../contexts/SocketContext';
 import type { Task, TaskDetail, TaskVersion, TaskDocument, AiCheck, Client, Branch, TaskStats } from './types';
@@ -129,12 +129,20 @@ export function useTaskData(userRole?: string) {
     }
   }, []);
 
+  // Oxirgi so'rov raqami — kechikib kelgan eski javob yangisini ustidan yozmasin
+  const tasksRequestSeqRef = useRef(0);
+  // Qaysi rejim (arxiv/faol) ro'yxati yuklangan; null — hali hech narsa yuklanmagan
+  const loadedArchiveModeRef = useRef<boolean | null>(null);
+
   const loadTasks = useCallback(async (
     showArchive: boolean,
     filters: { status: string; clientId: string; branchId: string }
   ) => {
+    const seq = ++tasksRequestSeqRef.current;
+    // Skeleton faqat rejim almashganda; fondagi yangilashda jadval joyida qoladi
+    const isModeChange = loadedArchiveModeRef.current !== showArchive;
     try {
-      setLoading(true);
+      if (isModeChange) setLoading(true);
       const params: any = {};
       if (showArchive) {
         params.status = 'YAKUNLANDI';
@@ -152,6 +160,7 @@ export function useTaskData(userRole?: string) {
       if (filters.branchId) params.branchId = filters.branchId;
 
       const response = await apiClient.get('/tasks', { params });
+      if (seq !== tasksRequestSeqRef.current) return;
 
       // Limit to'lgan bo'lsa — arxiv to'liq ko'rinmayapti, server-side qidiruvga o'tish vaqti keldi
       if (showArchive && response.data?.pagination?.total > ARCHIVE_FETCH_LIMIT) {
@@ -162,61 +171,31 @@ export function useTaskData(userRole?: string) {
         );
       }
 
-      if (response.data.pagination) {
-        const { tasks: tasksData } = response.data;
-        let filteredTasks = tasksData;
-        if (showArchive) {
-          filteredTasks = tasksData.filter((task: Task) => task.status === 'YAKUNLANDI');
-        } else {
-          filteredTasks = tasksData.filter((task: Task) => task.status !== 'YAKUNLANDI');
-        }
-        setTasks(filteredTasks);
-        setTotalPages(1);
-        setTotalTasks(filteredTasks.length);
-        if (!showArchive) loadStats();
-      } else if (Array.isArray(response.data)) {
-        let filteredTasks = response.data;
-        if (showArchive) {
-          filteredTasks = response.data.filter((task: Task) => task.status === 'YAKUNLANDI');
-        } else {
-          filteredTasks = response.data.filter((task: Task) => task.status !== 'YAKUNLANDI');
-        }
-        setTasks(filteredTasks);
-        setTotalPages(1);
-        setTotalTasks(filteredTasks.length);
-        if (!showArchive) loadStats();
-      } else {
+      const tasksData: Task[] = response.data?.pagination
+        ? response.data.tasks
+        : (Array.isArray(response.data) ? response.data : []);
+      const filteredTasks = tasksData.filter((task) =>
+        showArchive ? task.status === 'YAKUNLANDI' : task.status !== 'YAKUNLANDI'
+      );
+      setTasks(filteredTasks);
+      setTotalPages(1);
+      setTotalTasks(filteredTasks.length);
+      loadedArchiveModeRef.current = showArchive;
+    } catch (error) {
+      console.error('Error loading tasks:', error);
+      // Fondagi yangilash xatosida ko'rinib turgan ro'yxat o'chirilmaydi
+      if (seq === tasksRequestSeqRef.current && isModeChange) {
         setTasks([]);
         setTotalPages(1);
         setTotalTasks(0);
+      }
+    } finally {
+      if (seq === tasksRequestSeqRef.current) {
+        setLoading(false);
         if (!showArchive) loadStats();
       }
-    } catch (error) {
-      console.error('Error loading tasks:', error);
-      setTasks([]);
-      setTotalPages(1);
-      setTotalTasks(0);
-      if (!showArchive) loadStats();
-    } finally {
-      setLoading(false);
     }
   }, [loadStats]);
-
-  const loadTaskStages = useCallback(async (taskId: number) => {
-    try {
-      const response = await apiClient.get(`/tasks/${taskId}/stages`);
-      setSelectedTask((prevTask) => {
-        if (!prevTask || prevTask.id !== taskId) return prevTask;
-        return { ...prevTask, stages: response.data };
-      });
-    } catch (error) {
-      console.error('Error loading task stages:', error);
-      setSelectedTask((prevTask) => {
-        if (!prevTask || prevTask.id !== taskId) return prevTask;
-        return { ...prevTask, stages: [] };
-      });
-    }
-  }, []);
 
   const loadTaskVersions = useCallback(async (taskId: number) => {
     try {
@@ -257,11 +236,17 @@ export function useTaskData(userRole?: string) {
     }
   }, []);
 
-  /** Task detail'ni yuklash (modalni ochish uchun) */
+  /**
+   * Task detail'ni yuklash (modalni ochish uchun).
+   * Bosqichlar /tasks/:id javobida keladi — alohida /stages so'rovi kerak emas.
+   * detailOnly — faqat vazifaning o'zi (socket yangilanishlari uchun): hujjatlar va AI tekshiruvlari
+   * o'z eventlari bilan alohida yangilanadi.
+   */
   const loadTaskDetail = useCallback(async (
     taskId: number,
-    callbacks?: {
+    options?: {
       onLoaded?: (taskData: TaskDetail) => void;
+      detailOnly?: boolean;
     }
   ) => {
     try {
@@ -272,24 +257,23 @@ export function useTaskData(userRole?: string) {
         taskData.stages = [];
       }
       setSelectedTask(taskData);
-      callbacks?.onLoaded?.(taskData);
+      options?.onLoaded?.(taskData);
 
-      // Load parallel
-      Promise.all([
-        loadTaskStages(taskId),
-        loadTaskVersions(taskId),
-        loadTaskDocuments(taskId),
-        loadAiChecks(taskId),
-      ]).catch((error) => {
-        console.error('Error loading task details:', error);
-      });
+      if (!options?.detailOnly) {
+        Promise.all([
+          loadTaskDocuments(taskId),
+          loadAiChecks(taskId),
+        ]).catch((error) => {
+          console.error('Error loading task details:', error);
+        });
+      }
     } catch (error) {
       console.error('Error loading task detail:', error);
       toast.error("Task ma'lumotlarini yuklashda xatolik");
     } finally {
       setLoadingTask(false);
     }
-  }, [loadTaskStages, loadTaskVersions, loadTaskDocuments, loadAiChecks]);
+  }, [loadTaskDocuments, loadAiChecks]);
 
   const loadExtractedText = useCallback(async (documentId: number, taskId?: number) => {
     const actualTaskId = taskId;
@@ -348,37 +332,38 @@ export function useTaskData(userRole?: string) {
   // ==========================================
   // Socket.io real-time updates
   // ==========================================
+  // Ochiq vazifa kartochkasi — faqat o'zgargan qismi qayta yuklanadi.
+  // Ro'yxat yangilanishi alohida: hooks/useTaskSocket.ts
+  const selectedTaskId = selectedTask?.id;
   useEffect(() => {
-    if (!socket || !selectedTask?.id) return;
+    if (!socket || !selectedTaskId) return;
 
-    const handleStageUpdated = (data: { taskId: number; stageId: number; stage: any; updatedBy: string }) => {
-      if (data.taskId === selectedTask.id) {
-        loadTaskStages(selectedTask.id);
-      }
+    const onTaskChanged = (data: { taskId?: number }) => {
+      if (data.taskId === selectedTaskId) loadTaskDetail(selectedTaskId, { detailOnly: true });
+    };
+    const onDocumentsChanged = (data: { taskId: number }) => {
+      if (data.taskId === selectedTaskId) loadTaskDocuments(selectedTaskId, true); // silent update
+    };
+    const onAiCheckCreated = (data: { taskId: number }) => {
+      if (data.taskId === selectedTaskId) loadAiChecks(selectedTaskId);
     };
 
-    const handleDocumentCreated = (data: { taskId: number }) => {
-      if (data.taskId === selectedTask.id) {
-        loadTaskDocuments(selectedTask.id, true); // silent update
-      }
-    };
-
-    const handleDocumentDeleted = (data: { taskId: number }) => {
-      if (data.taskId === selectedTask.id) {
-        loadTaskDocuments(selectedTask.id, true); // silent update
-      }
-    };
-
-    socket.on('task:stageUpdated', handleStageUpdated);
-    socket.on('taskDocument:created', handleDocumentCreated);
-    socket.on('taskDocument:deleted', handleDocumentDeleted);
+    socket.on('task:updated', onTaskChanged);
+    socket.on('task:stageUpdated', onTaskChanged);
+    socket.on('task:errorUpdated', onTaskChanged);
+    socket.on('taskDocument:created', onDocumentsChanged);
+    socket.on('taskDocument:deleted', onDocumentsChanged);
+    socket.on('aiCheck:created', onAiCheckCreated);
 
     return () => {
-      socket.off('task:stageUpdated', handleStageUpdated);
-      socket.off('taskDocument:created', handleDocumentCreated);
-      socket.off('taskDocument:deleted', handleDocumentDeleted);
+      socket.off('task:updated', onTaskChanged);
+      socket.off('task:stageUpdated', onTaskChanged);
+      socket.off('task:errorUpdated', onTaskChanged);
+      socket.off('taskDocument:created', onDocumentsChanged);
+      socket.off('taskDocument:deleted', onDocumentsChanged);
+      socket.off('aiCheck:created', onAiCheckCreated);
     };
-  }, [socket, selectedTask?.id, loadTaskStages, loadTaskDocuments]);
+  }, [socket, selectedTaskId, loadTaskDetail, loadTaskDocuments, loadAiChecks]);
 
   return {
     // State
@@ -415,7 +400,6 @@ export function useTaskData(userRole?: string) {
     loadBranches,
     loadWorkers,
     loadTaskDetail,
-    loadTaskStages,
     loadTaskVersions,
     loadTaskDocuments,
     loadAiChecks,

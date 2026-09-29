@@ -73,8 +73,7 @@ export function useTaskActions(params: UseTaskActionsParams) {
       // bosqichni belgilagan foydalanuvchining o'ziga ovozni lokal chalamiz — boshqalar socket orqali eshitadi.
       playNotificationSound();
 
-      await loadTaskDetail(selectedTask.id);
-      await loadTasks(showArchive, filters as any);
+      await Promise.all([loadTaskDetail(selectedTask.id), loadTasks(showArchive, filters)]);
       modals.setShowBXMModal(false);
       modals.setAfterHoursDeclaration(false);
       modals.resetFileUpload();
@@ -147,8 +146,7 @@ export function useTaskActions(params: UseTaskActionsParams) {
       // bosqichni belgilagan foydalanuvchining o'ziga ovozni lokal chalamiz — boshqalar socket orqali eshitadi.
       playNotificationSound();
 
-      await loadTaskDetail(selectedTask.id);
-      await loadTasks(showArchive, filters as any);
+      await Promise.all([loadTaskDetail(selectedTask.id), loadTasks(showArchive, filters)]);
     } catch (error: any) {
       console.error('Error updating stage:', error);
       // Admin boshqa ishchining jarayonini qaytarmoqchi bo'lganda tasdiqlash
@@ -167,8 +165,7 @@ export function useTaskActions(params: UseTaskActionsParams) {
               status: newStatus,
               force: true,
             });
-            await loadTaskDetail(selectedTask.id);
-            await loadTasks(showArchive, filters as any);
+            await Promise.all([loadTaskDetail(selectedTask.id), loadTasks(showArchive, filters)]);
             toast.success(`"${stageName}" jarayoni muvaffaqiyatli qaytarildi`);
           } catch (forceError: any) {
             console.error('Error force updating stage:', forceError);
@@ -399,8 +396,7 @@ export function useTaskActions(params: UseTaskActionsParams) {
     modals.setAfterHoursDeclaration(checked);
     try {
       await apiClient.patch(`/tasks/${selectedTask.id}`, { afterHoursDeclaration: checked });
-      await loadTaskDetail(selectedTask.id);
-      await loadTasks(showArchive, filters as any);
+      await Promise.all([loadTaskDetail(selectedTask.id), loadTasks(showArchive, filters)]);
     } catch (error: any) {
       modals.setAfterHoursDeclaration(previous);
       toast.error(error.response?.data?.error || 'Xatolik yuz berdi');
@@ -473,8 +469,7 @@ export function useTaskActions(params: UseTaskActionsParams) {
       } else {
         modals.setShowEditModal(false);
       }
-      await loadTaskDetail(selectedTask.id);
-      await loadTasks(showArchive, filters as any);
+      await Promise.all([loadTaskDetail(selectedTask.id), loadTasks(showArchive, filters)]);
     } catch (error: any) {
       const apiError = error.response?.data?.error;
       toast.error(typeof apiError === 'string' && apiError ? apiError : 'Saqlashda xatolik yuz berdi. Qayta urinib ko\'ring');

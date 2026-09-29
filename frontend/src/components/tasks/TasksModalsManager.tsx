@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import CreateTaskModal from './CreateTaskModal';
 import TaskDetailPanel from './TaskDetailPanel';
 import BXMModal from './BxmModal';
@@ -90,6 +91,7 @@ export const TasksModalsManager: React.FC<TasksModalsManagerProps> = ({
   formatInvoiceExtractedText,
   formatBxmAmountInSum,
 }) => {
+  const navigate = useNavigate();
   const showTaskForm = modals.showForm || (isMobile && isNewTaskRoute);
   const showEditTaskForm = modals.showEditModal || (isMobile && !!editTaskId);
 
@@ -144,7 +146,7 @@ export const TasksModalsManager: React.FC<TasksModalsManagerProps> = ({
           onEdit={() => {
             if (selectedTask) {
               if (isMobile) {
-                taskActions.navigate(`/tasks/${selectedTask.id}/edit`);
+                navigate(`/tasks/${selectedTask.id}/edit`);
               } else {
                 setEditForm(taskToEditForm(selectedTask));
                 modals.setShowEditModal(true);

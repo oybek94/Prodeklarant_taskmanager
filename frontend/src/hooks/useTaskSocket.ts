@@ -1,82 +1,64 @@
 import { useEffect, useRef } from 'react';
 import toast from 'react-hot-toast';
+import type { Socket } from 'socket.io-client';
+
+type TaskListFilters = { status: string; clientId: string; branchId: string };
 
 interface UseTaskSocketProps {
-  socket: any;
+  socket: Socket | null;
   isModalMode: boolean;
-  loadTasks: (showArchive: boolean, filters: any) => void;
+  loadTasks: (showArchive: boolean, filters: TaskListFilters) => void;
   showArchive: boolean;
-  filters: any;
-  selectedTaskIdRef: React.MutableRefObject<number | null>;
-  loadTaskDetail: (taskId: number) => void;
+  filters: TaskListFilters;
 }
 
+/**
+ * Vazifalar ro'yxatini real-time yangilash.
+ * Ochiq vazifa kartochkasi (bosqichlar, hujjatlar, AI tekshiruvlar) useTaskData'da yangilanadi —
+ * hujjat/AI/xato eventlari ro'yxatda ko'rinmagani uchun bu yerda tinglanmaydi.
+ */
 export const useTaskSocket = ({
   socket,
   isModalMode,
   loadTasks,
   showArchive,
   filters,
-  selectedTaskIdRef,
-  loadTaskDetail
 }: UseTaskSocketProps) => {
-    const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const refreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    useEffect(() => {
-      if (!socket || isModalMode) return;
-      const refresh = (taskId?: number) => {
-        // Debounce: 1.5 sekundda faqat bitta so'rov yuboriladi
-        if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
-        refreshTimerRef.current = setTimeout(() => {
-          loadTasks(showArchive, filters as any);
-          if (selectedTaskIdRef.current && (taskId === undefined || taskId === selectedTaskIdRef.current)) {
-            loadTaskDetail(selectedTaskIdRef.current);
-          }
-        }, 1500);
-      };
+  useEffect(() => {
+    if (!socket || isModalMode) return;
+    const refresh = () => {
+      // Debounce: 1.5 sekundda faqat bitta so'rov yuboriladi
+      if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+      refreshTimerRef.current = setTimeout(() => loadTasks(showArchive, filters), 1500);
+    };
     const onTaskCreated = (data: { createdBy: string }) => {
       toast(`${data.createdBy} yangi task yaratdi`, { icon: '📋' });
       refresh();
     };
-    const onTaskUpdated = (data: { updatedBy: string, taskId?: number }) => {
+    const onTaskUpdated = (data: { updatedBy: string }) => {
       toast(`${data.updatedBy} taskni yangiladi`, { icon: '✏️' });
-      refresh(data.taskId);
+      refresh();
     };
     const onTaskDeleted = (data: { deletedBy: string }) => {
       toast(`${data.deletedBy} taskni o'chirdi`, { icon: '🗑️' });
       refresh();
     };
-    const onStageUpdated = (data: { updatedBy: string, taskId?: number }) => {
+    const onStageUpdated = (data: { updatedBy: string }) => {
       toast(`${data.updatedBy} jarayonni yangiladi`, { icon: '🔄' });
-      refresh(data.taskId);
-    };
-    const onDocumentCreated = (data: { taskId: number }) => {
-      refresh(data.taskId);
-    };
-    const onDocumentDeleted = (data: { taskId: number }) => {
-      refresh(data.taskId);
-    };
-    const onAiCheckCreated = (data: { taskId: number }) => {
-      refresh(data.taskId);
+      refresh();
     };
     socket.on('task:created', onTaskCreated);
     socket.on('task:updated', onTaskUpdated);
     socket.on('task:deleted', onTaskDeleted);
     socket.on('task:stageUpdated', onStageUpdated);
-    socket.on('taskDocument:created', onDocumentCreated);
-    socket.on('taskDocument:deleted', onDocumentDeleted);
-    socket.on('aiCheck:created', onAiCheckCreated);
-    socket.on('task:errorUpdated', onDocumentCreated); // same handler as it just refreshes
     return () => {
       if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
       socket.off('task:created', onTaskCreated);
       socket.off('task:updated', onTaskUpdated);
       socket.off('task:deleted', onTaskDeleted);
       socket.off('task:stageUpdated', onStageUpdated);
-      socket.off('taskDocument:created', onDocumentCreated);
-      socket.off('taskDocument:deleted', onDocumentDeleted);
-      socket.off('aiCheck:created', onAiCheckCreated);
-      socket.off('task:errorUpdated', onDocumentCreated);
     };
-  }, [socket, showArchive, JSON.stringify(filters), isModalMode, loadTasks, loadTaskDetail, selectedTaskIdRef]);
+  }, [socket, showArchive, filters, isModalMode, loadTasks]);
 };

@@ -8,12 +8,15 @@ import CurrencyDisplay from '../components/CurrencyDisplay';
 import DateInput from '../components/DateInput';
 import { validateMonetaryFields, isValidMonetaryFields, type MonetaryValidationErrors } from '../utils/validation';
 import { useIsMobile } from '../utils/useIsMobile';
-import { formatAmount, formatCurrencyForRole, type Role, shouldShowExchangeRate } from '../utils/currencyFormatting';
+import { formatCurrencyForRole, type Role, shouldShowExchangeRate } from '../utils/currencyFormatting';
 import { formatDateOnly } from '../utils/dateFormatting';
 import { getDefaultTnvedProducts } from '../utils/tnvedProducts';
-import EmptyValue, { formatEmpty } from '../components/common/EmptyValue';
+import EmptyValue from '../components/common/EmptyValue';
 import ContractFieldHint from '../components/contracts/ContractFieldHint';
 import ClientOverview, { type ClientDetail } from '../components/clients/ClientOverview';
+import ClientContractsTab, { type ClientContractRow } from '../components/clients/ClientContractsTab';
+import ClientTasksTab, { type MonthlyTaskCount } from '../components/clients/ClientTasksTab';
+import ClientTransactionsTab from '../components/clients/ClientTransactionsTab';
 import Tasks from './Tasks';
 import { EXPORT_COUNTRIES } from '../constants/countries';
 
@@ -105,13 +108,6 @@ interface AssignableUser {
   role: string;
 }
 
-interface MonthlyTask {
-  month: string;
-  count: number;
-  year?: number;
-  monthIndex?: number;
-}
-
 interface ClientStats {
   total: { current: number; change: number };
   active: { current: number; change: number };
@@ -162,7 +158,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [loadingClient, setLoadingClient] = useState(false);
   const [stats, setStats] = useState<ClientStats | null>(null);
-  const [monthlyTasks, setMonthlyTasks] = useState<MonthlyTask[]>([]);
+  const [monthlyTasks, setMonthlyTasks] = useState<MonthlyTaskCount[]>([]);
   const [form, setForm] = useState({
     name: '',
     assignedUserId: '',
@@ -226,7 +222,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
   const [savingContract, setSavingContract] = useState(false);
   const [hasShipper, setHasShipper] = useState(false);
   const [hasConsignee, setHasConsignee] = useState(false);
-  const [contracts, setContracts] = useState<any[]>([]);
+  const [contracts, setContracts] = useState<ClientContractRow[]>([]);
   const [loadingContracts, setLoadingContracts] = useState(false);
   const [editingContractId, setEditingContractId] = useState<number | null>(null);
   const [duplicatingContractId, setDuplicatingContractId] = useState<number | null>(null);
@@ -242,7 +238,6 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
     paymentMethod: 'CASH' as 'CASH' | 'CARD',
   });
   const [savingTransaction, setSavingTransaction] = useState(false);
-  const [selectedMonthForTasks, setSelectedMonthForTasks] = useState<{ label: string; year: number; monthIndex: number } | null>(null);
   const [showTaskModalId, setShowTaskModalId] = useState<number | null>(null);
 
   async function getDefaultSpecFromTnved(): Promise<SpecRow[]> {
@@ -548,6 +543,11 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
     setEditingContractId(null);
   };
 
+  const openNewContract = () => {
+    resetContractForm();
+    setShowContractModal(true);
+  };
+
   const loadClients = async (signal?: AbortSignal) => {
     try {
       setLoading(true);
@@ -642,7 +642,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
   const loadContracts = async (clientId: number) => {
     try {
       setLoadingContracts(true);
-      const response = await apiClient.get(`/contracts/client/${clientId}`);
+      const response = await apiClient.get(`/contracts/client/${clientId}?selectList=true`);
       if (Array.isArray(response.data)) {
         setContracts(response.data);
       } else {
@@ -1975,13 +1975,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                   )}
                   <button
                     type="button"
-                    onClick={async () => {
-                      resetContractForm();
-                      if (selectedClient) {
-                        await loadContracts(selectedClient.id);
-                      }
-                      setShowContractModal(true);
-                    }}
+                    onClick={openNewContract}
                     className="h-9 px-3 text-sm font-medium bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-1.5"
                     title="Yangi shartnoma qo'shish"
                   >
@@ -2039,358 +2033,28 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
               <ClientOverview client={selectedClient} hideMoney={isNonAdmin} />
             )}
 
-            {/* TAB: CONTRACTS */}
             {clientModalTab === 'contracts' && (
-              <div className="space-y-4">
-                <div className="flex justify-between items-center bg-gray-50 dark:bg-slate-800/50 p-4 rounded-xl border border-gray-100 dark:border-slate-700/50">
-                  <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 flex items-center gap-2">
-                    <Icon icon="solar:file-text-bold-duotone" className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-                    Shartnomalar ro'yxati
-                  </h3>
-                  <button
-                    onClick={async () => {
-                      resetContractForm();
-                      if (selectedClient) {
-                        await loadContracts(selectedClient.id);
-                      }
-                      setShowContractModal(true);
-                    }}
-                    className="p-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors shadow-sm flex items-center justify-center shrink-0"
-                    title="Yangi shartnoma qo'shish"
-                  >
-                    <Icon icon="solar:add-circle-bold-duotone" className="w-5 h-5" />
-                  </button>
-                </div>
-                {loadingContracts ? (
-                  <div className="flex flex-col items-center justify-center py-12 text-gray-400 dark:text-gray-500">
-                    <Icon icon="solar:refresh-bold-duotone" className="w-8 h-8 animate-spin mb-2 text-blue-500 dark:text-blue-400" />
-                    <span>Yuklanmoqda...</span>
-                  </div>
-                ) : contracts.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-12 text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-slate-800/30 rounded-xl border border-gray-100 dark:border-slate-700/50 border-dashed">
-                    <Icon icon="solar:file-corrupted-bold-duotone" className="w-10 h-10 mb-3 text-gray-300 dark:text-gray-600" />
-                    <span className="text-sm font-medium">Ushbu mijozga tegishli shartnomalar yo'q</span>
-                  </div>
-                ) : isMobile ? (
-                  <div className="space-y-3">
-                    {contracts.map((contract) => (
-                      <div key={contract.id} className="bg-white dark:bg-slate-900 rounded-xl p-4 border border-gray-100 dark:border-slate-800 shadow-sm space-y-3">
-                        <div className="flex justify-between items-start">
-                          <span className="flex items-center gap-1.5">
-                            <span className="px-2 py-0.5 bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-gray-300 rounded text-[10px] font-bold border border-gray-200/50 dark:border-slate-700/50">
-                              #{contract.contractNumber}
-                            </span>
-                            <span className="px-1.5 py-0.5 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded text-[10px] font-semibold">
-                              ID: {contract.id}
-                            </span>
-                          </span>
-                          <span className="text-[11px] text-gray-500 dark:text-gray-400 font-medium">
-                            {new Date(contract.contractDate).toLocaleDateString('uz-UZ')}
-                          </span>
-                        </div>
-                        <div className="space-y-1">
-                          <p className="text-[11px] text-gray-400 uppercase font-bold tracking-wider">Sotuvchi / Sotib oluvchi</p>
-                          <p className="text-xs font-semibold text-gray-800 dark:text-gray-200 line-clamp-1">{contract.sellerName}</p>
-                          <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-1">{contract.buyerName}</p>
-                        </div>
-                        <div className="flex justify-end gap-2 pt-2 border-t border-gray-50 dark:border-slate-800">
-                          <button
-                            onClick={() => handleEditContract(contract)}
-                            className="p-2 text-blue-600 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400 rounded-lg"
-                          >
-                            <Icon icon="solar:pen-bold-duotone" className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDuplicateContract(contract)}
-                            disabled={duplicatingContractId != null}
-                            className="p-2 text-emerald-600 bg-emerald-50 dark:bg-emerald-900/20 dark:text-emerald-400 rounded-lg disabled:opacity-50"
-                            title="Nusxa olish"
-                          >
-                            <Icon
-                              icon={duplicatingContractId === contract.id ? 'solar:refresh-bold-duotone' : 'solar:copy-bold-duotone'}
-                              className={`w-4 h-4 ${duplicatingContractId === contract.id ? 'animate-spin' : ''}`}
-                            />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteContract(contract.id)}
-                            className="p-2 text-rose-600 bg-rose-50 dark:bg-rose-900/20 dark:text-rose-400 rounded-lg"
-                          >
-                            <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="border border-gray-200 dark:border-slate-700/50 rounded-xl overflow-hidden shadow-sm">
-                    <div className="overflow-x-auto">
-                      <table className="min-w-full divide-y divide-gray-200 dark:divide-slate-700/50">
-                        <thead className="bg-gray-50/80 dark:bg-slate-800/80 backdrop-blur-sm">
-                          <tr>
-                            <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">ID</th>
-                            <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Shartnoma raqami</th>
-                            <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Sana</th>
-                            <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Sotuvchi</th>
-                            <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Sotib oluvchi</th>
-                            <th className="px-5 py-3.5 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Amallar</th>
-                          </tr>
-                        </thead>
-                        <tbody className="bg-white dark:bg-slate-900 divide-y divide-gray-100 dark:divide-slate-800">
-                          {contracts.map((contract) => (
-                            <tr key={contract.id} className="hover:bg-blue-50/50 dark:hover:bg-slate-800 transition-colors group">
-                              <td className="px-5 py-4 whitespace-nowrap text-sm font-semibold text-blue-600 dark:text-blue-400">
-                                {contract.id}
-                              </td>
-                              <td className="px-5 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
-                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-md bg-gray-100 dark:bg-slate-800/80 text-gray-800 dark:text-gray-200 border border-gray-200/50 dark:border-slate-700/50">
-                                  {contract.contractNumber}
-                                </span>
-                              </td>
-                              <td className="px-5 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">
-                                {new Date(contract.contractDate).toLocaleDateString('uz-UZ')}
-                              </td>
-                              <td className="px-5 py-4 text-sm text-gray-600 dark:text-gray-400 max-w-[200px] truncate" title={contract.sellerName}>{contract.sellerName}</td>
-                              <td className="px-5 py-4 text-sm text-gray-600 dark:text-gray-400 max-w-[200px] truncate" title={contract.buyerName}>{contract.buyerName}</td>
-                              <td className="px-5 py-4 whitespace-nowrap text-sm text-right">
-                                <div className="flex gap-2 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
-                                  <button
-                                    type="button"
-                                    onClick={() => handleEditContract(contract)}
-                                    className="p-1.5 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-lg transition-colors ring-1 ring-transparent hover:ring-blue-200 dark:hover:ring-blue-800"
-                                    title="Tahrirlash"
-                                  >
-                                    <Icon icon="solar:pen-bold-duotone" className="w-4 h-4" />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleDuplicateContract(contract)}
-                                    disabled={duplicatingContractId != null}
-                                    className="p-1.5 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 rounded-lg transition-colors ring-1 ring-transparent hover:ring-emerald-200 dark:hover:ring-emerald-800 disabled:opacity-50"
-                                    title="Nusxa olish"
-                                  >
-                                    <Icon
-                                      icon={duplicatingContractId === contract.id ? 'solar:refresh-bold-duotone' : 'solar:copy-bold-duotone'}
-                                      className={`w-4 h-4 ${duplicatingContractId === contract.id ? 'animate-spin' : ''}`}
-                                    />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleDeleteContract(contract.id)}
-                                    className="p-1.5 text-red-600 dark:text-rose-400 hover:bg-red-100 dark:hover:bg-rose-900/30 rounded-lg transition-colors ring-1 ring-transparent hover:ring-red-200 dark:hover:ring-rose-800"
-                                    title="O'chirish"
-                                  >
-                                    <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4" />
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
-              </div>
+              <ClientContractsTab
+                contracts={contracts}
+                loading={loadingContracts}
+                duplicatingId={duplicatingContractId}
+                onAdd={openNewContract}
+                onEdit={handleEditContract}
+                onDuplicate={handleDuplicateContract}
+                onDelete={handleDeleteContract}
+              />
             )}
 
-            {/* TAB: TASKS */}
             {clientModalTab === 'tasks' && (
-              <div className="space-y-6">
-                {/* Monthly Tasks Chart */}
-                {monthlyTasks.length > 0 && (
-                  <div className="bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-2xl p-6 shadow-sm">
-                    <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-6 flex items-center gap-2">
-                      <Icon icon="solar:pulse-bold-duotone" className="w-5 h-5 text-indigo-500" />
-                      Oylik ishlar dinamikasi
-                    </h3>
-                    <div className="flex items-end justify-between gap-2 h-64">
-                      {monthlyTasks.map((item) => {
-                        const maxCount = Math.max(...monthlyTasks.map(m => m.count), 1);
-                        const height = maxCount > 0 ? (item.count / maxCount) * 100 : 0;
-                        return (
-                          <div key={`${item.year}-${item.monthIndex}`} className="flex-1 flex flex-col items-center gap-3 min-w-0 group relative">
-                            <div className="w-full flex flex-col items-center justify-end relative h-[200px]">
-                              <div
-                                onClick={() => {
-                                  if (item.year !== undefined && item.monthIndex !== undefined) {
-                                    setSelectedMonthForTasks({ label: item.month, year: item.year, monthIndex: item.monthIndex });
-                                  }
-                                }}
-                                className="w-full bg-indigo-100 dark:bg-indigo-900/40 rounded-t-lg transition-all duration-300 group-hover:bg-indigo-300 dark:group-hover:bg-indigo-700/60 cursor-pointer relative"
-                                style={{
-                                  height: `${height}%`,
-                                  minHeight: item.count > 0 ? '4px' : '0px'
-                                }}
-                              >
-                                {item.count > 0 && (
-                                  <div className="absolute -top-7 left-1/2 transform -translate-x-1/2 bg-gray-800 dark:bg-slate-700 text-white text-xs font-bold py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                                    {item.count}
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                            <div className="text-xs font-medium text-gray-500 dark:text-gray-400 text-center w-full truncate border-t border-gray-100 dark:border-slate-700/50 pt-2" title={item.month}>
-                              {item.month.substring(0, 3)}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {/* Tasks List */}
-                <div className="bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-2xl shadow-sm overflow-hidden">
-                  <div className="flex justify-between items-center p-5 border-b border-gray-100 dark:border-slate-700">
-                    <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
-                      <Icon icon="solar:check-circle-bold-duotone" className="w-5 h-5 text-gray-400" />
-                      Oxirgi ishlar
-                    </h3>
-                  </div>
-                  {!selectedClient.tasks || selectedClient.tasks.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-12 text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-slate-800/50 rounded-b-xl border border-gray-100 dark:border-slate-700/50 border-dashed m-4">
-                      <Icon icon="solar:inbox-bold-duotone" className="w-10 h-10 mb-3 text-gray-300 dark:text-gray-600" />
-                      <span className="text-sm font-medium">Bajarilgan ishlar mavjud emas</span>
-                    </div>
-                  ) : isMobile ? (
-                    <div className="p-4 space-y-4">
-                      {selectedClient.tasks.slice(0, 10).map(task => (
-                        <div key={task.id} className="bg-gray-50 dark:bg-slate-900/50 rounded-xl p-4 border border-gray-100 dark:border-slate-700 space-y-3">
-                          <div className="flex justify-between items-start">
-                            <span className="text-xs font-bold text-gray-900 dark:text-gray-100">#{task.id}</span>
-                            <span 
-                              onClick={() => setShowTaskModalId(task.id)}
-                              className="px-2 py-0.5 text-[10px] font-bold rounded-md bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border border-blue-100 dark:border-blue-800/50 cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
-                            >
-                              {task.status}
-                            </span>
-                          </div>
-                          <h4 className="text-sm font-semibold text-gray-800 dark:text-gray-200 leading-tight"><EmptyValue value={task.title} /></h4>
-                          <div className="flex justify-between items-center text-[11px] text-gray-500 dark:text-gray-400">
-                            <span className="flex items-center gap-1">
-                              <Icon icon="solar:buildings-2-bold-duotone" className="w-3.5 h-3.5" />
-                              <EmptyValue value={task.branch?.name} />
-                            </span>
-                            <span>{new Date(task.createdAt).toLocaleDateString('uz-UZ')}</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="overflow-x-auto">
-                      <table className="min-w-full divide-y divide-gray-100 dark:divide-slate-700/50">
-                        <thead className="bg-gray-50 dark:bg-slate-800/80">
-                          <tr>
-                            <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">ID</th>
-                            <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Sarlavha</th>
-                            <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Filial</th>
-                            <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Sanasi</th>
-                            <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
-                          </tr>
-                        </thead>
-                        <tbody className="bg-white dark:bg-slate-900 divide-y divide-gray-50 dark:divide-slate-800/50">
-                          {selectedClient.tasks.slice(0, 10).map(task => (
-                            <tr key={task.id} className="hover:bg-gray-50/50 dark:hover:bg-slate-800 transition-colors">
-                              <td className="px-5 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100 border-l-[3px] border-transparent hover:border-blue-500">#{task.id}</td>
-                              <td className="px-5 py-4 text-sm text-gray-700 dark:text-gray-300 max-w-[200px] truncate" title={formatEmpty(task.title)}><EmptyValue value={task.title} /></td>
-                              <td className="px-5 py-4 whitespace-nowrap text-sm text-gray-600">
-                                <span className="px-2 py-1 bg-gray-100 dark:bg-slate-800 text-gray-700 dark:text-gray-300 text-xs rounded-md border border-gray-200/50 dark:border-slate-700/50"><EmptyValue value={task.branch?.name} /></span>
-                              </td>
-                              <td className="px-5 py-4 whitespace-nowrap text-sm text-gray-600 dark:text-gray-400">{new Date(task.createdAt).toLocaleDateString('uz-UZ')}</td>
-                              <td className="px-5 py-4 whitespace-nowrap">
-                                <span 
-                                  onClick={() => setShowTaskModalId(task.id)}
-                                  className="px-2.5 py-1 text-xs font-semibold rounded-md bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border border-blue-100 dark:border-blue-800/50 drop-shadow-sm cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
-                                >
-                                  {task.status}
-                                </span>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </div>
-              </div>
+              <ClientTasksTab tasks={selectedClient.tasks || []} monthly={monthlyTasks} onOpenTask={setShowTaskModalId} />
             )}
 
-            {/* TAB: TRANSACTIONS */}
             {clientModalTab === 'transactions' && (
-              <div className="space-y-4">
-                <div className="flex justify-between items-center bg-gray-50 dark:bg-slate-800/50 p-4 rounded-xl border border-gray-100 dark:border-slate-700/50">
-                  <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 flex items-center gap-2">
-                    <Icon icon="solar:bill-list-bold-duotone" className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-                    Tranzaksiyalar tarixi
-                  </h3>
-                  {!isNonAdmin && (
-                    <button
-                      onClick={() => setShowTransactionModal(true)}
-                      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium shadow-sm flex items-center gap-2"
-                    >
-                      <Icon icon="solar:add-circle-bold-duotone" className="w-4 h-4" />
-                      Joriy to'lov qabul qilish
-                    </button>
-                  )}
-                </div>
-                {selectedClient.transactions.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-12 text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-slate-800/30 rounded-xl border border-gray-100 dark:border-slate-700/50 border-dashed">
-                    <Icon icon="solar:dollar-bold-duotone" className="w-10 h-10 mb-3 text-gray-300 dark:text-gray-600" />
-                    <span className="text-sm font-medium">To'lovlar tarixi yo'q</span>
-                  </div>
-                ) : isMobile ? (
-                  <div className="space-y-3">
-                    {selectedClient.transactions.map((transaction) => (
-                      <div key={transaction.id} className="bg-white dark:bg-slate-900 rounded-xl p-4 border border-gray-100 dark:border-slate-800 shadow-sm space-y-3">
-                        <div className="flex justify-between items-center">
-                          <div className="text-[13px] font-bold text-green-600 dark:text-emerald-400 bg-green-50 dark:bg-emerald-900/20 px-2.5 py-1 rounded-lg border border-green-100 dark:border-emerald-800/50">
-                            {isNonAdmin ? <span className="font-mono opacity-70">***</span> : `+${formatAmount(Number(transaction.amount), transaction.currency || 'UZS')}`}
-                          </div>
-                          <span className="text-[11px] text-gray-500 dark:text-gray-400 font-medium">
-                            {formatDate(transaction.date)}
-                          </span>
-                        </div>
-                        {transaction.comment && (
-                          <div className="text-[11px] text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-slate-800/50 p-2 rounded-lg italic">
-                            {transaction.comment}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="border border-gray-200 dark:border-slate-700/50 rounded-xl overflow-hidden shadow-sm">
-                    <div className="overflow-y-auto max-h-[400px]">
-                      <table className="min-w-full divide-y divide-gray-200 dark:divide-slate-700/50">
-                        <thead className="bg-gray-50/90 dark:bg-slate-800/90 backdrop-blur-sm sticky top-0 z-10 shadow-sm">
-                          <tr>
-                            <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Summa</th>
-                            <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Sana</th>
-                            <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Izoh</th>
-                          </tr>
-                        </thead>
-                        <tbody className="bg-white dark:bg-slate-900 divide-y divide-gray-100 dark:divide-slate-800/50">
-                          {selectedClient.transactions.map((transaction) => (
-                            <tr key={transaction.id} className="hover:bg-green-50/30 dark:hover:bg-slate-800 transition-colors">
-                              <td className="px-5 py-4 whitespace-nowrap">
-                                <div className="text-sm font-bold text-green-600 dark:text-emerald-400 bg-green-50 dark:bg-emerald-900/20 inline-block px-3 py-1 rounded-lg border border-green-100 dark:border-emerald-800/50">
-                                  {isNonAdmin ? <span className="font-mono opacity-70">***</span> : `+${formatAmount(Number(transaction.amount), transaction.currency || 'UZS')}`}
-                                </div>
-                              </td>
-                              <td className="px-5 py-4 whitespace-nowrap text-sm font-medium text-gray-600 dark:text-gray-300">
-                                {formatDate(transaction.date)}
-                              </td>
-                              <td className="px-5 py-4 text-sm text-gray-700 dark:text-gray-400 max-w-md break-words">
-                                {transaction.comment || <span className="text-gray-400 dark:text-gray-500 italic">Izohsiz</span>}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
-              </div>
+              <ClientTransactionsTab
+                transactions={selectedClient.transactions || []}
+                canAdd={!isNonAdmin}
+                onAdd={() => setShowTransactionModal(true)}
+              />
             )}
             </div>
           </div>
@@ -3876,95 +3540,6 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                   </button>
                 </div>
               </form>
-            </div>
-          </div>
-        )
-      }
-
-      {/* Month Tasks Modal */}
-      {
-        selectedMonthForTasks && selectedClient && (
-          <div
-            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 backdrop-blur-sm p-4"
-            style={{ animation: 'backdropFadeIn 0.3s ease-out' }}
-            onMouseDown={(e) => {
-              if (e.target === e.currentTarget) {
-                setSelectedMonthForTasks(null);
-              }
-            }}
-          >
-            <div
-              className="bg-white rounded-2xl shadow-2xl p-6 max-w-2xl w-full max-h-[85vh] flex flex-col"
-              style={{ animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)' }}
-            >
-              <div className="flex justify-between items-center mb-5 pb-4 border-b border-gray-100 shrink-0">
-                <div>
-                  <h3 className="text-xl font-bold text-gray-800">{selectedMonthForTasks.label} dagi ishlar</h3>
-                  <p className="text-sm font-medium text-gray-500 mt-1">{selectedClient.name}</p>
-                </div>
-                <button
-                  onClick={() => setSelectedMonthForTasks(null)}
-                  className="text-gray-400 hover:text-gray-700 bg-gray-50 hover:bg-gray-100 p-2.5 rounded-xl transition-colors"
-                  title="Yopish"
-                >
-                  <Icon icon="solar:close-circle-bold-duotone" className="w-5 h-5" />
-                </button>
-              </div>
-
-              <div className="overflow-y-auto flex-1 pr-1 custom-scrollbar">
-                {(() => {
-                  const monthTasks = selectedClient.tasks.filter(task => {
-                    const d = new Date(task.createdAt);
-                    return d.getFullYear() === selectedMonthForTasks.year && d.getMonth() === selectedMonthForTasks.monthIndex;
-                  });
-
-                  if (monthTasks.length === 0) {
-                    return (
-                      <div className="flex flex-col items-center justify-center py-12 text-gray-400">
-                        <Icon icon="solar:clipboard-remove-bold-duotone" className="w-16 h-16 mb-4 opacity-50" />
-                        <p className="text-lg font-medium text-gray-500">Bu oyda ishlar topilmadi</p>
-                      </div>
-                    );
-                  }
-
-                  return (
-                    <div className="space-y-2">
-                      {monthTasks.map(task => (
-                        <div
-                          key={task.id}
-                          className="p-3 bg-white border border-gray-100 rounded-lg hover:border-blue-200 hover:shadow-md hover:shadow-blue-500/5 transition-all cursor-pointer group flex items-center justify-between gap-4"
-                          onClick={() => navigate(`/tasks/${task.id}`)}
-                        >
-                          <div className="flex items-center gap-4 flex-1 min-w-0">
-                            <h4 className="font-semibold text-gray-800 text-sm group-hover:text-blue-600 transition-colors truncate max-w-[40%]" title={task.title}>
-                              {task.title}
-                            </h4>
-
-                            <div className="flex items-center gap-3 text-xs text-gray-500 font-medium whitespace-nowrap">
-                              <span className="flex items-center gap-1">
-                                <Icon icon="solar:map-point-bold-duotone" className="w-3 h-3 text-gray-400" />
-                                <span className="truncate max-w-[120px]">{task.branch?.name || 'Noma\'lum'}</span>
-                              </span>
-                              <span className="flex items-center gap-1.5 text-gray-400">|</span>
-                              <span className="flex items-center gap-1.5">
-                                <Icon icon="solar:calendar-bold-duotone" className="w-3 h-3 text-gray-400" />
-                                {new Date(task.createdAt).toLocaleDateString('uz-UZ', { day: '2-digit', month: '2-digit', year: 'numeric' })}
-                              </span>
-                            </div>
-                          </div>
-
-                          <span className={`px-2 py-0.5 text-[10px] font-bold rounded-md whitespace-nowrap border shrink-0 ${task.status === 'TAYYOR' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                            task.status === 'JARAYONDA' ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                              'bg-gray-50 text-gray-700 border-gray-200'
-                            }`}>
-                            {task.status}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  );
-                })()}
-              </div>
             </div>
           </div>
         )

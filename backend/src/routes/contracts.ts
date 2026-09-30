@@ -114,6 +114,8 @@ router.get('/client/:clientId', requireAuth(), async (req: AuthRequest, res: Res
           sellerName: true,
           buyerName: true,
           consigneeName: true,
+          destinationCountry: true,
+          contractCurrency: true,
         },
         orderBy: { contractDate: 'desc' }
       });

@@ -17,6 +17,8 @@ export type OriginInfoDocPayload = {
   items: InvoiceItem[];
   contract?: Contract | null;
   companySettings?: CompanySettings | null;
+  /** Invoys filiali nomi — xat qaysi ekspertiza filialiga yozilishini belgilaydi */
+  branchName?: string | null;
 };
 
 const resolveTemplatePath = async (): Promise<string> => {
@@ -203,7 +205,28 @@ const embedImages = (zip: PizZip, slots: ImageSlot[]) => {
 export const SIGNATURE_HEIGHT_CM = 1.5;
 export const SEAL_HEIGHT_CM = 3.8;
 
-export type OriginInfoFields = {
+/**
+ * Invoys filialiga bog'liq qiymatlar: xat adresati (ekspertiza filiali va uning
+ * direktori) hamda mahsulot sotib olingan viloyat
+ */
+type ExpertizaRecipient = { filial: string; filial_direktori: string; viloyat: string };
+
+const NAMANGAN_RECIPIENT: ExpertizaRecipient = {
+  filial: 'Наманганэкспертиза',
+  filial_direktori: 'Мусаеву Ш.М.',
+  viloyat: 'Наманганской области',
+};
+const FERGANA_RECIPIENT: ExpertizaRecipient = {
+  filial: 'Ферганаэкспертиза',
+  filial_direktori: 'Камалову Ш.Н.',
+  viloyat: 'Ферганской области',
+};
+
+// Boshqa filiallar uchun oldingi (Namangan) adresat saqlanadi
+const resolveRecipient = (branchName?: string | null): ExpertizaRecipient =>
+  (branchName || '').toLowerCase().includes('oltiariq') ? FERGANA_RECIPIENT : NAMANGAN_RECIPIENT;
+
+export type OriginInfoFields = ExpertizaRecipient & {
   Invoys_sana: string;
   invoys_raqam: string;
   eksportyor_nomi: string;
@@ -223,7 +246,7 @@ export type OriginInfoData = {
 
 /** Docx va PDF uchun umumiy: shablon teglari qiymatlari + imzo/muhr rasmlari */
 export const buildOriginInfoData = async (payload: OriginInfoDocPayload): Promise<OriginInfoData> => {
-  const { invoice, items, contract, companySettings } = payload;
+  const { invoice, items, contract, companySettings, branchName } = payload;
 
   // Грузоотправитель/Изготовитель sotuvchidan boshqa korxona bo'lsa — xatni
   // mahsulotni yetishtirgan/jo'natgan korxona beradi (CMR'dagi qoida bilan bir xil)
@@ -238,6 +261,7 @@ export const buildOriginInfoData = async (payload: OriginInfoDocPayload): Promis
 
   return {
     fields: {
+      ...resolveRecipient(branchName),
       Invoys_sana: formatDate(invoice.date),
       invoys_raqam: invoice.invoiceNumber || '',
       eksportyor_nomi: exporterName,

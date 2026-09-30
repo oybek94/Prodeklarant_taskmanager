@@ -515,7 +515,7 @@ router.get('/:id/origin-info-doc', requireAuth(), async (req: AuthRequest, res: 
 
     const invoice = await prisma.invoice.findUnique({
       where: { id },
-      include: { items: { orderBy: { orderIndex: 'asc' } } },
+      include: { items: { orderBy: { orderIndex: 'asc' } }, branch: { select: { name: true } } },
     });
     if (!invoice) {
       return res.status(404).json({ error: 'Invoice topilmadi' });
@@ -530,7 +530,7 @@ router.get('/:id/origin-info-doc', requireAuth(), async (req: AuthRequest, res: 
         : null;
     const companySettings = await prisma.companySettings.findFirst();
 
-    const payload = { invoice, items: invoice.items, contract, companySettings };
+    const payload = { invoice, items: invoice.items, contract, companySettings, branchName: invoice.branch.name };
     const buffer =
       format === 'pdf' ? await generateOriginInfoPdf(payload) : await generateOriginInfoDocx(payload);
 

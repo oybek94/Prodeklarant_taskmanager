@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { Prisma } from '@prisma/client';
 import { prisma } from '../prisma';
 import { requireAuth, AuthRequest } from '../middleware/auth';
 import { nextAgreementNumber } from './service-agreements.helpers';
@@ -12,6 +13,21 @@ import {
 const router = Router();
 
 /** Ro'yxat: bitta `q` maydoni korxona nomi, INN va shartnoma raqami bo'ylab qidiradi */
+const agreementListSelect = {
+  id: true,
+  clientId: true,
+  agreementNumber: true,
+  agreementDate: true,
+  status: true,
+  customerName: true,
+  customerInn: true,
+  paymentModel: true,
+  pricingMode: true,
+  mainTariffBhm: true,
+  mainTariffUzs: true,
+  creditLimit: true,
+} satisfies Prisma.ServiceAgreementSelect;
+
 router.get('/', requireAuth(), async (req, res) => {
   try {
     const q = typeof req.query.q === 'string' ? req.query.q.trim() : '';
@@ -21,11 +37,11 @@ router.get('/', requireAuth(), async (req, res) => {
     // Mijoz kartochkasi aynan shu mijozning shartnomalarini so'raydi
     const clientId = Number(req.query.clientId) || 0;
 
-    const where = {
+    // Ro'yxat sahifasi faqat jadval maydonlarini va holatlar sanog'ini so'raydi (view=list)
+    const listView = req.query.view === 'list';
+
+    const baseWhere = {
       ...(clientId > 0 ? { clientId } : {}),
-      ...(status && ['DRAFT', 'ACTIVE', 'TERMINATED'].includes(status)
-        ? { status: status as 'DRAFT' | 'ACTIVE' | 'TERMINATED' }
-        : {}),
       ...(q
         ? {
             OR: [
@@ -36,14 +52,32 @@ router.get('/', requireAuth(), async (req, res) => {
           }
         : {}),
     };
+    const where = {
+      ...baseWhere,
+      ...(status && ['DRAFT', 'ACTIVE', 'TERMINATED'].includes(status)
+        ? { status: status as 'DRAFT' | 'ACTIVE' | 'TERMINATED' }
+        : {}),
+    };
+    const findArgs = {
+      where,
+      orderBy: [{ agreementDate: 'desc' as const }, { id: 'desc' as const }],
+      skip: (page - 1) * limit,
+      take: limit,
+    };
+
+    if (listView) {
+      const [items, total, grouped] = await Promise.all([
+        prisma.serviceAgreement.findMany({ ...findArgs, select: agreementListSelect }),
+        prisma.serviceAgreement.count({ where }),
+        prisma.serviceAgreement.groupBy({ by: ['status'], where: baseWhere, _count: { _all: true } }),
+      ]);
+      const counts = { DRAFT: 0, ACTIVE: 0, TERMINATED: 0 };
+      for (const row of grouped) counts[row.status] = row._count._all;
+      return res.json({ items, total, page, limit, counts });
+    }
 
     const [items, total] = await Promise.all([
-      prisma.serviceAgreement.findMany({
-        where,
-        orderBy: [{ agreementDate: 'desc' }, { id: 'desc' }],
-        skip: (page - 1) * limit,
-        take: limit,
-      }),
+      prisma.serviceAgreement.findMany(findArgs),
       prisma.serviceAgreement.count({ where }),
     ]);
 

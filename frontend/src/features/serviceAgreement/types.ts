@@ -110,6 +110,21 @@ export interface AgreementListResponse {
   limit: number;
 }
 
+/** `GET /service-agreements?view=list` qatori */
+export type AgreementSummary = Pick<
+  ServiceAgreement,
+  | 'id' | 'clientId' | 'agreementNumber' | 'agreementDate' | 'status' | 'customerName' | 'customerInn'
+  | 'paymentModel' | 'pricingMode' | 'mainTariffBhm' | 'mainTariffUzs' | 'creditLimit'
+>;
+
+export interface AgreementSummaryListResponse {
+  items: AgreementSummary[];
+  total: number;
+  page: number;
+  limit: number;
+  counts: Record<AgreementStatus, number>;
+}
+
 /** Formadan yuboriladigan ma'lumot — server default beradigan maydonlar ixtiyoriy */
 export type AgreementInput = Omit<
   ServiceAgreement,

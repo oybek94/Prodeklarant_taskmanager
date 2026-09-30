@@ -1,5 +1,10 @@
 import apiClient from '../../lib/api';
-import type { AgreementInput, AgreementListResponse, ServiceAgreement } from './types';
+import type {
+  AgreementInput,
+  AgreementListResponse,
+  AgreementSummaryListResponse,
+  ServiceAgreement,
+} from './types';
 
 const BASE = '/service-agreements';
 
@@ -11,6 +16,17 @@ export async function listAgreements(params: {
   limit?: number;
 }): Promise<AgreementListResponse> {
   const { data } = await apiClient.get<AgreementListResponse>(BASE, { params });
+  return data;
+}
+
+/** Ro'yxat sahifasi uchun: faqat jadval maydonlari + holatlar sanog'i */
+export async function listAgreementSummaries(params: {
+  q?: string;
+  status?: string;
+  page?: number;
+  limit?: number;
+}): Promise<AgreementSummaryListResponse> {
+  const { data } = await apiClient.get<AgreementSummaryListResponse>(BASE, { params: { ...params, view: 'list' } });
   return data;
 }
 

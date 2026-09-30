@@ -5,7 +5,6 @@ import {
   PdfDroppedTextError,
   describeDroppedText,
 } from '../../components/invoice/pdf/pdfGlyphCheck';
-import { renderAgreementPdf } from './pdf/renderAgreementPdf';
 import type { ServiceAgreement } from './types';
 
 /**
@@ -15,6 +14,8 @@ import type { ServiceAgreement } from './types';
 export async function downloadAgreementPdf(agreement: ServiceAgreement, bhmUzs: number): Promise<void> {
   const toastId = toast.loading('PDF tayyorlanmoqda…');
   try {
+    // @react-pdf og'ir — faqat PDF so'ralganda yuklanadi, sahifa bundle'iga kirmaydi
+    const { renderAgreementPdf } = await import('./pdf/renderAgreementPdf');
     const blob = await renderAgreementPdf(agreement, bhmUzs);
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');

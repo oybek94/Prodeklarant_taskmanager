@@ -418,6 +418,30 @@ router.get('/:id', requireAuth(), async (req: AuthRequest, res) => {
   }
 });
 
+/** Shartnoma muharriri uchun faqat rekvizitlar — to'liq kartochka (ishlar, qarz hisobi) kerak emas */
+router.get('/:id/requisites', requireAuth(), async (req: AuthRequest, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'Invalid id' });
+  const client = await prisma.client.findUnique({
+    where: { id },
+    select: {
+      id: true,
+      name: true,
+      inn: true,
+      address: true,
+      bankName: true,
+      bankAccount: true,
+      email: true,
+      phone: true,
+      director: true,
+      mfo: true,
+      oked: true,
+    },
+  });
+  if (!client) return res.status(404).json({ error: 'Not found' });
+  res.json(client);
+});
+
 router.get('/:id/monthly-tasks', requireStaffOrClient(), async (req: AuthRequest, res) => {
   const id = Number(req.params.id);
   const user = req.user as any;

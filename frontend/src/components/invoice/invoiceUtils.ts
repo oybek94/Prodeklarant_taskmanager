@@ -103,6 +103,34 @@ export const normalizeItem = (item: InvoiceItem): InvoiceItem => ({
   totalPrice: round2(item.totalPrice),
 });
 
+/**
+ * Qatorni backendga yuborish shakliga keltiradi.
+ * Мест uchun manba — faqat item.quantity (foydalanuvchi kiritgani). Bazadan kelgan
+ * customFields._quantityStr hisobga olinmaydi: aks holda "-" bilan saqlangan qatorda
+ * Мест o'zgartirilsa ham normalizeItem eski "-" ni qaytarib, o'zgarish yo'qolardi.
+ */
+export const toSaveItem = (item: InvoiceItem, index: number) => {
+  const { _quantityStr: _stale, ...restCustomFields } = (item.customFields ?? {}) as Record<string, unknown>;
+  const normalized = normalizeItem({ ...item, customFields: restCustomFields });
+  const qty = normalized.quantity === '-' ? 0 : (normalized.quantity != null ? Number(normalized.quantity) : 0);
+  const pkgCount = normalized.packagesCount != null ? Number(normalized.packagesCount) : undefined;
+
+  const customFields: Record<string, unknown> = { ...restCustomFields };
+  if (normalized.quantity === '-' || normalized.quantity === '') {
+    customFields._quantityStr = normalized.quantity;
+  }
+
+  return {
+    ...normalized,
+    customFields,
+    quantity: isNaN(qty) ? 0 : qty,
+    packagesCount: pkgCount,
+    unitPrice: Number(normalized.unitPrice) || 0,
+    totalPrice: round2(normalized.totalPrice),
+    orderIndex: index,
+  };
+};
+
 /** Shartnoma spetsifikatsiyasidagi nom va boshqa maydonlarni invoys qatorlariga (indeks bo'yicha) yozadi. */
 export const syncItemsFromSpec = (currentItems: InvoiceItem[], spec: SpecRow[]): InvoiceItem[] =>
   currentItems.map((item, i) => {

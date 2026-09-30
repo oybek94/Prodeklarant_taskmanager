@@ -83,11 +83,19 @@ export class ClientRepository {
           select: { id: true, name: true },
         },
         tasks: {
-          include: { branch: true },
+          select: {
+            id: true,
+            title: true,
+            status: true,
+            createdAt: true,
+            branch: { select: { id: true, name: true } },
+            ...debtTaskSelect,
+          },
           orderBy: { createdAt: 'desc' },
         },
         transactions: {
           where: { type: 'INCOME' as const },
+          select: { id: true, comment: true, ...debtPaymentSelect },
           orderBy: { date: 'desc' },
         },
       },

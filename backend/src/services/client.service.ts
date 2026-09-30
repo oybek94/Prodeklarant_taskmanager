@@ -101,46 +101,56 @@ export class ClientService {
   }
 
   async getClientById(id: number, isAdmin: boolean) {
-    const client = await this.clientRepo.findByIdWithRelations(id);
+    const [client, { rateAt, latest }] = await Promise.all([
+      this.clientRepo.findByIdWithRelations(id),
+      loadUsdRateAt(),
+    ]);
     if (!client) return null;
 
-    const { rateAt, latest } = await loadUsdRateAt();
-    const debt = computeClientDebt(client as any, rateAt, latest);
+    const debt = computeClientDebt(client, rateAt, latest);
     const totalIncome = debt.totalPaid;
     const totalTasks = client.tasks.length;
     const dealAmount = Number(client.dealAmount || 0);
-    const tasksWithPsr = client.tasks.filter((task: any) => task.hasPsr).length;
+    const tasksWithPsr = client.tasks.filter((task) => task.hasPsr).length;
     const totalDealAmount = debt.totalDeal;
     const balance = debt.debt;
 
-    const tasksByBranch = client.tasks.reduce((acc: any, task: any) => {
+    const tasksByBranch: Record<string, number> = {};
+    for (const task of client.tasks) {
       const branchName = task.branch?.name || 'Unknown';
-      acc[branchName] = (acc[branchName] || 0) + 1;
-      return acc;
-    }, {});
-
-    if (!isAdmin) {
-      (client as any).dealAmount = 0;
-      (client as any).dealAmount_amount_uzs = 0;
-      (client as any).dealAmount_amount_original = 0;
-      (client as any).dealAmount_exchange_rate = 0;
-      (client as any).contractPaymentType = 'CASH_ALL_INCLUSIVE';
-      (client as any).serviceFeeTransferUzs = 0;
-      (client as any).initialDebt = 0;
-      (client as any).initialDebtInUzs = 0;
-      (client as any).creditLimit = 0;
-      (client as any).transactions = [];
-      (client as any).tasks = client.tasks.map((t: any) => ({
-        id: t.id,
-        status: t.status,
-        hasPsr: t.hasPsr,
-        branch: t.branch,
-        createdAt: t.createdAt
-      }));
+      tasksByBranch[branchName] = (tasksByBranch[branchName] || 0) + 1;
     }
 
+    // Kartochkaga faqat ko'rsatiladigan maydonlar — snapshot narxlar faqat qarz hisobi uchun kerak edi
+    const { tasks, transactions, ...clientFields } = client;
+    const slimTasks = tasks.map((t) => ({
+      id: t.id,
+      title: t.title,
+      status: t.status,
+      hasPsr: t.hasPsr,
+      branch: t.branch,
+      createdAt: t.createdAt,
+    }));
+
+    const hiddenMoney = isAdmin ? {} : {
+      dealAmount: 0,
+      dealAmount_amount_uzs: 0,
+      dealAmount_amount_original: 0,
+      dealAmount_exchange_rate: 0,
+      contractPaymentType: 'CASH_ALL_INCLUSIVE' as const,
+      serviceFeeTransferUzs: 0,
+      initialDebt: 0,
+      initialDebtInUzs: 0,
+      creditLimit: 0,
+    };
+
     return {
-      ...client,
+      ...clientFields,
+      ...hiddenMoney,
+      tasks: isAdmin ? slimTasks : slimTasks.map(({ title: _title, ...t }) => t),
+      transactions: isAdmin
+        ? transactions.map((t) => ({ id: t.id, amount: t.amount, currency: t.currency, date: t.date, comment: t.comment }))
+        : [],
       balanceCurrency: debt.currency,
       stats: {
         currency: debt.currency,

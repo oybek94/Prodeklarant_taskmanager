@@ -8,11 +8,12 @@ import CurrencyDisplay from '../components/CurrencyDisplay';
 import DateInput from '../components/DateInput';
 import { validateMonetaryFields, isValidMonetaryFields, type MonetaryValidationErrors } from '../utils/validation';
 import { useIsMobile } from '../utils/useIsMobile';
-import { formatCurrencyForRole, type Role, shouldShowExchangeRate } from '../utils/currencyFormatting';
+import { formatAmount, formatCurrencyForRole, type Role, shouldShowExchangeRate } from '../utils/currencyFormatting';
 import { formatDateOnly } from '../utils/dateFormatting';
 import { getDefaultTnvedProducts } from '../utils/tnvedProducts';
 import EmptyValue, { formatEmpty } from '../components/common/EmptyValue';
 import ContractFieldHint from '../components/contracts/ContractFieldHint';
+import ClientOverview, { type ClientDetail } from '../components/clients/ClientOverview';
 import Tasks from './Tasks';
 import { EXPORT_COUNTRIES } from '../constants/countries';
 
@@ -102,44 +103,6 @@ interface AssignableUser {
   id: number;
   name: string;
   role: string;
-}
-
-interface ClientDetail {
-  id: number;
-  name: string;
-  assignedUserId?: number | null;
-  assignedUser?: { id: number; name: string } | null;
-  dealAmount?: number | string | null;
-  balanceCurrency?: 'USD' | 'UZS';
-  phone?: string;
-  createdAt: string;
-  defaultAfterHoursPayer?: 'CLIENT' | 'COMPANY' | null;
-  creditType?: string | null;
-  creditLimit?: number | string | null;
-  creditStartDate?: string | null;
-  tasks: Array<{
-    id: number;
-    title: string;
-    status: string;
-    createdAt: string;
-    branch: { name: string };
-  }>;
-  transactions: Array<{
-    id: number;
-    amount: number;
-    currency: string;
-    date: string;
-    comment?: string;
-  }>;
-  stats?: {
-    dealAmount: number;
-    totalDealAmount?: number; // Jami shartnoma summasi (PSR hisobga olingan)
-    totalIncome: number;
-    balance: number;
-    totalTasks: number;
-    tasksByBranch: Record<string, number>;
-    tasksWithPsr?: number; // PSR bor bo'lgan tasklar soni
-  };
 }
 
 interface MonthlyTask {
@@ -655,22 +618,19 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
   const loadClientDetail = async (clientId: number) => {
     try {
       setLoadingClient(true);
+      // Kartochka, oylik statistika va shartnomalar bir-biriga bog'liq emas — parallel yuklanadi
+      const monthlyRequest = apiClient
+        .get(`/clients/${clientId}/monthly-tasks?_t=${Date.now()}`)
+        .then((res) => setMonthlyTasks(Array.isArray(res.data) ? res.data : []))
+        .catch((error) => console.error('Error loading monthly tasks:', error));
+      const contractsRequest = loadContracts(clientId);
+
       const response = await apiClient.get(`/clients/${clientId}`);
       setSelectedClient(response.data);
-      if (isNonAdmin) {
-        setClientModalTab('contracts');
-      } else {
-        setClientModalTab('overview');
-      }
+      setClientModalTab(isNonAdmin ? 'contracts' : 'overview');
       setShowClientModal(true);
 
-      // Load monthly tasks data
-      // Using a timestamp cache buster to ensure old cached responses without year/monthIndex aren't used
-      const monthlyResponse = await apiClient.get(`/clients/${clientId}/monthly-tasks?_t=${Date.now()}`);
-      setMonthlyTasks(monthlyResponse.data);
-
-      // Load contracts
-      await loadContracts(clientId);
+      await Promise.all([monthlyRequest, contractsRequest]);
     } catch (error) {
       console.error('Error loading client detail:', error);
       alert('Mijoz ma\'lumotlarini yuklashda xatolik yuz berdi');
@@ -1969,281 +1929,114 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
           }}
         >
           <div
-            className="bg-white dark:bg-slate-900 rounded-lg shadow-2xl p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto border border-transparent dark:border-slate-700"
+            className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-4xl w-full mx-4 max-h-[90vh] flex flex-col overflow-hidden border border-transparent dark:border-slate-700"
             style={{
               animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)'
             }}
           >
-            <div className="flex justify-between items-center mb-6">
-              <div className="flex items-center gap-4">
-                <div
-                  className={`w-16 h-16 rounded-full ${getAvatarColor(
-                    selectedClient.name
-                  )} flex items-center justify-center text-xl font-semibold text-white shadow-md`}
-                >
-                  {getInitials(selectedClient.name)}
-                </div>
-                <div>
-                  <h2 className="text-2xl font-semibold text-gray-800 dark:text-gray-100">{selectedClient.name}</h2>
-                  <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                    Yaratilgan: {formatDate(selectedClient.createdAt)}
+            <div className="px-6 pt-5 border-b border-gray-100 dark:border-slate-800 shrink-0">
+              <div className="flex justify-between items-start gap-4">
+                <div className="flex items-center gap-3.5 min-w-0">
+                  <div
+                    className={`w-12 h-12 rounded-2xl ${getAvatarColor(
+                      selectedClient.name
+                    )} flex items-center justify-center text-base font-semibold text-white shrink-0`}
+                  >
+                    {getInitials(selectedClient.name)}
+                  </div>
+                  <div className="min-w-0">
+                    <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 truncate">{selectedClient.name}</h2>
+                    <div className="text-sm text-gray-500 dark:text-gray-400 mt-0.5 flex flex-wrap items-center gap-x-2">
+                      <span>Mijoz #{selectedClient.id}</span>
+                      <span className="text-gray-300 dark:text-gray-600">·</span>
+                      <span>{formatDate(selectedClient.createdAt)} dan beri</span>
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div className="flex items-center gap-2">
-                {!isNonAdmin && (
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {!isNonAdmin && (
+                    <button
+                      onClick={() => {
+                        if (isMobile) {
+                          navigate(`/clients/${selectedClient.id}/edit`);
+                        } else {
+                          handleEdit(selectedClient as unknown as Client); // Passing the minimum fields
+                        }
+                        if (!isModalMode) {
+                          setShowClientModal(false);
+                        }
+                      }}
+                      className="h-9 px-3 text-sm font-medium text-gray-700 dark:text-gray-200 border border-gray-200 dark:border-slate-700 rounded-lg hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors flex items-center gap-1.5"
+                      title="Tahrirlash"
+                    >
+                      <Icon icon="solar:pen-bold-duotone" className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                      {!isMobile && <span>Tahrirlash</span>}
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      resetContractForm();
+                      if (selectedClient) {
+                        await loadContracts(selectedClient.id);
+                      }
+                      setShowContractModal(true);
+                    }}
+                    className="h-9 px-3 text-sm font-medium bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-1.5"
+                    title="Yangi shartnoma qo'shish"
+                  >
+                    <Icon icon="solar:add-circle-bold-duotone" className="w-4 h-4" />
+                    {!isMobile && <span>Shartnoma</span>}
+                  </button>
                   <button
                     onClick={() => {
-                      if (isMobile) {
-                        navigate(`/clients/${selectedClient.id}/edit`);
-                      } else {
-                        handleEdit(selectedClient as unknown as Client); // Passing the minimum fields
-                      }
                       if (isModalMode) {
-                        // Keep modal open or not? We might just overlay the edit modal
+                        onCloseModal?.();
                       } else {
                         setShowClientModal(false);
+                        setSelectedClient(null);
                       }
                     }}
-                    className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors flex items-center justify-center shrink-0"
-                    title="Tahrirlash"
+                    className="h-9 w-9 ml-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-lg transition-colors flex items-center justify-center"
+                    title="Yopish (Esc)"
                   >
-                    <Icon icon="solar:pen-bold-duotone" className="w-5 h-5" />
+                    <Icon icon="solar:close-circle-bold-duotone" className="w-5 h-5" />
                   </button>
-                )}
-                <button
-                  type="button"
-                  onClick={async () => {
-                    resetContractForm();
-                    if (selectedClient) {
-                      await loadContracts(selectedClient.id);
-                    }
-                    setShowContractModal(true);
-                  }}
-                  className={`bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors shadow-sm flex items-center justify-center shrink-0 ${isMobile ? 'p-2.5' : 'px-4 py-2 text-sm font-medium gap-2'}`}
-                  title="Yangi shartnoma qo'shish"
-                >
-                  <Icon icon="solar:add-circle-bold-duotone" className={isMobile ? "w-5 h-5" : "w-4 h-4"} />
-                  {!isMobile && <span>Shartnoma qo'shish</span>}
-                </button>
-                <button
-                  onClick={() => {
-                    if (isModalMode) {
-                      onCloseModal?.();
-                    } else {
-                      setShowClientModal(false);
-                      setSelectedClient(null);
-                    }
-                  }}
-                  className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-xl transition-colors shrink-0"
-                >
-                  <Icon icon="solar:close-circle-bold-duotone" className="w-6 h-6" />
-                </button>
+                </div>
+              </div>
+
+              {/* Client Tabs */}
+              <div className="flex gap-1 mt-4 -mb-px overflow-x-auto hide-scrollbar">
+                {([
+                  { key: 'overview', label: 'Umumiy', count: null },
+                  { key: 'contracts', label: 'Shartnomalar', count: contracts.length },
+                  { key: 'tasks', label: 'Ishlar', count: selectedClient.tasks?.length || 0 },
+                  { key: 'transactions', label: "To'lovlar", count: selectedClient.transactions?.length || 0 },
+                ] as const).map((tab) => {
+                  const active = clientModalTab === tab.key;
+                  return (
+                    <button
+                      key={tab.key}
+                      type="button"
+                      onClick={() => setClientModalTab(tab.key)}
+                      className={`px-3 py-2.5 text-sm font-medium border-b-2 whitespace-nowrap transition-colors flex items-center gap-1.5 ${active ? 'border-blue-600 text-blue-600 dark:text-blue-400' : 'border-transparent text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200'}`}
+                    >
+                      {tab.label}
+                      {tab.count !== null && (
+                        <span className={`min-w-5 px-1.5 py-0.5 rounded-full text-[11px] leading-none tabular-nums ${active ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' : 'bg-gray-100 text-gray-600 dark:bg-slate-800 dark:text-gray-400'}`}>
+                          {tab.count}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
-            {/* Client Tabs */}
-            <div className="flex gap-2 mb-6 border-b border-gray-100 dark:border-slate-800 overflow-x-auto hide-scrollbar">
-              <button
-                type="button"
-                onClick={() => setClientModalTab('overview')}
-                className={`px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${clientModalTab === 'overview' ? 'border-blue-600 text-blue-600 dark:text-blue-400' : 'border-transparent text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200'}`}
-              >
-                Umumiy
-              </button>
-              <button
-                type="button"
-                onClick={() => setClientModalTab('contracts')}
-                className={`px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${clientModalTab === 'contracts' ? 'border-blue-600 text-blue-600 dark:text-blue-400' : 'border-transparent text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200'}`}
-              >
-                Shartnomalar ({contracts.length})
-              </button>
-              <button
-                type="button"
-                onClick={() => setClientModalTab('tasks')}
-                className={`px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${clientModalTab === 'tasks' ? 'border-blue-600 text-blue-600 dark:text-blue-400' : 'border-transparent text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200'}`}
-              >
-                Ishlar ({selectedClient.tasks?.length || 0})
-              </button>
-              <button
-                type="button"
-                onClick={() => setClientModalTab('transactions')}
-                className={`px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap transition-colors ${clientModalTab === 'transactions' ? 'border-blue-600 text-blue-600 dark:text-blue-400' : 'border-transparent text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200'}`}
-              >
-                Tranzaksiyalar ({selectedClient.transactions?.length || 0})
-              </button>
-            </div>
-
+            <div className="flex-1 overflow-y-auto px-6 py-5">
             {/* TAB: OVERVIEW */}
             {clientModalTab === 'overview' && (
-              <div className="space-y-6">
-                {/* Top Financial Summary - barcha ko'radi, summalari yashiriladi */}
-                {selectedClient.stats && (
-                  <>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-slate-800 dark:to-slate-800 border border-blue-200 dark:border-blue-900/50 p-5 rounded-2xl shadow-sm">
-                        <div className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2 flex items-center gap-2">
-                          <Icon icon="solar:calculator-bold-duotone" className="w-4 h-4 text-blue-500 dark:text-blue-400" />
-                          Barcha loyihalar summasi
-                        </div>
-                        <div className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-                          {isNonAdmin ? <span className="font-mono text-gray-400">***</span> : (
-                            "$" + (selectedClient.stats.totalDealAmount !== undefined
-                              ? Number(selectedClient.stats.totalDealAmount).toFixed(2)
-                              : (Number(selectedClient.stats.totalTasks) * Number(selectedClient.stats.dealAmount)).toFixed(2))
-                          )}
-                        </div>
-                        {selectedClient.stats.tasksWithPsr !== undefined && selectedClient.stats.tasksWithPsr > 0 && (
-                          <div className="text-xs font-medium text-blue-600 mt-2 bg-blue-100/50 dark:bg-blue-900/30 dark:text-blue-400 inline-block px-2 py-1 rounded-md">
-                            ({selectedClient.stats.tasksWithPsr} ta PSR bor task uchun +<CurrencyDisplay amount={selectedClient.stats.tasksWithPsr * 10} originalCurrency="USD" />)
-                          </div>
-                        )}
-                      </div>
-                      <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-slate-800 dark:to-slate-800 border border-green-200 dark:border-emerald-900/50 p-5 rounded-2xl shadow-sm">
-                        <div className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-2 flex items-center gap-2">
-                          <Icon icon="solar:dollar-bold-duotone" className="w-4 h-4 text-green-500 dark:text-emerald-400" />
-                          Jami to'lovlar
-                        </div>
-                        <div className="text-3xl font-bold text-green-600 dark:text-emerald-400">
-                          {isNonAdmin ? <span className="font-mono text-green-400/70">***</span> : <CurrencyDisplay amount={Number(selectedClient.stats.totalIncome)} originalCurrency={selectedClient.balanceCurrency || 'USD'} />}
-                        </div>
-                      </div>
-                      <div className={`p-5 rounded-2xl shadow-sm border ${selectedClient.stats.balance > 0
-                        ? 'bg-gradient-to-br from-red-50 to-rose-50 dark:from-slate-800 dark:to-slate-800 border-red-200 dark:border-rose-900/50'
-                        : selectedClient.stats.balance === 0
-                          ? 'bg-gradient-to-br from-yellow-50 to-amber-50 dark:from-slate-800 dark:to-slate-800 border-yellow-200 dark:border-amber-900/50'
-                          : 'bg-gradient-to-br from-green-50 to-emerald-50 dark:from-slate-800 dark:to-slate-800 border-green-200 dark:border-emerald-900/50'
-                        }`}>
-                        <div className={`text-sm font-medium mb-2 flex items-center gap-2 ${selectedClient.stats.balance > 0 ? 'text-red-700 dark:text-rose-400' : selectedClient.stats.balance === 0 ? 'text-yellow-700 dark:text-amber-400' : 'text-green-700 dark:text-emerald-400'}`}>
-                          <Icon icon="solar:scale-bold-duotone" className="w-4 h-4" />
-                          Qarzdorligi
-                        </div>
-                        <div className={`text-3xl font-bold ${selectedClient.stats.balance > 0
-                          ? 'text-red-600 dark:text-rose-500'
-                          : selectedClient.stats.balance === 0
-                            ? 'text-yellow-600 dark:text-amber-500'
-                            : 'text-green-600 dark:text-emerald-500'
-                          }`}>
-                          {isNonAdmin ? <span className="font-mono opacity-60">***</span> : <CurrencyDisplay amount={Number(selectedClient.stats.balance)} originalCurrency={selectedClient.balanceCurrency || 'USD'} />}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="p-4 bg-gray-50 dark:bg-slate-800/50 border border-gray-200 dark:border-slate-700 rounded-xl flex items-center justify-between">
-                      <div className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
-                        <Icon icon="solar:info-circle-bold-duotone" className="w-4 h-4 text-gray-400" />
-                        Qo'shimcha to'lovni (After Hours) kim to'laydi:
-                      </div>
-                      <div className="text-sm font-semibold text-gray-900 dark:text-gray-100 bg-white dark:bg-slate-800 px-3 py-1.5 rounded-lg border border-gray-100 dark:border-slate-700 shadow-sm">
-                        {(selectedClient as any).defaultAfterHoursPayer === 'COMPANY' ? 'Men (kompaniya)' : 'Mijoz to\'laydi'}
-                      </div>
-                    </div>
-                  </>
-                )}
-
-                {/* Client Info - Telefon hamma ko'radi, summa yashiriladi */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div className="bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 p-5 rounded-2xl shadow-sm">
-                      <div className="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">Telefon</div>
-                      <div className="font-semibold text-gray-900 dark:text-gray-100 text-lg flex items-center gap-2">
-                        <Icon icon="solar:phone-bold-duotone" className="w-4 h-4 text-gray-400" />
-                        <EmptyValue value={selectedClient.phone} />
-                      </div>
-                    </div>
-                    <div className="bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 p-5 rounded-2xl shadow-sm">
-                      <div className="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">Mas'ul xodim</div>
-                      <div className="font-semibold text-gray-900 dark:text-gray-100 text-lg flex items-center gap-2">
-                        <Icon icon="solar:user-id-bold-duotone" className="w-4 h-4 text-gray-400" />
-                        {selectedClient.assignedUser?.name || 'Admin'}
-                      </div>
-                    </div>
-                    <div className="bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 p-5 rounded-2xl shadow-sm">
-                      <div className="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-2">Asosiy shartnoma summasi (1 ta task)</div>
-                      <div className="font-semibold text-gray-900 dark:text-gray-100 text-lg flex items-center gap-2">
-                        <Icon icon="solar:document-text-bold-duotone" className="w-4 h-4 text-gray-400" />
-                        {isNonAdmin ? <span className="font-mono text-gray-400">***</span> : selectedClient.dealAmount ? (
-                          <CurrencyDisplay amount={Number(selectedClient.dealAmount)} originalCurrency="USD" />
-                        ) : '-'}
-                      </div>
-                    </div>
-                  </div>
-
-                {/* Kelishuv shartlari (Nasiya shartlari) - barcha ko'radi, limit yashiriladi */}
-                {(selectedClient.creditType || selectedClient.creditLimit) && (
-                  <div className="bg-white dark:bg-slate-800 border border-blue-100 dark:border-blue-900/40 rounded-2xl p-6 shadow-sm relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-blue-50 dark:bg-blue-900/20 rounded-full -mr-16 -mt-16 opacity-50"></div>
-                    <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-4 flex items-center gap-2 relative z-10">
-                      <Icon icon="solar:shield-check-bold-duotone" className="w-5 h-5 text-blue-500" />
-                      Nasiya shartlari
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 relative z-10">
-                      <div className="bg-gray-50 dark:bg-slate-900/50 rounded-xl p-4 border border-gray-100 dark:border-slate-700/50">
-                        <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Nasiya turi</div>
-                        <div className="font-semibold text-gray-900 dark:text-gray-100">
-                          {selectedClient.creditType === 'TASK_COUNT'
-                            ? 'Ma\'lum bir ish sonigacha'
-                            : selectedClient.creditType === 'AMOUNT'
-                              ? 'Ma\'lum bir summagacha'
-                              : 'Nasiya yo\'q'}
-                        </div>
-                      </div>
-                      {selectedClient.creditLimit && (
-                        <div className="bg-gray-50 dark:bg-slate-900/50 rounded-xl p-4 border border-gray-100 dark:border-slate-700/50">
-                          <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                            {selectedClient.creditType === 'TASK_COUNT' ? 'Ish soni limiti' : 'Summa limiti'}
-                          </div>
-                          <div className="font-bold text-blue-600 dark:text-blue-400 text-lg">
-                            {selectedClient.creditType === 'TASK_COUNT'
-                              ? `${Number(selectedClient.creditLimit)} ta ish`
-                              : isNonAdmin ? <span className="font-mono text-gray-400">***</span> : <CurrencyDisplay amount={Number(selectedClient.creditLimit)} originalCurrency="USD" />}
-                          </div>
-                        </div>
-                      )}
-                      {selectedClient.creditStartDate && (
-                        <div className="bg-gray-50 dark:bg-slate-900/50 rounded-xl p-4 border border-gray-100 dark:border-slate-700/50">
-                          <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Boshlangan sana</div>
-                          <div className="font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
-                            <Icon icon="solar:calendar-bold-duotone" className="w-4 h-4 text-gray-400" />
-                            {new Date(selectedClient.creditStartDate).toLocaleDateString('uz-UZ', { day: 'numeric', month: 'long', year: 'numeric' })}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                    {selectedClient.creditType && selectedClient.creditLimit && (
-                      <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/30 rounded-xl border border-blue-100 dark:border-blue-800/50 relative z-10 flex items-start gap-3">
-                        <Icon icon="solar:info-circle-bold-duotone" className="w-5 h-5 text-blue-500 mt-0.5" />
-                        <div className="text-sm text-blue-900 dark:text-blue-200">
-                          <span className="font-semibold block mb-0.5">Shart tafsiloti:</span>
-                          {selectedClient.creditType === 'TASK_COUNT'
-                            ? `${Number(selectedClient.creditLimit)} ta ishdan keyin to'lov qilish kerak`
-                            : <span className="flex items-center gap-1">Qarzdorlik {isNonAdmin ? <span className="font-mono font-bold">***</span> : <CurrencyDisplay amount={Number(selectedClient.creditLimit)} originalCurrency="USD" />} ga yetganda to'lov qilish kerak</span>}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Stats Summary - barcha ko'radi */}
-                {selectedClient.stats && (
-                  <div className="bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-2xl p-6 shadow-sm">
-                    <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 mb-4 flex items-center gap-2">
-                      <Icon icon="solar:chart-bold-duotone" className="w-5 h-5 text-indigo-500" />
-                      Mijoz statistikasi
-                    </h3>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      <div className="bg-gray-50 dark:bg-slate-900/50 rounded-xl p-4 border border-gray-100 dark:border-slate-700/50">
-                        <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Jami loyihalar</div>
-                        <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">{selectedClient.stats.totalTasks} <span className="text-sm font-medium text-gray-400">ta</span></div>
-                      </div>
-                      {Object.entries(selectedClient.stats.tasksByBranch).map(([branch, count]) => (
-                        <div key={branch} className="bg-gray-50 dark:bg-slate-900/50 rounded-xl p-4 border border-gray-100 dark:border-slate-700/50">
-                          <div className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{branch} filiali</div>
-                          <div className="text-2xl font-bold text-indigo-600 dark:text-indigo-400">{count} <span className="text-sm font-medium text-indigo-300 dark:text-indigo-500/50">ta</span></div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
+              <ClientOverview client={selectedClient} hideMoney={isNonAdmin} />
             )}
 
             {/* TAB: CONTRACTS */}
@@ -2551,7 +2344,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                       <div key={transaction.id} className="bg-white dark:bg-slate-900 rounded-xl p-4 border border-gray-100 dark:border-slate-800 shadow-sm space-y-3">
                         <div className="flex justify-between items-center">
                           <div className="text-[13px] font-bold text-green-600 dark:text-emerald-400 bg-green-50 dark:bg-emerald-900/20 px-2.5 py-1 rounded-lg border border-green-100 dark:border-emerald-800/50">
-                            {isNonAdmin ? <span className="font-mono opacity-70">***</span> : `+$${Number(transaction.amount).toFixed(2)} ${transaction.currency}`}
+                            {isNonAdmin ? <span className="font-mono opacity-70">***</span> : `+${formatAmount(Number(transaction.amount), transaction.currency || 'UZS')}`}
                           </div>
                           <span className="text-[11px] text-gray-500 dark:text-gray-400 font-medium">
                             {formatDate(transaction.date)}
@@ -2581,7 +2374,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                             <tr key={transaction.id} className="hover:bg-green-50/30 dark:hover:bg-slate-800 transition-colors">
                               <td className="px-5 py-4 whitespace-nowrap">
                                 <div className="text-sm font-bold text-green-600 dark:text-emerald-400 bg-green-50 dark:bg-emerald-900/20 inline-block px-3 py-1 rounded-lg border border-green-100 dark:border-emerald-800/50">
-                                  {isNonAdmin ? <span className="font-mono opacity-70">***</span> : `+$${Number(transaction.amount).toFixed(2)} ${transaction.currency}`}
+                                  {isNonAdmin ? <span className="font-mono opacity-70">***</span> : `+${formatAmount(Number(transaction.amount), transaction.currency || 'UZS')}`}
                                 </div>
                               </td>
                               <td className="px-5 py-4 whitespace-nowrap text-sm font-medium text-gray-600 dark:text-gray-300">
@@ -2599,6 +2392,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                 )}
               </div>
             )}
+            </div>
           </div>
         </div>
       )}

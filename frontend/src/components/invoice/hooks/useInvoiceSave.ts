@@ -231,6 +231,19 @@ export function useInvoiceSave({
       return;
     }
 
+    // Invoys sanasi yaratilgan kundan keyin bo'lmasin (backend ham tekshiradi).
+    // O'zgarmagan sana tekshirilmaydi — eski invoyslar tahrirda bloklanmasin.
+    if (currentForm.date) {
+      const toKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      const createdKey = toKey(invoice?.createdAt ? new Date(invoice.createdAt) : new Date());
+      const originalKey = invoice?.date ? String(invoice.date).split('T')[0] : null;
+      if (currentForm.date !== originalKey && currentForm.date > createdKey) {
+        const [y, m, d] = createdKey.split('-');
+        toast.error(`Invoys sanasi invoys yaratilgan sanadan (${d}.${m}.${y}) keyin bo'lishi mumkin emas`);
+        return;
+      }
+    }
+
     const missingPackageType = items.some(item => !item.packageType?.trim());
     if (missingPackageType) {
       setShowItemErrors(true);

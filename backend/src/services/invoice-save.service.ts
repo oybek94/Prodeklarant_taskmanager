@@ -6,6 +6,7 @@ import { checkItemsTare, TareWarning } from './packaging-tare';
 import { ensureCmrForInvoice } from './cmr-service';
 import { ensureTirForInvoice } from './tir-service';
 import { socketEmitter } from './socketEmitter';
+import { tashkentDateKey } from '../utils/tashkent-time';
 
 /**
  * Invoysni saqlash (yaratish yoki vazifaga bog'langan mavjudini yangilash) — POST /invoices.
@@ -200,6 +201,23 @@ async function computeTareWarnings(items: InvoiceItemInput[]): Promise<TareWarni
   }
 }
 
+/**
+ * Invoys sanasi u yaratilgan kundan (Toshkent kuni) keyin bo'lmasligi kerak.
+ * Yangi invoysda — bugun, mavjudida — uning createdAt kuni.
+ * @returns xato matni yoki null
+ */
+export function validateInvoiceDate(date: string | undefined, createdAt: Date): string | null {
+  if (!date) return null;
+  const parsed = new Date(date);
+  if (Number.isNaN(parsed.getTime())) return 'Invoys sanasi noto\'g\'ri formatda';
+  const createdKey = tashkentDateKey(createdAt);
+  if (tashkentDateKey(parsed) > createdKey) {
+    const [y, m, d] = createdKey.split('-');
+    return `Invoys sanasi invoys yaratilgan sanadan (${d}.${m}.${y}) keyin bo'lishi mumkin emas`;
+  }
+  return null;
+}
+
 async function assertNumberFree(
   invoiceNumber: string,
   contractId: number | undefined,
@@ -318,6 +336,15 @@ export async function saveInvoice(input: InvoiceInput): Promise<SaveInvoiceResul
   // (oldin bu yo'l Prisma xatosi bilan 500 berardi). Frontend avval vazifa yaratadi.
   if (!existingInvoice && !task) {
     throw new InvoiceSaveError(400, 'Invoys faqat vazifaga bog\'lab yaratiladi — avval vazifa tanlang');
+  }
+
+  // Sana o'zgarmagan bo'lsa tekshirilmaydi — eski (qoidadan oldingi) invoyslar tahrirda bloklanmasin
+  const dateUnchanged = !!date && !!existingInvoice
+    && !Number.isNaN(new Date(date).getTime())
+    && tashkentDateKey(new Date(date)) === tashkentDateKey(existingInvoice.date);
+  if (!dateUnchanged) {
+    const dateError = validateInvoiceDate(date, existingInvoice?.createdAt ?? new Date());
+    if (dateError) throw new InvoiceSaveError(400, dateError);
   }
 
   // Raqam tekshiruvi / avtomatik raqam

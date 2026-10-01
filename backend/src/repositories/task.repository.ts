@@ -56,6 +56,8 @@ export class TaskRepository {
         client: { select: { id: true, name: true } },
         branch: { select: { id: true, name: true } },
         createdBy: { select: { id: true, name: true } },
+        // Arxiv jadvalidagi "Sana" ustuni — invoys sanasi
+        invoice: { select: { date: true } },
         // Umumiy vaqt (durationMin yig'indisi) uchun
         stages: { select: { durationMin: true } },
       },

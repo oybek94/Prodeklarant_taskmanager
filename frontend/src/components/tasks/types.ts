@@ -10,6 +10,8 @@ export interface Task {
   afterHoursDeclaration?: boolean;
   driverPhone?: string;
   createdAt: string;
+  /** Faqat ro'yxat javobida: arxiv "Sana" ustuni uchun */
+  invoice?: { date: string } | null;
   customsPaymentMultiplier?: number | null;
   client: { id: number; name: string };
   branch: { id: number; name: string };

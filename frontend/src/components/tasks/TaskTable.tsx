@@ -3,7 +3,7 @@ import { Icon } from '@iconify/react';
 import {
   formatDate, getStatusInfo, getAvatarColor, getInitials,
 } from './taskHelpers';
-import { formatRelativeTime } from '../../utils/dateFormatting';
+import { formatDateOnly, formatRelativeTime } from '../../utils/dateFormatting';
 import type { Task } from './types';
 import { useIsMobile } from '../../utils/useIsMobile';
 
@@ -248,7 +248,7 @@ const TaskTable: React.FC<TaskTableProps> = ({
                   </th>
                 )}
                 <th className={`px-4 py-3 text-center text-[11px] font-bold uppercase tracking-wider border-b ${colors.border} ${colors.textTh}`}>
-                  Start Date
+                  {isArchive ? 'Sana' : 'Start Date'}
                 </th>
                 {isArchive && (
                   <th className={`px-4 py-3 text-center text-[11px] font-bold uppercase tracking-wider border-b ${colors.border} ${colors.textTh}`}>
@@ -340,7 +340,7 @@ const TaskTable: React.FC<TaskTableProps> = ({
                         </td>
                       )}
                       <td className={`px-3 py-2 whitespace-nowrap text-center text-xs text-gray-900 dark:text-gray-400 border-b ${colors.borderCell}`}>
-                        {formatRelativeTime(task.createdAt)}
+                        {isArchive ? formatDateOnly(task.invoice?.date) : formatRelativeTime(task.createdAt)}
                       </td>
                       {isArchive && (
                         <td className={`px-3 py-2 whitespace-nowrap text-center text-xs text-gray-900 border-b ${colors.borderCell}`}>

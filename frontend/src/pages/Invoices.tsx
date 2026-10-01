@@ -59,7 +59,7 @@ const Invoices = () => {
     paginatedInvoices
   } = useInvoiceFilters(invoices);
 
-  const { exportInvoiceReport, reportLoading } = useInvoiceReport(filters, searchQuery);
+  const { exportInvoiceReport, reportLoading } = useInvoiceReport(filters, searchQuery, branches, clients);
 
   // Initialize data
   useEffect(() => {

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import toast from 'react-hot-toast';
 import apiClient from '../lib/api';
 import { REPORT_COLUMNS } from '../components/tasks/ArchiveFiltersPanel';
-import type { InvoicesFilters } from '../components/invoices/types';
+import type { Branch, Client, InvoicesFilters } from '../components/invoices/types';
 import { formatDateOnly } from '../utils/dateFormatting';
 
 // Arxiv hisoboti ustunlari + valyuta (invoyslar turli valyutada bo'lishi mumkin)
@@ -32,7 +32,38 @@ const COLUMN_WIDTHS: Partial<Record<InvoiceReportColumnKey, number>> = {
   currency: 10,
 };
 
-export const useInvoiceReport = (filters: InvoicesFilters, searchQuery: string) => {
+// Fayl nomida ishlatib bo'lmaydigan belgilar olib tashlanadi, bo'shliqlar "_" ga
+const toFilePart = (value: string) =>
+  value.replace(/[\\/:*?"<>|«»'`]/g, '').trim().replace(/\s+/g, '_');
+
+// "2026-10-01" -> "01-10"
+const toDayMonth = (isoDate: string) => {
+  const [, month, day] = isoDate.split('-');
+  return day && month ? `${day}-${month}` : isoDate;
+};
+
+/** Fayl nomi filtrlardan: Mijoz_Filial_01-10_31-10.xlsx; filtr bo'lmasa — Invoyslar_Hisobot_<bugun>.xlsx */
+const buildReportFilename = (filters: InvoicesFilters, branches: Branch[], clients: Client[]) => {
+  const clientName = clients.find((c) => String(c.id) === filters.clientId)?.name;
+  const branchName = branches.find((b) => String(b.id) === filters.branchId)?.name;
+  const parts = [clientName, branchName].filter((v): v is string => Boolean(v)).map(toFilePart);
+  if (filters.startDate && filters.endDate) {
+    parts.push(toDayMonth(filters.startDate), toDayMonth(filters.endDate));
+  } else if (filters.startDate) {
+    parts.push(`${toDayMonth(filters.startDate)}_dan`);
+  } else if (filters.endDate) {
+    parts.push(`${toDayMonth(filters.endDate)}_gacha`);
+  }
+  const name = parts.filter(Boolean).join('_');
+  return `${name || `Invoyslar_Hisobot_${new Date().toISOString().split('T')[0]}`}.xlsx`;
+};
+
+export const useInvoiceReport = (
+  filters: InvoicesFilters,
+  searchQuery: string,
+  branches: Branch[],
+  clients: Client[],
+) => {
   const [reportLoading, setReportLoading] = useState(false);
 
   // Invoyslar ro'yxatidagi filtrlar bilan backenddan barcha yozuvlarni olib, tanlangan ustunlar bo'yicha Excel yaratish
@@ -86,8 +117,7 @@ export const useInvoiceReport = (filters: InvoicesFilters, searchQuery: string) 
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, 'Hisobot');
 
-      const dateStr = new Date().toISOString().split('T')[0];
-      XLSX.writeFile(wb, `Invoyslar_Hisobot_${dateStr}.xlsx`);
+      XLSX.writeFile(wb, buildReportFilename(filters, branches, clients));
       toast.success(`Hisobot yuklab olindi (${rows.length} ta yozuv)`);
     } catch (error: unknown) {
       console.error('Error generating invoice report:', error);

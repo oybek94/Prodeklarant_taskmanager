@@ -52,6 +52,9 @@ interface TaskDetailPanelProps {
   formatBxmAmountInSum: (multiplier: number) => string;
 }
 
+// Ko'rsatish uchun kengaytmani olib tashlash ("Инвойс.PDF" → "Инвойс")
+const stripExtension = (name: string) => name.replace(/\.[^./\\\s]{1,5}$/, '') || name;
+
 const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
   task: selectedTask,
   showFinancialReport,
@@ -862,7 +865,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                           {getFileIcon(doc.fileType, doc.name)}
                         </div>
                         <div className="flex-1">
-                          <div className="text-sm font-medium text-gray-900 dark:text-gray-200">{doc.name}</div>
+                          <div className="text-sm font-medium text-gray-900 dark:text-gray-200">{stripExtension(doc.name)}</div>
                           {doc.description && (
                             <div className="text-xs text-gray-500 dark:text-gray-400">{doc.description}</div>
                           )}

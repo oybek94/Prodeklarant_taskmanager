@@ -59,13 +59,13 @@ router.get('/archive-report', requireAuth(), async (req: AuthRequest, res) => {
     if (hasPsr === 'true') where.hasPsr = true;
     if (hasPsr === 'false') where.hasPsr = false;
 
-    // Sana filtri — Toshkent kuni bo'yicha (GET / bilan bir xil)
+    // Sana filtri — invoys sanasi bo'yicha, Toshkent kuni (arxiv ro'yxati bilan bir xil)
     const day = /^\d{4}-\d{2}-\d{2}$/;
-    const createdAt = tashkentDayRange(
+    const invoiceDate = tashkentDayRange(
       typeof startDate === 'string' && day.test(startDate) ? startDate : undefined,
       typeof endDate === 'string' && day.test(endDate) ? endDate : undefined,
     );
-    if (createdAt) where.createdAt = createdAt;
+    if (invoiceDate) where.invoice = { is: { date: invoiceDate } };
 
     // Qidiruv filtri — task nomi yoki client nomi bo'yicha
     if (search && typeof search === 'string' && search.trim()) {
@@ -163,6 +163,7 @@ const listTasksQuerySchema = z.object({
   search: optionalQuery(z.string().trim().max(200)),
   startDate: dayQuery,
   endDate: dayQuery,
+  dateBy: optionalQuery(z.enum(['created', 'invoice'])),
   page: positiveInt,
   limit: positiveInt,
 });

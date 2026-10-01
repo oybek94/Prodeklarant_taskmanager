@@ -217,7 +217,7 @@ const ArchiveFiltersPanel: React.FC<ArchiveFiltersPanelProps> = ({
         <div>
           <label className="block text-xs font-medium text-gray-700 mb-1.5 flex items-center gap-1.5">
             <Icon icon="solar:calendar-minimalistic-bold-duotone" className="w-3.5 h-3.5 text-blue-600" />
-            Sana oralig'i
+            Invoys sanasi oralig'i
           </label>
           <div className="grid grid-cols-2 gap-2">
             <div className="relative">

@@ -48,6 +48,8 @@ export function buildTaskListParams(showArchive: boolean, query: TaskListQuery):
     set('clientId', a?.clientId);
     set('startDate', a?.startDate);
     set('endDate', a?.endDate);
+    // Arxivda sana oralig'i invoys sanasiga qo'llanadi (vazifa yaratilgan sanaga emas)
+    if (a?.startDate || a?.endDate) params.dateBy = 'invoice';
     set('hasPsr', a?.hasPsr);
   } else {
     if (query.status) params.status = query.status;

@@ -13,6 +13,8 @@ export interface TaskFilters {
   /** "YYYY-MM-DD" — Toshkent kuni */
   startDate?: string;
   endDate?: string;
+  /** Sana oralig'i qaysi sanaga qo'llanadi: vazifa yaratilgan (default) yoki invoys sanasi */
+  dateBy?: 'created' | 'invoice';
 }
 
 /**
@@ -92,8 +94,11 @@ export class TaskRepository {
     else if (filters.excludeCompleted) where.status = { not: 'YAKUNLANDI' };
     if (filters.hasPsr !== undefined) where.hasPsr = filters.hasPsr;
 
-    const createdAt = tashkentDayRange(filters.startDate, filters.endDate);
-    if (createdAt) where.createdAt = createdAt;
+    const range = tashkentDayRange(filters.startDate, filters.endDate);
+    if (range) {
+      if (filters.dateBy === 'invoice') where.invoice = { is: { date: range } };
+      else where.createdAt = range;
+    }
 
     if (filters.search && filters.search.trim()) {
       const q = filters.search.trim();

@@ -1,23 +1,4 @@
-// Tasks sahifasi uchun barcha TypeScript interface'lar
-
-export interface Task {
-  id: number;
-  title: string;
-  status: string;
-  comments?: string;
-  hasPsr?: boolean;
-  afterHoursPayer?: 'CLIENT' | 'COMPANY';
-  afterHoursDeclaration?: boolean;
-  driverPhone?: string;
-  createdAt: string;
-  /** Faqat ro'yxat javobida: arxiv "Sana" ustuni uchun */
-  invoice?: { date: string } | null;
-  customsPaymentMultiplier?: number | null;
-  client: { id: number; name: string };
-  branch: { id: number; name: string };
-  createdBy?: { id: number; name: string; email: string };
-  stages?: Array<{ name: string; status: string; durationMin?: number | null; completedAt?: string | null }>;
-}
+// Vazifa (Jarayonlar oynasi) uchun TypeScript interface'lar
 
 export interface TaskStage {
   id: number;
@@ -131,19 +112,6 @@ export interface Branch {
   phones?: string[];
   address?: string;
   isActive?: boolean;
-}
-
-export interface TaskStats {
-  yearly: { current: number; previous: number };
-  monthly: { current: number; previous: number };
-  weekly: { current: number; previous: number };
-  daily: { current: number; previous: number };
-}
-
-export interface TasksProps {
-  isModalMode?: boolean;
-  modalTaskId?: number;
-  onCloseModal?: () => void;
 }
 
 export interface TaskDocument {

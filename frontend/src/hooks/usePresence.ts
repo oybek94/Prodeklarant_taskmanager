@@ -11,8 +11,6 @@ export interface OnlineUser {
 
 /** Sahifa nomlarini o'zbekchaga tarjima qilish */
 const PAGE_LABELS: Record<string, string> = {
-  '/tasks': 'Ishlar',
-  '/tasks/archive': 'Arxiv',
   '/dashboard': 'Dashboard',
   '/clients': 'Mijozlar',
   '/transactions': 'Tranzaksiyalar',
@@ -32,8 +30,6 @@ export function getPageLabel(path?: string): string {
   if (PAGE_LABELS[path]) return PAGE_LABELS[path];
   // Invoice tahrirlash
   if (path.startsWith('/invoices/')) return 'Invoys tahrirlash';
-  // Task ko'rish
-  if (path.match(/^\/tasks\/\d+/)) return 'Task ko\'rish';
   // Client ko'rish
   if (path.match(/^\/clients\/\d+/)) return 'Mijoz ko\'rish';
   return path;

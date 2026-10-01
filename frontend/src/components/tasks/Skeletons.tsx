@@ -8,56 +8,6 @@ const SkeletonBlock: React.FC<{ className?: string }> = ({ className = '' }) => 
   <div className={`bg-gray-200 dark:bg-slate-700 rounded ${shimmer} ${className}`} />
 );
 
-/** Statistika kartlari skeleton — 4 ta karta */
-export const StatsCardsSkeleton: React.FC = () => (
-  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-    {[0, 1, 2, 3].map((i) => (
-      <div
-        key={i}
-        className="bg-white dark:bg-slate-800/80 rounded-2xl p-4 sm:p-5 border border-slate-200/60 dark:border-slate-700/60 shadow-sm"
-      >
-        <div className="flex items-center justify-between mb-3">
-          <SkeletonBlock className="w-9 h-9 rounded-xl" />
-          <SkeletonBlock className="w-14 h-6 rounded-lg" />
-        </div>
-        <SkeletonBlock className="w-16 h-8 rounded-lg mb-2" />
-        <SkeletonBlock className="w-24 h-4 rounded" />
-        <SkeletonBlock className="w-20 h-3 rounded mt-1.5" />
-      </div>
-    ))}
-  </div>
-);
-
-/** Jadval qatorlari skeleton */
-export const TaskTableSkeleton: React.FC<{ rows?: number }> = ({ rows = 6 }) => (
-  <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-800 shadow-sm overflow-hidden">
-    {/* Header */}
-    <div className="flex items-center gap-4 px-4 py-3 bg-gray-50 dark:bg-slate-800 border-b border-gray-200 dark:border-slate-700">
-      <SkeletonBlock className="w-8 h-4 rounded" />
-      <SkeletonBlock className="w-32 h-4 rounded flex-1" />
-      <SkeletonBlock className="w-20 h-4 rounded hidden sm:block" />
-      <SkeletonBlock className="w-16 h-4 rounded hidden sm:block" />
-      <SkeletonBlock className="w-24 h-4 rounded hidden md:block" />
-    </div>
-    {/* Rows */}
-    {Array.from({ length: rows }).map((_, i) => (
-      <div
-        key={i}
-        className="flex items-center gap-4 px-4 py-3.5 border-b border-gray-100 dark:border-slate-800 last:border-0"
-      >
-        <SkeletonBlock className="w-8 h-5 rounded" />
-        <div className="flex-1 space-y-1.5">
-          <SkeletonBlock className={`h-4 rounded ${i % 3 === 0 ? 'w-3/4' : i % 3 === 1 ? 'w-1/2' : 'w-2/3'}`} />
-          <SkeletonBlock className="w-24 h-3 rounded" />
-        </div>
-        <SkeletonBlock className="w-20 h-6 rounded-full hidden sm:block" />
-        <SkeletonBlock className="w-16 h-5 rounded hidden sm:block" />
-        <SkeletonBlock className="w-20 h-5 rounded hidden md:block" />
-      </div>
-    ))}
-  </div>
-);
-
 /** Task detail modal skeleton */
 export const TaskDetailSkeleton: React.FC = () => (
   <div className="space-y-6 p-6">

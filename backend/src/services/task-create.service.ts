@@ -309,7 +309,7 @@ export function afterTaskCreated(task: CreatedTask, actor: { id: number; name: s
         type: 'TASK_CREATED',
         title: `Yangi task: ${task.title || 'Task #' + task.id}`,
         message: `${actor.name} yangi task yaratdi`,
-        actionUrl: `/tasks/${task.id}`,
+        actionUrl: `/invoices?task=${task.id}`,
         taskId: task.id,
         excludeUserId: actor.id,
       })

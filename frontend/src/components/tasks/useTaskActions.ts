@@ -6,40 +6,27 @@ import { getClientCurrency, formatMoney } from './taskHelpers';
 import { playNotificationSound } from '../../utils/sound';
 import type { TaskStage, TaskDetail } from './types';
 import type { TaskModalsReturn } from './useTaskModals';
-import type { TaskListQuery } from './useTaskData';
 
 interface UseTaskActionsParams {
   modals: TaskModalsReturn;
   selectedTask: TaskDetail | null;
   setSelectedTask: (task: TaskDetail | null) => void;
-  showArchive: boolean;
-  filters: TaskListQuery;
   loadTaskDetail: (taskId: number, callbacks?: { onLoaded?: (data: TaskDetail) => void }) => Promise<void>;
   loadTaskDocuments: (taskId: number) => Promise<void>;
-  loadTasks: (showArchive: boolean, filters: TaskListQuery) => Promise<void>;
-  /** Statistika kartalari — vazifa yaratilgan/o'chirilganda */
-  loadStats: () => Promise<void>;
-  user: { id: number; name: string; role: string; branchId?: number | null } | null;
-  branches: { id: number; name: string }[];
-  isMobile: boolean;
-  isNewTaskRoute: boolean;
-  isArchiveRoute: boolean;
-  editTaskId: number | null;
-  navigate: (path: string) => void;
+  user: { id: number; role: string } | null;
 }
 
 /**
- * useTaskActions — Tasks sahifasidagi barcha amallarni (handler) boshqaradi.
+ * useTaskActions — Jarayonlar oynasidagi barcha amallarni (handler) boshqaradi.
  *
  * Stage update, BXM confirm, file upload, document upload,
- * email send, task create/edit/delete, sticker download, va boshqalar.
+ * email send, task edit/delete, sticker download, va boshqalar.
  */
 export function useTaskActions(params: UseTaskActionsParams) {
   const {
     modals, selectedTask, setSelectedTask,
-    showArchive, filters,
-    loadTaskDetail, loadTaskDocuments, loadTasks, loadStats,
-    user, branches, isMobile, isNewTaskRoute, isArchiveRoute, editTaskId, navigate,
+    loadTaskDetail, loadTaskDocuments,
+    user,
   } = params;
 
   const { downloadFile, downloadBlob, getPreviewBlobUrl } = useFileHelpers();
@@ -76,7 +63,7 @@ export function useTaskActions(params: UseTaskActionsParams) {
       // bosqichni belgilagan foydalanuvchining o'ziga ovozni lokal chalamiz — boshqalar socket orqali eshitadi.
       playNotificationSound();
 
-      await Promise.all([loadTaskDetail(selectedTask.id), loadTasks(showArchive, filters)]);
+      await loadTaskDetail(selectedTask.id);
       modals.setShowBXMModal(false);
       modals.setAfterHoursDeclaration(false);
       modals.resetFileUpload();
@@ -93,7 +80,7 @@ export function useTaskActions(params: UseTaskActionsParams) {
     } finally {
       modals.setUpdatingStage(null);
     }
-  }, [selectedTask, showArchive, filters, loadTaskDetail, loadTasks, modals]);
+  }, [selectedTask, loadTaskDetail, modals]);
 
   const handleStageClick = useCallback(async (stage: TaskStage) => {
     if (!user) {
@@ -149,7 +136,7 @@ export function useTaskActions(params: UseTaskActionsParams) {
       // bosqichni belgilagan foydalanuvchining o'ziga ovozni lokal chalamiz — boshqalar socket orqali eshitadi.
       playNotificationSound();
 
-      await Promise.all([loadTaskDetail(selectedTask.id), loadTasks(showArchive, filters)]);
+      await loadTaskDetail(selectedTask.id);
     } catch (error: any) {
       console.error('Error updating stage:', error);
       // Admin boshqa ishchining jarayonini qaytarmoqchi bo'lganda tasdiqlash
@@ -168,7 +155,7 @@ export function useTaskActions(params: UseTaskActionsParams) {
               status: newStatus,
               force: true,
             });
-            await Promise.all([loadTaskDetail(selectedTask.id), loadTasks(showArchive, filters)]);
+            await loadTaskDetail(selectedTask.id);
             toast.success(`"${stageName}" jarayoni muvaffaqiyatli qaytarildi`);
           } catch (forceError: any) {
             console.error('Error force updating stage:', forceError);
@@ -185,7 +172,7 @@ export function useTaskActions(params: UseTaskActionsParams) {
     } finally {
       modals.setUpdatingStage(null);
     }
-  }, [selectedTask, user, showArchive, filters, loadTaskDetail, loadTasks, modals]);
+  }, [selectedTask, user, loadTaskDetail, modals]);
 
   // ==================================================================
   // BXM Handlerlari
@@ -399,48 +386,16 @@ export function useTaskActions(params: UseTaskActionsParams) {
     modals.setAfterHoursDeclaration(checked);
     try {
       await apiClient.patch(`/tasks/${selectedTask.id}`, { afterHoursDeclaration: checked });
-      await Promise.all([loadTaskDetail(selectedTask.id), loadTasks(showArchive, filters)]);
+      await loadTaskDetail(selectedTask.id);
     } catch (error: any) {
       modals.setAfterHoursDeclaration(previous);
       toast.error(error.response?.data?.error || 'Xatolik yuz berdi');
     }
-  }, [selectedTask, modals, showArchive, filters, loadTaskDetail, loadTasks]);
+  }, [selectedTask, modals, loadTaskDetail]);
 
   // ==================================================================
   // Task CRUD
   // ==================================================================
-
-  const handleSubmit = useCallback(async (
-    e: React.FormEvent,
-    form: { title: string; clientId: string; branchId: string; comments: string; hasPsr: boolean; afterHoursPayer: 'CLIENT' | 'COMPANY'; driverPhone: string },
-    resetForm: () => void,
-  ) => {
-    e.preventDefault();
-    if (!form.branchId) {
-      toast.error('Filialni tanlang');
-      return;
-    }
-    try {
-      await apiClient.post('/tasks', {
-        title: form.title,
-        clientId: parseInt(form.clientId),
-        branchId: parseInt(form.branchId),
-        comments: form.comments || undefined,
-        hasPsr: form.hasPsr,
-        afterHoursPayer: form.afterHoursPayer,
-        driverPhone: form.driverPhone || undefined,
-      });
-      if (isMobile && isNewTaskRoute) {
-        navigate('/tasks');
-      } else {
-        modals.setShowForm(false);
-      }
-      resetForm();
-      await Promise.all([loadTasks(showArchive, filters), loadStats()]);
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Xatolik yuz berdi');
-    }
-  }, [isMobile, isNewTaskRoute, navigate, modals, showArchive, filters, loadTasks, loadStats]);
 
   const handleDeleteTask = useCallback(async () => {
     if (!selectedTask) return;
@@ -449,11 +404,10 @@ export function useTaskActions(params: UseTaskActionsParams) {
       await apiClient.delete(`/tasks/${selectedTask.id}`);
       modals.setShowTaskModal(false);
       setSelectedTask(null);
-      await Promise.all([loadTasks(showArchive, filters), loadStats()]);
     } catch (error: any) {
       toast.error(error.response?.data?.error || 'Xatolik yuz berdi');
     }
-  }, [selectedTask, modals, setSelectedTask, showArchive, filters, loadTasks, loadStats]);
+  }, [selectedTask, modals, setSelectedTask]);
 
   const handleEditSubmit = useCallback(async (
     e: React.FormEvent,
@@ -480,17 +434,13 @@ export function useTaskActions(params: UseTaskActionsParams) {
         driverPhone: editForm.driverPhone || undefined,
         contractId: editForm.contractId ? parseInt(editForm.contractId) : undefined,
       });
-      if (isMobile && editTaskId) {
-        navigate(isArchiveRoute ? '/tasks/archive' : '/tasks');
-      } else {
-        modals.setShowEditModal(false);
-      }
-      await Promise.all([loadTaskDetail(selectedTask.id), loadTasks(showArchive, filters)]);
+      modals.setShowEditModal(false);
+      await loadTaskDetail(selectedTask.id);
     } catch (error: any) {
       const apiError = error.response?.data?.error;
       toast.error(typeof apiError === 'string' && apiError ? apiError : 'Saqlashda xatolik yuz berdi. Qayta urinib ko\'ring');
     }
-  }, [selectedTask, isMobile, editTaskId, isArchiveRoute, navigate, modals, showArchive, filters, loadTaskDetail, loadTasks]);
+  }, [selectedTask, modals, loadTaskDetail]);
 
   // ==================================================================
   // Email
@@ -568,14 +518,13 @@ export function useTaskActions(params: UseTaskActionsParams) {
       modals.setShowSendEmailModal(false);
       modals.setShowTaskModal(false);
       setSelectedTask(null);
-      await loadTasks(showArchive, filters);
       toast.success('Email muvaffaqiyatli yuborildi');
     } catch (err: any) {
       modals.setSendEmailError(sendTaskEmailErrorToMessage(err.response?.data, err.response?.data?.error || err.message || "Email jonatib bo'lmadi."));
     } finally {
       modals.setSendingEmail(false);
     }
-  }, [selectedTask, modals, setSelectedTask, showArchive, filters, loadTaskDetail, loadTasks]);
+  }, [selectedTask, modals, setSelectedTask, loadTaskDetail]);
 
   return {
     // Stage
@@ -598,7 +547,6 @@ export function useTaskActions(params: UseTaskActionsParams) {
     // After hours
     handleAfterHoursDeclarationChange,
     // Task CRUD
-    handleSubmit,
     handleEditSubmit,
     handleDeleteTask,
     // Email

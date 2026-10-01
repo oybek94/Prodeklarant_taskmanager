@@ -5,14 +5,13 @@ import type { TaskStage } from './types';
  * useTaskModals — Tasks sahifasidagi barcha modal va overlay state'larini boshqaradi.
  *
  * Ajratilgan state'lar:
- * - showForm / showEditModal / showTaskModal
+ * - showEditModal / showTaskModal
  * - BXM modal, File upload modal, Document upload modal
  * - Email, Error, Preview modallar
  * - Financial report panel
  */
 export function useTaskModals() {
   // ---- Asosiy modalar ----
-  const [showForm, setShowForm] = useState(false);
   const [showTaskModal, setShowTaskModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
 
@@ -100,7 +99,6 @@ export function useTaskModals() {
 
   return {
     // Asosiy modal state'lari
-    showForm, setShowForm,
     showTaskModal, setShowTaskModal,
     showEditModal, setShowEditModal,
 

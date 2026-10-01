@@ -65,7 +65,7 @@ export const UnratedErrorsModal: React.FC<UnratedErrorsModalProps> = ({ show, on
                 <div className="absolute top-0 left-0 w-1 h-full bg-orange-500"></div>
                 <div className="flex justify-between items-start mb-2 pl-2">
                   <div>
-                    <a href={`/tasks/${error.task.id}`} target="_blank" rel="noreferrer" className="text-xs font-bold text-blue-600 hover:underline block break-all max-w-[200px]">
+                    <a href={`/invoices?task=${error.task.id}`} target="_blank" rel="noreferrer" className="text-xs font-bold text-blue-600 hover:underline block break-all max-w-[200px]">
                       #{error.task.id} - {error.task.title}
                     </a>
                     <div className="text-sm font-semibold mt-1 dark:text-gray-200">

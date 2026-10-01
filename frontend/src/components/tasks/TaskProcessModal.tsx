@@ -1,121 +1,125 @@
-import React, { Suspense } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { Suspense, useEffect, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import apiClient from '../../lib/api';
-import CreateTaskModal, { type CreateForm } from './CreateTaskModal';
+import { useAuth } from '../../contexts/AuthContext';
+import { useIsMobile } from '../../utils/useIsMobile';
 import BXMModal from './BxmModal';
 import FileUploadModal from './FileUploadModal';
 import SendEmailModal from './SendEmailModal';
 import EditTaskModal, { taskToEditForm, type EditForm } from './EditTaskModal';
 import DocumentUploadModal from './DocumentUploadModal';
 import PreviewModal from './PreviewModal';
-import ErrorModal, { type ErrorForm } from './ErrorModal';
+import ErrorModal from './ErrorModal';
 import { TaskDetailSkeleton } from './Skeletons';
-import type { TaskModalsReturn } from './useTaskModals';
-import type { useTaskActions } from './useTaskActions';
-import type { TaskListQuery } from './useTaskData';
-import type { AiCheck, Branch, Client, TaskDetail, TaskDocument } from './types';
+import { useTaskData } from './useTaskData';
+import { useTaskModals } from './useTaskModals';
+import { useTaskActions } from './useTaskActions';
+import {
+  handleTelegramClick as handleTelegramClickHelper,
+  formatInvoiceExtractedText,
+  formatBxmAmountInSum as formatBxmAmountInSumHelper,
+} from './taskBusinessHelpers';
 import { LazyTaskDetailPanel as TaskDetailPanel } from './taskDetailPanelLoader';
 
-type TaskActions = ReturnType<typeof useTaskActions> & { handleTelegramClick: () => Promise<void> };
-type Worker = { id: number; name: string; role: string };
-
-interface TasksModalsManagerProps {
-  modals: TaskModalsReturn;
-  taskActions: TaskActions;
-  form: CreateForm;
-  setForm: React.Dispatch<React.SetStateAction<CreateForm>>;
-  editForm: EditForm;
-  setEditForm: React.Dispatch<React.SetStateAction<EditForm>>;
-  errorForm: ErrorForm;
-  setErrorForm: React.Dispatch<React.SetStateAction<ErrorForm>>;
-  clients: Client[];
-  branches: Branch[];
-  workers: Worker[];
-  isMobile: boolean;
-  isNewTaskRoute: boolean;
-  isArchiveRoute: boolean;
-  editTaskId: number | null;
-  selectedTask: TaskDetail | null;
-  setSelectedTask: (task: TaskDetail | null) => void;
-  taskDocuments: TaskDocument[];
-  aiChecks: AiCheck[];
-  expandedDocuments: Set<number>;
-  documentExtractedTexts: Map<number, string>;
-  loadingDocuments: boolean;
-  loadingTask: boolean;
-  loadingAiChecks: boolean;
-  loadingExtractedTexts: Set<number>;
-  user: { id: number; role: string; name?: string; email?: string } | null;
-  isModalMode: boolean;
-  onCloseModal?: () => void;
-  loadAiChecks: (taskId: number) => void;
-  loadTasks: (showArchive: boolean, filters: TaskListQuery) => Promise<void>;
-  loadTaskDocuments: (taskId: number) => Promise<void>;
-  showArchive: boolean;
-  filters: TaskListQuery;
-  formatInvoiceExtractedText: (text: string, documentType?: string) => string;
-  formatBxmAmountInSum: (multiplier: number) => string;
+interface TaskProcessModalProps {
+  taskId: number;
+  onClose: () => void;
 }
 
-export const TasksModalsManager: React.FC<TasksModalsManagerProps> = ({
-  modals,
-  taskActions,
-  form,
-  setForm,
-  editForm,
-  setEditForm,
-  errorForm,
-  setErrorForm,
-  clients,
-  branches,
-  workers,
-  isMobile,
-  isNewTaskRoute,
-  isArchiveRoute,
-  editTaskId,
-  selectedTask,
-  setSelectedTask,
-  taskDocuments,
-  aiChecks,
-  expandedDocuments,
-  documentExtractedTexts,
-  loadingDocuments,
-  loadingTask,
-  loadingAiChecks,
-  loadingExtractedTexts,
-  user,
-  isModalMode,
-  onCloseModal,
-  loadAiChecks,
-  loadTasks,
-  loadTaskDocuments,
-  showArchive,
-  filters,
-  formatInvoiceExtractedText,
-  formatBxmAmountInSum,
-}) => {
-  const navigate = useNavigate();
-  const showTaskForm = modals.showForm || (isMobile && isNewTaskRoute);
-  const showEditTaskForm = modals.showEditModal || (isMobile && !!editTaskId);
+const EMPTY_EDIT_FORM: EditForm = {
+  title: '', clientId: '', branchId: '', comments: '', hasPsr: false, afterHoursPayer: 'CLIENT', driverPhone: '', contractId: '',
+};
+
+/**
+ * Jarayonlar oynasi — vazifa kartochkasi (bosqichlar, hujjatlar, xatolar, tahrirlash)
+ * va unga tegishli barcha kichik oynalar. Invoyslar, invoys va mijozlar sahifalaridan ochiladi.
+ */
+const TaskProcessModal: React.FC<TaskProcessModalProps> = ({ taskId, onClose }) => {
+  const modals = useTaskModals();
+  const { user } = useAuth();
+  const isMobile = useIsMobile();
+  const {
+    clients, branches, workers,
+    selectedTask, setSelectedTask, loadingTask,
+    taskDocuments, loadingDocuments,
+    aiChecks, loadingAiChecks,
+    expandedDocuments, documentExtractedTexts, loadingExtractedTexts,
+    loadClients, loadBranches, loadWorkers,
+    loadTaskDetail, loadTaskDocuments, loadAiChecks,
+  } = useTaskData(user?.role);
+
+  const [editForm, setEditForm] = useState<EditForm>(EMPTY_EDIT_FORM);
+
+  const taskActions = useTaskActions({
+    modals,
+    selectedTask, setSelectedTask,
+    loadTaskDetail, loadTaskDocuments,
+    user,
+  });
+
+  // Filiallar (Telegram xabari, tahrirlash) va xodimlar (xato qo'shish) oyna ochilganda kerak
+  useEffect(() => {
+    loadBranches(); loadWorkers();
+  }, [loadBranches, loadWorkers]);
+
+  const loadedTaskIdRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (loadedTaskIdRef.current === taskId) return;
+    loadedTaskIdRef.current = taskId;
+    const { setAfterHoursDeclaration, setShowTaskModal } = modals;
+    loadTaskDetail(taskId, {
+      onLoaded: (taskData) => {
+        setAfterHoursDeclaration(Boolean(taskData.afterHoursDeclaration));
+        setShowTaskModal(true);
+      }
+    });
+  }, [taskId, loadTaskDetail, modals.setAfterHoursDeclaration, modals.setShowTaskModal]);
+
+  // Kartochka ichkaridan yopilsa (vazifa o'chirildi, email yuborildi) — ota komponentga xabar berish
+  const modalWasOpenRef = useRef(false);
+  useEffect(() => {
+    if (modals.showTaskModal) {
+      modalWasOpenRef.current = true;
+    } else if (modalWasOpenRef.current) {
+      modalWasOpenRef.current = false;
+      onClose();
+    }
+  }, [modals.showTaskModal, onClose]);
+
+  useEffect(() => {
+    const handleEscKey = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      if (modals.showEditModal) modals.setShowEditModal(false);
+      else if (modals.showTaskModal) onClose();
+    };
+    window.addEventListener('keydown', handleEscKey);
+    return () => window.removeEventListener('keydown', handleEscKey);
+  }, [modals, onClose]);
+
+  const handleTelegramClick = async () => {
+    if (!selectedTask) return;
+    await handleTelegramClickHelper(selectedTask, setSelectedTask, branches);
+  };
+
+  const formatBxmAmountInSum = (multiplier: number) =>
+    formatBxmAmountInSumHelper(multiplier, modals.currentBxmUzs);
+
+  if (!modals.showTaskModal) {
+    return (
+      <div
+        className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 backdrop-blur-sm"
+        onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}
+      >
+        <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[80vh] overflow-auto">
+          <TaskDetailSkeleton />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
-      <CreateTaskModal
-        show={showTaskForm}
-        form={form}
-        setForm={setForm}
-        clients={clients}
-        branches={branches}
-        isMobile={isMobile}
-        isNewTaskRoute={isNewTaskRoute}
-        onClose={() => modals.setShowForm(false)}
-        onSubmit={(e: React.FormEvent) => taskActions.handleSubmit(e, form, () => setForm({
-          title: '', clientId: '', branchId: '', comments: '', hasPsr: false, afterHoursPayer: 'CLIENT', driverPhone: '',
-        }))}
-      />
-
-      {modals.showTaskModal && selectedTask && (
+      {selectedTask && (
         <Suspense fallback={<TaskDetailPanelFallback />}>
         <TaskDetailPanel
           task={selectedTask}
@@ -128,34 +132,20 @@ export const TasksModalsManager: React.FC<TasksModalsManagerProps> = ({
           workers={workers}
           user={user}
           isMobile={isMobile}
-          isModalMode={isModalMode}
           aiChecks={aiChecks}
           loadingAiChecks={loadingAiChecks}
           expandedDocuments={expandedDocuments}
           documentExtractedTexts={documentExtractedTexts}
           loadingExtractedTexts={loadingExtractedTexts}
           updatingStage={modals.updatingStage}
-          onClose={() => {
-            if (isModalMode) {
-              onCloseModal?.();
-            } else {
-              modals.setShowTaskModal(false);
-              setSelectedTask(null);
-              modals.setShowFinancialReport(false);
-            }
-          }}
+          onClose={onClose}
           onEdit={() => {
-            if (selectedTask) {
-              if (isMobile) {
-                navigate(`/tasks/${selectedTask.id}/edit`);
-              } else {
-                setEditForm(taskToEditForm(selectedTask));
-                modals.setShowEditModal(true);
-              }
-            }
+            if (clients.length === 0) loadClients();
+            setEditForm(taskToEditForm(selectedTask));
+            modals.setShowEditModal(true);
           }}
           onOpenErrorModal={() => {
-            setErrorForm({
+            modals.setErrorForm({
               workerId: '',
               stageName: '',
               amount: '',
@@ -177,13 +167,12 @@ export const TasksModalsManager: React.FC<TasksModalsManagerProps> = ({
           onDownloadDocument={taskActions.downloadDocument}
           onDownloadSticker={taskActions.downloadStickerPng}
           onOpenSendEmail={taskActions.handleOpenSendEmailModal}
-          onTelegramClick={taskActions.handleTelegramClick}
+          onTelegramClick={handleTelegramClick}
           onAfterHoursChange={taskActions.handleAfterHoursDeclarationChange}
           onBXMEdit={taskActions.handleBXMEdit}
           onOpenPreview={taskActions.openPreview}
           onLoadAiChecks={loadAiChecks}
           onDropFiles={async (files: File[]) => {
-            if (!selectedTask) return;
             try {
               const formData = new FormData();
               files.forEach((f) => formData.append('files', f));
@@ -266,7 +255,7 @@ export const TasksModalsManager: React.FC<TasksModalsManagerProps> = ({
       />
 
       <EditTaskModal
-        show={showEditTaskForm && !!selectedTask}
+        show={modals.showEditModal && !!selectedTask}
         editForm={editForm}
         setEditForm={setEditForm}
         clients={clients}
@@ -274,8 +263,6 @@ export const TasksModalsManager: React.FC<TasksModalsManagerProps> = ({
         hasInvoice={!!selectedTask?.invoice}
         initialClientId={selectedTask?.client?.id != null ? String(selectedTask.client.id) : ''}
         isMobile={isMobile}
-        editTaskId={editTaskId}
-        isArchiveRoute={isArchiveRoute}
         onClose={() => modals.setShowEditModal(false)}
         onSubmit={(e: React.FormEvent) => taskActions.handleEditSubmit(e, editForm)}
       />
@@ -307,12 +294,11 @@ export const TasksModalsManager: React.FC<TasksModalsManagerProps> = ({
         selectedTask={selectedTask}
         workers={workers}
         user={user}
-        errorForm={errorForm}
-        setErrorForm={setErrorForm}
+        errorForm={modals.errorForm}
+        setErrorForm={modals.setErrorForm}
         editingErrorId={modals.editingErrorId}
         setEditingErrorId={modals.setEditingErrorId}
         onClose={() => { modals.setEditingErrorId(null); modals.setShowErrorModal(false); }}
-        onSuccess={() => loadTasks(showArchive, filters)}
         setSelectedTask={setSelectedTask}
       />
     </>
@@ -327,3 +313,5 @@ const TaskDetailPanelFallback: React.FC = () => (
     </div>
   </div>
 );
+
+export default TaskProcessModal;

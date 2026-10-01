@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Icon } from '@iconify/react';
-import { useNavigate } from 'react-router-dom';
 import apiClient from '../../lib/api';
 import type { TaskDetail } from './types';
 
@@ -16,7 +15,7 @@ export interface EditForm {
   contractId: string;
 }
 
-/** Tahrirlash formasi vazifa ma'lumotidan (desktop modal va mobil /tasks/:id/edit uchun bir xil) */
+/** Tahrirlash formasi vazifa ma'lumotidan */
 export function taskToEditForm(task: TaskDetail): EditForm {
   return {
     title: task.title,
@@ -43,18 +42,16 @@ interface EditTaskModalProps {
   hasInvoice: boolean;
   /** Vazifaning saqlangan mijozi — mijoz almashtirilsa shartnoma majburiy */
   initialClientId: string;
+  /** Mobilda forma butun ekranni egallaydi */
   isMobile: boolean;
-  editTaskId: number | null;
-  isArchiveRoute: boolean;
   onClose: () => void;
   onSubmit: (e: React.FormEvent) => void;
 }
 
 const EditTaskModal: React.FC<EditTaskModalProps> = ({
   show, editForm, setEditForm, clients, branches, hasInvoice, initialClientId,
-  isMobile, editTaskId, isArchiveRoute, onClose, onSubmit,
+  isMobile, onClose, onSubmit,
 }) => {
-  const navigate = useNavigate();
   const [contracts, setContracts] = useState<ContractOption[]>([]);
   const [contractsLoading, setContractsLoading] = useState(false);
 
@@ -81,14 +78,6 @@ const EditTaskModal: React.FC<EditTaskModalProps> = ({
     return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString('ru-RU');
   };
 
-  const handleClose = () => {
-    if (isMobile && editTaskId) {
-      navigate(isArchiveRoute ? '/tasks/archive' : '/tasks');
-    } else {
-      onClose();
-    }
-  };
-
   const selectStyle = "w-full px-3 py-2 pr-10 border-2 border-gray-300 dark:border-slate-600 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none appearance-none bg-white dark:bg-slate-800 dark:text-white bg-[url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2012%2012%22%3E%3Cpath%20fill%3D%22%23666%22%20d%3D%22M6%209L1%204h10z%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-[right_0.5rem_center] bg-[length:12px_12px] text-sm";
   const inputStyle = "w-full px-3 py-2 border-2 border-gray-300 dark:border-slate-600 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none text-sm bg-white dark:bg-slate-800 dark:text-white dark:placeholder-gray-500";
   const btnActive = "bg-blue-600 text-white border-blue-600";
@@ -98,21 +87,21 @@ const EditTaskModal: React.FC<EditTaskModalProps> = ({
     <AnimatePresence>
       {show && (
     <motion.div
-      className={isMobile && editTaskId
+      className={isMobile
         ? 'fixed inset-0 bg-white dark:bg-slate-900 flex items-start justify-center z-[110]'
         : 'fixed inset-0 bg-black/50 flex items-center justify-center z-[110] backdrop-blur-sm'}
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }}
-      onClick={(e) => { if (e.target === e.currentTarget) handleClose(); }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
       <motion.div
-        className={isMobile && editTaskId
+        className={isMobile
           ? 'bg-white dark:bg-slate-900 w-full h-full px-6 py-6 overflow-y-auto'
           : 'bg-white dark:bg-slate-900 rounded-lg shadow-2xl px-8 py-6 max-w-lg w-full mx-4 max-h-[85vh] overflow-y-auto'}
         initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 16 }} transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
       >
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100">Taskni tahrirlash</h2>
-          <button onClick={handleClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-2xl font-bold leading-none">×</button>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-2xl font-bold leading-none">×</button>
         </div>
 
         <form onSubmit={onSubmit}>

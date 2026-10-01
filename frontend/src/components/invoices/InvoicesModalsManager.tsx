@@ -2,7 +2,7 @@ import React from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Icon } from '@iconify/react';
 import DateInput from '../../components/DateInput';
-import Tasks from '../../pages/Tasks';
+import TaskProcessModal from '../tasks/TaskProcessModal';
 import Clients from '../../pages/Clients';
 import type { Invoice, Client, Contract, Branch, Worker } from './types';
 
@@ -480,7 +480,7 @@ export const InvoicesModalsManager: React.FC<InvoicesModalsManagerProps> = ({
       </AnimatePresence>
 
       {showTaskModalId && (
-        <Tasks isModalMode={true} modalTaskId={showTaskModalId} onCloseModal={() => setShowTaskModalId(null)} />
+        <TaskProcessModal taskId={showTaskModalId} onClose={() => setShowTaskModalId(null)} />
       )}
 
       {showClientModalId && (

@@ -133,7 +133,16 @@ const Invoices = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showFiltersPanel]);
 
-  // Error modal from location state (from Tasks page)
+  // ?task=123 — bildirishnoma/havoladan Jarayonlar oynasini ochish
+  const taskIdFromQuery = new URLSearchParams(location.search).get('task');
+  useEffect(() => {
+    if (!taskIdFromQuery) return;
+    const id = Number(taskIdFromQuery);
+    if (Number.isInteger(id) && id > 0) setShowTaskModalId(id);
+    navigate('/invoices', { replace: true });
+  }, [taskIdFromQuery, navigate]);
+
+  // Error modal from location state (from invoice page)
   const openErrorModalForTaskId = (location.state as { openErrorModalForTaskId?: number })?.openErrorModalForTaskId;
   useEffect(() => {
     if (!openErrorModalForTaskId || invoices.length === 0) return;

@@ -1,13 +1,23 @@
 import { useState } from 'react';
 import toast from 'react-hot-toast';
 import apiClient from '../lib/api';
-import { REPORT_COLUMNS } from '../components/tasks/ArchiveFiltersPanel';
 import type { Branch, Client, InvoicesFilters } from '../components/invoices/types';
 import { formatDateOnly } from '../utils/dateFormatting';
 
-// Arxiv hisoboti ustunlari + valyuta (invoyslar turli valyutada bo'lishi mumkin)
+// Hisobot ustunlari (valyuta — invoyslar turli valyutada bo'lishi mumkin)
 export const INVOICE_REPORT_COLUMNS = {
-  ...REPORT_COLUMNS,
+  taskName: 'Task nomi',
+  clientName: 'Mijoz',
+  sellerName: 'Sotuvchi nomi',
+  buyerName: 'Sotib oluvchi nomi',
+  contractNumber: 'Shartnoma raqami',
+  invoiceNumber: 'Invoys raqami',
+  invoiceDate: 'Sana',
+  deliveryTerms: 'Условия поставки',
+  vehicleNumber: 'Номер автотранспорта',
+  customsAddress: 'Место там. очистки',
+  productNames: 'Наименование товара',
+  totalAmount: 'Общая сумма',
   currency: 'Валюта',
 } as const;
 

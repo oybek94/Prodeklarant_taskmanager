@@ -17,7 +17,7 @@ import ClientOverview, { type ClientDetail } from '../components/clients/ClientO
 import ClientContractsTab, { type ClientContractRow } from '../components/clients/ClientContractsTab';
 import ClientTasksTab, { type MonthlyTaskCount } from '../components/clients/ClientTasksTab';
 import ClientTransactionsTab from '../components/clients/ClientTransactionsTab';
-import Tasks from './Tasks';
+import TaskProcessModal from '../components/tasks/TaskProcessModal';
 import { EXPORT_COUNTRIES } from '../constants/countries';
 
 const resolveUploadUrl = (url?: string | null) => {
@@ -3547,7 +3547,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
       }
 
       {showTaskModalId && (
-        <Tasks isModalMode={true} modalTaskId={showTaskModalId} onCloseModal={() => setShowTaskModalId(null)} />
+        <TaskProcessModal taskId={showTaskModalId} onClose={() => setShowTaskModalId(null)} />
       )}
     </div >
   );

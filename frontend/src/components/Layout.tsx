@@ -344,7 +344,6 @@ const Layout = () => {
     ...(user?.role !== 'SELLER' ? [{ path: '/dashboard', label: 'Asosiy panel', icon: 'solar:widget-2-bold-duotone', group: 'Asosiy' }] : []),
     
     // Ish jarayoni
-    ...((user?.role !== 'SELLER') ? [{ path: '/tasks', label: 'Vazifalar', icon: 'solar:clipboard-list-bold-duotone', group: 'Ish jarayoni' }] : []),
     ...((user?.role !== 'SELLER') ? [{ path: '/invoices', label: 'Invoyslar', icon: 'solar:document-text-bold-duotone', group: 'Ish jarayoni' }] : []),
 
     // Savdo va CRM

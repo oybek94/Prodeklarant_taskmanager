@@ -25,7 +25,7 @@ interface ErrorModalProps {
   editingErrorId: number | null;
   setEditingErrorId: (id: number | null) => void;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess?: () => void;
   setSelectedTask: (task: TaskDetail | null) => void;
 }
 
@@ -78,7 +78,7 @@ const ErrorModal: React.FC<ErrorModalProps> = ({
       setErrorForm({ workerId: '', stageName: '', amount: '', comment: '', date: new Date().toISOString().split('T')[0] });
       const response = await apiClient.get(`/tasks/${selectedTask.id}`);
       setSelectedTask(response.data);
-      onSuccess();
+      onSuccess?.();
       toast.success("Xato muvaffaqiyatli qo'shildi");
     } catch (error: any) {
       toast.error(error.response?.data?.error || 'Xatolik yuz berdi');
@@ -97,7 +97,7 @@ const ErrorModal: React.FC<ErrorModalProps> = ({
       setRatingErrorId(null);
       const response = await apiClient.get(`/tasks/${selectedTask.id}`);
       setSelectedTask(response.data);
-      onSuccess();
+      onSuccess?.();
     } catch (err: any) {
       toast.error(err.response?.data?.error || 'Baholashda xatolik yuz berdi');
     }
@@ -188,7 +188,7 @@ const ErrorModal: React.FC<ErrorModalProps> = ({
                             await apiClient.delete(`/tasks/${selectedTask.id}/errors/${error.id}`);
                             const response = await apiClient.get(`/tasks/${selectedTask.id}`);
                             setSelectedTask(response.data);
-                            onSuccess();
+                            onSuccess?.();
                           } catch (err: any) {
                             toast.error(err.response?.data?.error || 'Xatolik yuz berdi');
                           }

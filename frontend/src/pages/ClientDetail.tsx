@@ -1010,7 +1010,7 @@ const ClientDetail = () => {
                   </div>
                   <div className="flex gap-2 pt-2 border-t border-gray-100">
                     <button
-                      onClick={() => navigate(`/tasks/${task.id}`)}
+                      onClick={() => navigate(`/invoices?task=${task.id}`)}
                       className="flex-1 flex justify-center items-center gap-2 py-2 bg-blue-50 text-blue-600 rounded-lg text-xs font-bold"
                     >
                       <Icon icon="solar:eye-bold-duotone" className="w-4 h-4" />
@@ -1080,7 +1080,7 @@ const ClientDetail = () => {
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
                         <div className="flex gap-1 sm:gap-2">
                           <button
-                            onClick={() => navigate(`/tasks/${task.id}`)}
+                            onClick={() => navigate(`/invoices?task=${task.id}`)}
                             className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors flex items-center justify-center"
                             title="Ko'rish"
                           >

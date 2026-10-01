@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useParams } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { SocketProvider, useSocket } from './contexts/SocketContext';
 import { Toaster, toast } from 'react-hot-toast';
@@ -12,9 +12,6 @@ import MedalAnimation from './components/notifications/MedalAnimation';
 // Lazy-loaded page components for code splitting
 const Login = lazy(() => import('./pages/Login'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
-const Tasks = lazy(() => import('./pages/Tasks'));
-const TaskErrorBoundary = lazy(() => import('./components/tasks/TaskErrorBoundary'));
-const TaskDetail = lazy(() => import('./pages/TaskDetail'));
 const Transactions = lazy(() => import('./pages/Transactions'));
 const Clients = lazy(() => import('./pages/Clients'));
 const ClientDetail = lazy(() => import('./pages/ClientDetail'));
@@ -55,6 +52,11 @@ const PageLoader = () => (
   </div>
 );
 
+const TaskLinkRedirect = () => {
+  const { id } = useParams();
+  return <Navigate to={/^\d+$/.test(id ?? '') ? `/invoices?task=${id}` : '/invoices'} replace />;
+};
+
 const AppRoutes = () => {
   const { isAuthenticated, isLoading, user } = useAuth();
   const socket = useSocket();
@@ -63,7 +65,7 @@ const AppRoutes = () => {
 
   const handleAdminErrorClick = useCallback((t: any, taskId: number) => {
     toast.dismiss(t.id);
-    navigate(`/tasks/${taskId}`);
+    navigate(`/invoices?task=${taskId}`);
   }, [navigate]);
 
   useEffect(() => {
@@ -193,21 +195,9 @@ const AppRoutes = () => {
             </ProtectedRoute>
           }
         />
-        <Route
-          path="/tasks"
-          element={
-            <ProtectedRoute allowedRoles={['ADMIN', 'MANAGER', 'DEKLARANT', 'CERTIFICATE_WORKER', 'WORKER', 'OPERATOR', 'ACCOUNTANT', 'OWNER']}>
-              <TaskErrorBoundary>
-                <Tasks />
-              </TaskErrorBoundary>
-            </ProtectedRoute>
-          }
-        />
-        <Route path="/tasks/new" element={<ProtectedRoute allowedRoles={['ADMIN', 'MANAGER', 'DEKLARANT', 'CERTIFICATE_WORKER', 'WORKER', 'OPERATOR', 'ACCOUNTANT', 'OWNER']}><TaskErrorBoundary><Tasks /></TaskErrorBoundary></ProtectedRoute>} />
-        <Route path="/tasks/archive" element={<ProtectedRoute allowedRoles={['ADMIN', 'MANAGER', 'DEKLARANT', 'CERTIFICATE_WORKER', 'WORKER', 'OPERATOR', 'ACCOUNTANT', 'OWNER']}><TaskErrorBoundary><Tasks /></TaskErrorBoundary></ProtectedRoute>} />
-        <Route path="/tasks/archive/filters" element={<ProtectedRoute allowedRoles={['ADMIN', 'MANAGER', 'DEKLARANT', 'CERTIFICATE_WORKER', 'WORKER', 'OPERATOR', 'ACCOUNTANT', 'OWNER']}><TaskErrorBoundary><Tasks /></TaskErrorBoundary></ProtectedRoute>} />
-        <Route path="/tasks/:id/edit" element={<ProtectedRoute allowedRoles={['ADMIN', 'MANAGER', 'DEKLARANT', 'CERTIFICATE_WORKER', 'WORKER', 'OPERATOR', 'ACCOUNTANT', 'OWNER']}><TaskErrorBoundary><Tasks /></TaskErrorBoundary></ProtectedRoute>} />
-        <Route path="/tasks/:id" element={<ProtectedRoute allowedRoles={['ADMIN', 'MANAGER', 'DEKLARANT', 'CERTIFICATE_WORKER', 'WORKER', 'OPERATOR', 'ACCOUNTANT', 'OWNER']}><TaskDetail /></ProtectedRoute>} />
+        {/* Vazifalar sahifasi olib tashlangan: eski havolalar (bildirishnomalar) Invoyslarda Jarayonlar oynasini ochadi */}
+        <Route path="/tasks/:id" element={<TaskLinkRedirect />} />
+        <Route path="/tasks/*" element={<Navigate to="/invoices" replace />} />
         <Route
           path="/transactions"
           element={

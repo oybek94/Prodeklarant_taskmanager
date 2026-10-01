@@ -25,7 +25,6 @@ interface TaskDetailPanelProps {
   workers: { id: number; name: string; role: string }[];
   user: { id: number; role: string; name?: string; email?: string } | null;
   isMobile: boolean;
-  isModalMode: boolean;
   aiChecks: AiCheck[];
   loadingAiChecks: boolean;
   expandedDocuments: Set<number>;
@@ -66,7 +65,6 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
   workers,
   user,
   isMobile,
-  isModalMode,
   aiChecks,
   loadingAiChecks,
   expandedDocuments,

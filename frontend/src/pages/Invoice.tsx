@@ -49,7 +49,7 @@ import {
 } from '../components/invoice/pdf/pdfGlyphCheck';
 import { buildPdfTranslatableTexts } from '../components/invoice/pdf/pdfTranslatableTexts';
 import type { PdfLang } from '../components/invoice/pdf/pdfI18n';
-import Tasks from './Tasks';
+import TaskProcessModal from '../components/tasks/TaskProcessModal';
 
 import type {
   InvoiceItem,
@@ -1073,7 +1073,7 @@ const Invoice = () => {
       />
       {taskModalMounted && taskId && (
         <div style={{ display: showTaskModal ? undefined : 'none' }}>
-          <Tasks isModalMode={true} modalTaskId={Number(taskId)} onCloseModal={() => setShowTaskModal(false)} />
+          <TaskProcessModal taskId={Number(taskId)} onClose={() => setShowTaskModal(false)} />
         </div>
       )}
     </div>

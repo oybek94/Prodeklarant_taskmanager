@@ -104,7 +104,7 @@ export async function runProcessReminderJob(): Promise<{ processed: number }> {
       const prefix = carNumber || `Task #${tp.taskId}`;
       const title = `${prefix} — ${label}`;
       const message = question;
-      const actionUrl = `/tasks/${tp.taskId}`;
+      const actionUrl = `/invoices?task=${tp.taskId}`;
 
       const newRemindersSent = tp.remindersSent + 1;
       let nextReminderTime: Date | null = null;

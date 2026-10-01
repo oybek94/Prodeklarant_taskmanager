@@ -202,18 +202,17 @@ async function computeTareWarnings(items: InvoiceItemInput[]): Promise<TareWarni
 }
 
 /**
- * Invoys sanasi u yaratilgan kundan (Toshkent kuni) keyin bo'lmasligi kerak.
- * Yangi invoysda — bugun, mavjudida — uning createdAt kuni.
+ * Invoys sanasi saqlash (yaratish yoki tahrirlash) paytidagi Toshkent kunidan keyin bo'lmasligi kerak.
  * @returns xato matni yoki null
  */
-export function validateInvoiceDate(date: string | undefined, createdAt: Date): string | null {
+export function validateInvoiceDate(date: string | undefined, now: Date = new Date()): string | null {
   if (!date) return null;
   const parsed = new Date(date);
   if (Number.isNaN(parsed.getTime())) return 'Invoys sanasi noto\'g\'ri formatda';
-  const createdKey = tashkentDateKey(createdAt);
-  if (tashkentDateKey(parsed) > createdKey) {
-    const [y, m, d] = createdKey.split('-');
-    return `Invoys sanasi invoys yaratilgan sanadan (${d}.${m}.${y}) keyin bo'lishi mumkin emas`;
+  const todayKey = tashkentDateKey(now);
+  if (tashkentDateKey(parsed) > todayKey) {
+    const [y, m, d] = todayKey.split('-');
+    return `Invoys sanasi bugungi sanadan (${d}.${m}.${y}) keyin bo'lishi mumkin emas`;
   }
   return null;
 }
@@ -343,7 +342,7 @@ export async function saveInvoice(input: InvoiceInput): Promise<SaveInvoiceResul
     && !Number.isNaN(new Date(date).getTime())
     && tashkentDateKey(new Date(date)) === tashkentDateKey(existingInvoice.date);
   if (!dateUnchanged) {
-    const dateError = validateInvoiceDate(date, existingInvoice?.createdAt ?? new Date());
+    const dateError = validateInvoiceDate(date);
     if (dateError) throw new InvoiceSaveError(400, dateError);
   }
 

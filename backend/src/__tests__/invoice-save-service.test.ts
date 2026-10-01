@@ -97,39 +97,43 @@ describe('validateItemWeights', () => {
 
 describe('validateInvoiceDate', () => {
   // 2026-09-30 10:00 Toshkent
-  const CREATED = new Date('2026-09-30T05:00:00.000Z');
-  it('yaratilgan kun va undan oldingi sana ruxsat', () => {
-    expect(validateInvoiceDate('2026-09-30', CREATED)).toBeNull();
-    expect(validateInvoiceDate('2026-09-01', CREATED)).toBeNull();
-    expect(validateInvoiceDate(undefined, CREATED)).toBeNull();
+  const NOW = new Date('2026-09-30T05:00:00.000Z');
+  it('bugungi va undan oldingi sana ruxsat', () => {
+    expect(validateInvoiceDate('2026-09-30', NOW)).toBeNull();
+    expect(validateInvoiceDate('2026-09-01', NOW)).toBeNull();
+    expect(validateInvoiceDate(undefined, NOW)).toBeNull();
   });
-  it('yaratilgan kundan keyingi sana rad etiladi', () => {
-    expect(validateInvoiceDate('2026-10-01', CREATED)).toMatch(/30\.09\.2026/);
+  it('bugundan keyingi sana rad etiladi', () => {
+    expect(validateInvoiceDate('2026-10-01', NOW)).toMatch(/bugungi sanadan \(30\.09\.2026\)/);
   });
   it('Toshkentda yarim tundan keyin (UTC hali kechagi kun) bugungi sana ruxsat', () => {
     // 2026-09-30 00:30 Toshkent = 2026-09-29 19:30 UTC
     expect(validateInvoiceDate('2026-09-30', new Date('2026-09-29T19:30:00.000Z'))).toBeNull();
   });
   it('noto\'g\'ri format rad etiladi', () => {
-    expect(validateInvoiceDate('abc', CREATED)).toMatch(/formatda/);
+    expect(validateInvoiceDate('abc', NOW)).toMatch(/formatda/);
   });
 });
 
 describe('saveInvoice', () => {
   it('yangi invoysda kelajakdagi sana rad etiladi, hech narsa yozilmaydi', async () => {
     const tomorrow = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-    await expectSaveError(saveInvoice(input({ date: tomorrow })), 400, /yaratilgan sanadan/);
+    await expectSaveError(saveInvoice(input({ date: tomorrow })), 400, /bugungi sanadan/);
     expect(m.transaction).not.toHaveBeenCalled();
   });
 
-  it('mavjud invoysda o\'zgarmagan (eski qoidadan oldingi) sana bloklanmaydi', async () => {
+  it('REGRESSIYA: kecha yaratilgan invoys sanasini tahrirda bugunga o\'zgartirish mumkin', async () => {
+    const dayMs = 24 * 60 * 60 * 1000;
+    const yesterday = new Date(Date.now() - dayMs);
     m.invoiceFindUnique.mockImplementation(async ({ where }: { where: { taskId?: number; id?: number } }) =>
       where.taskId
-        ? { id: 77, invoiceNumber: '5', additionalInfo: {}, createdAt: new Date('2026-09-01T05:00:00.000Z'), date: new Date('2026-09-10T00:00:00.000Z') }
+        ? { id: 77, invoiceNumber: '5', additionalInfo: {}, createdAt: yesterday, date: yesterday }
         : { id: 77, taskId: 10, totalAmount: 100, items: [] }
     );
-    await expect(saveInvoice(input({ date: '2026-09-10' }))).resolves.toBeTruthy();
-    await expectSaveError(saveInvoice(input({ date: '2026-09-11' })), 400, /01\.09\.2026/);
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Tashkent' });
+    await expect(saveInvoice(input({ date: today }))).resolves.toBeTruthy();
+    const future = new Date(Date.now() + 2 * dayMs).toISOString().slice(0, 10);
+    await expectSaveError(saveInvoice(input({ date: future })), 400, /bugungi sanadan/);
   });
 
   it('og\'irlik xatosida hech narsa yozilmaydi', async () => {

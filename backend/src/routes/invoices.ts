@@ -73,14 +73,135 @@ router.get('/check-number', requireAuth(), async (req: AuthRequest, res) => {
   }
 });
 
+// Invoyslar ro'yxati va hisobot uchun umumiy filtr (filial, mijoz, sana, qidiruv)
+async function buildInvoiceListWhere(req: AuthRequest): Promise<Prisma.InvoiceWhereInput> {
+  const isAdminOrManager = req.user?.role === 'ADMIN' || req.user?.role === 'MANAGER';
+  const userBranchId = req.user?.branchId ?? null;
+  const onlyOwnBranch = !isAdminOrManager && userBranchId != null;
+
+  const { search, branchId, clientId, startDate, endDate } = req.query;
+
+  // Build where clause
+  const where: any = {};
+  if (onlyOwnBranch) {
+    where.branchId = userBranchId;
+  } else if (branchId) {
+    where.branchId = parseInt(branchId as string, 10);
+  }
+
+  if (clientId) {
+    where.clientId = parseInt(clientId as string, 10);
+  }
+  if (startDate || endDate) {
+    where.date = {};
+    if (startDate) where.date.gte = new Date(startDate as string);
+    if (endDate) {
+      const end = new Date(endDate as string);
+      end.setHours(23, 59, 59, 999);
+      where.date.lte = end;
+    }
+  }
+  
+  if (search) {
+    const q = (search as string).trim();
+    // additionalInfo JSONB ichidan qidiruv uchun raw SQL (ILIKE - case-insensitive)
+    const jsonMatchIds = await prisma.$queryRaw<{ id: number }[]>`
+      SELECT id FROM "Invoice"
+      WHERE "additionalInfo"::text ILIKE ${'%' + q + '%'}
+    `;
+    const matchedIds = jsonMatchIds.map((r) => r.id);
+
+    where.OR = [
+      { invoiceNumber: { contains: q, mode: 'insensitive' } },
+      { contractNumber: { contains: q, mode: 'insensitive' } },
+      { contract: { contractNumber: { contains: q, mode: 'insensitive' } } },
+      { client: { name: { contains: q, mode: 'insensitive' } } },
+      { task: { title: { contains: q, mode: 'insensitive' } } },
+      ...(matchedIds.length > 0 ? [{ id: { in: matchedIds } }] : []),
+    ];
+  }
+
+  return where;
+}
+
+// GET /invoices/report - Filtrlangan invoyslar bo'yicha Excel hisobot ma'lumotlari
+const INVOICE_REPORT_LIMIT = 2000;
+
+router.get('/report', requireAuth(), async (req: AuthRequest, res) => {
+  try {
+    const where = await buildInvoiceListWhere(req);
+    const contractSelect = {
+      sellerName: true,
+      shipperName: true,
+      buyerName: true,
+      contractNumber: true,
+      deliveryTerms: true,
+      customsAddress: true,
+    } as const;
+
+    const [invoices, total] = await Promise.all([
+      prisma.invoice.findMany({
+        where,
+        select: {
+          invoiceNumber: true,
+          contractNumber: true,
+          date: true,
+          totalAmount: true,
+          currency: true,
+          additionalInfo: true,
+          clientId: true,
+          client: { select: { name: true } },
+          task: { select: { title: true } },
+          contract: { select: contractSelect },
+          items: { select: { name: true }, orderBy: { orderIndex: 'asc' } },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: INVOICE_REPORT_LIMIT,
+      }),
+      prisma.invoice.count({ where }),
+    ]);
+
+    const rows = await Promise.all(invoices.map(async (inv) => {
+      // Ro'yxatdagidek: contractId bo'lmasa, shartnoma raqami bo'yicha topiladi
+      let contract = inv.contract;
+      if (!contract && inv.contractNumber && inv.clientId) {
+        contract = await prisma.contract.findFirst({
+          where: { contractNumber: inv.contractNumber, clientId: inv.clientId },
+          select: contractSelect,
+        });
+      }
+      const addInfo = inv.additionalInfo && typeof inv.additionalInfo === 'object'
+        ? inv.additionalInfo as Record<string, unknown>
+        : {};
+      return {
+        taskName: inv.task?.title || '',
+        clientName: inv.client?.name || '',
+        // Sotuvchi ustuniga yuk jo'natuvchi korxona nomi; bo'lmasa — sotuvchi nomi (arxiv hisoboti bilan bir xil)
+        sellerName: contract?.shipperName || contract?.sellerName || '',
+        buyerName: contract?.buyerName || '',
+        contractNumber: contract?.contractNumber || inv.contractNumber || '',
+        invoiceNumber: inv.invoiceNumber || '',
+        invoiceDate: inv.date ? inv.date.toISOString() : '',
+        deliveryTerms: (addInfo.deliveryTerms as string) || contract?.deliveryTerms || '',
+        vehicleNumber: (addInfo.vehicleNumber as string) || '',
+        customsAddress: (addInfo.customsAddress as string) || contract?.customsAddress || '',
+        productNames: inv.items.map((i) => i.name).join(', '),
+        totalAmount: inv.totalAmount.toString(),
+        currency: inv.currency,
+      };
+    }));
+
+    res.json({ rows, total, limit: INVOICE_REPORT_LIMIT });
+  } catch (error: any) {
+    console.error('Error generating invoice report:', error);
+    res.status(500).json({ error: 'Hisobot yaratishda xatolik yuz berdi' });
+  }
+});
+
 // GET /invoices - Barcha invoice'lar (paginatsiya, filtrlash va qidiruv bilan)
 router.get('/', requireAuth(), async (req: AuthRequest, res) => {
   try {
-    const isAdminOrManager = req.user?.role === 'ADMIN' || req.user?.role === 'MANAGER';
-    const userBranchId = req.user?.branchId ?? null;
-    const onlyOwnBranch = !isAdminOrManager && userBranchId != null;
-
-    const { page, limit, search, branchId, clientId, startDate, endDate } = req.query;
+    const { page, limit } = req.query;
     
     // Pagination params
     const pageNum = page ? parseInt(page as string, 10) : undefined;
@@ -88,45 +209,7 @@ router.get('/', requireAuth(), async (req: AuthRequest, res) => {
     const skip = pageNum && limitNum ? (pageNum - 1) * limitNum : undefined;
     const take = limitNum || undefined;
 
-    // Build where clause
-    const where: any = {};
-    if (onlyOwnBranch) {
-      where.branchId = userBranchId;
-    } else if (branchId) {
-      where.branchId = parseInt(branchId as string, 10);
-    }
-
-    if (clientId) {
-      where.clientId = parseInt(clientId as string, 10);
-    }
-    if (startDate || endDate) {
-      where.date = {};
-      if (startDate) where.date.gte = new Date(startDate as string);
-      if (endDate) {
-        const end = new Date(endDate as string);
-        end.setHours(23, 59, 59, 999);
-        where.date.lte = end;
-      }
-    }
-    
-    if (search) {
-      const q = (search as string).trim();
-      // additionalInfo JSONB ichidan qidiruv uchun raw SQL (ILIKE - case-insensitive)
-      const jsonMatchIds = await prisma.$queryRaw<{ id: number }[]>`
-        SELECT id FROM "Invoice"
-        WHERE "additionalInfo"::text ILIKE ${'%' + q + '%'}
-      `;
-      const matchedIds = jsonMatchIds.map((r) => r.id);
-
-      where.OR = [
-        { invoiceNumber: { contains: q, mode: 'insensitive' } },
-        { contractNumber: { contains: q, mode: 'insensitive' } },
-        { contract: { contractNumber: { contains: q, mode: 'insensitive' } } },
-        { client: { name: { contains: q, mode: 'insensitive' } } },
-        { task: { title: { contains: q, mode: 'insensitive' } } },
-        ...(matchedIds.length > 0 ? [{ id: { in: matchedIds } }] : []),
-      ];
-    }
+    const where = await buildInvoiceListWhere(req);
 
     const [invoices, total] = await Promise.all([
       prisma.invoice.findMany({

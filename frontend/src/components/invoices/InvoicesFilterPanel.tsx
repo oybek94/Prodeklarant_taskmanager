@@ -2,6 +2,10 @@ import React from 'react';
 import { Icon } from '@iconify/react';
 import DateInput from '../../components/DateInput';
 import type { Branch, Client, InvoicesFilters } from './types';
+import { INVOICE_REPORT_COLUMNS, type InvoiceReportColumnKey } from '../../hooks/useInvoiceReport';
+
+const allReportColumns = (value: boolean) =>
+  Object.fromEntries(Object.keys(INVOICE_REPORT_COLUMNS).map((k) => [k, value])) as Record<InvoiceReportColumnKey, boolean>;
 
 interface InvoicesFilterPanelProps {
   isMobile: boolean;
@@ -13,6 +17,9 @@ interface InvoicesFilterPanelProps {
   setCurrentPage: (val: number) => void;
   branches: Branch[];
   clients: Client[];
+  totalCount: number;
+  onGenerateReport: (selectedColumns: Record<InvoiceReportColumnKey, boolean>) => void;
+  reportLoading: boolean;
 }
 
 export const InvoicesFilterPanel: React.FC<InvoicesFilterPanelProps> = ({
@@ -24,8 +31,16 @@ export const InvoicesFilterPanel: React.FC<InvoicesFilterPanelProps> = ({
   setFilters,
   setCurrentPage,
   branches,
-  clients
+  clients,
+  totalCount,
+  onGenerateReport,
+  reportLoading
 }) => {
+  // Hisobot ustunlari — boshlang'ichda barchasi tanlangan
+  const [selectedColumns, setSelectedColumns] = React.useState<Record<InvoiceReportColumnKey, boolean>>(() => allReportColumns(true));
+  const selectedCount = Object.values(selectedColumns).filter(Boolean).length;
+  const allSelected = selectedCount === Object.keys(INVOICE_REPORT_COLUMNS).length;
+
   if (!showFiltersPanel) return null;
 
   return (
@@ -41,7 +56,7 @@ export const InvoicesFilterPanel: React.FC<InvoicesFilterPanelProps> = ({
         className={`${isMobile
           ? 'fixed inset-x-0 bottom-0 h-[85vh] w-full rounded-t-3xl'
           : 'absolute right-0 top-0 min-w-[500px] rounded-2xl'
-          } bg-white dark:bg-slate-800 shadow-2xl border border-gray-200 dark:border-slate-700 p-5 z-[100] animate-slideIn`}
+          } bg-white dark:bg-slate-800 shadow-2xl border border-gray-200 dark:border-slate-700 p-5 z-[100] animate-slideIn overflow-y-auto ${isMobile ? '' : 'max-h-[calc(100vh-8rem)]'}`}
       >
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-2.5">
@@ -124,7 +139,68 @@ export const InvoicesFilterPanel: React.FC<InvoicesFilterPanelProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center gap-3 pt-2">
+          <div className="pt-4 border-t border-gray-200 dark:border-slate-700">
+            <div className="flex items-center justify-between mb-2.5">
+              <label className="text-xs font-bold text-gray-600 dark:text-gray-400 flex items-center gap-1.5 uppercase tracking-wide">
+                <Icon icon="solar:tablet-bold-duotone" className="w-3.5 h-3.5 text-emerald-600" />
+                Hisobot ustunlari
+              </label>
+              <button
+                type="button"
+                onClick={() => setSelectedColumns(allReportColumns(!allSelected))}
+                className="text-[10px] font-semibold text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 transition-colors uppercase tracking-wide"
+              >
+                {allSelected ? 'Barchasini yechish' : 'Barchasini tanlash'}
+              </button>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
+              {(Object.entries(INVOICE_REPORT_COLUMNS) as [InvoiceReportColumnKey, string][]).map(([key, label]) => (
+                <label
+                  key={key}
+                  className={`flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg cursor-pointer transition-all select-none ${
+                    selectedColumns[key]
+                      ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100'
+                      : 'text-gray-500 hover:bg-gray-50 dark:hover:bg-slate-700'
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedColumns[key]}
+                    onChange={() => setSelectedColumns((prev) => ({ ...prev, [key]: !prev[key] }))}
+                    className="w-3.5 h-3.5 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500 focus:ring-offset-0 cursor-pointer"
+                  />
+                  <span className={`text-[13px] font-medium ${selectedColumns[key] ? '' : 'line-through opacity-60'}`}>
+                    {label}
+                  </span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <button
+            type="button"
+            disabled={selectedCount === 0 || reportLoading || totalCount === 0}
+            onClick={() => onGenerateReport(selectedColumns)}
+            className={`w-full px-4 py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all shadow-sm ${
+              selectedCount === 0 || reportLoading || totalCount === 0
+                ? 'bg-gray-200 dark:bg-slate-700 text-gray-400 cursor-not-allowed'
+                : 'bg-gradient-to-r from-emerald-500 to-emerald-600 text-white hover:from-emerald-600 hover:to-emerald-700 hover:shadow-md active:scale-[0.98]'
+            }`}
+          >
+            {reportLoading ? (
+              <>
+                <Icon icon="solar:refresh-bold-duotone" className="w-4 h-4 animate-spin" />
+                Hisobot tayyorlanmoqda...
+              </>
+            ) : (
+              <>
+                <Icon icon="solar:file-download-bold-duotone" className="w-4 h-4" />
+                Hisobot olish ({totalCount} ta, {selectedCount} ustun)
+              </>
+            )}
+          </button>
+
+          <div className="flex items-center gap-3">
             <button
               type="button"
               onClick={() => {

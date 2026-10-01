@@ -8,6 +8,7 @@ import { useIsMobile } from '../utils/useIsMobile';
 import { useInvoiceData } from '../hooks/useInvoiceData';
 import { useInvoiceFilters } from '../hooks/useInvoiceFilters';
 import { useInvoiceSocket } from '../hooks/useInvoiceSocket';
+import { useInvoiceReport } from '../hooks/useInvoiceReport';
 
 import { InvoicesHeader } from '../components/invoices/InvoicesHeader';
 import { InvoicesFilterPanel } from '../components/invoices/InvoicesFilterPanel';
@@ -57,6 +58,8 @@ const Invoices = () => {
     hasActiveFilters,
     paginatedInvoices
   } = useInvoiceFilters(invoices);
+
+  const { exportInvoiceReport, reportLoading } = useInvoiceReport(filters, searchQuery);
 
   // Initialize data
   useEffect(() => {
@@ -284,6 +287,9 @@ const Invoices = () => {
           setCurrentPage={setCurrentPage}
           branches={branches}
           clients={clients}
+          totalCount={totalCount}
+          onGenerateReport={exportInvoiceReport}
+          reportLoading={reportLoading}
         />
       </div>
 

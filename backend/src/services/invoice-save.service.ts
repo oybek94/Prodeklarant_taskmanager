@@ -3,8 +3,6 @@ import { z } from 'zod';
 import { prisma } from '../prisma';
 import { getNextInvoiceNumber } from '../utils/invoice-number';
 import { checkItemsTare, TareWarning } from './packaging-tare';
-import { ensureCmrForInvoice } from './cmr-service';
-import { ensureTirForInvoice } from './tir-service';
 import { socketEmitter } from './socketEmitter';
 import { tashkentDateKey } from '../utils/tashkent-time';
 
@@ -423,13 +421,6 @@ export async function saveInvoice(input: InvoiceInput): Promise<SaveInvoiceResul
   if (!invoice) throw new InvoiceSaveError(404, 'Invoice topilmadi');
 
   return { invoice, isNew: !existingInvoice, warnings };
-}
-
-/** Saqlangandan keyin: vazifaga bog'langan invoys uchun CMR/TIR hujjatlari */
-export async function ensureInvoiceDerivedDocs(invoice: SavedInvoice, actorId: number): Promise<void> {
-  if (!invoice.taskId) return;
-  await ensureCmrForInvoice({ invoiceId: invoice.id, uploadedById: actorId });
-  await ensureTirForInvoice({ invoiceId: invoice.id, uploadedById: actorId });
 }
 
 /** Real-time: boshqa foydalanuvchilarga invoys saqlangani haqida xabar */

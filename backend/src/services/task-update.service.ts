@@ -2,8 +2,6 @@ import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { prisma } from '../prisma';
 import { createTaskVersion } from './task-version';
-import { ensureCmrForInvoice } from './cmr-service';
-import { ensureTirForInvoice } from './tir-service';
 import { socketEmitter } from './socketEmitter';
 import { buildDealSnapshot, buildFeeSnapshot, loadPricingInputs, clientPricingSelect } from './task-create.service';
 import { declarationClientSelect, declarationCompletedFields, bxmAt } from './declaration-pricing';
@@ -372,19 +370,6 @@ export async function updateTask(id: number, input: UpdateTaskInput, actor: Acto
   }, { timeout: 30000, maxWait: 10000 });
 
   return { updated, branchChanged, contractChanged };
-}
-
-/** Commit'dan keyin: filial yoki shartnoma o'zgargan bo'lsa CMR/TIR qayta yaratiladi */
-export async function regenerateTransportDocs(taskId: number, actorId: number): Promise<void> {
-  try {
-    const invoice = await prisma.invoice.findUnique({ where: { taskId }, select: { id: true } });
-    if (invoice) {
-      await ensureCmrForInvoice({ invoiceId: invoice.id, uploadedById: actorId });
-      await ensureTirForInvoice({ invoiceId: invoice.id, uploadedById: actorId });
-    }
-  } catch (error) {
-    console.error('Filial o\'zgargandan keyin TIR/CMR qayta yaratilmadi:', error);
-  }
 }
 
 export function broadcastTaskUpdated(taskId: number, changes: UpdateTaskInput, actor: Actor): void {

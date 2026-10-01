@@ -134,20 +134,6 @@ exports[`updateTask — yon ta'sirlar > filial: USD, davlat to'lovi, invoys avto
       },
     ],
     [
-      "cmr",
-      {
-        "invoiceId": 9,
-        "uploadedById": 7,
-      },
-    ],
-    [
-      "tir",
-      {
-        "invoiceId": 9,
-        "uploadedById": 7,
-      },
-    ],
-    [
       "socket",
       7,
       "task:updated",
@@ -328,20 +314,6 @@ exports[`updateTask — yon ta'sirlar > filial: davlat to'lovi yo'q 1`] = `
       },
     ],
     [
-      "cmr",
-      {
-        "invoiceId": 9,
-        "uploadedById": 7,
-      },
-    ],
-    [
-      "tir",
-      {
-        "invoiceId": 9,
-        "uploadedById": 7,
-      },
-    ],
-    [
       "socket",
       7,
       "task:updated",
@@ -437,20 +409,6 @@ exports[`updateTask — yon ta'sirlar > filial: qo'lda o'zgartirilgan invoys may
         "where": {
           "id": 9,
         },
-      },
-    ],
-    [
-      "cmr",
-      {
-        "invoiceId": 9,
-        "uploadedById": 7,
-      },
-    ],
-    [
-      "tir",
-      {
-        "invoiceId": 9,
-        "uploadedById": 7,
       },
     ],
     [

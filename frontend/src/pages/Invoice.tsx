@@ -41,9 +41,6 @@ import { ContractRequirementsNote } from '../components/invoice/ContractRequirem
 import { InvoicePriceList } from '../components/invoice/InvoicePriceList';
 
 import axios from 'axios';
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas-pro';
-import { renderFittedInvoicePdf } from '../components/invoice/pdf/pdfFit';
 import {
   PdfMissingGlyphError,
   describeMissingGlyphs,
@@ -561,7 +558,11 @@ const Invoice = () => {
           try {
             if (!invoiceRef.current) throw new Error("Invoice elementi topilmadi");
             const element = invoiceRef.current;
-            
+            const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
+              import('html2canvas-pro'),
+              import('jspdf'),
+            ]);
+
             const canvas = await html2canvas(element, {
               scale: 3,
               useCORS: true,
@@ -601,7 +602,8 @@ const Invoice = () => {
 
       // Shriftlar sahifadagi ma'lumot miqdoriga qarab tanlanadi: hujjat avval
       // o'lchanadi, so'ng eng katta sig'adigan masshtabda qayta render qilinadi
-      // (qarang: pdf/pdfFit.tsx)
+      // (qarang: pdf/pdfFit.tsx). @react-pdf (~2 MB) faqat PDF bosilganda yuklanadi.
+      const { renderFittedInvoicePdf } = await import('../components/invoice/pdf/pdfFit');
       const blob = await renderFittedInvoicePdf({
         viewTab,
         form,

@@ -62,7 +62,7 @@ vi.mock('../services/socketEmitter', () => ({
   },
 }));
 
-import { updateTask, updateTaskSchema, TaskUpdateError, regenerateTransportDocs, broadcastTaskUpdated } from '../services/task-update.service';
+import { updateTask, updateTaskSchema, TaskUpdateError, broadcastTaskUpdated } from '../services/task-update.service';
 
 const D = (v: number) => new Decimal(v);
 
@@ -113,8 +113,7 @@ async function viaService(body: unknown) {
   const parsed = updateTaskSchema.safeParse(body);
   if (!parsed.success) return { status: 400, body: { error: parsed.error.flatten() } };
   try {
-    const { updated, branchChanged } = await updateTask(1, parsed.data, m.user);
-    if (branchChanged) await regenerateTransportDocs(1, m.user.id);
+    const { updated } = await updateTask(1, parsed.data, m.user);
     const out = { status: 200, body: JSON.parse(JSON.stringify(updated)) };
     broadcastTaskUpdated(1, parsed.data, m.user);
     return out;

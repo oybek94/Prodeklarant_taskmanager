@@ -5,8 +5,6 @@ import { updateTaskStatus, generateQrTokenIfNeeded } from './task-status';
 import { markProcessNotificationsRead } from './notificationService';
 import { createTaskVersion } from './task-version';
 import { processTypeForStage } from './process-stage-map';
-import { ensureCmrForInvoice } from './cmr-service';
-import { ensureTirForInvoice } from './tir-service';
 import { socketEmitter } from './socketEmitter';
 import { prisma } from '../prisma';
 
@@ -122,17 +120,6 @@ export async function afterStageStatusCommitted(params: {
   if (result.needsQrToken) {
     // Fire and forget — xato generateQrTokenIfNeeded ichida log qilinadi
     generateQrTokenIfNeeded(stage.taskId).catch(() => {});
-  }
-
-  if (stage.name === 'Invoys' && newStatus === 'TAYYOR' && stage.status !== 'TAYYOR') {
-    const invoice = await prisma.invoice.findUnique({
-      where: { taskId: stage.taskId },
-      select: { id: true },
-    });
-    if (invoice) {
-      await ensureCmrForInvoice({ invoiceId: invoice.id, uploadedById: actor.id });
-      await ensureTirForInvoice({ invoiceId: invoice.id, uploadedById: actor.id });
-    }
   }
 
   socketEmitter.broadcastExcept(actor.id, 'task:stageUpdated', {

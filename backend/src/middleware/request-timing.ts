@@ -19,8 +19,11 @@ export function requestTiming() {
       const durationMs = Number(process.hrtime.bigint() - startedAt) / 1_000_000;
       if (durationMs < SLOW_REQUEST_MS) return;
 
-      // req.route so'rov tugagandan keyin mavjud — parametrlarsiz yo'l beradi
-      const routePath = req.route?.path ?? req.originalUrl.split('?')[0];
+      // req.route so'rov tugagandan keyin mavjud — parametrlarsiz yo'l beradi.
+      // req.route.path router ichidagi nisbiy yo'l ("/"), shuning uchun prefiks (baseUrl) qo'shiladi.
+      const routePath = req.route?.path != null
+        ? `${req.baseUrl}${req.route.path === '/' ? '' : req.route.path}` || '/'
+        : req.originalUrl.split('?')[0];
       console.warn(
         `[slow] ${durationMs.toFixed(0)}ms ${req.method} ${routePath} -> ${res.statusCode}`
       );

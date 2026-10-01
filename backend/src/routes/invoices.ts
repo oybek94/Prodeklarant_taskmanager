@@ -22,7 +22,6 @@ import {
   invoiceSchema,
   saveInvoice,
   InvoiceSaveError,
-  ensureInvoiceDerivedDocs,
   broadcastInvoiceSaved,
   serializeSavedInvoice,
 } from '../services/invoice-save.service';
@@ -1129,10 +1128,8 @@ router.post('/', requireAuth('ADMIN', 'MANAGER', 'DEKLARANT'), async (req: AuthR
       return res.status(400).json({ error: errMsg, issues: issues.map((i) => ({ path: i.path.join('.'), message: i.message })) });
     }
 
+    // CMR/TIR bu yerda yaratilmaydi — GET /:id/cmr va /:id/tir ularni har safar yangidan yaratadi
     const { invoice, isNew, warnings } = await saveInvoice(parsed.data);
-    if (req.user) {
-      await ensureInvoiceDerivedDocs(invoice, req.user.id);
-    }
     res.json(serializeSavedInvoice(invoice, warnings));
     if (req.user) {
       broadcastInvoiceSaved(invoice, isNew, req.user);

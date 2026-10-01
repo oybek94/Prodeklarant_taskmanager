@@ -170,17 +170,12 @@ describe('afterStageStatusCommitted', () => {
     expect(m.ensureCmrForInvoice).not.toHaveBeenCalled();
   });
 
-  it('Invoys birinchi marta TAYYOR bo\'lganda CMR va TIR yaratiladi', async () => {
+  it('Invoys TAYYOR bo\'lganda CMR/TIR oldindan yaratilmaydi (yuklab olishda yaratiladi)', async () => {
     m.invoiceFindUnique.mockResolvedValue({ id: 99 });
     await afterStageStatusCommitted({ stage: stage({ name: 'Invoys' }), newStatus: 'TAYYOR', result: result(), actor: { id: 7, name: 'Ali' } });
-    expect(m.ensureCmrForInvoice).toHaveBeenCalledWith({ invoiceId: 99, uploadedById: 7 });
-    expect(m.ensureTirForInvoice).toHaveBeenCalledWith({ invoiceId: 99, uploadedById: 7 });
-    expect(m.generateQrTokenIfNeeded).not.toHaveBeenCalled();
-  });
-
-  it('Invoys allaqachon TAYYOR bo\'lsa CMR qayta yaratilmaydi', async () => {
-    await afterStageStatusCommitted({ stage: stage({ name: 'Invoys', status: 'TAYYOR' }), newStatus: 'TAYYOR', result: result(), actor: { id: 7, name: 'Ali' } });
     expect(m.ensureCmrForInvoice).not.toHaveBeenCalled();
+    expect(m.ensureTirForInvoice).not.toHaveBeenCalled();
+    expect(m.generateQrTokenIfNeeded).not.toHaveBeenCalled();
   });
 });
 

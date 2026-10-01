@@ -9,7 +9,7 @@ import { updateStageSchema, updateStageFromApi, StageUpdateError } from '../serv
 import { notify, getAllActiveUserIds } from '../services/notificationService';
 import { createTaskSchema, createTask, afterTaskCreated, TaskCreateError } from '../services/task-create.service';
 import { getTaskLight, getTaskDetail, canSeeTaskFinancials, redactTaskDetailForStaff } from '../services/task-detail.service';
-import { updateTaskSchema, updateTask, TaskUpdateError, regenerateTransportDocs, broadcastTaskUpdated } from '../services/task-update.service';
+import { updateTaskSchema, updateTask, TaskUpdateError, broadcastTaskUpdated } from '../services/task-update.service';
 import {
   createErrorSchema, updateErrorSchema, rateErrorSchema, TaskErrorError, parseId,
   listTaskErrors, listUnratedErrors, listPendingDeleteErrors, createTaskError, updateTaskError,
@@ -452,8 +452,7 @@ router.patch('/:id', requireAuth(), async (req: AuthRequest, res) => {
   }
 
   try {
-    const { updated, branchChanged, contractChanged } = await updateTask(id, parsed.data, user);
-    if (branchChanged || contractChanged) await regenerateTransportDocs(id, user.id);
+    const { updated } = await updateTask(id, parsed.data, user);
     res.json(updated);
     broadcastTaskUpdated(id, parsed.data, user);
   } catch (error) {

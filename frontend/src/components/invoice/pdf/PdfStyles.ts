@@ -1,15 +1,9 @@
 import { StyleSheet } from '@react-pdf/renderer';
 import { PDF_FONT_STACK } from '../../pdf/fonts';
+import { SEAL_HEIGHT } from './pdfScale';
 
-/**
- * Pechat (muhr) rasmining PDF'dagi balandligi — 3.8 sm (haqiqiy muhr o'lchami).
- * PDF birligi 1pt = 1/72 dyuym, shuning uchun 100% da chop etilganda o'lchov
- * aynan 3.8 sm chiqadi. Kengligi berilmaydi — rasm o'z nisbatida avtomatik
- * hisoblanadi (w: auto). Bu qiymat `scale` bilan kichraymaydi: barcha tablarda
- * pechat aynan shu balandlikda chiqadi (qarang: InvoicePDFDocument.calcScale).
- */
-const PT_PER_CM = 72 / 2.54;
-export const SEAL_HEIGHT = 3.8 * PT_PER_CM; // ≈ 107.7pt
+// pdfScale.ts da aniqlangan (u @react-pdf'siz qolishi kerak); bu yerdan ham eksport
+export { SEAL_HEIGHT };
 
 export const styles = StyleSheet.create({
   page: {

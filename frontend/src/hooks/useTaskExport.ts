@@ -6,6 +6,7 @@ import type { ArchiveFiltersState, ReportColumnKey } from '../components/tasks/A
 import { REPORT_COLUMNS } from '../components/tasks/ArchiveFiltersPanel';
 import { calculateTotalDuration } from '../components/tasks/TaskTable';
 import { getStatusInfo, formatDate } from '../components/tasks/taskHelpers';
+import { formatDateOnly } from '../utils/dateFormatting';
 import { buildTaskListParams, ARCHIVE_EXPORT_LIMIT, type TaskListQuery } from '../components/tasks/useTaskData';
 
 interface UseTaskExportProps {
@@ -69,6 +70,7 @@ export const useTaskExport = ({
         'PSR': task.hasPsr ? 'Bor' : 'Yo\'q',
         'Sho\'pir tel': task.driverPhone || '-',
         'Izohlar': task.comments || '-',
+        ...(showArchive ? { 'Invoys sanasi': formatDateOnly(task.invoice?.date) } : {}),
         'Yaratilgan sana': formatDate(task.createdAt),
         'Yaratgan': task.createdBy?.name || '-',
         'Umumiy vaqt': durationInfo.text,
@@ -89,6 +91,7 @@ export const useTaskExport = ({
       { wch: 10 }, // PSR
       { wch: 15 }, // Sho'pir tel
       { wch: 30 }, // Izohlar
+      ...(showArchive ? [{ wch: 14 }] : []), // Invoys sanasi
       { wch: 18 }, // Yaratilgan sana
       { wch: 15 }, // Yaratgan
       { wch: 15 }, // Umumiy vaqt

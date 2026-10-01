@@ -3,7 +3,7 @@ import axios from 'axios';
 import apiClient from '../../../lib/api';
 import toast from 'react-hot-toast';
 import type { InvoiceItem, Task, ChangeLogEntry } from '../types';
-import { normalizeItem, toSaveItem, buildTaskTitle, sumItemTotals, checkItemsTare } from '../invoiceUtils';
+import { normalizeItem, toSaveItem, buildTaskTitle, sumItemTotals, checkItemsTare, getInvoiceDateError } from '../invoiceUtils';
 import type { TareWarning } from '../invoiceUtils';
 import { normalizeText, deepNormalizeStrings } from '../../../utils/textNormalize';
 import type { PdfFontSizes } from '../pdf/pdfFontSizes';
@@ -231,17 +231,10 @@ export function useInvoiceSave({
       return;
     }
 
-    // Invoys sanasi saqlash paytidagi bugungi kundan keyin bo'lmasin (backend ham tekshiradi).
-    // O'zgarmagan sana tekshirilmaydi — eski invoyslar tahrirda bloklanmasin.
-    if (currentForm.date) {
-      const toKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-      const todayKey = toKey(new Date());
-      const originalKey = invoice?.date ? String(invoice.date).split('T')[0] : null;
-      if (currentForm.date !== originalKey && currentForm.date > todayKey) {
-        const [y, m, d] = todayKey.split('-');
-        toast.error(`Invoys sanasi bugungi sanadan (${d}.${m}.${y}) keyin bo'lishi mumkin emas`);
-        return;
-      }
+    const dateError = getInvoiceDateError(currentForm.date, invoice?.date);
+    if (dateError) {
+      toast.error(dateError);
+      return;
     }
 
     const missingPackageType = items.some(item => !item.packageType?.trim());

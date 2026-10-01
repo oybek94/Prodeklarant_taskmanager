@@ -1297,6 +1297,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
       setEditingClient(null);
       setEditForm({
         name: '',
+        assignedUserId: '',
         dealAmount: '',
         dealAmountCurrency: 'USD',
         contractPaymentType: 'CASH_ALL_INCLUSIVE',

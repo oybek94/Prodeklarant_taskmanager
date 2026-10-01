@@ -2,7 +2,7 @@ import React from 'react';
 import type { ViewTab, Contract } from './types';
 import { resolveUploadUrl } from './types';
 import DateInput from '../DateInput';
-import { formatDate } from './invoiceUtils';
+import { formatDate, getInvoiceDateError } from './invoiceUtils';
 import InvoiceFieldHint from './InvoiceFieldHint';
 
 interface InvoiceHeaderProps {
@@ -34,6 +34,7 @@ export const InvoiceHeader: React.FC<InvoiceHeaderProps> = React.memo(({
   handleContractSelect,
   showItemErrors,
 }) => {
+  const dateWarning = getInvoiceDateError(form.date, invoice?.date);
   return (
     <div className="flex flex-col md:flex-row justify-between items-start md:items-center w-full mb-0 invoice-header gap-6 md:gap-4">
 
@@ -113,13 +114,16 @@ export const InvoiceHeader: React.FC<InvoiceHeaderProps> = React.memo(({
                 </div>
 
                 <span className="text-base md:text-lg text-gray-700">от</span>
-                <div>
+                <div className="flex flex-col">
                   <DateInput
                     value={form.date}
                     onChange={(value: any) => setForm({ ...form, date: value })}
-                    className="w-28 md:w-36 px-2 py-1 border border-gray-300 rounded text-base md:text-lg font-semibold"
+                    className={`w-28 md:w-36 px-2 py-1 border rounded text-base md:text-lg font-semibold ${dateWarning ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
                     required
                   />
+                  {dateWarning && (
+                    <span className="text-xs text-red-500 mt-0.5">Sana noto'g'ri</span>
+                  )}
                 </div>
 
                 <span className="text-base md:text-lg text-gray-700">г.</span>

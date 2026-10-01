@@ -457,6 +457,22 @@ export const buildTaskTitle = (invoiceNumber?: string, vehicleNumber?: string): 
   return `${safeInvoice} АВТО ${plate}`;
 };
 
+/**
+ * Invoys sanasi bugungi kundan keyin bo'lmasin (backend ham tekshiradi).
+ * O'zgarmagan sana tekshirilmaydi — eski invoyslar tahrirda bloklanmasin.
+ * @returns xato matni yoki null
+ */
+export const getInvoiceDateError = (date?: string, originalDate?: string | Date | null): string | null => {
+  if (!date) return null;
+  const originalKey = originalDate ? String(originalDate instanceof Date ? originalDate.toISOString() : originalDate).split('T')[0] : null;
+  if (date === originalKey) return null;
+  const now = new Date();
+  const todayKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  if (date <= todayKey) return null;
+  const [y, m, d] = todayKey.split('-');
+  return `Invoys sanasi bugungi sanadan (${d}.${m}.${y}) keyin bo'lishi mumkin emas`;
+};
+
 /** Fayl nomidagi taqiqlangan belgilarni tozalash */
 export const sanitizeFileName = (value: string): string =>
   value.replace(/[\\/:*?"<>|]+/g, '_').trim();

@@ -48,68 +48,71 @@ export class DataAssistantService {
       { role: 'user', content: question },
     ];
 
-    try {
-      const response = await getOpenAI().chat.completions.create({
-        model: assistantModel(),
-        messages: messages,
-        ...samplingParams(assistantModel(), 0),
-        tools: [
-          {
-            type: 'function',
-            function: {
-              name: 'run_sql_query',
-              description: 'PostgreSQL bazasiga SQL SELECT so\'rovini yuboradi va natijani JSON shaklida qaytaradi.',
-              parameters: {
-                type: 'object',
-                properties: {
-                  query: {
-                    type: 'string',
-                    description: 'Tugallangan va ishlashga tayyor PostgreSQL SELECT so\'rovi.',
-                  },
-                },
-                required: ['query'],
+    const tools = [
+      {
+        type: 'function' as const,
+        function: {
+          name: 'run_sql_query',
+          description: 'PostgreSQL bazasiga SQL SELECT so\'rovini yuboradi va natijani JSON shaklida qaytaradi.',
+          parameters: {
+            type: 'object',
+            properties: {
+              query: {
+                type: 'string',
+                description: 'Tugallangan va ishlashga tayyor PostgreSQL SELECT so\'rovi.',
               },
             },
+            required: ['query'],
           },
-        ],
-        tool_choice: 'auto',
-      });
+        },
+      },
+    ];
+    const MAX_ROUNDS = 5;
 
-      const responseMessage = response.choices[0].message;
+    try {
+      for (let round = 0; round < MAX_ROUNDS; round++) {
+        const isLastRound = round === MAX_ROUNDS - 1;
+        const response = await getOpenAI().chat.completions.create({
+          model: assistantModel(),
+          messages: messages,
+          ...samplingParams(assistantModel(), round === 0 ? 0 : 0.2),
+          // Oxirgi raundda tool berilmaydi — model yakuniy javob yozishga majbur
+          ...(isLastRound ? {} : { tools, tool_choice: 'auto' as const }),
+        });
 
-      // Agar AI tool ishlatishni xohlasa:
-      if (responseMessage.tool_calls && responseMessage.tool_calls.length > 0) {
-        const toolCall = responseMessage.tool_calls[0] as any;
-        if (toolCall.function.name === 'run_sql_query') {
-          const args = JSON.parse(toolCall.function.arguments);
-          const sqlQuery = args.query;
+        const responseMessage = response.choices[0].message;
+        const toolCalls = responseMessage.tool_calls ?? [];
 
-          console.log('[AI Data Assistant] Executing SQL:', sqlQuery);
+        // AI to'g'ridan-to'g'ri javob bergan bo'lsa
+        if (toolCalls.length === 0) {
+          return responseMessage.content || 'Kechirasiz, javob topa olmadim.';
+        }
 
-          // SQL ni bajarish
-          const queryResult = await this.executeReadOnlySql(sqlQuery);
-
-          // AI ga natijani beramiz va yakuniy javobni so'raymiz
-          messages.push(responseMessage);
+        // Model bir javobda bir nechta parallel tool_call qaytarishi mumkin —
+        // OpenAI HAR BIRIGA alohida 'tool' javobini talab qiladi
+        messages.push(responseMessage);
+        for (const toolCall of toolCalls as any[]) {
+          let result: unknown;
+          if (toolCall.function?.name !== 'run_sql_query') {
+            result = { error: `Noma'lum funksiya: ${toolCall.function?.name}` };
+          } else {
+            try {
+              const sqlQuery = JSON.parse(toolCall.function.arguments).query;
+              console.log('[AI Data Assistant] Executing SQL:', sqlQuery);
+              result = await this.executeReadOnlySql(sqlQuery);
+            } catch (err: any) {
+              result = { error: err.message };
+            }
+          }
           messages.push({
             tool_call_id: toolCall.id,
             role: 'tool',
-            name: 'run_sql_query',
-            content: JSON.stringify(queryResult),
+            content: JSON.stringify(result),
           });
-
-          const finalResponse = await getOpenAI().chat.completions.create({
-            model: assistantModel(),
-            messages: messages,
-            ...samplingParams(assistantModel(), 0.2),
-          });
-
-          return finalResponse.choices[0].message.content || 'Javob shakllantirishda xatolik.';
         }
       }
 
-      // Agar AI to'g'ridan-to'g'ri javob bergan bo'lsa
-      return responseMessage.content || 'Kechirasiz, javob topa olmadim.';
+      return 'Javob shakllantirishda xatolik.';
 
     } catch (error: any) {
       console.error('[DataAssistantService] Error:', error);
@@ -134,12 +137,15 @@ export class DataAssistantService {
     const client = new Client({ connectionString });
     await client.connect();
     try {
+      // READ ONLY tranzaksiya: "WITH x AS (DELETE ...)" kabi yozuvchi so'rovlarni ham DB o'zi rad etadi
+      await client.query('BEGIN READ ONLY');
       const res = await client.query(query);
       return res.rows;
     } catch (err: any) {
       console.error('[SQL XATOSI]:', err.message);
       return { error: err.message };
     } finally {
+      await client.query('ROLLBACK').catch(() => {});
       await client.end();
     }
   }

@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Icon } from '@iconify/react';
 import toast from 'react-hot-toast';
 import apiClient from '../lib/api';
+import { CopyIconButton } from '../components/CopyIconButton';
 import { deleteAgreement, getAgreement, listAgreementSummaries } from '../features/serviceAgreement/api';
 import { downloadAgreementPdf } from '../features/serviceAgreement/downloadAgreementPdf';
 import {
@@ -252,10 +253,16 @@ export default function ServiceAgreements() {
                         <div className="font-medium text-gray-900 dark:text-gray-100 truncate group-hover:text-blue-600 dark:group-hover:text-blue-400" title={a.customerName}>
                           {a.customerName}
                         </div>
-                        <div className="text-xs tabular-nums text-gray-500 dark:text-gray-400">INN {a.customerInn || '—'}</div>
+                        <div className="flex items-center gap-0.5 text-xs tabular-nums text-gray-500 dark:text-gray-400">
+                          INN {a.customerInn || '—'}
+                          {a.customerInn && <CopyIconButton textToCopy={a.customerInn} toastMessage="INN nusxalandi" className="p-0.5" />}
+                        </div>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
-                        <div className="tabular-nums text-gray-900 dark:text-gray-100">№ {a.agreementNumber}</div>
+                        <div className="flex items-center gap-0.5 tabular-nums text-gray-900 dark:text-gray-100">
+                          № {a.agreementNumber}
+                          <CopyIconButton textToCopy={a.agreementNumber} toastMessage="Shartnoma raqami nusxalandi" className="p-0.5" />
+                        </div>
                         <div className="text-xs tabular-nums text-gray-500 dark:text-gray-400">{new Date(a.agreementDate).toLocaleDateString('ru-RU')}</div>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">

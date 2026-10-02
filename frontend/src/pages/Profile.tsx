@@ -16,6 +16,7 @@ import EarningsModal from '../components/profile/modals/EarningsModal';
 import ParticipationsModal from '../components/profile/modals/ParticipationsModal';
 import PaymentsModal from '../components/profile/modals/PaymentsModal';
 import ErrorsModal from '../components/profile/modals/ErrorsModal';
+import ClientBonusDetailModal from '../components/profile/modals/ClientBonusDetailModal';
 
 import {
   Chart as ChartJS, ArcElement, CategoryScale, LinearScale, BarElement, Tooltip, Legend
@@ -51,6 +52,7 @@ export default function Profile() {
   const [showParticipationsModal, setShowParticipationsModal] = useState(false);
   const [showPaymentsModal, setShowPaymentsModal] = useState(false);
   const [showErrorsModal, setShowErrorsModal] = useState(false);
+  const [selectedBonusId, setSelectedBonusId] = useState<number | null>(null);
 
   const displayUser = id ? workerDetail : user;
   const isAdmin = user?.role === 'ADMIN';
@@ -208,7 +210,7 @@ export default function Profile() {
               </thead>
               <tbody className="divide-y divide-gray-100/80">
                 {clientBonuses.bonuses.map((b) => (
-                  <tr key={b.id} className="hover:bg-gray-50/50">
+                  <tr key={b.id} onClick={() => setSelectedBonusId(b.id)} title="Hisob-kitobni ko'rish" className="hover:bg-gray-50/50 cursor-pointer">
                     <td className="px-6 py-3 text-gray-600 whitespace-nowrap">{new Date(b.createdAt).toLocaleDateString('en-US')}</td>
                     <td className="px-6 py-3 text-gray-700">{b.clientName || '-'}</td>
                     <td className="px-6 py-3 text-gray-700">{b.taskTitle || '-'}</td>
@@ -254,6 +256,10 @@ export default function Profile() {
 
       {showPaymentsModal && (
         <PaymentsModal payments={stats?.payments || []} onClose={() => setShowPaymentsModal(false)} />
+      )}
+
+      {selectedBonusId !== null && workerId && (
+        <ClientBonusDetailModal workerId={workerId} bonusId={selectedBonusId} onClose={() => setSelectedBonusId(null)} />
       )}
 
       {showErrorsModal && (

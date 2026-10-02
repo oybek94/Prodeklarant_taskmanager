@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import apiClient from '../lib/api';
 import { Icon } from '@iconify/react';
 import Chart from 'react-apexcharts';
+import ClientBonusDetailModal from '../components/profile/modals/ClientBonusDetailModal';
 
 const fmt = (n: number) => new Intl.NumberFormat('en-US').format(Math.round(n)).replace(/,/g, ' ').replace(/\./g, ',');
 const fmtUsd = (n: number) => `$ ${new Intl.NumberFormat('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(Math.round(n))}`;
@@ -16,6 +17,7 @@ export default function WorkerReport() {
   const [finStats, setFinStats] = useState<any>(null);
   const [clientBonuses, setClientBonuses] = useState<any>(null);
   const [dateRange, setDateRange] = useState('all');
+  const [selectedBonusId, setSelectedBonusId] = useState<number | null>(null);
 
   useEffect(() => { loadData(); }, [id, dateRange]);
 
@@ -320,7 +322,7 @@ export default function WorkerReport() {
               </thead>
               <tbody className="divide-y divide-gray-100/80">
                 {clientBonuses.bonuses.map((b: any) => (
-                  <tr key={b.id} className="hover:bg-gray-50/50">
+                  <tr key={b.id} onClick={() => setSelectedBonusId(b.id)} title="Hisob-kitobni ko'rish" className="hover:bg-gray-50/50 cursor-pointer">
                     <td className="px-6 py-3 text-gray-600 whitespace-nowrap">{new Date(b.createdAt).toLocaleDateString('en-US')}</td>
                     <td className="px-6 py-3 text-gray-700">{b.clientName || '-'}</td>
                     <td className="px-6 py-3 text-gray-700">{b.taskTitle || '-'}</td>
@@ -332,6 +334,10 @@ export default function WorkerReport() {
             </table>
           </div>
         </div>
+      )}
+
+      {selectedBonusId !== null && id && (
+        <ClientBonusDetailModal workerId={id} bonusId={selectedBonusId} onClose={() => setSelectedBonusId(null)} />
       )}
 
       {/* Task History Table */}

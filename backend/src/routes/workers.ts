@@ -1,7 +1,9 @@
 import { Router } from 'express';
+import { Prisma } from '@prisma/client';
 import { prisma } from '../prisma';
 import { requireAuth, AuthRequest } from '../middleware/auth';
 import { getWorkerPaymentReport } from '../services/worker-payment';
+import { computeClientAssignmentBonusBreakdown } from '../services/client-assignment-bonus';
 
 const router = Router();
 
@@ -575,6 +577,93 @@ router.get('/:id/client-bonuses', requireAuth(), async (req: AuthRequest, res) =
     });
   } catch (error: any) {
     console.error('Error fetching client assignment bonuses:', error);
+    res.status(500).json({ error: error.message || 'Xatolik yuz berdi' });
+  }
+});
+
+// GET /api/workers/:id/client-bonuses/:bonusId - Bonus qanday hisoblanganini bosqichma-bosqich ko'rsatish
+router.get('/:id/client-bonuses/:bonusId', requireAuth(), async (req: AuthRequest, res) => {
+  try {
+    const workerId = parseInt(req.params.id);
+    const bonusId = parseInt(req.params.bonusId);
+    if (!Number.isInteger(workerId) || !Number.isInteger(bonusId)) {
+      return res.status(400).json({ error: 'Noto\'g\'ri ID' });
+    }
+    if (req.user?.role !== 'ADMIN' && req.user?.id !== workerId) {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+
+    const bonus = await prisma.clientAssignmentBonus.findFirst({
+      where: { id: bonusId, userId: workerId },
+      include: {
+        client: { select: { id: true, name: true } },
+        task: { select: { id: true, title: true } },
+      },
+    });
+    if (!bonus) return res.status(404).json({ error: 'Bonus topilmadi' });
+
+    // Qatorlar (stavkalar, ishchilar haqi) saqlanmagan — joriy ma'lumotdan qayta hisoblanadi.
+    // Saqlangan jami summalar asosiy; farq bo'lsa frontend ogohlantiradi.
+    const breakdown = await computeClientAssignmentBonusBreakdown(prisma, bonus.taskId);
+    const num = (v: Prisma.Decimal | null | undefined) => (v == null ? null : Number(v));
+
+    res.json({
+      id: bonus.id,
+      taskId: bonus.taskId,
+      taskTitle: bonus.task?.title,
+      clientId: bonus.clientId,
+      clientName: bonus.client?.name,
+      createdAt: bonus.createdAt,
+      stored: {
+        dealAmountUzs: Number(bonus.dealAmountUzs),
+        taxUzs: Number(bonus.taxUzs),
+        certifierFeeUzs: Number(bonus.certifierFeeUzs),
+        otherWorkersFeeUzs: Number(bonus.otherWorkersFeeUzs),
+        profitUzs: Number(bonus.profitUzs),
+        bonusUzs: Number(bonus.bonusUzs),
+      },
+      breakdown: breakdown && {
+        contractPaymentType: breakdown.contractPaymentType,
+        deal: {
+          amount: num(breakdown.deal.amount),
+          currency: breakdown.deal.currency,
+          exchangeRate: num(breakdown.deal.exchangeRate),
+          amountUzs: Number(breakdown.deal.amountUzs),
+        },
+        tax: {
+          ratePercent: Number(breakdown.tax.ratePercent),
+          baseUzs: Number(breakdown.tax.baseUzs),
+          amountUzs: Number(breakdown.tax.amountUzs),
+        },
+        certifier: {
+          configCreatedAt: breakdown.certifier.configCreatedAt,
+          st1Uzs: Number(breakdown.certifier.st1Uzs),
+          fitoUzs: Number(breakdown.certifier.fitoUzs),
+          aktUzs: Number(breakdown.certifier.aktUzs),
+          fumigationUzs: Number(breakdown.certifier.fumigationUzs),
+          amountUzs: Number(breakdown.certifier.amountUzs),
+        },
+        otherWorkers: {
+          amountUzs: Number(breakdown.otherWorkers.amountUzs),
+          lines: breakdown.otherWorkers.lines.map((l) => ({
+            kpiLogId: l.kpiLogId,
+            userId: l.userId,
+            userName: l.userName,
+            stageName: l.stageName,
+            amount: Number(l.amount),
+            currency: l.currency,
+            amountUzs: num(l.amountUzs),
+            excludedReason: l.excludedReason,
+          })),
+        },
+        profitBeforeClampUzs: Number(breakdown.profitBeforeClampUzs),
+        profitUzs: Number(breakdown.profitUzs),
+        bonusSharePercent: Number(breakdown.bonusSharePercent),
+        bonusUzs: Number(breakdown.bonusUzs),
+      },
+    });
+  } catch (error: any) {
+    console.error('Error fetching client assignment bonus detail:', error);
     res.status(500).json({ error: error.message || 'Xatolik yuz berdi' });
   }
 });

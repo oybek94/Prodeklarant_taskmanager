@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { Prisma } from '@prisma/client';
 import { prisma } from '../prisma';
 import { requireAuth, AuthRequest } from '../middleware/auth';
 import { appCache, CACHE_TTL } from '../services/cache';
@@ -509,6 +510,49 @@ router.get('/premium-stats', requireAuth(), async (req: AuthRequest, res) => {
 
   } catch (error) {
     console.error('Error fetching premium stats:', error);
+    res.status(500).json({ error: 'Server xatosi' });
+  }
+});
+
+/** Dashboard "Tugallanmagan ishlar" ro'yxatidagi maksimal vazifalar soni */
+const UNFINISHED_TASKS_LIMIT = 300;
+
+// Tugallanmagan ishlar — YAKUNLANDI bo'lmagan vazifalar va ularning bosqichlari.
+// Kesh yo'q: bosqich belgilangandan keyin ro'yxat darhol yangilanishi kerak.
+router.get('/unfinished-tasks', requireAuth(), async (req: AuthRequest, res) => {
+  try {
+    const where: Prisma.TaskWhereInput = { status: { not: 'YAKUNLANDI' } };
+    // Filial cheklovi vazifalar ro'yxati (TaskRepository) bilan bir xil
+    const role = req.user?.role;
+    if (role !== 'ADMIN' && role !== 'MANAGER' && req.user?.branchId) {
+      where.branchId = req.user.branchId;
+    }
+
+    const [tasks, total] = await Promise.all([
+      prisma.task.findMany({
+        where,
+        select: {
+          id: true,
+          title: true,
+          status: true,
+          createdAt: true,
+          client: { select: { id: true, name: true } },
+          branch: { select: { id: true, name: true } },
+          stages: {
+            select: { id: true, name: true, status: true, stageOrder: true },
+            orderBy: { stageOrder: 'asc' },
+          },
+        },
+        // Chegaradan oshsa eng yangilari qoladi; frontend o'zi tartiblaydi
+        orderBy: { createdAt: 'desc' },
+        take: UNFINISHED_TASKS_LIMIT,
+      }),
+      prisma.task.count({ where }),
+    ]);
+
+    res.json({ tasks, total });
+  } catch (error) {
+    console.error('Error fetching unfinished tasks:', error);
     res.status(500).json({ error: 'Server xatosi' });
   }
 });

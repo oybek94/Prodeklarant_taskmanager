@@ -16,6 +16,7 @@ import { DashboardYearlyGoal } from '../components/dashboard/DashboardYearlyGoal
 import { DashboardProcessTimes } from '../components/dashboard/DashboardProcessTimes';
 import { DashboardTopClients } from '../components/dashboard/DashboardTopClients';
 import { DashboardActiveTasks } from '../components/dashboard/DashboardActiveTasks';
+import { DashboardUnfinishedTasks } from '../components/dashboard/DashboardUnfinishedTasks';
 import type { UserMedal } from '../types/medals';
 
 const Dashboard = () => {
@@ -77,6 +78,8 @@ const Dashboard = () => {
             <DashboardNotes />
           </div>
         </div>
+
+        <DashboardUnfinishedTasks />
 
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">
           <DashboardSummaryCards

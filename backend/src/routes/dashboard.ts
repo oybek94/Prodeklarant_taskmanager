@@ -42,10 +42,12 @@ const buildRangePair = (period: SummaryPeriod, now = new Date()) => {
     currentStart = startOfTashkentYear(now);
     previousStart = tashkentDate(tashkentParts(now).year - 1, 0, 1);
   }
-  const elapsed = now.getTime() - currentStart.getTime();
+  // Invoys sanasi kun aniqligida — joriy davr bugungi kun oxirigacha
+  const currentEnd = endOfTashkentDay(now);
+  const elapsed = currentEnd.getTime() - currentStart.getTime();
   const previousEnd = new Date(Math.min(previousStart.getTime() + elapsed, currentStart.getTime() - 1));
   return {
-    current: { start: currentStart, end: now },
+    current: { start: currentStart, end: currentEnd },
     previous: { start: previousStart, end: previousEnd },
   };
 };
@@ -90,15 +92,12 @@ const buildSeries = (period: SummaryPeriod, range: DateRangeT, dates: Date[]) =>
 router.get('/completed-summary', requireAuth(), async (req: AuthRequest, res) => {
   try {
     const { branchId, employeeId, clientId } = req.query;
-    const baseTaskWhere: any = {};
-
-    if (branchId) baseTaskWhere.branchId = Number(branchId);
-    if (clientId) baseTaskWhere.clientId = Number(clientId);
+    const invoiceWhere: Prisma.InvoiceWhereInput = {};
+    if (branchId) invoiceWhere.branchId = Number(branchId);
+    if (clientId) invoiceWhere.clientId = Number(clientId);
     if (employeeId) {
-      baseTaskWhere.stages = { some: { assignedToId: Number(employeeId) } };
+      invoiceWhere.task = { stages: { some: { assignedToId: Number(employeeId) } } };
     }
-
-    const completedStatuses = ['TAYYOR', 'YAKUNLANDI'];
 
     // Kesh: bir xil filtr uchun 5 daqiqa (dashboard bir vaqtda ko'p endpoint yuklaydi)
     const cacheKey = `dashboard:completed-summary:${branchId || ''}:${employeeId || ''}:${clientId || ''}`;
@@ -111,95 +110,25 @@ router.get('/completed-summary', requireAuth(), async (req: AuthRequest, res) =>
     const periods: SummaryPeriod[] = ['today', 'week', 'month', 'year'];
     const rangeMap = new Map(periods.map((period) => [period, buildRangePair(period, now)]));
 
-    // "Bugun" — yaratilgan vazifalar; hafta/oy/yil — yakunlangan. Yakunlanishlar oralig'i:
-    const completionRanges = (['week', 'month', 'year'] as const).flatMap((p) => {
+    // Barcha kartalar invoys sanasi (Invoice.date) bo'yicha sanaydi — bir invoys = bir ish
+    const allRanges = periods.flatMap((p) => {
       const pair = rangeMap.get(p)!;
       return [pair.current, pair.previous];
     });
-    const minStart = new Date(Math.min(...completionRanges.map((r) => r.start.getTime())));
-    const todayPair = rangeMap.get('today')!;
+    const minStart = new Date(Math.min(...allRanges.map((r) => r.start.getTime())));
+    const maxEnd = new Date(Math.max(...allRanges.map((r) => r.end.getTime())));
 
-    // Ichma-ich stages faqat kerakli sana oralig'i bilan (barcha tarixni yuklamaslik uchun).
-    // Arxiv hujjatlari: avval sana oralig'idagi hujjatlar olinadi, keyin faqat ularning tasklari
-    // (mavjud + filtrga mos) tekshiriladi. ArchiveDocument'da task relation yo'q — o'chirilgan
-    // task arxivi sanalmasligi uchun tekshiruv shart.
-    const [completedTasks, archivedDocsInRange, createdTasks] = await Promise.all([
-      prisma.task.findMany({
-        where: {
-          ...baseTaskWhere,
-          status: { in: completedStatuses },
-        },
-        select: {
-          id: true,
-          status: true,
-          stages: {
-            where: {
-              name: { in: ['Deklaratsiya', 'Pochta'] },
-              status: 'TAYYOR',
-              completedAt: { gte: minStart, lte: now },
-            },
-            select: { name: true, completedAt: true },
-            orderBy: { completedAt: 'desc' },
-          },
-        },
-      }),
-      prisma.archiveDocument.findMany({
-        where: { archivedAt: { gte: minStart, lte: now } },
-        select: { taskId: true, archivedAt: true },
-        orderBy: { archivedAt: 'asc' },
-      }),
-      prisma.task.findMany({
-        where: { ...baseTaskWhere, createdAt: { gte: todayPair.previous.start, lte: now } },
-        select: { createdAt: true },
-      }),
-    ]);
-
-    // TAYYOR — Deklaratsiya, YAKUNLANDI — Pochta bosqichi yakunlangan vaqt
-    const completionDates = completedTasks.flatMap((task) => {
-      const stageName = task.status === 'TAYYOR' ? 'Deklaratsiya' : 'Pochta';
-      const stage = task.stages.find((item) => item.name === stageName && item.completedAt);
-      return stage?.completedAt ? [{ id: task.id, date: stage.completedAt }] : [];
+    const invoices = await prisma.invoice.findMany({
+      where: { ...invoiceWhere, date: { gte: minStart, lte: maxEnd } },
+      select: { date: true },
     });
+    const invoiceDates = invoices.map((inv) => inv.date);
 
-    const archivedTaskIds = [...new Set(archivedDocsInRange.map((doc) => doc.taskId))];
-    const validArchivedTaskIds = archivedTaskIds.length > 0
-      ? new Set((await prisma.task.findMany({
-        where: { ...baseTaskWhere, id: { in: archivedTaskIds } },
-        select: { id: true },
-      })).map((t) => t.id))
-      : new Set<number>();
-    const archivedDocs = archivedDocsInRange.filter((doc) => validArchivedTaskIds.has(doc.taskId));
-
-    /**
-     * Davrdagi yakunlanishlar: bosqich yakunlangan tasklar + davrda arxivlangan, lekin
-     * bosqich bo'yicha sanalmagan tasklar (bir task — bir marta, eng erta arxiv sanasi).
-     * Son ham, mini-grafik ham shu bitta ro'yxatdan — oldin ular bir-biriga mos kelmasdi.
-     */
-    const completionsInRange = (range: DateRangeT): Date[] => {
-      const counted = new Set<number>();
-      const dates: Date[] = [];
-      for (const item of completionDates) {
-        if (inRange(item.date, range)) {
-          counted.add(item.id);
-          dates.push(item.date);
-        }
-      }
-      for (const doc of archivedDocs) {
-        if (inRange(doc.archivedAt, range) && !counted.has(doc.taskId)) {
-          counted.add(doc.taskId);
-          dates.push(doc.archivedAt);
-        }
-      }
-      return dates;
-    };
-
-    const createdInRange = (range: DateRangeT): Date[] =>
-      createdTasks.map((t) => t.createdAt).filter((date) => inRange(date, range));
+    const datesIn = (range: DateRangeT): Date[] => invoiceDates.filter((date) => inRange(date, range));
 
     const result: Record<string, { count: number; deltaPercent: number | null; series: { labels: string[]; data: number[] } }> = {};
     for (const period of periods) {
       const pair = rangeMap.get(period)!;
-      const datesIn = period === 'today' ? createdInRange : completionsInRange;
       const current = datesIn(pair.current);
       const previous = datesIn(pair.previous);
       result[period] = {

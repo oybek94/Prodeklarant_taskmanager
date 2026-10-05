@@ -5,8 +5,8 @@ import apiClient from '../../lib/api';
 import { useFileHelpers } from './useFileHelpers';
 import { Icon } from '@iconify/react';
 import {
-  formatDate, formatFileSize, formatDuration, formatMoney, getClientCurrency,
-  getStatusInfo, getFileIcon, canPreview, canShowOCR,
+  formatFileSize, formatMoney, getClientCurrency,
+  getStatusInfo, canPreview, canShowOCR,
   calculateStageDuration, evaluateStageTime,
 } from './taskHelpers';
 import type { TaskDetail, TaskStage, TaskDocument, AiCheck, AiCheckDetails, AiCheckError, AiCheckFinding } from './types';
@@ -53,6 +53,46 @@ interface TaskDetailPanelProps {
 
 // Ko'rsatish uchun kengaytmani olib tashlash ("Инвойс.PDF" → "Инвойс")
 const stripExtension = (name: string) => name.replace(/\.[^./\\\s]{1,5}$/, '') || name;
+
+// ── Dizayn yordamchilari ──
+const LABEL = 'text-[11px] font-semibold uppercase tracking-[0.06em] text-[#5d6272] dark:text-gray-400';
+const CARD = 'rounded-[14px] border border-[#e6e8ef] dark:border-slate-700 p-4';
+const MONO: React.CSSProperties = { fontFamily: "'IBM Plex Mono', ui-monospace, monospace" };
+
+const shortDuration = (minutes: number | null): string => {
+  if (minutes === null || minutes < 0) return '';
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (h > 0 && m > 0) return `${h} s ${m} daq`;
+  if (h > 0) return `${h} s`;
+  return `${m} daq`;
+};
+const ruDate = (v?: string | null) => (v ? new Date(v).toLocaleDateString('ru-RU') : '');
+const ruTime = (v?: string | null) => (v ? new Date(v).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : '');
+const fileExt = (name: string) => (name.match(/\.([^./\\\s]{1,5})$/)?.[1] ?? 'FILE').toUpperCase();
+
+const STATUS_CHIP: Record<string, { chip: string; dot: string }> = {
+  YAKUNLANDI: { chip: 'bg-[#e8f7ee] text-[#146c36] dark:bg-emerald-500/20 dark:text-emerald-300', dot: 'bg-[#16a34a]' },
+  BOSHLANMAGAN: { chip: 'bg-[#f0f1f6] text-[#3b4152] dark:bg-slate-700 dark:text-slate-300', dot: 'bg-[#9aa0b2]' },
+};
+const STATUS_CHIP_DEFAULT = { chip: 'bg-[#eef0ff] text-[#3730a3] dark:bg-indigo-500/20 dark:text-indigo-300', dot: 'bg-[#4f46e5]' };
+
+const RATING_CHIP = {
+  alo: { label: "A'lo", cls: 'bg-[#e8f7ee] text-[#146c36] dark:bg-emerald-500/20 dark:text-emerald-300' },
+  ortacha: { label: 'Ortacha', cls: 'bg-[#fff3d6] text-[#7a4b00] dark:bg-amber-500/20 dark:text-amber-300' },
+  yomon: { label: 'Yomon', cls: 'bg-[#fde8e8] text-[#9b1c1c] dark:bg-rose-500/20 dark:text-rose-300' },
+} as const;
+
+const svgProps = { fill: 'none', stroke: 'currentColor', strokeLinecap: 'round', strokeLinejoin: 'round' } as const;
+const IcAlert = () => <svg width="18" height="18" viewBox="0 0 24 24" strokeWidth="1.8" {...svgProps}><path d="M12 3 2.5 20h19L12 3Z" /><path d="M12 10v4.5M12 17.5v.01" /></svg>;
+const IcPen = () => <svg width="18" height="18" viewBox="0 0 24 24" strokeWidth="1.8" {...svgProps}><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4Z" /><path d="m13.5 6.5 4 4" /></svg>;
+const IcTrash = () => <svg width="18" height="18" viewBox="0 0 24 24" strokeWidth="1.8" {...svgProps}><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a1.5 1.5 0 0 0 1.5 1.4h7A1.5 1.5 0 0 0 17 19l1-12M9 7V4.5h6V7" /></svg>;
+const IcDownload = () => <svg width="16" height="16" viewBox="0 0 24 24" strokeWidth="2" {...svgProps}><path d="M12 4v11m0 0-4-4m4 4 4-4M5 20h14" /></svg>;
+const IcClose = () => <svg width="18" height="18" viewBox="0 0 24 24" strokeWidth="2" {...svgProps}><path d="M6 6l12 12M18 6 6 18" /></svg>;
+const IcCheck = () => <svg width="14" height="14" viewBox="0 0 24 24" strokeWidth="3" {...svgProps}><path d="m5 12.5 4.5 4.5L19 7.5" /></svg>;
+const IcComment = () => <svg width="18" height="18" viewBox="0 0 24 24" strokeWidth="1.8" {...svgProps}><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H10l-4.5 4V16A2.5 2.5 0 0 1 4 13.5v-8Z" /></svg>;
+const IcMail = () => <svg width="16" height="16" viewBox="0 0 24 24" strokeWidth="1.9" {...svgProps}><rect x="3" y="5" width="18" height="14" rx="2.5" /><path d="m4 7 8 6 8-6" /></svg>;
+
 
 const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
   task: selectedTask,
@@ -172,12 +212,33 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
   const rawComment = selectedTask?.comments?.trim() ?? '';
   const userComment = /^Invoice yaratish( uchun)?\. Shartnoma: /.test(rawComment) ? '' : rawComment;
 
+  // Umumiy holat (progress chizig'i uchun)
+  const stageList = selectedTask.stages ?? [];
+  const stageTotal = stageList.length;
+  const stageDone = stageList.filter((s) => s.status === 'TAYYOR').length;
+  const stagePercent = stageTotal ? Math.round((stageDone / stageTotal) * 100) : 0;
+  const totalDurationText = shortDuration(
+    stageList
+      .filter((s) => s.status === 'TAYYOR')
+      .reduce((sum, s) => sum + (calculateStageDuration(s, stageList, selectedTask.createdAt) || 0), 0)
+  );
+
+  const statusChip = STATUS_CHIP[selectedTask.status] ?? STATUS_CHIP_DEFAULT;
+  const canAddDocs = selectedTask.status !== 'YAKUNLANDI' || user?.role === 'ADMIN';
+  const createdLine = [ruDate(selectedTask.createdAt), ruTime(selectedTask.createdAt)].filter(Boolean).join(', ');
+  const afterHoursPayerCompany = String((selectedTask.client as any)?.defaultAfterHoursPayer ?? selectedTask.afterHoursPayer ?? 'CLIENT').toUpperCase() === 'COMPANY';
+  const contractText = selectedTask.invoice?.contract?.contractNumber
+    ? `№ ${selectedTask.invoice.contract.contractNumber}${selectedTask.invoice.contract.contractDate ? `, ${ruDate(selectedTask.invoice.contract.contractDate)}` : ''}`
+    : selectedTask.invoice?.contractNumber
+      ? `№ ${selectedTask.invoice.contractNumber}`
+      : 'Biriktirilmagan';
+  const closeBtn = 'flex items-center justify-center bg-[#f0f1f6] dark:bg-slate-800 text-[#5d6272] dark:text-gray-400 hover:bg-[#e6e8ef] dark:hover:bg-slate-700 transition-colors';
+  const iconBtn = 'h-11 w-11 sm:h-10 sm:w-10 rounded-xl sm:rounded-[10px] border flex items-center justify-center cursor-pointer transition-colors';
+
   return (
     <div
       className={`fixed inset-0 bg-gray-900/60 flex items-center justify-center z-[100] backdrop-blur-md ${isMobile ? 'p-0' : 'p-4 sm:p-6'}`}
-      style={{
-        animation: 'backdropFadeIn 0.3s ease-out'
-      }}
+      style={{ animation: 'backdropFadeIn 0.3s ease-out' }}
       onClick={(e) => {
         if (e.target === e.currentTarget) {
           onClose();
@@ -185,25 +246,21 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
       }}
     >
       <div
-        className={`bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] border border-white/50 dark:border-slate-700/50 p-5 md:p-6 w-full overflow-y-auto custom-scrollbar relative overflow-x-hidden ${
-          isMobile
-            ? 'h-full rounded-none pt-20 pb-32 px-4'
-            : 'max-w-4xl max-h-[90vh] rounded-3xl'
+        className={`bg-white dark:bg-slate-900 shadow-[0_24px_60px_-20px_rgba(20,22,31,0.35)] w-full overflow-y-auto custom-scrollbar relative overflow-x-hidden text-[#14161f] dark:text-gray-100 ${
+          isMobile ? 'h-full rounded-none' : 'max-w-4xl max-h-[90vh] rounded-[20px]'
         } ${isDragOver ? 'ring-2 ring-indigo-500 ring-offset-2' : ''}`}
         style={{
-          animation: isMobile ? 'none' : 'modalFadeIn 0.4s cubic-bezier(0.2, 0.8, 0.2, 1)'
+          fontFamily: "'IBM Plex Sans', system-ui, sans-serif",
+          animation: isMobile ? 'none' : 'modalFadeIn 0.4s cubic-bezier(0.2, 0.8, 0.2, 1)',
         }}
         onDragEnter={handleDragEnter}
         onDragLeave={handleDragLeave}
         onDragOver={handleDragOver}
         onDrop={handleDrop}
       >
-        {/* Decorative top solid bar */}
-        <div className="absolute top-0 left-0 right-0 h-2 bg-indigo-600 z-50"></div>
-
         {/* Drag-and-drop overlay */}
         {(isDragOver || isUploading) && (
-          <div className={`absolute inset-0 z-[200] rounded-3xl flex flex-col items-center justify-center gap-3 pointer-events-none transition-all ${
+          <div className={`absolute inset-0 z-[200] rounded-[20px] flex flex-col items-center justify-center gap-3 pointer-events-none transition-all ${
             isUploading
               ? 'bg-indigo-50/95 dark:bg-indigo-900/80'
               : 'bg-indigo-50/90 dark:bg-indigo-900/70 border-2 border-dashed border-indigo-400'
@@ -225,44 +282,37 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
           </div>
         )}
 
-        {isMobile && (
-          <button
-            onClick={() => onClose()}
-            className="fixed top-4 right-4 z-[110] p-2 bg-white/80 dark:bg-slate-800/80 backdrop-blur-md rounded-full shadow-lg border border-gray-200 dark:border-slate-700 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-all"
-            title="Yopish"
-            aria-label="Yopish"
-          >
-            <Icon icon="solar:close-circle-bold-duotone" className="w-6 h-6" />
-          </button>
-        )}
-
-        <div className="relative z-10 flex justify-between items-start mb-5 gap-4">
-          <div>
-            <h2 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-gray-100 tracking-tight leading-tight">{selectedTask.title}</h2>
+        {/* Sarlavha */}
+        <div className="relative z-10 px-4 pt-5 pb-4 sm:px-7 sm:pt-6 sm:pb-5 border-b border-[#e6e8ef] dark:border-slate-700 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3.5 sm:gap-4">
+          <div className="flex flex-col gap-2 min-w-0">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-3 min-w-0">
+                <h2 className="m-0 text-[22px] sm:text-2xl font-bold tracking-[-0.01em] leading-[1.2] break-words">{selectedTask.title}</h2>
+                <span className={`inline-flex items-center gap-1.5 px-2.5 py-[3px] rounded-full text-xs font-semibold shrink-0 ${statusChip.chip}`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${statusChip.dot}`} />
+                  {getStatusInfo(selectedTask.status).label}
+                </span>
+              </div>
+              <button type="button" onClick={() => onClose()} title="Yopish" aria-label="Yopish" className={`sm:hidden h-11 w-11 rounded-xl shrink-0 ${closeBtn}`}>
+                <IcClose />
+              </button>
+            </div>
             {selectedTask.createdBy && (
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 flex items-center gap-1.5">
-                <Icon icon="solar:user-bold-duotone" className="w-3.5 h-3.5" />
-                Yaratdi: <span className="font-medium text-gray-700 dark:text-gray-300">{selectedTask.createdBy.name}</span>
-              </p>
+              <div className="text-[13px] text-[#5d6272] dark:text-gray-400">
+                Yaratdi: <span className="font-medium text-[#14161f] dark:text-gray-200">{selectedTask.createdBy.name}</span>
+                {createdLine && <span className="hidden sm:inline"> · {createdLine}</span>}
+              </div>
             )}
           </div>
-          <div className="flex items-center gap-2 flex-wrap shrink-0">
-            <button
-              onClick={() => onOpenErrorModal()}
-              className="p-2 bg-orange-50 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 rounded-lg hover:bg-orange-600 hover:text-white transition-all shadow-sm ring-1 ring-orange-200 dark:ring-orange-800"
-              title="Xato qo'shish"
-              aria-label="Xato qo'shish"
-            >
-              <Icon icon="solar:danger-circle-bold-duotone" className="w-4 h-4" />
+          <div className="flex items-center gap-2 shrink-0">
+            <button type="button" onClick={() => onOpenErrorModal()} title="Xato qo'shish" aria-label="Xato qo'shish"
+              className={`${iconBtn} border-[#f3d3a6] bg-[#fff7ea] text-[#b45309] hover:bg-[#ffefd2] dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-400 dark:hover:bg-amber-500/20`}>
+              <IcAlert />
             </button>
             {selectedTask.createdBy && user && (user.role === 'ADMIN' || selectedTask.createdBy.id === user.id) && (
-              <button
-                onClick={() => onEdit()}
-                className="p-2 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg hover:bg-blue-600 hover:text-white transition-all shadow-sm ring-1 ring-blue-200 dark:ring-blue-800"
-                title="Tahrirlash"
-                aria-label="Vazifani tahrirlash"
-              >
-                <Icon icon="solar:pen-bold-duotone" className="w-4 h-4" />
+              <button type="button" onClick={() => onEdit()} title="Tahrirlash" aria-label="Vazifani tahrirlash"
+                className={`${iconBtn} border-[#d5d9e6] bg-white text-[#3b4152] hover:bg-[#f8f9fc] dark:border-slate-600 dark:bg-slate-800 dark:text-gray-300 dark:hover:bg-slate-700`}>
+                <IcPen />
               </button>
             )}
             {/* Task o'chirish */}
@@ -270,524 +320,422 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
               (selectedTask.stages &&
                selectedTask.status !== 'JARAYONDA' &&
                selectedTask.stages.every((stage: any) => stage.status === 'BOSHLANMAGAN'))) && (
-                <button
-                  onClick={() => onDeleteTask()}
-                  className="p-2 bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-lg hover:bg-red-600 hover:text-white transition-all shadow-sm ring-1 ring-red-200 dark:ring-red-800"
-                  title="O'chirish"
-                  aria-label="Vazifani o'chirish"
-                >
-                  <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4" />
+                <button type="button" onClick={() => onDeleteTask()} title="O'chirish" aria-label="Vazifani o'chirish"
+                  className={`${iconBtn} border-[#d5d9e6] bg-white text-[#b42318] hover:bg-[#fdecea] dark:border-slate-600 dark:bg-slate-800 dark:text-rose-400 dark:hover:bg-rose-900/30`}>
+                  <IcTrash />
                 </button>
               )}
-            <button
-              onClick={() => downloadStickerPng(selectedTask.id)}
-              className="px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all font-semibold flex items-center gap-1.5 shadow-sm text-sm"
-            >
-              <Icon icon="solar:download-bold-duotone" className="w-4 h-4" />
+            <button type="button" onClick={() => downloadStickerPng(selectedTask.id)}
+              className="h-11 sm:h-10 flex-1 sm:flex-none px-4 rounded-xl sm:rounded-[10px] bg-[#4f46e5] hover:bg-[#4338ca] text-white text-sm font-semibold flex items-center justify-center gap-2 transition-colors">
+              <IcDownload />
               Stiker
             </button>
-            <button
-              onClick={() => onClose()}
-              title="Yopish"
-              aria-label="Yopish"
-              className={`p-1.5 bg-gray-100 dark:bg-slate-800 text-gray-500 dark:text-gray-400 rounded-lg hover:bg-gray-200 dark:hover:bg-slate-700 hover:text-gray-900 dark:hover:text-white transition-all ml-1 ${isMobile ? 'hidden' : ''}`}
-            >
-              <Icon icon="solar:close-circle-bold-duotone" className="w-4 h-4" />
+            <button type="button" onClick={() => onClose()} title="Yopish" aria-label="Yopish" className={`hidden sm:flex h-10 w-10 rounded-[10px] ${closeBtn}`}>
+              <IcClose />
             </button>
           </div>
         </div>
 
-        {/* Task Info Grid Elements */}
-        <div className="mb-5 bg-gray-50/80 dark:bg-slate-800/80 rounded-2xl border border-gray-100 dark:border-slate-700/50 p-4 relative z-10 flex flex-wrap gap-x-6 gap-y-4 shadow-sm">
-          <div className="flex-1 min-w-[120px]">
-            <div className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-1">Mijoz</div>
-            <div className="text-sm font-bold text-gray-800 dark:text-gray-200 truncate" title={selectedTask.client.name}>{selectedTask.client.name}</div>
-          </div>
-          <div className="flex-1 min-w-[100px]">
-            <div className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-1">Filial</div>
-            <div className="text-sm font-bold text-gray-800 dark:text-gray-200 truncate" title={selectedTask.branch.name}>{selectedTask.branch.name}</div>
-          </div>
-          <div className="flex-1 min-w-[120px]">
-            <div className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-1">Status</div>
-            <div className="mt-0.5">
-              <span className={`px-2 py-0.5 text-xs font-bold rounded-md border ${getStatusInfo(selectedTask.status).color.replace('bg-', 'border-').replace('text-', 'text-')}`}>
-                {getStatusInfo(selectedTask.status).label}
-              </span>
+        {/* Umumiy holat */}
+        <div className="relative z-10 px-4 py-4 sm:px-7 bg-[#f8f9fc] dark:bg-slate-800/60 border-b border-[#e6e8ef] dark:border-slate-700 flex flex-col sm:flex-row sm:items-center gap-2.5 sm:gap-6">
+          <div className="flex-1 flex flex-col gap-2">
+            <div className="flex justify-between text-[13px]">
+              <span className="font-semibold">{stageDone} / {stageTotal} bosqich bajarildi</span>
+              <span className="hidden sm:inline text-[#5d6272] dark:text-gray-400">{stagePercent}%</span>
+              {totalDurationText && <span className="sm:hidden text-[#3b4152] dark:text-gray-300" style={MONO}>{totalDurationText}</span>}
+            </div>
+            <div className="h-2 rounded-full bg-[#e3e6ef] dark:bg-slate-700 overflow-hidden">
+              <div className="h-full rounded-full bg-[#16a34a] transition-all duration-500" style={{ width: `${stagePercent}%` }} />
             </div>
           </div>
-          <div className="flex-1 min-w-[100px]">
-            <div className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-1">Yaratilgan</div>
-            <div className="text-sm font-bold text-gray-800 dark:text-gray-200">{formatDate(selectedTask.createdAt)}</div>
-          </div>
-          <div className="w-full">
-            <div className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-1">Shartnoma</div>
-            <div className="text-sm font-bold text-gray-800 dark:text-gray-200 font-mono truncate">
-              {selectedTask.invoice?.contract?.contractNumber
-                ? `№ ${selectedTask.invoice.contract.contractNumber}${selectedTask.invoice.contract.contractDate ? `, kun: ${new Date(selectedTask.invoice.contract.contractDate).toLocaleDateString('en-US')}` : ''}`
-                : selectedTask.invoice?.contractNumber
-                  ? `№ ${selectedTask.invoice.contractNumber}`
-                  : 'Biriktirilmagan'}
+          {totalDurationText && (
+            <div className="hidden sm:flex flex-col gap-0.5 pl-6 border-l border-[#dde0ea] dark:border-slate-600">
+              <span className={LABEL}>Umumiy vaqt</span>
+              <span className="text-[15px] font-semibold" style={MONO}>{totalDurationText}</span>
             </div>
-          </div>
+          )}
+          {selectedTask.updatedBy && (
+            <div className="hidden sm:flex flex-col gap-0.5 pl-6 border-l border-[#dde0ea] dark:border-slate-600">
+              <span className={LABEL}>Oxirgi o'zgarish</span>
+              <span className="text-[13px] font-medium">{ruDate(selectedTask.updatedAt)} · {selectedTask.updatedBy.name}</span>
+            </div>
+          )}
         </div>
 
-        {/* Izohlar: yuqorida; bo'sh bo'lsa umuman ko'rsatilmaydi */}
+        {/* Izohlar: izoh bo'lsa ko'rinadi, bo'sh bo'lsa umuman yo'q */}
         {userComment && (
-          <div className="mb-5 relative z-10 rounded-2xl border border-amber-200 dark:border-amber-500/30 bg-amber-50/80 dark:bg-amber-900/10 p-4 shadow-sm dark:shadow-none">
-            <div className="text-[10px] font-semibold text-amber-700 dark:text-amber-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
-              <Icon icon="solar:chat-square-bold-duotone" className="w-4 h-4" />
-              Izohlar
+          <div className="relative z-10 px-4 pt-4 sm:px-7 sm:pt-5">
+            <div className="flex gap-2.5 sm:gap-3 p-3.5 sm:px-4 rounded-xl bg-[#fff8e8] border border-[#f2d9a2] dark:bg-amber-500/10 dark:border-amber-500/30">
+              <span className="shrink-0 mt-0.5 text-[#8a5a00] dark:text-amber-400"><IcComment /></span>
+              <div className="flex flex-col gap-1 min-w-0">
+                <span className="text-[11px] font-bold uppercase tracking-[0.06em] text-[#8a5a00] dark:text-amber-400">Izohlar</span>
+                <span className="text-sm leading-normal text-[#14161f] dark:text-gray-200 whitespace-pre-wrap break-words">{userComment}</span>
+              </div>
             </div>
-            <p className="text-sm text-gray-800 dark:text-gray-200 leading-relaxed whitespace-pre-wrap break-words">
-              {userComment}
-            </p>
           </div>
         )}
 
-        {selectedTask.updatedBy && (
-          <div className="mb-5 flex justify-between items-center text-[11px] text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-slate-800 pb-3">
-            <div>
-              <span className="font-semibold">Oxirgi o'zgartirilgan:</span> {selectedTask.updatedAt ? formatDate(selectedTask.updatedAt) : ''}
-              <span className="ml-1">{selectedTask.updatedBy.name} tomonidan</span>
-            </div>
-            {selectedTask.stages && selectedTask.stages.length > 0 && (() => {
-              const MathFloor = Math.floor;
-              const totalMinutes = selectedTask.stages
-                .filter(stage => stage.status === 'TAYYOR')
-                .reduce((total, stage) => {
-                  const duration = calculateStageDuration(stage, selectedTask.stages || [], selectedTask.createdAt);
-                  return total + (duration || 0);
-                }, 0);
-              const totalDuration = formatDuration(totalMinutes);
-              return totalDuration ? (
-                <div className="font-bold text-gray-700 dark:text-gray-300">
-                  Umumiy vaqt: {totalDuration}
+        {/* Asosiy qism */}
+        <div className="relative z-10 px-4 pt-5 pb-2 sm:px-7 flex flex-col sm:flex-row gap-5 sm:gap-6 items-start">
+
+          {/* Bosqichlar */}
+          <div className="flex-1 min-w-0 w-full flex flex-col gap-3">
+            <h3 className="m-0 text-base font-bold">Jarayonlar</h3>
+            <div className="flex flex-col gap-2">
+              {selectedTask.stages && selectedTask.stages.length > 0 ? (
+                selectedTask.stages.map((stage) => {
+                  const isDone = stage.status === 'TAYYOR';
+                  const durationMinutes = isDone
+                    ? calculateStageDuration(stage, selectedTask.stages || [], selectedTask.createdAt)
+                    : null;
+                  const evaluation = isDone ? evaluateStageTime(stage.name, durationMinutes) : null;
+                  const durationText = shortDuration(durationMinutes);
+                  const rating = evaluation && durationText ? RATING_CHIP[evaluation.rating] : null;
+                  const deklarMultiplier =
+                    isDone && stage.name === 'Deklaratsiya' && selectedTask?.customsPaymentMultiplier != null
+                      ? Number(selectedTask.customsPaymentMultiplier)
+                      : null;
+
+                  return (
+                    <div
+                      key={stage.id}
+                      onClick={() => {
+                        if (!updatingStage) {
+                          handleStageClick(stage);
+                        }
+                      }}
+                      className={`flex items-center gap-3 p-3 sm:px-3.5 min-h-11 rounded-xl border border-[#e6e8ef] dark:border-slate-700 bg-white dark:bg-slate-800/40 hover:bg-[#f8f9fc] dark:hover:bg-slate-800 transition-colors ${updatingStage === stage.id ? 'cursor-wait opacity-60' : 'cursor-pointer'}`}
+                    >
+                      {isDone ? (
+                        <span className="w-[26px] h-[26px] sm:w-6 sm:h-6 rounded-full bg-[#16a34a] text-white flex items-center justify-center shrink-0"><IcCheck /></span>
+                      ) : (
+                        <span className="w-[26px] h-[26px] sm:w-6 sm:h-6 rounded-full border-2 border-[#b9bfd0] dark:border-slate-500 box-border shrink-0" />
+                      )}
+                      <div className="flex-1 min-w-0 flex flex-col gap-0.5">
+                        <span className="text-sm font-semibold">{stage.name}</span>
+                        {isDone && (stage.assignedTo || durationText) && (
+                          <span className="text-xs text-[#5d6272] dark:text-gray-400">
+                            {stage.assignedTo?.name}
+                            <span className="sm:hidden">{stage.assignedTo && durationText ? ' · ' : ''}{durationText}</span>
+                          </span>
+                        )}
+                      </div>
+                      {deklarMultiplier != null && (
+                        <span className="hidden sm:inline-flex items-center gap-1 px-2.5 py-[3px] rounded-full text-xs font-semibold bg-[#eef0ff] text-[#3730a3] dark:bg-indigo-500/20 dark:text-indigo-300">
+                          BXM {deklarMultiplier} barobari
+                          {selectedTask.snapshotCustomsPayment != null && (
+                            <span className="font-medium">
+                              ({new Intl.NumberFormat('en-US').format(Math.round(Number(selectedTask.snapshotCustomsPayment_amount_uzs || selectedTask.snapshotCustomsPayment))).replace(/,/g, ' ').replace(/\./g, ',')} UZS)
+                            </span>
+                          )}
+                          {(user?.role === 'ADMIN' || user?.role === 'MANAGER') && (
+                            <button
+                              type="button"
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                await handleBXMEdit(stage);
+                              }}
+                              className="ml-0.5 p-0.5 rounded hover:bg-[#dfe3ff] dark:hover:bg-indigo-500/30 transition-colors"
+                              title="BXM ni o'zgartirish"
+                              aria-label="BXM ni o'zgartirish"
+                            >
+                              <Icon icon="solar:pen-bold-duotone" className="w-3 h-3" />
+                            </button>
+                          )}
+                        </span>
+                      )}
+                      {isDone && durationText && (
+                        <span className="hidden sm:block text-[13px] text-[#3b4152] dark:text-gray-300" style={MONO}>{durationText}</span>
+                      )}
+                      {isDone && rating && (
+                        <span className={`px-2.5 py-[3px] rounded-full text-xs font-semibold ${rating.cls}`}>{rating.label}</span>
+                      )}
+                      {!isDone && (
+                        <span className="hidden sm:block text-xs text-[#5d6272] dark:text-gray-400">Bosish bilan bajarildi deb belgilanadi</span>
+                      )}
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="text-center py-4 text-gray-400">
+                  {loadingTask ? 'Jarayonlar yuklanmoqda...' : 'Jarayonlar topilmadi'}
                 </div>
-              ) : null;
-            })()}
-          </div>
-        )}
-
-        {/* PSR Information */}
-        <div className="mb-5 relative z-10 overflow-hidden rounded-2xl border border-blue-100 dark:border-slate-700 bg-blue-50/80 dark:bg-slate-800/80 p-4 shadow-sm dark:shadow-none">
-          <div className="flex items-center gap-2 mb-3 border-b border-blue-100/60 dark:border-slate-700/60 pb-2">
-            <div className="p-1.5 bg-blue-100 dark:bg-blue-900/50 rounded-lg text-blue-700 dark:text-blue-400 shadow-sm">
-              <Icon icon="solar:document-text-bold-duotone" className="w-4 h-4" />
+              )}
             </div>
-            <h3 className="text-sm font-bold text-blue-900 dark:text-blue-100 tracking-tight">PSR ma'lumotlari</h3>
           </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex-1 min-w-max flex items-center justify-between p-2 bg-white/60 dark:bg-white/5 rounded-xl border border-blue-50 dark:border-slate-600/50">
-              <span className="text-[11px] font-semibold text-gray-600 dark:text-gray-400 mr-2">PSR mavjudligi:</span>
-              <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full border shadow-sm ${selectedTask.hasPsr
-                ? 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800'
-                : 'bg-gray-50 dark:bg-slate-700/50 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-slate-600'
-                }`}>
-                {selectedTask.hasPsr ? 'Bor' : 'Yo\'q'}
-              </span>
+
+          {/* Yon panel */}
+          <div className="w-full sm:w-[300px] shrink-0 flex flex-col gap-3 sm:gap-4">
+            <div className={`${CARD} flex flex-col gap-3.5`}>
+              <div className="flex flex-col gap-[3px]">
+                <span className={LABEL}>Mijoz</span>
+                <span className="text-sm font-semibold break-words">{selectedTask.client.name}</span>
+              </div>
+              <div className="flex gap-4">
+                <div className="flex-1 min-w-0 flex flex-col gap-[3px]">
+                  <span className={LABEL}>Filial</span>
+                  <span className="text-sm font-semibold truncate" title={selectedTask.branch.name}>{selectedTask.branch.name}</span>
+                </div>
+                <div className="flex-1 min-w-0 flex flex-col gap-[3px]">
+                  <span className={LABEL}>Yaratilgan</span>
+                  <span className="text-sm font-semibold">{ruDate(selectedTask.createdAt)}</span>
+                </div>
+              </div>
+              <div className="flex flex-col gap-[3px]">
+                <span className={LABEL}>Shartnoma</span>
+                <span className="text-sm font-semibold break-words" style={MONO}>{contractText}</span>
+              </div>
             </div>
 
-            {user?.role === 'ADMIN' && (
-              <div className="flex-1 min-w-max flex items-center justify-between p-2 bg-white/60 dark:bg-white/5 rounded-xl border border-blue-50 dark:border-slate-600/50">
-                <span className="text-[11px] font-semibold text-gray-600 dark:text-gray-400 mr-2">Qo'shimcha to'lov:</span>
-                <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full border shadow-sm ${String((selectedTask.client as any)?.defaultAfterHoursPayer ?? selectedTask.afterHoursPayer ?? 'CLIENT').toUpperCase() === 'COMPANY'
-                  ? 'bg-purple-50 text-purple-700 border-purple-200'
-                  : 'bg-blue-50 text-blue-700 border-blue-200'
-                  }`}>
-                  {String((selectedTask.client as any)?.defaultAfterHoursPayer ?? selectedTask.afterHoursPayer ?? 'CLIENT').toUpperCase() === 'COMPANY' ? 'Kompaniya' : 'Mijoz'}
+            <div className={`${CARD} flex flex-col gap-3`}>
+              <h4 className="m-0 text-[13px] font-bold">PSR ma'lumotlari</h4>
+              <div className="flex justify-between items-center text-[13px]">
+                <span className="text-[#5d6272] dark:text-gray-400">PSR mavjudligi</span>
+                <span className={`px-2.5 py-[3px] rounded-full text-xs font-semibold ${selectedTask.hasPsr
+                  ? 'bg-[#e8f7ee] text-[#146c36] dark:bg-emerald-500/20 dark:text-emerald-300'
+                  : 'bg-[#f0f1f6] text-[#3b4152] dark:bg-slate-700 dark:text-slate-300'}`}>
+                  {selectedTask.hasPsr ? 'Bor' : "Yo'q"}
                 </span>
               </div>
-            )}
-
-            <label className="flex-1 min-w-max flex items-center justify-between p-2 bg-white/60 dark:bg-slate-800/60 rounded-xl border border-blue-50 dark:border-slate-700 gap-2 cursor-pointer group hover:bg-white dark:hover:bg-slate-800 transition-colors">
-              <span className="text-[11px] font-semibold text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-white transition-colors">Ish vaqtidan tashqari ko'rib chiqish:</span>
-              <div className="relative flex items-center justify-center ml-2">
+              {user?.role === 'ADMIN' && (
+                <div className="flex justify-between items-center text-[13px]">
+                  <span className="text-[#5d6272] dark:text-gray-400">Qo'shimcha to'lov</span>
+                  <span className={`px-2.5 py-[3px] rounded-full text-xs font-semibold ${afterHoursPayerCompany
+                    ? 'bg-[#f3e8ff] text-[#6b21a8] dark:bg-purple-500/20 dark:text-purple-300'
+                    : 'bg-[#eef0ff] text-[#3730a3] dark:bg-indigo-500/20 dark:text-indigo-300'}`}>
+                    {afterHoursPayerCompany ? 'Kompaniya' : 'Mijoz'}
+                  </span>
+                </div>
+              )}
+              <label className="flex justify-between items-center gap-3 text-[13px] cursor-pointer min-h-11 sm:min-h-0 pt-3 border-t border-[#eceef4] dark:border-slate-700">
+                <span>Ish vaqtidan tashqari ko'rib chiqish</span>
                 <input
                   type="checkbox"
                   checked={afterHoursDeclaration}
                   onChange={(e) => handleAfterHoursDeclarationChange(e.target.checked)}
-                  className="peer h-4 w-4 cursor-pointer appearance-none rounded border-2 border-slate-300 dark:border-slate-600 checked:border-blue-600 checked:bg-blue-600 transition-all focus:ring-0 focus:ring-offset-0"
+                  className="w-[22px] h-[22px] sm:w-[18px] sm:h-[18px] accent-[#4f46e5] shrink-0 cursor-pointer"
                 />
-                <Icon icon="solar:check-circle-bold-duotone" className="absolute w-3 h-3 text-white pointer-events-none opacity-0 peer-checked:opacity-100 transition-opacity" />
-              </div>
-            </label>
-
-            {selectedTask.afterHoursDeclaration && (
-              <div className="w-full flex items-center justify-between p-2 bg-amber-50/80 dark:bg-amber-900/20 rounded-xl border border-amber-100 dark:border-amber-800">
-                <span className="text-[11px] font-bold text-amber-800 dark:text-amber-500 flex items-center gap-1.5">
-                  <Icon icon="solar:moon-bold-duotone" className="w-3.5 h-3.5 text-amber-600 dark:text-amber-500" />
+              </label>
+              {selectedTask.afterHoursDeclaration && (
+                <div className="flex items-center gap-1.5 px-2.5 py-2 rounded-lg bg-[#fff8e8] border border-[#f2d9a2] dark:bg-amber-500/10 dark:border-amber-500/30 text-xs font-semibold text-[#8a5a00] dark:text-amber-400">
+                  <Icon icon="solar:moon-bold-duotone" className="w-3.5 h-3.5 shrink-0" />
                   Ish vaqtidan tashqari rasmiylashtiruv tasdiqlangan
-                </span>
-                <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-400 shadow-sm border border-amber-200 dark:border-amber-700">Ha</span>
-              </div>
-            )}
-
-            {selectedTask.driverPhone ? (
-              <div className="w-full flex flex-col sm:flex-row items-stretch sm:items-center gap-2 p-2.5 bg-white/80 dark:bg-slate-800/80 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm">
-                <div className="flex-1 flex items-center justify-between sm:justify-start sm:gap-4">
-                  <div className="flex items-center gap-1.5">
-                    <div className="p-1 bg-slate-100 dark:bg-slate-700 rounded-md">
-                      <Icon icon="solar:phone-bold-duotone" className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400" />
-                    </div>
-                    <span className="text-[11px] font-semibold text-gray-600 dark:text-gray-400">Haydovchi:</span>
-                  </div>
-                  <span className="text-sm font-bold text-gray-900 dark:text-white font-mono tracking-tight">{selectedTask.driverPhone}</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={handleTelegramClick}
-                    className="flex-1 sm:flex-none w-auto bg-[#0088cc] hover:bg-[#0077b5] text-white px-3 py-1.5 rounded-lg flex items-center justify-center gap-1.5 transition-all font-semibold text-xs shadow-sm active:scale-[0.98]"
-                  >
-                    <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69.01-.03.01-.14-.07-.19-.08-.05-.19-.02-.27 0-.12.03-1.95 1.25-5.5 3.65-.52.36-.99.53-1.42.52-.47-.01-1.37-.26-2.03-.48-.82-.27-1.47-.42-1.42-.88.03-.24.29-.48.79-.74 3.08-1.34 5.15-2.23 6.19-2.66 2.95-1.23 3.56-1.44 3.96-1.45.09 0 .28.02.41.11.11.08.14.19.16.27-.01.07.01.2 0 .26z" /></svg>
-                    <span>Telegram</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleOpenSendEmailModal}
-                    className="flex-1 sm:flex-none w-auto bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800/50 hover:bg-emerald-100 dark:hover:bg-emerald-800/30 text-emerald-700 dark:text-emerald-400 px-3 py-1.5 rounded-lg flex items-center justify-center gap-1.5 transition-all font-semibold text-xs shadow-sm active:scale-[0.99]"
-                  >
-                    <Icon icon="solar:letter-bold-duotone" className="w-4 h-4" />
-                    <span>Email</span>
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="w-full">
-                <button
-                  type="button"
-                  onClick={handleOpenSendEmailModal}
-                  className="w-full bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800/50 hover:bg-emerald-100 dark:hover:bg-emerald-800/30 text-emerald-700 dark:text-emerald-400 px-3 py-2 rounded-lg flex items-center justify-center gap-1.5 transition-all font-semibold text-xs shadow-sm active:scale-[0.99]"
-                >
-                  <Icon icon="solar:letter-bold-duotone" className="w-4 h-4" />
-                  <span>Hujjatlarni Email orqali yuborish</span>
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Stages - Checklist */}
-        <div className="mb-5">
-          <h3 className="text-base font-bold text-gray-800 dark:text-gray-100 mb-3">Jarayonlar</h3>
-          <div className="space-y-2">
-            {selectedTask.stages && selectedTask.stages.length > 0 ? (
-              selectedTask.stages.map((stage) => {
-                // Vaqtni hisoblash va baholash
-                const durationMinutes = stage.status === 'TAYYOR'
-                  ? calculateStageDuration(stage, selectedTask.stages || [], selectedTask.createdAt)
-                  : null;
-                const evaluation = stage.status === 'TAYYOR'
-                  ? evaluateStageTime(stage.name, durationMinutes)
-                  : null;
-
-                // Rangni aniqlash
-                let borderColor = 'border-gray-200 dark:border-slate-700';
-                let bgColor = 'dark:bg-slate-800/10';
-                if (stage.status === 'TAYYOR' && evaluation) {
-                  if (evaluation.rating === 'alo') {
-                    borderColor = 'border-green-300 dark:border-green-800/60';
-                    bgColor = 'bg-green-50 dark:bg-green-900/10';
-                  } else if (evaluation.rating === 'ortacha') {
-                    borderColor = 'border-yellow-300 dark:border-yellow-800/60';
-                    bgColor = 'bg-yellow-50 dark:bg-yellow-900/10';
-                  } else {
-                    borderColor = 'border-red-300 dark:border-red-800/60';
-                    bgColor = 'bg-red-50 dark:bg-red-900/10';
-                  }
-                } else if (stage.status === 'TAYYOR') {
-                  bgColor = 'bg-gray-50 dark:bg-slate-800/50';
-                }
-
-                return (
-                  <div
-                    key={stage.id}
-                    onClick={() => {
-                      if (!updatingStage) {
-                        handleStageClick(stage);
-                      }
-                    }}
-                    className={`flex items-center justify-between p-2.5 border ${borderColor} rounded-lg hover:bg-gray-50 dark:hover:bg-slate-800/50 transition ${bgColor} ${updatingStage === stage.id ? 'cursor-wait' : 'cursor-pointer'}`}
-                  >
-                    <div className="flex items-center flex-1">
-                      <div
-                        className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${stage.status === 'TAYYOR'
-                          ? 'bg-green-500 border-green-500'
-                          : 'border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 hover:border-green-400 dark:hover:border-green-500'
-                          } ${updatingStage === stage.id ? 'opacity-50 cursor-not-allowed' : ''}`}
-                        style={{
-                          transition: stage.status === 'TAYYOR'
-                            ? 'all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)'
-                            : 'all 0.3s ease-in-out',
-                          transform: stage.status === 'TAYYOR' ? 'scale(1.05)' : 'scale(1)',
-                          boxShadow: stage.status === 'TAYYOR'
-                            ? '0 2px 8px rgba(34, 197, 94, 0.4)'
-                            : 'none',
-                          animation: stage.status === 'TAYYOR' && updatingStage !== stage.id
-                            ? 'checkboxPulse 0.6s ease-out'
-                            : 'none'
-                        }}
-                      >
-                        {stage.status === 'TAYYOR' && (
-                          <Icon icon="solar:check-circle-bold-duotone" className="w-3.5 h-3.5 text-white" />
-                        )}
-                      </div>
-                      <label
-                        className={`ml-3 text-sm font-medium flex-1 transition-all duration-300 ${stage.status === 'TAYYOR'
-                          ? 'line-through text-gray-400 dark:text-gray-500 opacity-60'
-                          : 'text-gray-900 dark:text-gray-200'
-                          }`}
-                      >
-                        {stage.name}
-                      </label>
-                    </div>
-                    {stage.status === 'TAYYOR' && (() => {
-                      const durationText = formatDuration(durationMinutes);
-                      const deklarMultiplier =
-                        stage.name === 'Deklaratsiya' && selectedTask?.customsPaymentMultiplier != null
-                          ? Number(selectedTask.customsPaymentMultiplier)
-                          : null;
-
-                      return (
-                        <div className="text-xs text-gray-500 dark:text-gray-400 ml-4 flex items-center gap-2 flex-wrap">
-                          {stage.assignedTo && (
-                            <span className="font-medium text-gray-700 dark:text-gray-300">
-                              ({stage.assignedTo.name})
-                            </span>
-                          )}
-                          {deklarMultiplier != null && (
-                            <span className="text-gray-700 dark:text-gray-300 flex items-center gap-1 bg-blue-50 dark:bg-blue-900/20 px-2 py-0.5 rounded-full border border-blue-100 dark:border-blue-800/50">
-                              <span className="font-semibold text-blue-700 dark:text-blue-400 text-[11px]">
-                                BXM {deklarMultiplier} barobari
-                                {selectedTask.snapshotCustomsPayment != null && (
-                                  <span className="ml-1 text-blue-600 dark:text-blue-300">
-                                    ({new Intl.NumberFormat('en-US').format(Math.round(Number(selectedTask.snapshotCustomsPayment_amount_uzs || selectedTask.snapshotCustomsPayment))).replace(/,/g, ' ').replace(/\./g, ',')} UZS)
-                                  </span>
-                                )}
-                              </span>
-                              {(user?.role === 'ADMIN' || user?.role === 'MANAGER') && (
-                                <button
-                                  type="button"
-                                  onClick={async (e) => {
-                                    e.stopPropagation();
-                                    await handleBXMEdit(stage);
-                                  }}
-                                  className="ml-1 p-0.5 text-blue-500 hover:text-blue-700 dark:hover:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-800/50 rounded transition-colors"
-                                  title="BXM ni o'zgartirish"
-                                >
-                                  <Icon icon="solar:pen-bold-duotone" className="w-3 h-3" />
-                                </button>
-                              )}
-                            </span>
-                          )}
-                          {durationText && <span>{durationText}</span>}
-                          {durationText && evaluation && (
-                            <i className={`fas ${evaluation.icon} ${evaluation.color}`} title={
-                              evaluation.rating === 'alo' ? 'A\'lo' :
-                                evaluation.rating === 'ortacha' ? 'Ortacha' :
-                                  'Yomon'
-                            }></i>
-                          )}
-                        </div>
-                      );
-                    })()}
-                  </div>
-                );
-              })
-            ) : (
-              <div className="text-center py-4 text-gray-400">
-                {loadingTask ? 'Jarayonlar yuklanmoqda...' : 'Jarayonlar topilmadi'}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Foyda hisoboti: ADMIN — to'liq hisobot; boshqalar — faqat o'z KPI daromadi (netProfit ularga kelmaydi) */}
-        {(user?.role !== 'ADMIN' || (selectedTask.netProfit !== null && selectedTask.netProfit !== undefined)) && (
-          <div className={`mb-5 relative z-10 p-4 rounded-2xl border-2 shadow-sm ${financial.containerClass}`}>
-            <div className="flex items-center justify-between gap-3 mb-2">
-              <div className="flex items-center gap-3">
-                <div className={`p-2 rounded-lg shadow-sm ${financial.iconBgClass}`}>
-                  <Icon icon={financial.icon} className="w-5 h-5" />
-                </div>
-                <div className={`text-base font-bold tracking-tight ${financial.titleClass}`}>
-                  Moliyaviy hisobot
-                </div>
-              </div>
-              <button
-                onClick={() => setShowFinancialReport(!showFinancialReport)}
-                className={`p-1.5 rounded-lg transition-colors flex items-center gap-1.5 text-sm font-semibold ${financial.btnClass}`}
-              >
-                <Icon icon={showFinancialReport ? "solar:eye-closed-bold-duotone" : "solar:eye-bold-duotone"} className="w-4 h-4" />
-                <span className="hidden sm:inline">{showFinancialReport ? "Yashirish" : "Ko'rsatish"}</span>
-              </button>
+              )}
             </div>
 
-            {showFinancialReport && (
-              <div className="space-y-3.5 mt-5 pt-4 border-t border-gray-200/50 dark:border-slate-700/50">
-                {/* Admin uchun to'liq ma'lumot */}
-                {user?.role === 'ADMIN' && (
-                  <div className="bg-white/60 dark:bg-slate-800/60 rounded-xl p-4 border border-gray-100 dark:border-slate-700 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-semibold text-gray-500 dark:text-gray-400">Shartnoma summasi:</span>
-                      <span className="text-sm font-bold text-gray-900 dark:text-gray-100">
-                        {formatMoney(financial.dealAmount, financial.currency)}
-                        {financial.rep && financial.dealAmount > financial.dealAmountBase + financial.psrAmount && (
-                          <span className="text-xs font-semibold text-gray-400 ml-1.5 whitespace-normal">
-                            (+ qo'shimcha BXM hisobi qo'shilgan)
-                          </span>
-                        )}
-                      </span>
-                    </div>
-                    {financial.rep && financial.rep.transferAmount > 0 && (
-                      <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 -mt-1.5">
-                        <span>Naqt: {formatMoney(financial.rep.cashAmount, financial.currency)}</span>
-                        <span>Perechisleniya: {formatMoney(financial.rep.transferAmount, financial.currency)}</span>
+            <div className={`${CARD} flex flex-col gap-3`}>
+              <div className="flex items-center justify-between gap-3">
+                <h4 className="m-0 text-[13px] font-bold">Haydovchi</h4>
+                {selectedTask.driverPhone
+                  ? <span className="text-sm font-semibold" style={MONO}>{selectedTask.driverPhone}</span>
+                  : <span className="text-[13px] text-[#5d6272] dark:text-gray-400">Kiritilmagan</span>}
+              </div>
+              <div className="flex gap-2">
+                {selectedTask.driverPhone && (
+                  <button type="button" onClick={handleTelegramClick}
+                    className="flex-1 h-11 sm:h-10 rounded-xl sm:rounded-[10px] bg-[#0f7fb8] hover:bg-[#0c6c9d] text-white text-[13px] font-semibold transition-colors">
+                    Telegram
+                  </button>
+                )}
+                <button type="button" onClick={handleOpenSendEmailModal}
+                  className="flex-1 h-11 sm:h-10 rounded-xl sm:rounded-[10px] border border-[#b7e2c8] bg-[#effaf3] hover:bg-[#e0f4e8] text-[#146c36] dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300 dark:hover:bg-emerald-500/20 text-[13px] font-semibold flex items-center justify-center gap-1.5 transition-colors">
+                  <IcMail />
+                  {selectedTask.driverPhone ? 'Email' : 'Hujjatlarni Email orqali yuborish'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Moliyaviy hisobot */}
+        <div className="relative z-10 px-4 sm:px-7">
+          {/* Foyda hisoboti: ADMIN — to'liq hisobot; boshqalar — faqat o'z KPI daromadi (netProfit ularga kelmaydi) */}
+          {(user?.role !== 'ADMIN' || (selectedTask.netProfit !== null && selectedTask.netProfit !== undefined)) && (
+            <div className={`mb-5 relative z-10 p-4 rounded-2xl border-2 shadow-sm ${financial.containerClass}`}>
+              <div className="flex items-center justify-between gap-3 mb-2">
+                <div className="flex items-center gap-3">
+                  <div className={`p-2 rounded-lg shadow-sm ${financial.iconBgClass}`}>
+                    <Icon icon={financial.icon} className="w-5 h-5" />
+                  </div>
+                  <div className={`text-base font-bold tracking-tight ${financial.titleClass}`}>
+                    Moliyaviy hisobot
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowFinancialReport(!showFinancialReport)}
+                  className={`p-1.5 rounded-lg transition-colors flex items-center gap-1.5 text-sm font-semibold ${financial.btnClass}`}
+                >
+                  <Icon icon={showFinancialReport ? "solar:eye-closed-bold-duotone" : "solar:eye-bold-duotone"} className="w-4 h-4" />
+                  <span className="hidden sm:inline">{showFinancialReport ? "Yashirish" : "Ko'rsatish"}</span>
+                </button>
+              </div>
+
+              {showFinancialReport && (
+                <div className="space-y-3.5 mt-5 pt-4 border-t border-gray-200/50 dark:border-slate-700/50">
+                  {/* Admin uchun to'liq ma'lumot */}
+                  {user?.role === 'ADMIN' && (
+                    <div className="bg-white/60 dark:bg-slate-800/60 rounded-xl p-4 border border-gray-100 dark:border-slate-700 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-semibold text-gray-500 dark:text-gray-400">Shartnoma summasi:</span>
+                        <span className="text-sm font-bold text-gray-900 dark:text-gray-100">
+                          {formatMoney(financial.dealAmount, financial.currency)}
+                          {financial.rep && financial.dealAmount > financial.dealAmountBase + financial.psrAmount && (
+                            <span className="text-xs font-semibold text-gray-400 ml-1.5 whitespace-normal">
+                              (+ qo'shimcha BXM hisobi qo'shilgan)
+                            </span>
+                          )}
+                        </span>
                       </div>
-                    )}
-                    {financial.rep && (
-                      <>
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm font-semibold text-gray-500 dark:text-gray-400">- Sertifikatchi tariflari:</span>
-                          <span className="text-sm font-bold text-rose-500 dark:text-rose-400 px-2 py-0.5 bg-rose-50 dark:bg-rose-900/30 rounded-md ring-1 ring-rose-100 dark:ring-rose-800">
-                            - {formatMoney(financial.rep.certifierFee, financial.currency)}
-                          </span>
+                      {financial.rep && financial.rep.transferAmount > 0 && (
+                        <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 -mt-1.5">
+                          <span>Naqt: {formatMoney(financial.rep.cashAmount, financial.currency)}</span>
+                          <span>Perechisleniya: {formatMoney(financial.rep.transferAmount, financial.currency)}</span>
                         </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm font-semibold text-gray-500 dark:text-gray-400">- Davlat to'lovlari:</span>
-                          <span className="text-sm font-bold text-rose-500 dark:text-rose-400 px-2 py-0.5 bg-rose-50 dark:bg-rose-900/30 rounded-md ring-1 ring-rose-100 dark:ring-rose-800">
-                            - {formatMoney(financial.rep.statePayment, financial.currency)}
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm font-semibold text-gray-500 dark:text-gray-400">- Deklaratsiya to'lovi:</span>
-                          <span className="text-sm font-bold text-rose-500 dark:text-rose-400 px-2 py-0.5 bg-rose-50 dark:bg-rose-900/30 rounded-md ring-1 ring-rose-100 dark:ring-rose-800">
-                            - {formatMoney(financial.rep.declarationPayment, financial.currency)}
-                          </span>
-                        </div>
-                        {financial.rep.hiredWorkerPayment !== undefined && (
+                      )}
+                      {financial.rep && (
+                        <>
                           <div className="flex items-center justify-between">
-                            <span className="text-sm font-semibold text-gray-500 dark:text-gray-400">- Ishchilar:</span>
+                            <span className="text-sm font-semibold text-gray-500 dark:text-gray-400">- Sertifikatchi tariflari:</span>
                             <span className="text-sm font-bold text-rose-500 dark:text-rose-400 px-2 py-0.5 bg-rose-50 dark:bg-rose-900/30 rounded-md ring-1 ring-rose-100 dark:ring-rose-800">
-                              - {formatMoney(financial.rep.hiredWorkerPayment, financial.currency)}
+                              - {formatMoney(financial.rep.certifierFee, financial.currency)}
                             </span>
                           </div>
-                        )}
-                      </>
-                    )}
-                    {!financial.rep && (
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-semibold text-gray-500 dark:text-gray-400">Barcha xarajatlar:</span>
-                        <span className="text-sm font-bold text-rose-500 dark:text-rose-400 px-2 py-0.5 bg-rose-50 dark:bg-rose-900/30 rounded-md ring-1 ring-rose-100 dark:ring-rose-800">
-                          - {formatMoney(getBranchPaymentsDisplay(selectedTask, afterHoursDeclaration, financial.currency), financial.currency)}
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-semibold text-gray-500 dark:text-gray-400">- Davlat to'lovlari:</span>
+                            <span className="text-sm font-bold text-rose-500 dark:text-rose-400 px-2 py-0.5 bg-rose-50 dark:bg-rose-900/30 rounded-md ring-1 ring-rose-100 dark:ring-rose-800">
+                              - {formatMoney(financial.rep.statePayment, financial.currency)}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-semibold text-gray-500 dark:text-gray-400">- Deklaratsiya to'lovi:</span>
+                            <span className="text-sm font-bold text-rose-500 dark:text-rose-400 px-2 py-0.5 bg-rose-50 dark:bg-rose-900/30 rounded-md ring-1 ring-rose-100 dark:ring-rose-800">
+                              - {formatMoney(financial.rep.declarationPayment, financial.currency)}
+                            </span>
+                          </div>
+                          {financial.rep.hiredWorkerPayment !== undefined && (
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-semibold text-gray-500 dark:text-gray-400">- Ishchilar:</span>
+                              <span className="text-sm font-bold text-rose-500 dark:text-rose-400 px-2 py-0.5 bg-rose-50 dark:bg-rose-900/30 rounded-md ring-1 ring-rose-100 dark:ring-rose-800">
+                                - {formatMoney(financial.rep.hiredWorkerPayment, financial.currency)}
+                              </span>
+                            </div>
+                          )}
+                        </>
+                      )}
+                      {!financial.rep && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-semibold text-gray-500 dark:text-gray-400">Barcha xarajatlar:</span>
+                          <span className="text-sm font-bold text-rose-500 dark:text-rose-400 px-2 py-0.5 bg-rose-50 dark:bg-rose-900/30 rounded-md ring-1 ring-rose-100 dark:ring-rose-800">
+                            - {formatMoney(getBranchPaymentsDisplay(selectedTask, afterHoursDeclaration, financial.currency), financial.currency)}
+                          </span>
+                        </div>
+                      )}
+                      <div className="pt-3 border-t border-gray-200/60 dark:border-slate-700/60 flex items-center justify-between">
+                        <span className={`text-sm font-bold uppercase tracking-wider ${financial.labelClass}`}>
+                          Sof foyda:
+                        </span>
+                        <span className={`text-lg font-black tracking-tight ${financial.valueClass}`}>
+                          {formatMoney(financial.netProfit, financial.currency)}
                         </span>
                       </div>
-                    )}
-                    <div className="pt-3 border-t border-gray-200/60 dark:border-slate-700/60 flex items-center justify-between">
-                      <span className={`text-sm font-bold uppercase tracking-wider ${financial.labelClass}`}>
-                        Sof foyda:
-                      </span>
-                      <span className={`text-lg font-black tracking-tight ${financial.valueClass}`}>
-                        {formatMoney(financial.netProfit, financial.currency)}
-                      </span>
+                      {selectedTask.adminEarnedAmount !== null && selectedTask.adminEarnedAmount !== undefined && selectedTask.adminEarnedAmount > 0 && (
+                        <div className="pt-3 border-t border-gray-200/60 flex items-center justify-between">
+                          <span className="text-sm font-bold text-indigo-700 uppercase tracking-wider">
+                            Qo'shimcha daromad:
+                          </span>
+                          <span className="text-lg font-black text-indigo-600">
+                            + {formatMoney(Number(selectedTask.adminEarnedAmount), financial.currency)}
+                          </span>
+                        </div>
+                      )}
+                      {selectedTask.adminEarnedAmount !== null && selectedTask.adminEarnedAmount !== undefined && selectedTask.adminEarnedAmount > 0 && (
+                        <div className="pt-3 border-t-2 border-indigo-100 flex items-center justify-between">
+                          <span className="text-sm font-bold text-indigo-700 uppercase tracking-wider">
+                            Jami foyda:
+                          </span>
+                          <span className="text-2xl font-black text-indigo-700 tracking-tight">
+                            {formatMoney(financial.totalProfit, financial.currency)}
+                          </span>
+                        </div>
+                      )}
                     </div>
-                    {selectedTask.adminEarnedAmount !== null && selectedTask.adminEarnedAmount !== undefined && selectedTask.adminEarnedAmount > 0 && (
-                      <div className="pt-3 border-t border-gray-200/60 flex items-center justify-between">
-                        <span className="text-sm font-bold text-indigo-700 uppercase tracking-wider">
-                          Qo'shimcha daromad:
-                        </span>
-                        <span className="text-lg font-black text-indigo-600">
-                          + {formatMoney(Number(selectedTask.adminEarnedAmount), financial.currency)}
-                        </span>
-                      </div>
-                    )}
-                    {selectedTask.adminEarnedAmount !== null && selectedTask.adminEarnedAmount !== undefined && selectedTask.adminEarnedAmount > 0 && (
-                      <div className="pt-3 border-t-2 border-indigo-100 flex items-center justify-between">
-                        <span className="text-sm font-bold text-indigo-700 uppercase tracking-wider">
-                          Jami foyda:
-                        </span>
-                        <span className="text-2xl font-black text-indigo-700 tracking-tight">
-                          {formatMoney(financial.totalProfit, financial.currency)}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                )}
+                  )}
 
-                {/* Admin'dan boshqa foydalanuvchilar uchun jarayonlar bo'yicha pul ma'lumotlari */}
-                {user?.role !== 'ADMIN' && selectedTask.kpiLogs && selectedTask.kpiLogs.length > 0 && (() => {
-                  // Faqat joriy foydalanuvchining shu taskdan ishlab topgan pullarini filter qilamiz
-                  const userKpiLogs = selectedTask.kpiLogs.filter(log => log.userId === user?.id);
+                  {/* Admin'dan boshqa foydalanuvchilar uchun jarayonlar bo'yicha pul ma'lumotlari */}
+                  {user?.role !== 'ADMIN' && selectedTask.kpiLogs && selectedTask.kpiLogs.length > 0 && (() => {
+                    // Faqat joriy foydalanuvchining shu taskdan ishlab topgan pullarini filter qilamiz
+                    const userKpiLogs = selectedTask.kpiLogs.filter(log => log.userId === user?.id);
 
-                  if (userKpiLogs.length === 0) {
+                    if (userKpiLogs.length === 0) {
+                      return (
+                        <div className="p-4 bg-gray-50/80 rounded-xl border border-dashed border-gray-300 flex flex-col items-center justify-center gap-2 text-center">
+                          <Icon icon="solar:dollar-minimalistic-bold-duotone" className="w-6 h-6 text-gray-400" />
+                          <div className="text-sm font-medium text-gray-500">
+                            Siz bu taskdan hozircha pul ishlab topmadingiz
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    const totalAmount = userKpiLogs.reduce((sum, log) => sum + Number(log.amount), 0);
+
                     return (
-                      <div className="p-4 bg-gray-50/80 rounded-xl border border-dashed border-gray-300 flex flex-col items-center justify-center gap-2 text-center">
-                        <Icon icon="solar:dollar-minimalistic-bold-duotone" className="w-6 h-6 text-gray-400" />
-                        <div className="text-sm font-medium text-gray-500">
-                          Siz bu taskdan hozircha pul ishlab topmadingiz
+                      <div className="bg-white/60 dark:bg-slate-800/60 rounded-xl p-4 border border-gray-100 dark:border-slate-700">
+                        <div className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">Jarayonlardan topilgan mablag':</div>
+                        <div className="space-y-2">
+                          {userKpiLogs.map((log) => (
+                            <div key={log.id} className="flex items-center justify-between text-sm p-2 bg-gray-50 dark:bg-slate-700/50 rounded-lg">
+                              <span className="font-semibold text-gray-700 dark:text-gray-300">
+                                {log.stageName}:
+                              </span>
+                              <span className="font-bold text-gray-900 dark:text-white px-2.5 py-1 bg-white dark:bg-slate-600 rounded-md shadow-sm border border-gray-100 dark:border-slate-500">
+                                {new Intl.NumberFormat('en-US', {
+                                  style: 'currency',
+                                  currency: 'USD',
+                                  minimumFractionDigits: 2,
+                                }).format(log.amount).replace(/,/g, ' ').replace(/\./g, ',')}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                        <div className="pt-3 mt-3 border-t-2 border-emerald-100/50 dark:border-emerald-900/30 flex items-center justify-between">
+                          <span className="text-sm font-black text-gray-900 dark:text-gray-100 uppercase tracking-wider">
+                            Jami tushum:
+                          </span>
+                          <span className="text-xl font-black text-emerald-600 dark:text-emerald-400 tracking-tight">
+                            {new Intl.NumberFormat('en-US', {
+                              style: 'currency',
+                              currency: 'USD',
+                              minimumFractionDigits: 2,
+                            }).format(totalAmount).replace(/,/g, ' ').replace(/\./g, ',')}
+                          </span>
                         </div>
                       </div>
                     );
-                  }
+                  })()}
 
-                  const totalAmount = userKpiLogs.reduce((sum, log) => sum + Number(log.amount), 0);
-
-                  return (
-                    <div className="bg-white/60 dark:bg-slate-800/60 rounded-xl p-4 border border-gray-100 dark:border-slate-700">
-                      <div className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">Jarayonlardan topilgan mablag':</div>
-                      <div className="space-y-2">
-                        {userKpiLogs.map((log) => (
-                          <div key={log.id} className="flex items-center justify-between text-sm p-2 bg-gray-50 dark:bg-slate-700/50 rounded-lg">
-                            <span className="font-semibold text-gray-700 dark:text-gray-300">
-                              {log.stageName}:
-                            </span>
-                            <span className="font-bold text-gray-900 dark:text-white px-2.5 py-1 bg-white dark:bg-slate-600 rounded-md shadow-sm border border-gray-100 dark:border-slate-500">
-                              {new Intl.NumberFormat('en-US', {
-                                style: 'currency',
-                                currency: 'USD',
-                                minimumFractionDigits: 2,
-                              }).format(log.amount).replace(/,/g, ' ').replace(/\./g, ',')}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                      <div className="pt-3 mt-3 border-t-2 border-emerald-100/50 dark:border-emerald-900/30 flex items-center justify-between">
-                        <span className="text-sm font-black text-gray-900 dark:text-gray-100 uppercase tracking-wider">
-                          Jami tushum:
-                        </span>
-                        <span className="text-xl font-black text-emerald-600 dark:text-emerald-400 tracking-tight">
-                          {new Intl.NumberFormat('en-US', {
-                            style: 'currency',
-                            currency: 'USD',
-                            minimumFractionDigits: 2,
-                          }).format(totalAmount).replace(/,/g, ' ').replace(/\./g, ',')}
-                        </span>
+                  {/* Agar KPI log'lar bo'lmasa */}
+                  {user?.role !== 'ADMIN' && (!selectedTask.kpiLogs || selectedTask.kpiLogs.length === 0) && (
+                    <div className="p-4 bg-gray-50/80 dark:bg-slate-800/80 rounded-xl border border-dashed border-gray-300 dark:border-slate-700 flex flex-col items-center justify-center gap-2 text-center">
+                      <Icon icon="solar:dollar-minimalistic-bold-duotone" className="w-6 h-6 text-gray-400 dark:text-gray-500" />
+                      <div className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                        Siz bu taskdan hozircha pul ishlab topmadingiz
                       </div>
                     </div>
-                  );
-                })()}
-
-                {/* Agar KPI log'lar bo'lmasa */}
-                {user?.role !== 'ADMIN' && (!selectedTask.kpiLogs || selectedTask.kpiLogs.length === 0) && (
-                  <div className="p-4 bg-gray-50/80 dark:bg-slate-800/80 rounded-xl border border-dashed border-gray-300 dark:border-slate-700 flex flex-col items-center justify-center gap-2 text-center">
-                    <Icon icon="solar:dollar-minimalistic-bold-duotone" className="w-6 h-6 text-gray-400 dark:text-gray-500" />
-                    <div className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                      Siz bu taskdan hozircha pul ishlab topmadingiz
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Documents Section */}
-        <div className="mt-5 border-t border-gray-200 dark:border-slate-700 pt-5">
-          <div className="flex justify-between items-center mb-3">
-            <div>
-              <h3 className="text-base font-bold text-gray-800 dark:text-gray-100">Hujjatlar</h3>
-              <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">Emailga ilova qilingan hujjatlar.</p>
+                  )}
+                </div>
+              )}
             </div>
-            <div className="flex items-center gap-2">
+          )}
+        </div>
+
+        {/* Hujjatlar */}
+        <div className="relative z-10 px-4 pt-2 pb-6 sm:pt-3 sm:px-7 sm:pb-7 flex flex-col gap-3">
+          <div className="flex justify-between items-baseline gap-3">
+            <h3 className="m-0 text-base font-bold">Hujjatlar</h3>
+            <div className="flex items-center gap-3 min-w-0">
+              <span className="hidden sm:block text-xs text-[#5d6272] dark:text-gray-400">Emailga ilova qilingan hujjatlar. Fayllarni shu yerga tashlang.</span>
               {taskDocuments.length > 0 && (
                 <button
                   onClick={async () => {
@@ -825,76 +773,54 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                       toast.error(message);
                     }
                   }}
-                  className="px-2.5 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-xs font-semibold flex items-center gap-1.5 shadow-sm"
+                  className="h-7 px-2.5 rounded-md text-xs font-semibold flex items-center gap-1.5 text-[#3730a3] dark:text-indigo-300 bg-[#eef0ff] dark:bg-indigo-500/20 hover:bg-[#e0e4ff] dark:hover:bg-indigo-500/30 transition-colors"
                   title="ZIP holatida yuklab olish"
                 >
                   <Icon icon="solar:download-bold-duotone" className="w-3.5 h-3.5" />
                   Barchasi
                 </button>
               )}
-              {(selectedTask.status !== 'YAKUNLANDI' || user?.role === 'ADMIN') && (
-                <button
-                  onClick={() => onOpenDocumentUpload()}
-                  className="px-2.5 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-xs font-semibold flex items-center gap-1.5 shadow-sm"
-                >
-                  <Icon icon="solar:add-circle-bold-duotone" className="w-3.5 h-3.5" />
-                  Hujjat qo'shish
-                </button>
-              )}
             </div>
           </div>
-          {loadingDocuments ? (
-            <div className="text-center py-4 text-gray-500">Yuklanmoqda...</div>
-          ) : !Array.isArray(taskDocuments) || taskDocuments.length === 0 ? (
-            <div className="text-center py-6 text-gray-400 dark:text-gray-500">
-              <p className="text-sm font-medium">Hali hujjat yo'q</p>
-              <p className="text-xs mt-1">Fayllarni bu yerga tashlang yoki "Hujjat qo'shish" tugmasini bosing.</p>
-            </div>
-          ) : (
-            <div className="space-y-1">
-              {taskDocuments.map((doc) => {
-                const isExpanded = expandedDocuments.has(doc.id);
-                const hasOCR = canShowOCR(doc.fileType, doc.name);
-                const extractedText = documentExtractedTexts.get(doc.id) || '';
-                const isLoadingText = loadingExtractedTexts.has(doc.id);
-                // aiChecks createdAt bo'yicha desc — birinchi topilgani eng yangisi
-                const docCheck = aiChecks.find((c) => c.taskDocumentId === doc.id);
+          <div className="flex flex-col sm:gap-2.5 border border-[#e6e8ef] dark:border-slate-700 sm:border-0 rounded-xl overflow-hidden sm:overflow-visible">
+            {loadingDocuments ? (
+              <div className="text-center py-4 text-sm text-[#5d6272] dark:text-gray-400">Yuklanmoqda...</div>
+            ) : Array.isArray(taskDocuments) && taskDocuments.length > 0 ? (
+              <div className="flex flex-col sm:grid sm:grid-cols-2 sm:gap-2.5">
+                {taskDocuments.map((doc) => {
+                  const isExpanded = expandedDocuments.has(doc.id);
+                  const hasOCR = canShowOCR(doc.fileType, doc.name);
+                  const extractedText = documentExtractedTexts.get(doc.id) || '';
+                  const isLoadingText = loadingExtractedTexts.has(doc.id);
+                  // aiChecks createdAt bo'yicha desc — birinchi topilgani eng yangisi
+                  const docCheck = aiChecks.find((c) => c.taskDocumentId === doc.id);
+                  const openDoc = () => (canPreview(doc.fileType)
+                    ? openPreview(doc.fileUrl, doc.fileType, doc.name)
+                    : downloadDocument(doc.fileUrl, doc.name));
 
-                return (
-                  <div key={doc.id} className="space-y-1">
-                    <div className="flex items-center justify-between p-2 bg-gray-50 dark:bg-slate-800/80 rounded-lg border border-gray-200 dark:border-slate-700 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors">
-                      <div className="flex items-center gap-2 flex-1">
-                        <div className="flex-shrink-0">
-                          {getFileIcon(doc.fileType, doc.name)}
-                        </div>
-                        <div className="flex-1">
-                          <div className="text-sm font-medium text-gray-900 dark:text-gray-200">{stripExtension(doc.name)}</div>
-                          {doc.description && (
-                            <div className="text-xs text-gray-500 dark:text-gray-400">{doc.description}</div>
-                          )}
-                          <div className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">
-                            {formatFileSize(doc.fileSize)} • {new Date(doc.createdAt || doc.archivedAt || '').toLocaleDateString('en-US')}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        {canPreview(doc.fileType) && (
-                          <button
-                            onClick={() => openPreview(doc.fileUrl, doc.fileType, doc.name)}
-                            className="h-8 w-8 inline-flex items-center justify-center rounded-md border border-purple-200 dark:border-purple-800/60 bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 hover:bg-purple-100 dark:hover:bg-purple-900/40 transition-colors"
-                            title="Ko'rish"
-                          >
-                            <Icon icon="solar:eye-bold-duotone" className="w-4 h-4" />
-                          </button>
-                        )}
+                  return (
+                    <React.Fragment key={doc.id}>
+                      <div className="flex items-center gap-3 sm:gap-2.5 p-3 sm:px-3 sm:py-2.5 min-w-0 bg-white dark:bg-slate-800/40 border-b border-[#eceef4] dark:border-slate-700 sm:border sm:border-[#e6e8ef] sm:rounded-xl">
                         <button
-                          onClick={() => downloadDocument(doc.fileUrl, doc.name)}
-                          className="h-8 w-8 inline-flex items-center justify-center rounded-md border border-blue-200 dark:border-blue-800/60 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
-                          title="Yuklab olish"
+                          type="button"
+                          onClick={openDoc}
+                          title={doc.description || (canPreview(doc.fileType) ? "Ko'rish" : 'Yuklab olish')}
+                          className="flex-1 min-w-0 flex items-center gap-3 sm:gap-2.5 text-left cursor-pointer"
                         >
-                          <Icon icon="solar:download-bold-duotone" className="w-4 h-4" />
+                          <span className="w-9 h-9 sm:w-8 sm:h-8 rounded-lg bg-[#eef0ff] text-[#3730a3] dark:bg-indigo-500/20 dark:text-indigo-300 flex items-center justify-center text-[10px] font-bold shrink-0">
+                            {fileExt(doc.name)}
+                          </span>
+                          <span className="flex-1 min-w-0 flex flex-col gap-px">
+                            <span className="text-sm font-medium truncate">{stripExtension(doc.name)}</span>
+                            <span className="text-xs text-[#5d6272] dark:text-gray-400">
+                              {formatFileSize(doc.fileSize)} · {ruDate(doc.createdAt || doc.archivedAt)}
+                            </span>
+                          </span>
                         </button>
-                        {(() => {
+                        {docCheck?.result === 'PASS' && (
+                          <span className="hidden sm:inline px-2 py-[3px] rounded-full text-[11px] font-semibold whitespace-nowrap shrink-0 bg-[#e8f7ee] text-[#146c36] dark:bg-emerald-500/20 dark:text-emerald-300">Invoys bilan mos</span>
+                        )}
+{(() => {
                           // Admin har doim o'chira oladi
                           const isAdmin = user?.role === 'ADMIN';
 
@@ -917,7 +843,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                             return (
                               <button
                                 onClick={() => handleDeleteDocument(doc.id)}
-                                className="h-8 w-8 inline-flex items-center justify-center rounded-md border border-red-200 dark:border-rose-800/60 bg-red-50 dark:bg-rose-900/20 text-red-600 dark:text-rose-400 hover:bg-red-100 dark:hover:bg-rose-900/40 transition-colors"
+                                className="h-11 w-11 sm:h-8 sm:w-8 rounded-xl sm:rounded-lg border border-[#f1d0cc] bg-[#fff5f4] text-[#b42318] hover:bg-[#ffe9e6] dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-400 dark:hover:bg-rose-500/20 inline-flex items-center justify-center shrink-0 transition-colors"
                                 title="O'chirish (Admin)"
                               >
                                 <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4" />
@@ -932,7 +858,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                               return (
                                 <button
                                   onClick={() => handleDeleteDocument(doc.id)}
-                                  className="h-8 w-8 inline-flex items-center justify-center rounded-md border border-red-200 dark:border-rose-800/60 bg-red-50 dark:bg-rose-900/20 text-red-600 dark:text-rose-400 hover:bg-red-100 dark:hover:bg-rose-900/40 transition-colors"
+                                  className="h-11 w-11 sm:h-8 sm:w-8 rounded-xl sm:rounded-lg border border-[#f1d0cc] bg-[#fff5f4] text-[#b42318] hover:bg-[#ffe9e6] dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-400 dark:hover:bg-rose-500/20 inline-flex items-center justify-center shrink-0 transition-colors"
                                   title="O'chirish"
                                 >
                                   <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4" />
@@ -943,7 +869,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                               const daysPassed = Math.floor(diffInDays);
                               return (
                                 <span
-                                  className="text-xs text-gray-500 dark:text-gray-400 px-2 py-1 bg-gray-100 dark:bg-slate-700/50 rounded"
+                                  className="text-[11px] text-gray-500 dark:text-gray-400 px-1.5 py-0.5 bg-gray-100 dark:bg-slate-700/50 rounded"
                                   title="2 kundan keyin o'chirish mumkin emas"
                                 >
                                   O'chirish mumkin emas ({daysPassed} kun o'tdi)
@@ -955,16 +881,17 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                           return null;
                         })()}
                       </div>
-                    </div>
-                    {docCheck && (
-                      <DocumentVerificationReport
-                        check={docCheck}
-                        taskId={selectedTask?.id}
-                        onRefresh={() => {
-                          if (selectedTask?.id) loadAiChecks(selectedTask.id);
-                        }}
-                      />
-                    )}
+                      {docCheck && docCheck.result !== 'PASS' && (
+                        <div className="sm:col-span-2 px-3 pb-2 border-b border-[#eceef4] dark:border-slate-700 sm:border-0 sm:px-0 sm:pb-0">
+                          <DocumentVerificationReport
+                            check={docCheck}
+                            taskId={selectedTask?.id}
+                            onRefresh={() => {
+                              if (selectedTask?.id) loadAiChecks(selectedTask.id);
+                            }}
+                          />
+                        </div>
+                      )}
                     {isExpanded && hasOCR && (
                       <div className="ml-4 mr-4 mb-2 p-4 bg-white dark:bg-slate-800/60 rounded-lg border border-gray-300 dark:border-slate-700 shadow-sm">
                         <div className="flex items-center justify-between mb-2">
@@ -999,14 +926,25 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                         )}
                       </div>
                     )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
+                    </React.Fragment>
+                  );
+                })}
+              </div>
+            ) : (
+              !canAddDocs && <div className="px-4 py-3.5 text-[13px] text-[#5d6272] dark:text-gray-400 text-center">Hujjat yo'q</div>
+            )}
+            {canAddDocs && (
+              <button
+                type="button"
+                onClick={() => onOpenDocumentUpload()}
+                className="px-4 py-3.5 sm:py-3 bg-[#f8f9fc] dark:bg-slate-800/60 hover:bg-[#f0f2f8] dark:hover:bg-slate-800 border-t border-dashed border-[#c6cbdb] dark:border-slate-600 sm:border sm:rounded-xl text-[13px] text-[#5d6272] dark:text-gray-400 text-center cursor-pointer transition-colors"
+              >
+                <span className="sm:hidden">Hujjat qo'shish</span>
+                <span className="hidden sm:inline">Hujjat qo'shish uchun faylni shu yerga tashlang</span>
+              </button>
+            )}
+          </div>
         </div>
-
-
 
       </div>
     </div>

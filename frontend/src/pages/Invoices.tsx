@@ -176,7 +176,7 @@ const Invoices = () => {
       const contractResponse = await apiClient.get(`/contracts/${selectedContractId}`);
       const contract = contractResponse.data;
 
-      const taskComments = createTaskForm.comments.trim() || `Invoice yaratish uchun. Shartnoma: ${contract.contractNumber}`;
+      const taskComments = createTaskForm.comments.trim();
 
       setShowCreateModal(false);
       setCreateTaskForm({ branchId: '', hasPsr: false, driverPhone: '', comments: '' });
@@ -188,7 +188,7 @@ const Invoices = () => {
             branchRegionText: branches.find((b) => String(b.id) === createTaskForm.branchId)?.regionText?.trim() || undefined,
             hasPsr: createTaskForm.hasPsr,
             driverPhone: createTaskForm.driverPhone.trim() || undefined,
-            comments: taskComments,
+            comments: taskComments || undefined,
             contractNumber: contract.contractNumber,
           },
           ...(duplicateInvoiceId ? { duplicateInvoiceId } : {}),

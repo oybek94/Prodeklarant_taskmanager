@@ -320,7 +320,7 @@ export function useInvoiceSave({
           clientId: Number(clientId),
           branchId: Number(newInvoiceTaskForm.branchId),
           title: taskTitle,
-          comments: newInvoiceTaskForm.comments || `Invoice yaratish. Shartnoma: ${currentForm.contractNumber}`,
+          comments: newInvoiceTaskForm.comments || undefined,
           hasPsr: newInvoiceTaskForm.hasPsr ?? false,
           driverPhone: newInvoiceTaskForm.driverPhone || undefined,
         });

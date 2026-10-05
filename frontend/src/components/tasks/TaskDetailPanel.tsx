@@ -168,6 +168,10 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
     };
   }, [selectedTask, afterHoursDeclaration, user?.role]);
 
+  // Avtomatik yozilgan eski "Invoice yaratish uchun..." matni izoh hisoblanmaydi
+  const rawComment = selectedTask?.comments?.trim() ?? '';
+  const userComment = /^Invoice yaratish( uchun)?\. Shartnoma: /.test(rawComment) ? '' : rawComment;
+
   return (
     <div
       className={`fixed inset-0 bg-gray-900/60 flex items-center justify-center z-[100] backdrop-blur-md ${isMobile ? 'p-0' : 'p-4 sm:p-6'}`}
@@ -326,6 +330,19 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
             </div>
           </div>
         </div>
+
+        {/* Izohlar: yuqorida; bo'sh bo'lsa umuman ko'rsatilmaydi */}
+        {userComment && (
+          <div className="mb-5 relative z-10 rounded-2xl border border-amber-200 dark:border-amber-500/30 bg-amber-50/80 dark:bg-amber-900/10 p-4 shadow-sm dark:shadow-none">
+            <div className="text-[10px] font-semibold text-amber-700 dark:text-amber-400 uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+              <Icon icon="solar:chat-square-bold-duotone" className="w-4 h-4" />
+              Izohlar
+            </div>
+            <p className="text-sm text-gray-800 dark:text-gray-200 leading-relaxed whitespace-pre-wrap break-words">
+              {userComment}
+            </p>
+          </div>
+        )}
 
         {selectedTask.updatedBy && (
           <div className="mb-5 flex justify-between items-center text-[11px] text-gray-500 dark:text-gray-400 border-b border-gray-100 dark:border-slate-800 pb-3">
@@ -760,18 +777,6 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                 )}
               </div>
             )}
-          </div>
-        )}
-
-        {selectedTask.comments && (
-          <div className="mb-5">
-            <div className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1 flex items-center gap-1.5">
-              <Icon icon="solar:chat-square-bold-duotone" className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-              Izohlar
-            </div>
-            <div className="bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500 dark:border-blue-400 p-3 rounded-r-lg">
-              <p className="text-sm text-gray-800 dark:text-gray-200 leading-relaxed">{selectedTask.comments}</p>
-            </div>
           </div>
         )}
 

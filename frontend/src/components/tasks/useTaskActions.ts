@@ -428,7 +428,8 @@ export function useTaskActions(params: UseTaskActionsParams) {
         title: editForm.title,
         clientId: parseInt(editForm.clientId),
         branchId: parseInt(editForm.branchId),
-        comments: editForm.comments || undefined,
+        // Bo'sh qator ham yuboriladi — backend uni null qiladi (izoh o'chiriladi)
+        comments: editForm.comments.trim(),
         hasPsr: editForm.hasPsr,
         afterHoursPayer: editForm.afterHoursPayer,
         driverPhone: editForm.driverPhone || undefined,

@@ -8,9 +8,11 @@ import { useIsMobile } from '../utils/useIsMobile';
 import { useInvoiceData } from '../hooks/useInvoiceData';
 import { useInvoiceFilters } from '../hooks/useInvoiceFilters';
 import { useInvoiceSocket } from '../hooks/useInvoiceSocket';
-import { useInvoiceReport } from '../hooks/useInvoiceReport';
+import { useInvoiceReport, INVOICE_REPORT_COLUMNS, type InvoiceReportColumnKey } from '../hooks/useInvoiceReport';
 
 import { InvoicesHeader } from '../components/invoices/InvoicesHeader';
+import { InvoicesStats } from '../components/invoices/InvoicesStats';
+import { InvoicesToolbar } from '../components/invoices/InvoicesToolbar';
 import { InvoicesFilterPanel } from '../components/invoices/InvoicesFilterPanel';
 import { InvoicesModalsManager } from '../components/invoices/InvoicesModalsManager';
 import { InvoicesView } from '../components/invoices/InvoicesView';
@@ -29,6 +31,7 @@ const Invoices = () => {
   // Custom hooks
   const {
     invoices,
+    stats,
     loading,
     clients,
     branches,
@@ -53,6 +56,8 @@ const Invoices = () => {
     setSearchQuery,
     filters,
     setFilters,
+    statusTab,
+    setStatusTab,
     showFiltersPanel,
     setShowFiltersPanel,
     hasActiveFilters,
@@ -60,6 +65,9 @@ const Invoices = () => {
   } = useInvoiceFilters(invoices);
 
   const { exportInvoiceReport, reportLoading } = useInvoiceReport(filters, searchQuery, branches, clients);
+  const exportFullReport = () => {
+    exportInvoiceReport(Object.fromEntries(Object.keys(INVOICE_REPORT_COLUMNS).map((k) => [k, true])) as Record<InvoiceReportColumnKey, boolean>);
+  };
 
   // Initialize data
   useEffect(() => {
@@ -70,8 +78,8 @@ const Invoices = () => {
 
   // Load invoices with debounce
   const loadInvoicesDebounced = useCallback((isBackground = false) => {
-    loadInvoices(currentPage, 20, searchQuery, filters, isBackground);
-  }, [currentPage, searchQuery, filters, loadInvoices]);
+    loadInvoices(currentPage, 20, searchQuery, filters, statusTab, isBackground);
+  }, [currentPage, searchQuery, filters, statusTab, loadInvoices]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -270,37 +278,19 @@ const Invoices = () => {
   const endItem = Math.min(currentPage * PAGE_SIZE, totalCount);
 
   return (
-    <div className="flex-1 flex flex-col sm:min-h-0 bg-transparent px-2 sm:px-0">
+    <div className="flex-1 flex flex-col sm:min-h-0 sm:overflow-y-auto bg-transparent px-2 sm:px-0 sm:pr-1">
       <InvoicesHeader
         canEdit={canEdit}
-        filters={filters}
-        showFiltersPanel={showFiltersPanel}
-        setShowFiltersPanel={setShowFiltersPanel}
         isMobile={isMobile}
-        searchQuery={searchQuery}
-        setSearchQuery={setSearchQuery}
+        onReport={exportFullReport}
+        reportLoading={reportLoading}
         onOpenCreateModal={() => {
           setDuplicateInvoiceId(null);
           setShowCreateModal(true);
         }}
       />
 
-      <div className="relative">
-        <InvoicesFilterPanel
-          isMobile={isMobile}
-          filtersPanelRef={filtersPanelRef}
-          showFiltersPanel={showFiltersPanel}
-          setShowFiltersPanel={setShowFiltersPanel}
-          filters={filters}
-          setFilters={setFilters}
-          setCurrentPage={setCurrentPage}
-          branches={branches}
-          clients={clients}
-          totalCount={totalCount}
-          onGenerateReport={exportInvoiceReport}
-          reportLoading={reportLoading}
-        />
-      </div>
+      {!isMobile && <InvoicesStats stats={stats} />}
 
       <InvoicesModalsManager
         canEdit={canEdit}
@@ -343,28 +333,56 @@ const Invoices = () => {
         setShowContractModalId={setShowContractModalId}
       />
 
-      <InvoicesView
-        invoices={invoices}
-        paginatedInvoices={paginatedInvoices}
-        loading={loading}
-        totalCount={totalCount}
-        hasActiveFilters={hasActiveFilters}
-        isMobile={isMobile}
-        canEdit={canEdit}
-        branches={branches}
-        duplicatingInvoiceId={duplicatingInvoiceId}
-        handleDuplicateInvoice={handleDuplicateInvoice}
-        setShowTaskModalId={setShowTaskModalId}
-        setShowClientModalId={setShowClientModalId}
-        setShowContractModalId={setShowContractModalId}
-        setInvoiceToDelete={setInvoiceToDelete}
-        setShowDeleteConfirmModal={setShowDeleteConfirmModal}
-        currentPage={currentPage}
-        totalPagesServer={totalPagesServer}
-        startItem={startItem}
-        endItem={endItem}
-        setCurrentPage={setCurrentPage}
-      />
+      <div className={isMobile ? '' : 'bg-white dark:bg-gray-800 border border-[#E3E6EB] dark:border-gray-700 rounded-2xl'}>
+        <div className="relative">
+          <InvoicesToolbar
+            isMobile={isMobile}
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            statusTab={statusTab}
+            setStatusTab={setStatusTab}
+            stats={stats}
+            filters={filters}
+            showFiltersPanel={showFiltersPanel}
+            setShowFiltersPanel={setShowFiltersPanel}
+          />
+          <InvoicesFilterPanel
+            isMobile={isMobile}
+            filtersPanelRef={filtersPanelRef}
+            showFiltersPanel={showFiltersPanel}
+            setShowFiltersPanel={setShowFiltersPanel}
+            filters={filters}
+            setFilters={setFilters}
+            setCurrentPage={setCurrentPage}
+            branches={branches}
+            clients={clients}
+            totalCount={totalCount}
+            onGenerateReport={exportInvoiceReport}
+            reportLoading={reportLoading}
+          />
+        </div>
+        <InvoicesView
+          invoices={invoices}
+          paginatedInvoices={paginatedInvoices}
+          loading={loading}
+          totalCount={totalCount}
+          hasActiveFilters={hasActiveFilters}
+          isMobile={isMobile}
+          canEdit={canEdit}
+          duplicatingInvoiceId={duplicatingInvoiceId}
+          handleDuplicateInvoice={handleDuplicateInvoice}
+          setShowTaskModalId={setShowTaskModalId}
+          setShowClientModalId={setShowClientModalId}
+          setShowContractModalId={setShowContractModalId}
+          setInvoiceToDelete={setInvoiceToDelete}
+          setShowDeleteConfirmModal={setShowDeleteConfirmModal}
+          currentPage={currentPage}
+          totalPagesServer={totalPagesServer}
+          startItem={startItem}
+          endItem={endItem}
+          setCurrentPage={setCurrentPage}
+        />
+      </div>
     </div>
   );
 };

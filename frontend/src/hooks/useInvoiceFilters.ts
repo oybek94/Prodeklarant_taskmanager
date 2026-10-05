@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import type { Invoice, InvoicesFilters } from '../components/invoices/types';
+import type { Invoice, InvoicesFilters, InvoiceStatusTab } from '../components/invoices/types';
 
 export const useInvoiceFilters = (invoices: Invoice[]) => {
   const [currentPage, setCurrentPage] = useState<number>(() => {
@@ -23,6 +23,11 @@ export const useInvoiceFilters = (invoices: Invoice[]) => {
     return { branchId: '', clientId: '', startDate: '', endDate: '' };
   });
 
+  const [statusTab, setStatusTab] = useState<InvoiceStatusTab>(() => {
+    const saved = sessionStorage.getItem('invoices_statusTab');
+    return saved === 'run' || saved === 'err' || saved === 'done' ? saved : '';
+  });
+
   const [showFiltersPanel, setShowFiltersPanel] = useState(false);
 
   useEffect(() => {
@@ -35,12 +40,18 @@ export const useInvoiceFilters = (invoices: Invoice[]) => {
   }, [searchQuery]);
 
   useEffect(() => {
+    sessionStorage.setItem('invoices_statusTab', statusTab);
+    setCurrentPage(1);
+  }, [statusTab]);
+
+  useEffect(() => {
     sessionStorage.setItem('invoices_filters', JSON.stringify(filters));
     setCurrentPage(1);
   }, [filters]);
 
   const hasActiveFilters = Boolean(
     searchQuery.trim() ||
+    statusTab ||
     filters.branchId ||
     filters.clientId ||
     filters.startDate ||
@@ -72,6 +83,8 @@ export const useInvoiceFilters = (invoices: Invoice[]) => {
     setSearchQuery,
     filters,
     setFilters,
+    statusTab,
+    setStatusTab,
     showFiltersPanel,
     setShowFiltersPanel,
     hasActiveFilters,

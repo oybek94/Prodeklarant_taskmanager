@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
 import apiClient from '../lib/api';
-import type { Invoice, Client, Branch, Worker, Contract, InvoicesFilters } from '../components/invoices/types';
+import type { Invoice, Client, Branch, Worker, Contract, InvoicesFilters, InvoiceStatusTab, InvoiceStats } from '../components/invoices/types';
 
 export const useInvoiceData = (userRole: string | undefined) => {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -12,6 +12,7 @@ export const useInvoiceData = (userRole: string | undefined) => {
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [loadingContracts, setLoadingContracts] = useState(false);
   
+  const [stats, setStats] = useState<InvoiceStats | null>(null);
   const [totalCount, setTotalCount] = useState(0);
   const [totalPagesServer, setTotalPagesServer] = useState(1);
   const hasLoadedRef = useRef(false);
@@ -21,6 +22,7 @@ export const useInvoiceData = (userRole: string | undefined) => {
     PAGE_SIZE: number,
     searchQuery: string,
     filters: InvoicesFilters,
+    statusTab: InvoiceStatusTab,
     isBackground = false
   ) => {
     try {
@@ -30,6 +32,7 @@ export const useInvoiceData = (userRole: string | undefined) => {
         limit: PAGE_SIZE.toString(),
       });
       if (searchQuery.trim()) params.append('search', searchQuery.trim());
+      if (statusTab) params.append('status', statusTab);
       if (filters.branchId) params.append('branchId', filters.branchId);
       if (filters.clientId) params.append('clientId', filters.clientId);
       if (filters.startDate) params.append('startDate', filters.startDate);
@@ -39,6 +42,7 @@ export const useInvoiceData = (userRole: string | undefined) => {
       
       if (response.data && response.data.pagination) {
         setInvoices(response.data.invoices);
+        setStats(response.data.stats ?? null);
         setTotalCount(response.data.pagination.total);
         setTotalPagesServer(response.data.pagination.totalPages);
       } else if (Array.isArray(response.data)) {
@@ -119,6 +123,7 @@ export const useInvoiceData = (userRole: string | undefined) => {
 
   return {
     invoices,
+    stats,
     setInvoices,
     loading,
     clients,

@@ -74,12 +74,23 @@ router.get('/check-number', requireAuth(), async (req: AuthRequest, res) => {
 });
 
 // Invoyslar ro'yxati va hisobot uchun umumiy filtr (filial, mijoz, sana, qidiruv)
-async function buildInvoiceListWhere(req: AuthRequest): Promise<Prisma.InvoiceWhereInput> {
+type InvoiceStatusTab = 'run' | 'err' | 'done';
+
+// Holat tablari: jarayonda (boshlanmagan ham, yakunlangan ham emas), xatolik bilan, yakunlangan
+function invoiceStatusWhere(tab: InvoiceStatusTab): Prisma.InvoiceWhereInput {
+  switch (tab) {
+    case 'run': return { task: { status: { notIn: ['BOSHLANMAGAN', 'YAKUNLANDI'] } } };
+    case 'done': return { task: { status: 'YAKUNLANDI' } };
+    case 'err': return { task: { errors: { some: {} } } };
+  }
+}
+
+async function buildInvoiceListWhere(req: AuthRequest, opts: { ignoreStatus?: boolean } = {}): Promise<Prisma.InvoiceWhereInput> {
   const isAdminOrManager = req.user?.role === 'ADMIN' || req.user?.role === 'MANAGER';
   const userBranchId = req.user?.branchId ?? null;
   const onlyOwnBranch = !isAdminOrManager && userBranchId != null;
 
-  const { search, branchId, clientId, startDate, endDate } = req.query;
+  const { search, branchId, clientId, startDate, endDate, status } = req.query;
 
   // Build where clause
   const where: any = {};
@@ -119,6 +130,10 @@ async function buildInvoiceListWhere(req: AuthRequest): Promise<Prisma.InvoiceWh
       { task: { title: { contains: q, mode: 'insensitive' } } },
       ...(matchedIds.length > 0 ? [{ id: { in: matchedIds } }] : []),
     ];
+  }
+
+  if (!opts.ignoreStatus && (status === 'run' || status === 'err' || status === 'done')) {
+    where.AND = [invoiceStatusWhere(status)];
   }
 
   return where;
@@ -210,6 +225,11 @@ router.get('/', requireAuth(), async (req: AuthRequest, res) => {
     const take = limitNum || undefined;
 
     const where = await buildInvoiceListWhere(req);
+    // Ko'rsatkichlar holat tabiga bog'liq emas — faqat qolgan filtrlarga
+    const statsWhere = pageNum && limitNum ? await buildInvoiceListWhere(req, { ignoreStatus: true }) : null;
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
     const [invoices, total] = await Promise.all([
       prisma.invoice.findMany({
@@ -285,9 +305,18 @@ router.get('/', requireAuth(), async (req: AuthRequest, res) => {
       };
     }));
     
-    if (pageNum && limitNum) {
+    if (pageNum && limitNum && statsWhere) {
+      const [all, run, done, err, monthTotal, weekDone] = await Promise.all([
+        prisma.invoice.count({ where: statsWhere }),
+        prisma.invoice.count({ where: { AND: [statsWhere, invoiceStatusWhere('run')] } }),
+        prisma.invoice.count({ where: { AND: [statsWhere, invoiceStatusWhere('done')] } }),
+        prisma.invoice.count({ where: { AND: [statsWhere, invoiceStatusWhere('err')] } }),
+        prisma.invoice.count({ where: { AND: [statsWhere, { createdAt: { gte: monthStart } }] } }),
+        prisma.invoice.count({ where: { AND: [statsWhere, invoiceStatusWhere('done'), { createdAt: { gte: weekAgo } }] } }),
+      ]);
       res.json({
         invoices: invoicesWithContract,
+        stats: { all, run, done, err, monthTotal, weekDone },
         pagination: {
           page: pageNum,
           limit: limitNum,

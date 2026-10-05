@@ -66,3 +66,15 @@ export interface InvoicesFilters {
   startDate: string;
   endDate: string;
 }
+
+// Holat tablari: '' = hammasi
+export type InvoiceStatusTab = '' | 'run' | 'err' | 'done';
+
+export interface InvoiceStats {
+  all: number;
+  run: number;
+  done: number;
+  err: number;
+  monthTotal: number;
+  weekDone: number;
+}

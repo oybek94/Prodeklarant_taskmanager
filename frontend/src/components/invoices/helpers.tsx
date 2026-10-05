@@ -40,6 +40,65 @@ export const StatusBadge = ({ status, onClick, isMobile, progress }: { status: s
   );
 };
 
+// Invoyslar ro'yxati uchun holat kapsulasi: nuqta + yorliq (ko'k, sariq, yashil-teal)
+const STATUS_PILL = {
+  new: { bg: 'bg-[#E8EDFB] dark:bg-[#2B4BB0]/20', text: 'text-[#2B4BB0] dark:text-[#9DB4FF]', dot: 'bg-[#2B4BB0] dark:bg-[#9DB4FF]' },
+  run: { bg: 'bg-[#FDF1DC] dark:bg-[#C27A0E]/20', text: 'text-[#8A5300] dark:text-[#F5C26B]', dot: 'bg-[#8A5300] dark:bg-[#F5C26B]' },
+  done: { bg: 'bg-[#E3F3F1] dark:bg-[#0B6E6E]/25', text: 'text-[#0B6E6E] dark:text-[#5FD0C8]', dot: 'bg-[#0B6E6E] dark:bg-[#5FD0C8]' },
+  none: { bg: 'bg-gray-100 dark:bg-slate-800/50', text: 'text-gray-500 dark:text-slate-400', dot: 'bg-gray-400' },
+} as const;
+
+export const StatusPill = ({ status, onClick }: { status: string | undefined, onClick: (e: React.MouseEvent) => void }) => {
+  const { text, tone } = (() => {
+    if (!status) return { text: '—', tone: 'none' as const };
+    switch (status.toUpperCase()) {
+      case 'BOSHLANMAGAN': return { text: 'Boshlanmagan', tone: 'new' as const };
+      case 'JARAYONDA': return { text: 'Jarayonda', tone: 'run' as const };
+      case 'TAYYOR': return { text: 'Tayyor', tone: 'run' as const };
+      case 'TEKSHIRILGAN': return { text: 'Tekshirilgan', tone: 'run' as const };
+      case 'TOPSHIRILDI': return { text: 'Topshirildi', tone: 'run' as const };
+      case 'YAKUNLANDI': return { text: 'Yakunlandi', tone: 'done' as const };
+      default: return { text: status, tone: 'none' as const };
+    }
+  })();
+  const c = STATUS_PILL[tone];
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title="Jarayonlar (task tafsilotlari)"
+      className={`inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full text-xs font-semibold whitespace-nowrap transition-opacity hover:opacity-80 ${c.bg} ${c.text}`}
+    >
+      <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${c.dot}`}></span>
+      {text}
+    </button>
+  );
+};
+
+// Bosqichlar chizig'i: bajarilgan = yashil, navbatdagi = sariq (xatolik bo'lsa qizil), qolgani kulrang
+export const StageProgress = ({ stages, taskStatus, hasErrors }: { stages?: { name: string; status: string }[]; taskStatus?: string; hasErrors: boolean }) => {
+  const total = stages?.length ?? 0;
+  if (!stages || total === 0) return <span className="text-sm text-gray-400">—</span>;
+  const done = stages.filter((s) => s.status === 'TAYYOR').length;
+  const finished = taskStatus === 'YAKUNLANDI' || done === total;
+  const activeIdx = finished ? -1 : done;
+  const notStarted = taskStatus === 'BOSHLANMAGAN' && done === 0;
+  const activeColor = hasErrors ? 'bg-[#B42318]' : notStarted ? 'bg-[#DDE1E7] dark:bg-slate-600' : 'bg-[#C27A0E]';
+  return (
+    <div>
+      <div className="flex gap-[3px]">
+        {stages.map((_, i) => (
+          <div
+            key={i}
+            className={`flex-1 h-1.5 rounded-[3px] ${i < done || finished ? 'bg-[#0B6E6E]' : i === activeIdx ? activeColor : 'bg-[#DDE1E7] dark:bg-slate-600'}`}
+          />
+        ))}
+      </div>
+      <div className="text-xs text-[#5B6472] dark:text-gray-400 mt-1.5">{finished ? total : done} / {total} bosqich</div>
+    </div>
+  );
+};
+
 const FILIAL_CELL_COLORS = [
   'bg-indigo-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 border border-transparent dark:border-blue-800/50',
   'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400 border border-transparent dark:border-emerald-800/50',

@@ -4,9 +4,9 @@ import { useNavigate } from 'react-router-dom';
 import CurrencyDisplay from '../../components/CurrencyDisplay';
 import { CopyIconButton } from '../../components/CopyIconButton';
 import { TableSkeleton } from '../../components/common/Skeleton';
-import { StatusBadge, getBranchCellClass } from './helpers';
+import { StatusPill, StageProgress } from './helpers';
 import { formatDateOnly } from '../../utils/dateFormatting';
-import type { Invoice, Branch } from './types';
+import type { Invoice } from './types';
 
 interface InvoicesViewProps {
   invoices: Invoice[];
@@ -16,7 +16,6 @@ interface InvoicesViewProps {
   hasActiveFilters: boolean;
   isMobile: boolean;
   canEdit: boolean;
-  branches: Branch[];
   duplicatingInvoiceId: number | null;
   handleDuplicateInvoice: (invoice: Invoice) => void;
   setShowTaskModalId: (id: number) => void;
@@ -24,13 +23,36 @@ interface InvoicesViewProps {
   setShowContractModalId: (id: number | null) => void;
   setInvoiceToDelete: (invoice: Invoice) => void;
   setShowDeleteConfirmModal: (val: boolean) => void;
-  
+
   currentPage: number;
   totalPagesServer: number;
   startItem: number;
   endItem: number;
   setCurrentPage: React.Dispatch<React.SetStateAction<number>>;
 }
+
+const FONT = "font-['Onest',system-ui,sans-serif]";
+const MONO = "font-['JetBrains_Mono',ui-monospace,monospace]";
+
+const TH = 'px-3 py-3 text-left text-xs font-semibold text-[#5B6472] dark:text-gray-400 uppercase tracking-[0.04em] bg-[#FAFBFC] dark:bg-gray-800/60 border-b border-[#E3E6EB] dark:border-gray-700 whitespace-nowrap';
+
+// Sahifa raqamlari: 1 … (joriy-1) joriy (joriy+1) … oxirgi
+const buildPageList = (current: number, total: number): (number | 'gap')[] => {
+  if (total <= 5) return Array.from({ length: total }, (_, i) => i + 1);
+  const pages = new Set<number>([1, total, current - 1, current, current + 1]);
+  const sorted = [...pages].filter((p) => p >= 1 && p <= total).sort((a, b) => a - b);
+  const out: (number | 'gap')[] = [];
+  sorted.forEach((p, i) => {
+    if (i > 0 && p - sorted[i - 1] > 1) out.push('gap');
+    out.push(p);
+  });
+  return out;
+};
+
+const getTaskStageInfo = (invoice: Invoice) => {
+  const hasErrors = (invoice.task?._count?.errors ?? 0) > 0 && invoice.task?.status !== 'YAKUNLANDI';
+  return { hasErrors };
+};
 
 export const InvoicesView: React.FC<InvoicesViewProps> = ({
   invoices,
@@ -40,7 +62,6 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
   hasActiveFilters,
   isMobile,
   canEdit,
-  branches,
   duplicatingInvoiceId,
   handleDuplicateInvoice,
   setShowTaskModalId,
@@ -64,103 +85,89 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
     );
   }
 
+  const canDeleteInvoice = (invoice: Invoice) => {
+    const isEarlyTask = invoice.task?.status === 'BOSHLANMAGAN';
+    const invoysStageReady = invoice.task?.stages?.some(
+      (s) => String(s.name).trim().toLowerCase() === 'invoys' && s.status === 'TAYYOR'
+    );
+    return Boolean(isEarlyTask && !invoysStageReady);
+  };
+
+  const pageButtonBase = 'min-w-[44px] h-11 rounded-[10px] text-sm font-semibold flex items-center justify-center transition-colors';
+
   return (
-    <>
+    <div className={FONT}>
       {invoices.length === 0 && !hasActiveFilters ? (
-        <div className="bg-white/60 backdrop-blur-xl rounded-2xl shadow-sm border border-white/60 p-16 text-center lg:py-24 ring-1 ring-black/5">
-          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
-            <Icon icon="solar:document-text-bold-duotone" className="w-10 h-10 text-blue-500" />
+        <div className="p-16 text-center lg:py-24">
+          <div className="bg-[#E3F3F1] dark:bg-[#0B6E6E]/25 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6">
+            <Icon icon="solar:document-text-bold-duotone" className="w-10 h-10 text-[#0B6E6E] dark:text-[#5FD0C8]" />
           </div>
-          <h3 className="text-xl font-bold text-gray-800 mb-2">Invoice'lar hozircha yo&apos;q</h3>
-          <p className="text-gray-500 text-sm max-w-sm mx-auto leading-relaxed">Yangi invoice yaratish uchun yuqoridagi &quot;Yangi Invoice&quot; tugmasini bosing va jarayonni boshlang.</p>
+          <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-2">Invoice'lar hozircha yo&apos;q</h3>
+          <p className="text-gray-500 text-sm max-w-sm mx-auto leading-relaxed">Yangi invoice yaratish uchun yuqoridagi &quot;Yangi invoys&quot; tugmasini bosing va jarayonni boshlang.</p>
         </div>
       ) : totalCount === 0 && hasActiveFilters ? (
-        <div className="bg-white/60 backdrop-blur-xl rounded-2xl shadow-sm border border-white/60 p-16 text-center ring-1 ring-black/5">
-          <div className="bg-gradient-to-br from-gray-50 to-slate-100 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm border border-gray-200/50">
+        <div className="p-16 text-center">
+          <div className="bg-gray-100 dark:bg-slate-800 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6">
             <Icon icon="solar:magnifer-bold-duotone" className="w-10 h-10 text-gray-400" />
           </div>
-          <h3 className="text-xl font-bold text-gray-800 mb-2">Natija topilmadi</h3>
+          <h3 className="text-xl font-bold text-gray-800 dark:text-gray-100 mb-2">Natija topilmadi</h3>
           <p className="text-gray-500 text-sm max-w-sm mx-auto leading-relaxed">Siz qidirayotgan qidiruv so&apos;rovi yoki filtrlarga mos keluvchi invoice topilmadi.</p>
         </div>
       ) : isMobile ? (
-        <div className="space-y-4">
+        <div className="flex flex-col gap-3.5">
           {paginatedInvoices.map((invoice) => {
-            const hasErrors = (invoice.task?._count?.errors ?? 0) > 0;
+            const { hasErrors } = getTaskStageInfo(invoice);
             const branchName = invoice.task?.branch?.name ?? invoice.branch?.name ?? '-';
-            const branchId = invoice.task?.branch?.id ?? invoice.branch?.id;
-            const filialCellClass = getBranchCellClass(branchName, branchId, branches);
-            
+            const vehicle = invoice.additionalInfo?.vehicleNumber || '-';
+
             return (
-              <div 
+              <div
                 key={invoice.id}
                 onClick={(e) => {
                   if ((e.target as HTMLElement).closest('button')) return;
                   navigate(`/invoices/task/${invoice.taskId}`);
                 }}
-                className={`cursor-pointer bg-white dark:bg-gray-800 rounded-xl shadow-sm border ${hasErrors ? 'border-l-4 border-l-red-500 border-gray-200 dark:border-gray-700' : 'border-gray-200 dark:border-gray-700'} p-3 space-y-2`}
+                className="cursor-pointer bg-white dark:bg-gray-800 border border-[#E3E6EB] dark:border-gray-700 rounded-[14px] px-4 py-3.5 flex flex-col gap-3"
               >
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-900 dark:text-gray-100 font-bold text-base font-mono">
-                    #{invoice.invoiceNumber}
-                  </span>
-                  <div className="flex flex-col items-end gap-1.5">
-                    <StatusBadge 
-                      status={invoice.task?.status} 
+                <div className="flex justify-between items-start gap-2">
+                  <div className="min-w-0">
+                    <div className={`${MONO} text-[13px] font-medium text-[#0B6E6E] dark:text-[#5FD0C8]`}>#{invoice.invoiceNumber}</div>
+                    <div className="font-semibold text-[15px] mt-[3px] text-[#151A22] dark:text-gray-100 truncate">{invoice.client?.name || '-'}</div>
+                    <div className="text-xs text-[#5B6472] dark:text-gray-400 mt-0.5">
+                      {formatDateOnly(invoice.date)} · {branchName} · {vehicle}
+                    </div>
+                  </div>
+                  <div className="flex-none">
+                    <StatusPill
+                      status={invoice.task?.status}
                       onClick={(e) => {
                         e.stopPropagation();
                         setShowTaskModalId(invoice.taskId);
                       }}
-                      isMobile={true}
-                      progress={invoice.task?.stages && invoice.task.stages.length > 0 ? Math.round((invoice.task.stages.filter((s: any) => s.status === 'TAYYOR').length / invoice.task.stages.length) * 100) : undefined}
                     />
                   </div>
                 </div>
 
-                <div className="text-xs space-y-2 pt-1">
-                  <div className="flex justify-between items-center gap-4">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-gray-400 text-[10px] uppercase font-semibold">Mijoz</p>
-                      <p className="font-bold text-gray-900 dark:text-slate-200 text-sm truncate">
-                        {invoice.client?.name || '-'}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-gray-400 text-[10px] uppercase font-semibold">Filial</p>
-                      <span className={`inline-block w-20 text-center px-1.5 py-0.5 rounded text-[10px] font-bold leading-none ${filialCellClass}`}>
-                        {branchName}
-                      </span>
-                    </div>
-                  </div>
+                <StageProgress stages={invoice.task?.stages} taskStatus={invoice.task?.status} hasErrors={hasErrors} />
 
-                  <div className="flex justify-between items-center border-t border-gray-50 dark:border-gray-700/50 pt-2">
-                    <div className="flex items-center gap-6">
-                      <div>
-                        <p className="text-gray-400 text-[10px] uppercase font-semibold">Avto</p>
-                        <p className="font-mono font-bold text-gray-900 dark:text-gray-100 text-sm tracking-widest">{invoice.additionalInfo?.vehicleNumber || '-'}</p>
-                      </div>
-                      <div>
-                        <p className="text-gray-400 text-[10px] uppercase font-semibold text-right">Summa</p>
-                        <div className="font-bold text-gray-900 dark:text-gray-100 text-sm text-right">
-                          <CurrencyDisplay
-                            amount={invoice.totalAmount || 0}
-                            originalCurrency={invoice.contract?.contractCurrency || invoice.currency}
-                            forceOriginal
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex gap-1.5">
-                      {canEdit && (
-                        <button
-                          type="button"
-                          onClick={() => handleDuplicateInvoice(invoice)}
-                          className="p-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 text-emerald-500 border border-emerald-100/50 dark:border-emerald-800 active:scale-95 transition-transform"
-                        >
-                          <Icon icon="solar:copy-bold-duotone" className="w-4 h-4" />
-                        </button>
-                      )}
-                    </div>
+                <div className="flex justify-end items-center gap-3">
+                  {canEdit && (
+                    <button
+                      type="button"
+                      onClick={() => handleDuplicateInvoice(invoice)}
+                      disabled={duplicatingInvoiceId === invoice.id}
+                      aria-label="Nusxa olish"
+                      className="w-9 h-9 rounded-[10px] text-[#2B3340] dark:text-gray-300 flex items-center justify-center active:scale-95 transition-transform disabled:opacity-50"
+                    >
+                      <Icon icon="solar:copy-bold-duotone" className="w-5 h-5" />
+                    </button>
+                  )}
+                  <div className="font-bold text-base tabular-nums text-[#151A22] dark:text-gray-100">
+                    <CurrencyDisplay
+                      amount={invoice.totalAmount || 0}
+                      originalCurrency={invoice.contract?.contractCurrency || invoice.currency}
+                      forceOriginal
+                    />
                   </div>
                 </div>
               </div>
@@ -168,229 +175,181 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
           })}
         </div>
       ) : (
-        <div className="flex flex-col sm:flex-1 sm:min-h-0 bg-white/70 dark:bg-gray-800/80 backdrop-blur-xl rounded-2xl shadow-sm border border-white/60 dark:border-gray-700/50 overflow-visible ring-1 ring-black/5 dark:ring-white/5">
-          <div className="sm:flex-1 overflow-x-auto overflow-y-visible sm:overflow-auto bg-transparent">
-            <table className="min-w-full">
-              <thead className="sticky top-0 z-10">
-                <tr className="bg-white/80 dark:bg-gray-800/90 backdrop-blur-md border-b border-gray-100/80 dark:border-gray-700/80">
-                  <th className="w-28 px-4 py-3 text-center text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider hover:bg-gray-50/50 dark:hover:bg-gray-700/50 transition-colors">
-                    <span className="inline-flex items-center justify-center gap-1.5 w-full">
-                      <Icon icon="solar:hashtag-bold-duotone" className="w-4 h-4 text-blue-500" />
-                      №
-                    </span>
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider hover:bg-gray-50/50 dark:hover:bg-gray-700/50 transition-colors">
-                    <span className="inline-flex items-center gap-1.5">
-                      <Icon icon="solar:user-bold-duotone" className="w-4 h-4 text-emerald-500" />
-                      Mijoz
-                    </span>
-                  </th>
-                  <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider hover:bg-gray-50/50 dark:hover:bg-gray-700/50 transition-colors">
-                    <span className="inline-flex items-center justify-center gap-1.5 w-full">
-                      <Icon icon="solar:map-point-bold-duotone" className="w-4 h-4 text-indigo-500" />
-                      Filial
-                    </span>
-                  </th>
-                  <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider hover:bg-gray-50/50 dark:hover:bg-gray-700/50 transition-colors">
-                    <span className="inline-flex items-center justify-center gap-1.5 w-full">
-                      <Icon icon="solar:bus-bold-duotone" className="w-4 h-4 text-amber-500" />
-                      Avtomobil
-                    </span>
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider hover:bg-gray-50/50 dark:hover:bg-gray-700/50 transition-colors">
-                    <span className="inline-flex items-center gap-1.5 justify-end w-full">
-                      <Icon icon="solar:dollar-minimalistic-bold-duotone" className="w-4 h-4 text-emerald-500" />
-                      Summa
-                    </span>
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider hover:bg-gray-50/50 dark:hover:bg-gray-700/50 transition-colors">
-                    <span className="inline-flex items-center gap-1.5">
-                      <Icon icon="solar:buildings-3-bold-duotone" className="w-4 h-4 text-purple-500" />
-                      Sotuvchi / Qabul qiluvchi
-                    </span>
-                  </th>
-                  <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider hover:bg-gray-50/50 dark:hover:bg-gray-700/50 transition-colors">
-                    <span className="inline-flex items-center justify-center gap-1.5 w-full">
-                      <Icon icon="solar:calendar-bold-duotone" className="w-4 h-4 text-cyan-500" />
-                      Sana
-                    </span>
-                  </th>
-                  <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider hover:bg-gray-50/50 dark:hover:bg-gray-700/50 transition-colors">
-                    <span className="inline-flex items-center justify-center gap-1.5 w-full">
-                      <Icon icon="solar:record-circle-bold-duotone" className="w-4 h-4 text-rose-500" />
-                      Status
-                    </span>
-                  </th>
-                  <th className="px-6 py-3 text-center text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider hover:bg-gray-50/50 dark:hover:bg-gray-700/50 transition-colors">
-                    <span className="inline-flex items-center gap-1.5 justify-center w-full">
-                      <Icon icon="solar:tuning-2-bold-duotone" className="w-4 h-4 text-slate-500" />
-                      Amallar
-                    </span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100/60 dark:divide-gray-700/60 bg-white/40 dark:bg-gray-800/40">
-                {paginatedInvoices.map((invoice) => {
-                  const hasErrors = (invoice.task?._count?.errors ?? 0) > 0;
-                  const branchId = invoice.task?.branch?.id ?? invoice.branch?.id;
-                  const branchName = invoice.task?.branch?.name ?? invoice.branch?.name ?? undefined;
-                  const filialCellClass = getBranchCellClass(branchName, branchId, branches);
-                  return (
-                    <tr
-                      key={invoice.id}
-                      onClick={(e) => {
-                        if ((e.target as HTMLElement).closest('button') || (e.target as HTMLElement).closest('a')) return;
-                        navigate(`/invoices/task/${invoice.taskId}`);
-                      }}
-                      className="group transition-colors duration-150 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
-                    >
-                      <td className={`w-28 px-4 py-2 whitespace-nowrap text-sm font-semibold border-l-4 text-center ${hasErrors ? 'border-l-red-500' : 'border-l-transparent'}`}>
-                        <span className="text-gray-800 dark:text-gray-200 font-mono">
-                          #{invoice.invoiceNumber}
-                        </span>
-                      </td>
-                      <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-800 dark:text-gray-200">
-                        {invoice.client?.name || '-'}
-                      </td>
-                      <td className="px-6 py-2 whitespace-nowrap text-sm text-center">
-                        <span className={`inline-flex items-center justify-center w-24 text-center px-1 py-1 rounded-md font-medium ${filialCellClass}`}>
-                          {invoice.task?.branch?.name ?? invoice.branch?.name ?? '-'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300 font-mono text-center">
-                        <div className="flex items-center justify-center gap-2">
-                          <span>{invoice.additionalInfo?.vehicleNumber || '-'}</span>
-                          {invoice.additionalInfo?.vehicleNumber && (
-                            <CopyIconButton
-                              textToCopy={invoice.additionalInfo.vehicleNumber as string}
-                              toastMessage="Avtomobil raqami nusxalandi"
-                            />
-                          )}
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[1180px] border-collapse text-sm">
+            <thead>
+              <tr>
+                <th className={`${TH} !pl-5`}>Invoys</th>
+                <th className={TH}>Mijoz / shartnoma</th>
+                <th className={TH}>Filial</th>
+                <th className={TH}>Avto</th>
+                <th className={`${TH} w-[190px]`}>Bosqichlar</th>
+                <th className={`${TH} !text-right`}>Summa</th>
+                <th className={TH}>Holat</th>
+                <th className={`${TH} w-[150px] !pr-5`}><span className="sr-only">Amallar</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              {paginatedInvoices.map((invoice) => {
+                const { hasErrors } = getTaskStageInfo(invoice);
+                const branchName = invoice.task?.branch?.name ?? invoice.branch?.name ?? '-';
+                const parties = [invoice.contract?.shipperName || invoice.contract?.sellerName, invoice.contract?.buyerName, invoice.contract?.consigneeName]
+                  .filter(Boolean)
+                  .join(' / ');
+                const vehicle = invoice.additionalInfo?.vehicleNumber;
+                return (
+                  <tr
+                    key={invoice.id}
+                    onClick={(e) => {
+                      if ((e.target as HTMLElement).closest('button') || (e.target as HTMLElement).closest('a')) return;
+                      navigate(`/invoices/task/${invoice.taskId}`);
+                    }}
+                    className="group cursor-pointer border-b border-[#EEF0F3] dark:border-gray-700/70 hover:bg-[#F7F9FB] dark:hover:bg-gray-700/40 transition-colors"
+                  >
+                    <td className="py-2 pl-5 pr-3 whitespace-nowrap">
+                      <div className={`${MONO} text-[13px] font-medium text-[#0B6E6E] dark:text-[#5FD0C8]`}>#{invoice.invoiceNumber}</div>
+                      <div className="text-xs text-[#5B6472] dark:text-gray-400 mt-0.5">{formatDateOnly(invoice.date)}</div>
+                    </td>
+                    <td className="py-2 px-3 max-w-[280px]" title={parties || undefined}>
+                      <div className="font-semibold text-[#151A22] dark:text-gray-100 truncate">{invoice.client?.name || '-'}</div>
+                      {invoice.clientId && invoice.contractNumber ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowClientModalId(invoice.clientId);
+                            setShowContractModalId(invoice.contractId || null);
+                          }}
+                          className="block max-w-full text-left text-xs text-[#5B6472] dark:text-gray-400 mt-0.5 hover:text-[#0B6E6E] dark:hover:text-[#5FD0C8] hover:underline truncate"
+                        >
+                          Shartnoma {invoice.contractNumber}
+                        </button>
+                      ) : (
+                        <div className="text-xs text-[#5B6472] dark:text-gray-400 mt-0.5">
+                          {invoice.contractNumber ? `Shartnoma ${invoice.contractNumber}` : '—'}
                         </div>
-                      </td>
-                      <td className="px-6 py-2 whitespace-nowrap text-sm text-right font-bold text-gray-900 dark:text-gray-100">
-                        <CurrencyDisplay
-                          amount={invoice.totalAmount || 0}
-                          originalCurrency={invoice.contract?.contractCurrency || invoice.currency}
-                          forceOriginal
-                        />
-                      </td>
-                      <td className="px-6 py-2 text-sm text-gray-700 dark:text-gray-300 max-w-xs truncate" title={[invoice.contract?.shipperName || invoice.contract?.sellerName, invoice.contract?.buyerName, invoice.contract?.consigneeName].filter(Boolean).join(' / ') || undefined}>
-                        {invoice.clientId ? (
+                      )}
+                    </td>
+                    <td className="py-2 px-3 whitespace-nowrap text-[#2B3340] dark:text-gray-300">{branchName}</td>
+                    <td className={`py-2 px-3 whitespace-nowrap ${MONO} text-[13px] text-[#2B3340] dark:text-gray-300`}>
+                      <div className="flex items-center gap-2">
+                        <span>{vehicle || '-'}</span>
+                        {vehicle && (
+                          <CopyIconButton
+                            textToCopy={vehicle as string}
+                            toastMessage="Avtomobil raqami nusxalandi"
+                          />
+                        )}
+                      </div>
+                    </td>
+                    <td className="py-2 px-3">
+                      <StageProgress stages={invoice.task?.stages} taskStatus={invoice.task?.status} hasErrors={hasErrors} />
+                    </td>
+                    <td className="py-2 px-3 text-right whitespace-nowrap font-semibold tabular-nums text-[#151A22] dark:text-gray-100">
+                      <CurrencyDisplay
+                        amount={invoice.totalAmount || 0}
+                        originalCurrency={invoice.contract?.contractCurrency || invoice.currency}
+                        forceOriginal
+                      />
+                    </td>
+                    <td className="py-2 px-3 whitespace-nowrap">
+                      <StatusPill
+                        status={invoice.task?.status}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowTaskModalId(invoice.taskId);
+                        }}
+                      />
+                    </td>
+                    <td className="py-2 pl-3 pr-5 whitespace-nowrap">
+                      <div className="flex justify-end gap-0.5 opacity-[0.35] group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                        <button
+                          type="button"
+                          onClick={() => setShowTaskModalId(invoice.taskId)}
+                          aria-label="Jarayonlar"
+                          title="Jarayonlar"
+                          className="w-9 h-9 rounded-[10px] text-[#2B3340] dark:text-gray-300 flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+                        >
+                          <Icon icon="solar:routing-2-bold-duotone" className="w-5 h-5" />
+                        </button>
+                        {canEdit && (
+                          <button
+                            type="button"
+                            onClick={() => handleDuplicateInvoice(invoice)}
+                            disabled={duplicatingInvoiceId === invoice.id}
+                            aria-label="Nusxa olish"
+                            title="Dublikat"
+                            className="w-9 h-9 rounded-[10px] text-[#2B3340] dark:text-gray-300 flex items-center justify-center hover:bg-black/5 dark:hover:bg-white/10 transition-colors disabled:opacity-50"
+                          >
+                            <Icon icon="solar:copy-bold-duotone" className="w-5 h-5" />
+                          </button>
+                        )}
+                        {canEdit && canDeleteInvoice(invoice) && (
                           <button
                             type="button"
                             onClick={() => {
-                              setShowClientModalId(invoice.clientId);
-                              setShowContractModalId(invoice.contractId || null);
+                              setInvoiceToDelete(invoice);
+                              setShowDeleteConfirmModal(true);
                             }}
-                            className="text-left w-full hover:text-indigo-600 dark:hover:text-indigo-400 hover:underline focus:outline-none focus:ring-0 truncate block"
+                            aria-label="O'chirish"
+                            title="O'chirish"
+                            className="w-9 h-9 rounded-[10px] text-[#B42318] dark:text-[#F97066] flex items-center justify-center hover:bg-[#B42318]/10 transition-colors"
                           >
-                            {[invoice.contract?.shipperName || invoice.contract?.sellerName, invoice.contract?.buyerName, invoice.contract?.consigneeName]
-                              .filter(Boolean)
-                              .join(' / ') || '-'}
+                            <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-5 h-5" />
                           </button>
-                        ) : (
-                          <span>
-                            {[invoice.contract?.shipperName || invoice.contract?.sellerName, invoice.contract?.buyerName, invoice.contract?.consigneeName]
-                              .filter(Boolean)
-                              .join(' / ') || '-'}
-                          </span>
                         )}
-                      </td>
-                      <td className="px-6 py-2 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300 text-center">
-                        {formatDateOnly(invoice.date)}
-                      </td>
-                      <td className="px-6 py-2 whitespace-nowrap text-sm text-center">
-                        <div className="flex flex-col items-center justify-center gap-1.5">
-                          <StatusBadge 
-                            status={invoice.task?.status} 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setShowTaskModalId(invoice.taskId);
-                            }}
-                            progress={invoice.task?.stages && invoice.task.stages.length > 0 ? Math.round((invoice.task.stages.filter((s: any) => s.status === 'TAYYOR').length / invoice.task.stages.length) * 100) : undefined}
-                          />
-                        </div>
-                      </td>
-                      <td className="px-6 py-2 whitespace-nowrap text-center">
-                        <div className="flex items-center justify-center gap-1">
-                          {canEdit && (
-                            <>
-                              <button
-                                type="button"
-                                onClick={() => handleDuplicateInvoice(invoice)}
-                                disabled={duplicatingInvoiceId === invoice.id}
-                                className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-emerald-500 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-slate-700 shadow-sm ring-1 ring-emerald-200/60 dark:ring-slate-700 transition-all disabled:opacity-50 hover:shadow"
-                                title="Dublikat"
-                              >
-                                <Icon icon="solar:copy-bold-duotone" className="w-4 h-4" />
-                              </button>
-                              {(() => {
-                                const taskStatus = invoice.task?.status;
-                                const isEarlyTask = taskStatus === 'BOSHLANMAGAN';
-                                const invoysStageReady = invoice.task?.stages?.some(
-                                  (s) => String(s.name).trim().toLowerCase() === 'invoys' && s.status === 'TAYYOR'
-                                );
-                                const canDelete = Boolean(isEarlyTask && !invoysStageReady);
-                                if (!canDelete) return null;
-                                return (
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      setInvoiceToDelete(invoice);
-                                      setShowDeleteConfirmModal(true);
-                                    }}
-                                    className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-rose-500 hover:text-rose-700 dark:text-rose-400 dark:hover:text-rose-300 hover:bg-rose-50 dark:hover:bg-slate-700 shadow-sm ring-1 ring-rose-200/60 dark:ring-slate-700 transition-all hover:shadow"
-                                    title="O'chirish"
-                                  >
-                                    <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4" />
-                                  </button>
-                                );
-                              })()}
-                            </>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
 
-      {/* Pagination */}
+      {/* Sahifalash */}
       {(totalPagesServer > 1 || totalCount > 20) && invoices.length > 0 && (
-        <div className="flex items-center justify-between px-4 sm:px-6 py-3.5 mt-2 border border-gray-100/60 dark:border-gray-700/50 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl shadow-sm">
-          <p className="text-sm text-gray-600 dark:text-gray-400">
-            {startItem}-{endItem} / {totalCount} invoice
+        <div className={`flex flex-wrap items-center justify-between gap-3 px-5 py-3.5 ${isMobile ? 'mt-3.5' : 'border-t border-[#E3E6EB] dark:border-gray-700 bg-[#FAFBFC] dark:bg-gray-800/60 rounded-b-2xl'}`}>
+          <p className="text-[13px] text-[#5B6472] dark:text-gray-400">
+            {startItem}–{endItem} / {totalCount} ta invoys
           </p>
-          <div className="flex items-center gap-1">
+          <div className="flex gap-1.5">
             <button
               type="button"
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
               disabled={currentPage <= 1}
-              className="inline-flex items-center justify-center w-9 h-9 rounded-lg text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              title="Oldingi sahifa"
+              aria-label="Oldingi sahifa"
+              className={`${pageButtonBase} w-11 border border-[#D5D9E0] dark:border-slate-700 bg-white dark:bg-slate-800 text-[#151A22] dark:text-gray-100 disabled:text-[#8A92A0] disabled:cursor-not-allowed`}
             >
-              <Icon icon="solar:alt-arrow-left-bold-duotone" className="w-5 h-5" />
+              <Icon icon="solar:alt-arrow-left-bold-duotone" className="w-[18px] h-[18px]" />
             </button>
-            <div className="px-3 py-1 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm font-semibold text-gray-700 dark:text-gray-200 shadow-sm">
-              {currentPage} / {totalPagesServer}
-            </div>
+            {buildPageList(currentPage, totalPagesServer).map((p, i) =>
+              p === 'gap' ? (
+                <span key={`gap-${i}`} className="min-w-[24px] h-11 flex items-center justify-center text-[#8A92A0]">…</span>
+              ) : (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => setCurrentPage(p)}
+                  aria-current={p === currentPage ? 'page' : undefined}
+                  className={`${pageButtonBase} ${p === currentPage ? 'bg-[#151A22] text-white dark:bg-gray-100 dark:text-gray-900' : 'border border-[#D5D9E0] dark:border-slate-700 bg-white dark:bg-slate-800 text-[#151A22] dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-slate-700'}`}
+                >
+                  {p}
+                </button>
+              )
+            )}
             <button
               type="button"
               onClick={() => setCurrentPage((p) => Math.min(totalPagesServer, p + 1))}
               disabled={currentPage >= totalPagesServer}
-              className="inline-flex items-center justify-center w-9 h-9 rounded-lg text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              title="Keyingi sahifa"
+              aria-label="Keyingi sahifa"
+              className={`${pageButtonBase} w-11 border border-[#D5D9E0] dark:border-slate-700 bg-white dark:bg-slate-800 text-[#151A22] dark:text-gray-100 disabled:text-[#8A92A0] disabled:cursor-not-allowed`}
             >
-              <Icon icon="solar:alt-arrow-right-bold-duotone" className="w-5 h-5" />
+              <Icon icon="solar:alt-arrow-right-bold-duotone" className="w-[18px] h-[18px]" />
             </button>
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 };

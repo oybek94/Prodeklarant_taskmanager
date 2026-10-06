@@ -820,6 +820,14 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                         {docCheck?.result === 'PASS' && (
                           <span className="hidden sm:inline px-2 py-[3px] rounded-full text-[11px] font-semibold whitespace-nowrap shrink-0 bg-[#e8f7ee] text-[#146c36] dark:bg-emerald-500/20 dark:text-emerald-300">Invoys bilan mos</span>
                         )}
+                        <button
+                          type="button"
+                          onClick={() => downloadDocument(doc.fileUrl, doc.name)}
+                          className="h-11 w-11 sm:h-8 sm:w-8 rounded-xl sm:rounded-lg border border-[#d9defa] bg-[#eef0ff] text-[#3730a3] hover:bg-[#e0e4ff] dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-300 dark:hover:bg-indigo-500/20 inline-flex items-center justify-center shrink-0 transition-colors"
+                          title="Yuklab olish"
+                        >
+                          <Icon icon="solar:download-bold-duotone" className="w-4 h-4" />
+                        </button>
 {(() => {
                           // Admin har doim o'chira oladi
                           const isAdmin = user?.role === 'ADMIN';

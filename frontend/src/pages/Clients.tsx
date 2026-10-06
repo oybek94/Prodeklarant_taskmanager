@@ -144,6 +144,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [clientsPage, setClientsPage] = useState(1);
+  const [previewClientId, setPreviewClientId] = useState<number | null>(null);
   const [clientsTotalPages, setClientsTotalPages] = useState(1);
   const [clientsTotalCount, setClientsTotalCount] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
@@ -1431,6 +1432,19 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
     return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
   }) : [];
 
+  const previewClient = sortedClients.find((c) => c.id === previewClientId) ?? sortedClients[0] ?? null;
+
+  const getClientBalance = (client: Client): number => {
+    if (typeof client.balance === 'number') return client.balance;
+    if (client.balance !== undefined && client.balance !== null) return Number(client.balance);
+    const totalTasks = client.tasks?.length || 0;
+    const tasksWithPsr = client.tasks?.filter((t) => (t as { hasPsr?: boolean }).hasPsr).length || 0;
+    return Number(client.dealAmount || 0) * totalTasks + 10 * tasksWithPsr + Number(client.initialDebt || 0);
+  };
+
+  const getClientInitials = (name: string): string =>
+    name.split(' ').filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
+
   useEffect(() => {
     if (isModalMode && modalClientId && !showClientModal) {
       loadClientDetail(modalClientId);
@@ -1456,10 +1470,15 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
       {!isModalMode && (
         <>
           {/* Header */}
-          <div className="flex justify-between items-center mb-6">
+          <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
-              <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">Clients</h1>
-              <div className="text-sm text-gray-500 mt-1">Home &gt; Clients</div>
+              <div className="text-[13px] font-semibold text-gray-500 dark:text-gray-400">Mijozlar bazasi</div>
+              <h1 className="text-3xl font-extrabold tracking-tight text-gray-900 dark:text-gray-100">
+                Mijozlar
+                {clientsTotalCount > 0 && (
+                  <span className="ml-3 align-middle text-base font-semibold text-gray-400">{clientsTotalCount}</span>
+                )}
+              </h1>
             </div>
             {!isNonAdmin && (
               <button
@@ -1470,81 +1489,77 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                     setShowForm(true);
                   }
                 }}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2"
+                className="h-11 px-5 rounded-xl bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-sm font-bold hover:opacity-90 flex items-center gap-2"
               >
                 <Icon icon="solar:add-circle-bold-duotone" className="w-5 h-5" />
-                Add New
+                Yangi mijoz
               </button>
             )}
           </div>
 
-          <div className="mb-6 bg-white dark:bg-slate-800 p-4 rounded-xl border border-gray-200 dark:border-slate-700 shadow-sm flex flex-col lg:flex-row gap-4">
-            <div className="flex-1 space-y-4 lg:space-y-0 lg:flex lg:gap-4 lg:items-center">
-              {/* Search */}
-              <div className="flex-1 min-w-[200px]">
-                <label className="block text-xs font-medium text-gray-500 mb-1 ml-1">Qidiruv</label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Icon icon="solar:magnifer-bold-duotone" className="h-4 w-4 text-gray-400" />
-                  </div>
-                  <input
-                    type="text"
-                    placeholder="Ism, telefon yoki INN..."
-                    value={searchQuery}
-                    onChange={(e) => { setSearchQuery(e.target.value); setClientsPage(1); }}
-                    className="w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 focus:bg-white rounded-lg transition-colors text-sm dark:text-gray-200"
-                  />
-                </div>
-              </div>
+          {/* Toolbar */}
+          <div className="flex flex-wrap items-center gap-3">
+            <label className="flex-1 min-w-[260px] max-w-md h-11 px-3.5 flex items-center gap-2.5 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl">
+              <Icon icon="solar:magnifer-bold-duotone" className="w-[18px] h-[18px] text-gray-400 shrink-0" />
+              <input
+                type="text"
+                aria-label="Qidiruv"
+                placeholder="Ism, telefon yoki INN..."
+                value={searchQuery}
+                onChange={(e) => { setSearchQuery(e.target.value); setClientsPage(1); }}
+                className="flex-1 min-w-0 bg-transparent border-0 outline-none text-sm text-gray-900 dark:text-gray-200"
+              />
+            </label>
 
-              {/* Balance Filter */}
-              <div className="min-w-[150px]">
-                <label className="block text-xs font-medium text-gray-500 mb-1 ml-1">Qarzdorlik holati</label>
-                <select
-                  value={filterHasDebt}
-                  onChange={(e) => { setFilterHasDebt(e.target.value as '' | 'yes' | 'no'); setClientsPage(1); }}
-                  className="w-full px-3 py-2 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 focus:bg-white rounded-lg transition-colors text-sm dark:text-gray-200"
+            <div className="flex gap-1 p-1 rounded-xl bg-gray-200/70 dark:bg-slate-800">
+              {([
+                { value: '', label: 'Barchasi' },
+                { value: 'yes', label: 'Qarzdorlar' },
+                { value: 'no', label: "Qarzi yo'qlar" },
+              ] as const).map((opt) => (
+                <button
+                  key={opt.value}
+                  onClick={() => { setFilterHasDebt(opt.value); setClientsPage(1); }}
+                  className={`h-9 px-4 rounded-[9px] text-[13px] font-bold transition-colors ${filterHasDebt === opt.value
+                    ? 'bg-white dark:bg-slate-600 text-gray-900 dark:text-gray-100 shadow-sm'
+                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'}`}
                 >
-                  <option value="">Barchasi</option>
-                  <option value="yes">Faqat qarzdorlar (Qarzi &gt; 0)</option>
-                  <option value="no">Qarzi yo'qlar</option>
-                </select>
-              </div>
-
-              {/* Assigned User Filter */}
-              <div className="min-w-[150px]">
-                <label className="block text-xs font-medium text-gray-500 mb-1 ml-1">Mas'ul xodim</label>
-                <select
-                  value={filterAssignedUserId}
-                  onChange={(e) => { setFilterAssignedUserId(e.target.value); setClientsPage(1); }}
-                  className="w-full px-3 py-2 bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 focus:bg-white rounded-lg transition-colors text-sm dark:text-gray-200"
-                >
-                  <option value="">Hammasi</option>
-                  <option value="none">Admin (biriktirilmagan)</option>
-                  {assignableUsers.map((u) => (
-                    <option key={u.id} value={u.id}>{u.name}</option>
-                  ))}
-                </select>
-              </div>
+                  {opt.label}
+                </button>
+              ))}
             </div>
 
+            <label className="h-11 px-3.5 flex items-center gap-2 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl text-[13px] font-semibold text-gray-500 dark:text-gray-400">
+              Mas'ul
+              <select
+                value={filterAssignedUserId}
+                onChange={(e) => { setFilterAssignedUserId(e.target.value); setClientsPage(1); }}
+                className="bg-transparent border-0 outline-none text-sm font-semibold text-gray-900 dark:text-gray-200"
+              >
+                <option value="">Hammasi</option>
+                <option value="none">Admin (biriktirilmagan)</option>
+                {assignableUsers.map((u) => (
+                  <option key={u.id} value={u.id}>{u.name}</option>
+                ))}
+              </select>
+            </label>
+
             {(searchQuery || filterHasDebt || filterAssignedUserId) && (
-              <div className="lg:self-end">
-                <button
-                  onClick={() => {
-                    setSearchQuery('');
-                    setFilterHasDebt('');
-                    setFilterAssignedUserId('');
-                    setClientsPage(1);
-                  }}
-                  className="w-full lg:w-auto px-4 py-2 border border-blue-200 dark:border-blue-900/50 text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors flex justify-center items-center gap-2 text-sm font-medium"
-                >
-                  <Icon icon="solar:close-circle-bold-duotone" className="w-4 h-4" />
-                  Tozalash
-                </button>
-              </div>
+              <button
+                onClick={() => {
+                  setSearchQuery('');
+                  setFilterHasDebt('');
+                  setFilterAssignedUserId('');
+                  setClientsPage(1);
+                }}
+                className="h-11 px-4 rounded-xl text-sm font-semibold text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 flex items-center gap-2"
+              >
+                <Icon icon="solar:close-circle-bold-duotone" className="w-4 h-4" />
+                Tozalash
+              </button>
             )}
           </div>
+
 
           {/* Stats Cards removed as per user request */}          {/* Add Client Modal */}
           {showClientForm && (
@@ -1758,156 +1773,188 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
             </div>
           )}
 
-          {/* Clients Grid */}
-          {loading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-                <div key={i} className="animate-pulse bg-white/50 dark:bg-slate-800/50 rounded-2xl p-6 h-56 border border-gray-100/50 dark:border-slate-700/50 shadow-sm" />
-              ))}
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {sortedClients.length === 0 ? (
-                <div className="col-span-full py-16 flex flex-col items-center justify-center text-gray-500 dark:text-gray-400 bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm rounded-2xl border border-dashed border-gray-300 dark:border-slate-700">
-                  <Icon icon="solar:users-group-rounded-bold-duotone" className="w-16 h-16 mb-4 opacity-30" />
-                  <p className="text-lg font-medium">Mijozlar topilmadi</p>
-                </div>
-              ) : (
-                sortedClients.map((client) => {
-                  const dealAmount = Number(client.dealAmount || 0);
-                  const totalTasks = client.tasks?.length || 0;
-                  const tasksWithPsr = client.tasks?.filter((t: any) => t.hasPsr).length || 0;
-                  const totalDealAmount = (dealAmount * totalTasks) + (10 * tasksWithPsr);
-                  const initialDebt = Number(client.initialDebt || 0);
-                  const calculatedBalance = typeof client.balance === 'number' ? client.balance :
-                    (client.balance !== undefined && client.balance !== null ? Number(client.balance) : totalDealAmount + initialDebt);
+          {/* Clients list + preview */}
+          <div className="flex flex-wrap lg:flex-nowrap gap-6 items-start">
+            <div className="flex-1 min-w-0 w-full bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-2xl overflow-hidden">
+              <div className="overflow-x-auto">
+                <div className="min-w-[680px]">
+                  <div className="grid grid-cols-[minmax(0,2.4fr)_minmax(0,1.3fr)_minmax(0,1.1fr)_minmax(0,1.2fr)] gap-4 px-6 py-3.5 bg-gray-50 dark:bg-slate-900/50 border-b border-gray-200 dark:border-slate-700 text-xs font-bold tracking-wide text-gray-500 dark:text-gray-400">
+                    <div>Mijoz</div>
+                    <div>Mas'ul xodim</div>
+                    <div className="text-right">Shartnoma summasi</div>
+                    <div className="text-right">Qarzdorlik</div>
+                  </div>
 
-                  return (
-                    <div
-                      key={client.id}
-                      onClick={() => loadClientDetail(client.id)}
-                      className="group bg-white dark:bg-slate-800/90 rounded-2xl p-5 transition-all duration-300 shadow-sm hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] dark:hover:shadow-[0_8px_30px_rgb(0,0,0,0.4)] ring-1 ring-gray-200/80 dark:ring-slate-700 hover:ring-blue-500/30 dark:hover:ring-blue-500/50 cursor-pointer flex flex-col relative overflow-hidden"
-                    >
-                      <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-400 to-indigo-500 opacity-0 group-hover:opacity-100 transition-opacity"></div>
-  
-                      <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Icon icon="solar:arrow-right-up-bold-duotone" className="w-5 h-5 text-blue-500 dark:text-blue-400" />
-                      </div>
-
-                      <div className="mb-4 pt-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h3 className="text-lg font-bold text-gray-800 dark:text-gray-100 truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                            {client.name}
-                          </h3>
-                        </div>
-                          <div className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400">
-                            <Icon icon="solar:phone-bold-duotone" className="w-3.5 h-3.5" />
-                            <span className="truncate"><EmptyValue value={client.phone} /></span>
+                  {loading ? (
+                    [1, 2, 3, 4, 5, 6, 7].map((i) => (
+                      <div key={i} className="animate-pulse h-[69px] border-b border-gray-100 dark:border-slate-700/60 bg-gray-50/60 dark:bg-slate-800/60" />
+                    ))
+                  ) : sortedClients.length === 0 ? (
+                    <div className="py-16 flex flex-col items-center justify-center text-gray-500 dark:text-gray-400">
+                      <Icon icon="solar:users-group-rounded-bold-duotone" className="w-16 h-16 mb-4 opacity-30" />
+                      <p className="text-lg font-medium">Mijozlar topilmadi</p>
+                    </div>
+                  ) : (
+                    sortedClients.map((client) => {
+                      const balance = getClientBalance(client);
+                      const isActive = previewClient?.id === client.id;
+                      return (
+                        <div
+                          key={client.id}
+                          className={`grid grid-cols-[minmax(0,2.4fr)_minmax(0,1.3fr)_minmax(0,1.1fr)_minmax(0,1.2fr)] gap-4 items-center px-6 py-3.5 border-b border-gray-100 dark:border-slate-700/60 transition-colors ${isActive
+                            ? 'bg-blue-50/70 dark:bg-blue-900/20 shadow-[inset_3px_0_0_#2F5BEA]'
+                            : 'hover:bg-gray-50 dark:hover:bg-slate-700/30'}`}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => setPreviewClientId(client.id)}
+                            onDoubleClick={() => loadClientDetail(client.id)}
+                            className="flex items-center gap-3.5 min-w-0 text-left"
+                          >
+                            <span className={`shrink-0 w-10 h-10 rounded-xl flex items-center justify-center text-sm font-extrabold ${isActive
+                              ? 'bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900'
+                              : 'bg-gray-100 text-gray-600 dark:bg-slate-700 dark:text-gray-300'}`}>
+                              {getClientInitials(client.name)}
+                            </span>
+                            <span className="min-w-0 flex flex-col gap-0.5">
+                              <span className="text-[15px] font-bold text-gray-900 dark:text-gray-100 truncate">{client.name}</span>
+                              <span className="text-[13px] text-gray-500 dark:text-gray-400 truncate"><EmptyValue value={client.phone} /></span>
+                            </span>
+                          </button>
+                          <div className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">{client.assignedUser?.name || 'Admin'}</div>
+                          <div className="text-right text-sm font-semibold text-gray-900 dark:text-gray-100 tabular-nums">
+                            {isNonAdmin ? <span className="font-mono text-gray-400">***</span> : client.dealAmount ? (
+                              <CurrencyDisplay
+                                amount={Number(client.dealAmount)}
+                                originalCurrency={(client.dealAmountCurrency || 'USD') as 'USD' | 'UZS'}
+                              />
+                            ) : '-'}
                           </div>
-                          <div className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 mt-1">
-                            <Icon icon="solar:user-id-bold-duotone" className="w-3.5 h-3.5" />
-                            <span className="truncate">{client.assignedUser?.name || 'Admin'}</span>
-                          </div>
-                      </div>
-
-                      <>
-                          <div className="grid grid-cols-2 gap-3 mb-4 flex-1">
-                            <div className="bg-slate-50 dark:bg-slate-900/50 rounded-xl p-3 border border-slate-100 dark:border-slate-700/50 group-hover:bg-blue-50/50 dark:group-hover:bg-blue-900/10 transition-colors">
-                              <div className="text-[10px] uppercase font-bold text-gray-400 dark:text-gray-500 tracking-wider mb-1">Deal Amount</div>
-                              <div className="font-semibold text-gray-800 dark:text-gray-200 truncate">
-                                {isNonAdmin ? <span className="font-mono text-gray-400">***</span> : client.dealAmount ? (
+                          <div className="flex justify-end">
+                            {isNonAdmin ? <span className="font-mono text-gray-400">***</span> : (
+                              <span className={`inline-flex items-center gap-2 h-[30px] px-3 rounded-full text-[13px] font-bold tabular-nums ${balance > 0
+                                ? 'bg-orange-100 text-orange-900 dark:bg-orange-900/30 dark:text-orange-200'
+                                : 'bg-emerald-100 text-emerald-900 dark:bg-emerald-900/30 dark:text-emerald-200'}`}>
+                                <span className={`w-[7px] h-[7px] rounded-full ${balance > 0 ? 'bg-orange-600' : 'bg-emerald-600'}`} />
+                                {balance === 0 ? "Qarz yo'q" : (
                                   <CurrencyDisplay
-                                    amount={Number(client.dealAmount)}
-                                    originalCurrency={(client.dealAmountCurrency || 'USD') as 'USD' | 'UZS'}
+                                    amount={Number(balance)}
+                                    originalCurrency={(client.balanceCurrency || client.dealAmountCurrency || 'USD') as 'USD' | 'UZS'}
                                   />
-                                ) : '-'}
-                              </div>
-                            </div>
-                            <div className="bg-slate-50 dark:bg-slate-900/50 rounded-xl p-3 border border-slate-100 dark:border-slate-700/50 group-hover:bg-emerald-50/50 dark:group-hover:bg-emerald-900/10 transition-colors">
-                              <div className="text-[10px] uppercase font-bold text-gray-400 dark:text-gray-500 tracking-wider mb-1">Projects</div>
-                              <div className="font-semibold text-gray-800 dark:text-gray-200 flex items-center gap-1.5 group-hover:text-emerald-600 transition-colors">
-                                <Icon icon="solar:folder-check-bold-duotone" className="w-4 h-4" />
-                                {client.tasks?.length || 0}
-                              </div>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center justify-between pt-3 border-t border-gray-100 dark:border-slate-700/50 mt-auto">
-                            <div className="flex flex-col min-w-0 pr-2">
-                              <div className="text-[10px] uppercase font-bold text-gray-400 dark:text-gray-500 tracking-wider mb-0.5">Qarzdorlik</div>
-                              <div className={`font-bold text-sm truncate ${calculatedBalance > 0
-                                ? 'text-rose-600 dark:text-rose-400'
-                                : calculatedBalance === 0
-                                  ? 'text-gray-600 dark:text-gray-400'
-                                  : 'text-emerald-600 dark:text-emerald-400'
-                                }`}>
-                                {isNonAdmin ? <span className="font-mono opacity-70">***</span> : <CurrencyDisplay
-                                  amount={Number(calculatedBalance)}
-                                  originalCurrency={(client.balanceCurrency || client.dealAmountCurrency || 'USD') as 'USD' | 'UZS'}
-                                />}
-                              </div>
-                            </div>
-
-                            {!isNonAdmin && (
-                              <div className="flex items-center gap-1.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" onClick={(e) => e.stopPropagation()}>
-                                <button
-                                onClick={() => {
-                                  if (isMobile) {
-                                    navigate(`/clients/${client.id}/edit`);
-                                  } else {
-                                    handleEdit(client);
-                                  }
-                                }}
-                                className="w-8 h-8 flex items-center justify-center rounded-lg bg-white dark:bg-slate-800 text-gray-400 dark:text-gray-400 hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-900/30 dark:hover:text-blue-400 transition-all border border-gray-200 dark:border-slate-600 hover:border-blue-200 dark:hover:border-blue-800"
-                                title="O'zgartirish"
-                              >
-                                <Icon icon="solar:pen-bold-duotone" className="w-4 h-4" />
-                              </button>
-                              <button
-                                onClick={() => handleDelete(client.id)}
-                                className="w-8 h-8 flex items-center justify-center rounded-lg bg-white dark:bg-slate-800 text-gray-400 dark:text-gray-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-900/30 dark:hover:text-rose-400 transition-all border border-gray-200 dark:border-slate-600 hover:border-rose-200 dark:hover:border-rose-800"
-                                title="O'chirish"
-                              >
-                                <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4" />
-                              </button>
-                            </div>
+                                )}
+                              </span>
                             )}
                           </div>
-                        </>
-                    </div>
-                  );
-                })
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+
+              {clientsTotalPages > 1 && (
+                <div className="flex items-center justify-between px-6 py-3.5 text-[13px] text-gray-500 dark:text-gray-400">
+                  <span>
+                    {((clientsPage - 1) * CLIENTS_PAGE_SIZE) + 1}–{Math.min(clientsPage * CLIENTS_PAGE_SIZE, clientsTotalCount)} / {clientsTotalCount}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      aria-label="Oldingi sahifa"
+                      onClick={() => setClientsPage(Math.max(1, clientsPage - 1))}
+                      disabled={clientsPage === 1}
+                      className="w-9 h-9 flex items-center justify-center border border-gray-200 dark:border-slate-700 rounded-[10px] text-gray-700 dark:text-gray-300 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-slate-700"
+                    >
+                      <Icon icon="solar:alt-arrow-left-bold-duotone" className="w-4 h-4" />
+                    </button>
+                    <span className="font-semibold text-gray-700 dark:text-gray-300">{clientsPage} / {clientsTotalPages}</span>
+                    <button
+                      aria-label="Keyingi sahifa"
+                      onClick={() => setClientsPage(Math.min(clientsTotalPages, clientsPage + 1))}
+                      disabled={clientsPage === clientsTotalPages}
+                      className="w-9 h-9 flex items-center justify-center border border-gray-200 dark:border-slate-700 rounded-[10px] text-gray-700 dark:text-gray-300 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50 dark:hover:bg-slate-700"
+                    >
+                      <Icon icon="solar:alt-arrow-right-bold-duotone" className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
               )}
             </div>
-          )}
 
-          {clientsTotalPages > 1 && (
-            <div className="flex items-center justify-between mt-6 px-6 py-4 bg-white/50 dark:bg-slate-800/50 rounded-xl border border-gray-100 dark:border-slate-700">
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                {((clientsPage - 1) * CLIENTS_PAGE_SIZE) + 1}–
-                {Math.min(clientsPage * CLIENTS_PAGE_SIZE, clientsTotalCount)} / {clientsTotalCount}
-              </p>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setClientsPage(Math.max(1, clientsPage - 1))}
-                  disabled={clientsPage === 1}
-                  className="px-3 py-1.5 border border-indigo-100 dark:border-indigo-900 rounded-lg text-indigo-600 dark:text-indigo-400 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-indigo-50 dark:hover:bg-indigo-900/30"
-                >
-                  <Icon icon="solar:alt-arrow-left-bold-duotone" className="w-4 h-4" />
-                </button>
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  {clientsPage} / {clientsTotalPages}
-                </span>
-                <button
-                  onClick={() => setClientsPage(Math.min(clientsTotalPages, clientsPage + 1))}
-                  disabled={clientsPage === clientsTotalPages}
-                  className="px-3 py-1.5 border border-indigo-100 dark:border-indigo-900 rounded-lg text-indigo-600 dark:text-indigo-400 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-indigo-50 dark:hover:bg-indigo-900/30"
-                >
-                  <Icon icon="solar:alt-arrow-right-bold-duotone" className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          )}
+            {/* Preview panel */}
+            {!loading && previewClient && (() => {
+              const balance = getClientBalance(previewClient);
+              const currency = (previewClient.balanceCurrency || previewClient.dealAmountCurrency || 'USD') as 'USD' | 'UZS';
+              return (
+                <aside className="w-full lg:w-[360px] shrink-0 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-2xl overflow-hidden lg:sticky lg:top-6">
+                  <div className="p-6 space-y-5 border-b border-gray-100 dark:border-slate-700/60">
+                    <div className="flex items-center gap-3.5">
+                      <span className="shrink-0 w-14 h-14 rounded-2xl flex items-center justify-center text-lg font-extrabold bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900">
+                        {getClientInitials(previewClient.name)}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-lg font-extrabold tracking-tight text-gray-900 dark:text-gray-100 truncate">{previewClient.name}</div>
+                        <div className="text-[13px] text-gray-500 dark:text-gray-400"><EmptyValue value={previewClient.phone} /></div>
+                      </div>
+                      {!isNonAdmin && (
+                        <button
+                          aria-label="Tahrirlash"
+                          onClick={() => (isMobile ? navigate(`/clients/${previewClient.id}/edit`) : handleEdit(previewClient))}
+                          className="shrink-0 w-10 h-10 flex items-center justify-center rounded-xl border border-gray-200 dark:border-slate-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700"
+                        >
+                          <Icon icon="solar:pen-bold-duotone" className="w-[18px] h-[18px]" />
+                        </button>
+                      )}
+                    </div>
+                    <div className={`p-4 rounded-xl ${balance > 0
+                      ? 'bg-orange-100 text-orange-900 dark:bg-orange-900/30 dark:text-orange-200'
+                      : 'bg-emerald-100 text-emerald-900 dark:bg-emerald-900/30 dark:text-emerald-200'}`}>
+                      <div className="text-xs font-bold mb-1.5">Joriy qarzdorlik</div>
+                      <div className="text-[28px] font-extrabold tracking-tight leading-tight">
+                        {isNonAdmin ? '***' : balance === 0 ? "Qarz yo'q" : <CurrencyDisplay amount={Number(balance)} originalCurrency={currency} />}
+                      </div>
+                    </div>
+                  </div>
+
+                  <dl className="px-6 py-2">
+                    {[
+                      { k: "Mas'ul xodim", v: <>{previewClient.assignedUser?.name || 'Admin'}</> },
+                      {
+                        k: 'Shartnoma summasi',
+                        v: isNonAdmin ? <span className="font-mono text-gray-400">***</span> : previewClient.dealAmount ? (
+                          <CurrencyDisplay amount={Number(previewClient.dealAmount)} originalCurrency={(previewClient.dealAmountCurrency || 'USD') as 'USD' | 'UZS'} />
+                        ) : <>-</>,
+                      },
+                      { k: 'Bajarilgan ishlar', v: <>{previewClient.tasks?.length || 0}</> },
+                      { k: 'Hamkorlik boshlangan', v: <>{new Date(previewClient.createdAt).toLocaleDateString('ru-RU')}</> },
+                    ].map((row) => (
+                      <div key={row.k} className="flex justify-between gap-4 py-3.5 border-b border-gray-100 dark:border-slate-700/60 last:border-0 text-sm">
+                        <dt className="text-gray-500 dark:text-gray-400">{row.k}</dt>
+                        <dd className="font-semibold text-gray-900 dark:text-gray-100 text-right tabular-nums">{row.v}</dd>
+                      </div>
+                    ))}
+                  </dl>
+
+                  <div className="flex gap-2.5 px-6 pb-6 pt-2">
+                    <button
+                      onClick={() => loadClientDetail(previewClient.id)}
+                      className="flex-1 h-11 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold"
+                    >
+                      To'liq profil
+                    </button>
+                    {!isNonAdmin && (
+                      <button
+                        aria-label="O'chirish"
+                        onClick={() => handleDelete(previewClient.id)}
+                        className="shrink-0 w-11 h-11 flex items-center justify-center rounded-xl border border-gray-200 dark:border-slate-600 text-gray-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/30"
+                      >
+                        <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-[18px] h-[18px]" />
+                      </button>
+                    )}
+                  </div>
+                </aside>
+              );
+            })()}
+          </div>
         </>
       )}
 

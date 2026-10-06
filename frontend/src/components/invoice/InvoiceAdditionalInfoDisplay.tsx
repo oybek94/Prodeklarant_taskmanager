@@ -39,7 +39,7 @@ export const InvoiceAdditionalInfoDisplay: React.FC<InvoiceAdditionalInfoDisplay
     const customKeys = customFields.map(f => `custom_${f.id}`);
     const allActiveKeys = new Set([...baseFields, ...customKeys]);
     
-    let merged = activeOrder.filter(key => allActiveKeys.has(key));
+    const merged = activeOrder.filter(key => allActiveKeys.has(key));
     
     customKeys.forEach(key => {
       if (!merged.includes(key)) {
@@ -61,166 +61,151 @@ export const InvoiceAdditionalInfoDisplay: React.FC<InvoiceAdditionalInfoDisplay
     return merged;
   }, [additionalFieldsOrder, customFields]);
 
-  const renderFieldByKey = (key: string) => {
+  interface InfoRow {
+    key: string;
+    label: string;
+    value: string;
+    copyText?: string;
+  }
+
+  /** Asosiy maydonlarning yorlig'i va qiymati; ko'rinmas yoki bo'sh maydon null qaytaradi */
+  const rowByKey = (key: string): InfoRow | null => {
+    const simple = (label: string, value: string | undefined): InfoRow | null =>
+      isAdditionalInfoVisible(key) && value ? { key, label, value } : null;
+
     switch (key) {
       case 'shipmentPlace':
-        return isAdditionalInfoVisible('shipmentPlace') && form.shipmentPlace ? (
-          <div key={key}>
-            <strong>Место отгрузки груза:</strong> {form.shipmentPlace}
-          </div>
-        ) : null;
+        return simple('Место отгрузки груза', form.shipmentPlace);
       case 'destination':
-        return isAdditionalInfoVisible('destination') && form.destination ? (
-          <div key={key}>
-            <strong>Место назначения:</strong> {form.destination}
-          </div>
-        ) : null;
+        return simple('Место назначения', form.destination);
       case 'origin':
-        return isAdditionalInfoVisible('origin') ? (
-          <div key={key}>
-            <strong>Происхождение товара:</strong> {form.origin || 'Республика Узбекистан'}
-          </div>
-        ) : null;
+        return isAdditionalInfoVisible('origin')
+          ? { key, label: 'Происхождение товара', value: form.origin || 'Республика Узбекистан' }
+          : null;
       case 'manufacturer':
-        return isAdditionalInfoVisible('manufacturer') && form.manufacturer ? (
-          <div key={key}>
-            <strong>Производитель:</strong> {form.manufacturer}
-          </div>
-        ) : null;
+        return simple('Производитель', form.manufacturer);
       case 'orderNumber':
-        return isAdditionalInfoVisible('orderNumber') && form.orderNumber ? (
-          <div key={key}>
-            <strong>Номер заказа:</strong> {form.orderNumber}
-          </div>
-        ) : null;
+        return simple('Номер заказа', form.orderNumber);
       case 'gln':
-        return isAdditionalInfoVisible('gln') && form.gln ? (
-          <div key={key}>
-            <strong>Глобальный идентификационный номер GS1 (GLN):</strong> {form.gln}
-          </div>
-        ) : null;
+        return simple('Глобальный идентификационный номер GS1 (GLN)', form.gln);
       case 'temperature':
-        return isAdditionalInfoVisible('temperature') && form.temperature ? (
-          <div key={key}>
-            <strong>Температура:</strong> {form.temperature}
-          </div>
-        ) : null;
+        return simple('Температура', form.temperature);
       case 'harvestYear':
-        return isAdditionalInfoVisible('harvestYear') && form.harvestYear ? (
-          <div key={key}>
-            <strong>Урожай:</strong> {form.harvestYear}
-          </div>
-        ) : null;
-      default:
-        if (key.startsWith('custom_')) {
-          const fieldId = key.replace('custom_', '');
-          const field = customFields.find(f => f.id === fieldId);
-          if (!field) return null;
-          return isAdditionalInfoVisible(`custom_${field.id}`) && field.value ? (
-            <div key={field.id}>
-              <strong>{field.label}:</strong> {field.value}
-            </div>
-          ) : null;
-        }
-        return null;
+        return simple('Урожай', form.harvestYear);
+      default: {
+        if (!key.startsWith('custom_')) return null;
+        const field = customFields.find((f) => f.id === key.replace('custom_', ''));
+        return field && isAdditionalInfoVisible(`custom_${field.id}`) && field.value
+          ? { key, label: field.label, value: field.value }
+          : null;
+      }
+    }
+  };
+
+  const rows: InfoRow[] = [
+    isAdditionalInfoVisible('deliveryTerms') && form.deliveryTerms
+      ? { key: 'deliveryTerms', label: 'Условия поставки', value: form.deliveryTerms }
+      : null,
+    isAdditionalInfoVisible('vehicleNumber') && form.vehicleNumber
+      ? { key: 'vehicleNumber', label: 'Номер автотранспорта', value: form.vehicleNumber, copyText: form.vehicleNumber }
+      : null,
+    isAdditionalInfoVisible('customsAddress') && form.customsAddress
+      ? { key: 'customsAddress', label: 'Место там. очистки', value: form.customsAddress }
+      : null,
+    ...fieldOrder.map(rowByKey),
+    // Упаковочный лист maydonlari — faqat shu tabda
+    ...(viewTab === 'packing'
+      ? packingCustomFields.map((field): InfoRow | null =>
+          isAdditionalInfoVisible(`packing_${field.id}`) && field.value
+            ? { key: `packing_${field.id}`, label: field.label, value: field.value }
+            : null
+        )
+      : []),
+  ].filter((row): row is InfoRow => row !== null);
+
+  const copyAddress = async () => {
+    const parts: string[] = [];
+    if (selectedContract) {
+      const gruzManzil = (selectedContract.consigneeAddress ?? '').trim().replace(/\n/g, ' ');
+      if (gruzManzil) parts.push(gruzManzil);
+      parts.push('п/п.');
+      const buyerName = (selectedContract.buyerName ?? '').trim();
+      if (buyerName) parts.push(buyerName);
+      const buyerAddr = (selectedContract.buyerAddress ?? '').trim();
+      if (buyerAddr) parts.push(buyerAddr);
+    }
+    const text = parts.join(' ');
+    if (!text) {
+      toast.error("Nusxalash uchun ma'lumot yo'q");
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(text);
+      setAddressCopySuccess(true);
+      window.setTimeout(() => setAddressCopySuccess(false), 2000);
+    } catch {
+      toast.error('Nusxalashda xatolik');
     }
   };
 
   return (
-    <div className="mb-0">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="font-semibold text-gray-800">Дополнительная информация</h3>
-        <div className="flex items-center gap-2 no-screenshot">
+    <div className="mb-0 overflow-hidden rounded-2xl border border-[#E3E5EE] bg-white">
+      <div className="flex items-center justify-between gap-4 border-b border-[#ECEEF4] px-6 py-3.5">
+        <div className="flex min-w-0 items-center gap-3">
+          <h3 className="m-0 text-lg font-semibold leading-tight tracking-tight text-[#151827]">Дополнительная информация</h3>
+          <span className="no-screenshot flex h-6 shrink-0 items-center rounded-full bg-[#EEF0FB] px-2.5 text-xs font-semibold text-[#3F3BC4]">
+            {rows.length} ta maydon
+          </span>
+        </div>
+        <div className="no-screenshot flex items-center gap-2">
           {!isBuyerConsignee && selectedContract?.consigneeName && (
             <button
               type="button"
-              onClick={async () => {
-                const parts: string[] = [];
-                if (selectedContract) {
-                  const gruzManzil = (selectedContract.consigneeAddress ?? '').trim().replace(/\n/g, ' ');
-                  if (gruzManzil) parts.push(gruzManzil);
-                  parts.push('п/п.');
-                  const buyerName = (selectedContract.buyerName ?? '').trim();
-                  if (buyerName) parts.push(buyerName);
-                  const buyerAddr = (selectedContract.buyerAddress ?? '').trim();
-                  if (buyerAddr) parts.push(buyerAddr);
-                }
-                const text = parts.join(' ');
-                if (text) {
-                  try {
-                    await navigator.clipboard.writeText(text);
-                    setAddressCopySuccess(true);
-                    window.setTimeout(() => setAddressCopySuccess(false), 2000);
-                  } catch {
-                    alert('Nusxalashda xatolik');
-                  }
-                } else {
-                  alert('Nusxalash uchun ma\'lumot yo\'q');
-                }
-              }}
-              className={`inline-flex items-center justify-center w-9 h-9 rounded-lg transition-all duration-300 text-sm ${addressCopySuccess
-                ? 'bg-green-500 text-white scale-110 shadow-lg shadow-green-500/40'
-                : 'bg-indigo-600 text-white hover:bg-indigo-700'
-                }`}
+              onClick={copyAddress}
+              aria-label="Manzilni nusxalash"
               title="Грузополучатель manzili + п/п. + Покупатель nomi + Покупатель manzili"
+              className={`inline-flex h-10 w-10 items-center justify-center rounded-[10px] text-white transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 ${
+                addressCopySuccess ? 'bg-green-600' : 'bg-indigo-600 hover:bg-indigo-700'
+              }`}
             >
-              {addressCopySuccess ? (
-                <svg className="w-5 h-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                </svg>
-              ) : (
-                <Icon icon="solar:copy-bold-duotone" className="w-5 h-5" />
-              )}
+              <Icon icon={addressCopySuccess ? 'solar:check-circle-bold-duotone' : 'solar:copy-bold-duotone'} className="h-[18px] w-[18px]" />
             </button>
           )}
           <button
             type="button"
             onClick={() => setShowAdditionalInfoModal(true)}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+            className="inline-flex h-10 items-center gap-2 rounded-[10px] border border-[#D5D8E6] bg-white px-4 text-sm font-semibold text-[#151827] transition-colors hover:bg-gray-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
           >
+            <Icon icon="solar:pen-bold-duotone" className="h-4 w-4" />
             Tahrirlash
           </button>
         </div>
       </div>
-      <div
-        className="p-4 pt-0 rounded-lg text-base text-black space-y-1"
-        style={{ backgroundColor: 'var(--tw-ring-offset-color)', background: 'unset' }}
-      >
-        {isAdditionalInfoVisible('deliveryTerms') && form.deliveryTerms && (
-          <div>
-            <strong>Условия поставки:</strong> {form.deliveryTerms}
-          </div>
-        )}
-        {isAdditionalInfoVisible('vehicleNumber') && form.vehicleNumber && (
-          <div className="flex items-center gap-2">
-            <div>
-              <strong>Номер автотранспорта:</strong> {form.vehicleNumber}
-            </div>
-            <div className="no-screenshot">
-              <CopyIconButton 
-                textToCopy={form.vehicleNumber} 
-                toastMessage="Avtomobil raqami nusxalandi" 
-              />
-            </div>
-          </div>
-        )}
-        {isAdditionalInfoVisible('customsAddress') && form.customsAddress && (
-          <div>
-            <strong>Место там. очистки:</strong> {form.customsAddress}
-          </div>
-        )}
 
-        {fieldOrder.map((key) => renderFieldByKey(key))}
-
-        {/* Упаковочный лист maydonlari — faqat shu tabda */}
-        {viewTab === 'packing' && packingCustomFields.map((field) => (
-          isAdditionalInfoVisible(`packing_${field.id}`) && field.value ? (
-            <div key={field.id}>
-              <strong>{field.label}:</strong> {field.value}
+      {rows.length > 0 && (
+        <dl className="m-0 px-6 pb-1 pt-0">
+          {rows.map((row) => (
+            <div
+              key={row.key}
+              className="flex min-h-8 items-center gap-4 border-b border-[#F0F1F6] py-1 last:border-b-0"
+            >
+              <dt className="w-[300px] shrink-0 text-sm leading-snug text-[#5B6178]">{row.label}:</dt>
+              <dd className="m-0 flex min-w-0 flex-1 items-center gap-2.5 text-[15px] font-medium leading-snug text-[#151827]">
+                <span className="min-w-0 break-words">{row.value}</span>
+                {row.copyText && (
+                  <span className="no-screenshot">
+                    <CopyIconButton
+                      textToCopy={row.copyText}
+                      toastMessage="Avtomobil raqami nusxalandi"
+                      className="!h-7 !w-7 !rounded-lg !bg-indigo-600 !p-0 !text-white hover:!bg-indigo-700"
+                    />
+                  </span>
+                )}
+              </dd>
             </div>
-          ) : null
-        ))}
-      </div>
+          ))}
+        </dl>
+      )}
     </div>
   );
 });

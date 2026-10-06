@@ -31,11 +31,11 @@ interface AdditionalInfoModalProps {
 
 /* Umumiy input uslubi — indigo accent, bitta radius shkalasi (rounded-lg) */
 const inputCls =
-  'w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all';
+  'w-full h-[38px] px-3 border border-[#D5D8E6] rounded-[10px] text-sm text-[#151827] bg-white placeholder:text-[#9AA0B8] focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all';
 
 /* Ixcham input — Поля документа qatorlari uchun */
 const inputCompactCls =
-  'w-full px-2.5 py-1 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all';
+  'w-full h-8 px-2.5 border border-[#E3E5EE] rounded-lg text-sm text-[#151827] bg-[#F9FAFC] placeholder:text-[#9AA0B8] focus:outline-none focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all';
 
 /**
  * Дополнительная информация modali.
@@ -72,7 +72,7 @@ export function AdditionalInfoModal({
     const customKeys = customFields.map(f => `custom_${f.id}`);
     const allActiveKeys = new Set([...baseFields, ...customKeys]);
 
-    let merged = activeOrder.filter(key => allActiveKeys.has(key));
+    const merged = activeOrder.filter(key => allActiveKeys.has(key));
 
     customKeys.forEach(key => {
       if (!merged.includes(key)) {
@@ -262,22 +262,25 @@ export function AdditionalInfoModal({
 
   return (
     <motion.div className="invoice-additional-info-modal fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }}>
-      <motion.div className={`bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden${!canEditEffective ? ' invoice-additional-info-modal-readonly' : ''}`} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 16 }} transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}>
+      <motion.div className={`bg-white rounded-2xl shadow-2xl w-full max-w-[720px] max-h-[90vh] flex flex-col overflow-hidden${!canEditEffective ? ' invoice-additional-info-modal-readonly' : ''}`} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 16 }} transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}>
         {/* Sticky sarlavha */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 shrink-0">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center text-white shadow-sm shrink-0">
+        <div className="flex items-center justify-between gap-4 px-6 py-[18px] border-b border-[#ECEEF4] shrink-0">
+          <div className="flex min-w-0 items-center gap-3.5">
+            <div className="w-10 h-10 rounded-xl bg-[#EEF0FB] text-indigo-600 flex items-center justify-center shrink-0">
               <Icon icon="solar:clipboard-list-bold-duotone" className="w-5 h-5" />
             </div>
-            <h2 className="text-lg font-bold text-gray-800">Дополнительная информация</h2>
+            <div className="flex min-w-0 flex-col gap-0.5">
+              <h2 className="m-0 text-[19px] font-semibold leading-tight tracking-tight text-[#151827]">Дополнительная информация</h2>
+              <span className="text-[13px] text-[#6A7088]">Invoysda ko&apos;rinadigan maydonlar va transport ma&apos;lumotlari</span>
+            </div>
           </div>
-          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors shrink-0" title="Yopish">
+          <button type="button" onClick={onClose} aria-label="Yopish" className="w-9 h-9 flex items-center justify-center text-[#7A8098] hover:text-[#151827] hover:bg-gray-100 rounded-[10px] transition-colors shrink-0" title="Yopish">
             <Icon icon="solar:close-circle-bold-duotone" className="w-5 h-5" />
           </button>
         </div>
 
         {/* Scroll qismi */}
-        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+        <div className="flex-1 overflow-y-auto px-6 pt-2 pb-6">
           {/* ===== Поставка ===== */}
           <SectionCard icon="solar:delivery-bold-duotone" title="Поставка">
             {/* Условия поставки */}
@@ -313,10 +316,10 @@ export function AdditionalInfoModal({
                             setAdditionalInfoError(null);
                           }
                         }}
-                        className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-all duration-200 ${
+                        className={`h-9 px-4 rounded-[10px] text-sm font-semibold border transition-colors ${
                           form.deliveryTerms === term
-                            ? 'bg-indigo-50 border-indigo-500 text-indigo-700 shadow-sm'
-                            : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50'
+                            ? 'bg-[#EEF0FB] border-indigo-600 text-[#3F3BC4]'
+                            : 'bg-white border-[#D5D8E6] text-[#3A4058] hover:bg-gray-50'
                         }`}
                       >
                         {term}
@@ -325,10 +328,10 @@ export function AdditionalInfoModal({
                     <button
                       type="button"
                       onClick={() => setForm({ ...form, deliveryTerms: '' })}
-                      className={`px-3 py-1.5 rounded-lg text-sm font-medium border border-dashed transition-all duration-200 flex items-center gap-1.5 ${
+                      className={`h-9 px-3.5 rounded-[10px] text-sm font-medium border border-dashed transition-colors flex items-center gap-1.5 ${
                         !form.deliveryTerms || !contractDeliveryTerms.includes(form.deliveryTerms)
-                          ? 'bg-indigo-50 border-indigo-500 text-indigo-700 shadow-sm'
-                          : 'bg-gray-50 border-gray-300 text-gray-500 hover:border-gray-400 hover:bg-gray-100'
+                          ? 'bg-[#EEF0FB] border-indigo-600 text-[#3F3BC4]'
+                          : 'bg-[#F7F8FB] border-[#BFC4D8] text-[#5B6178] hover:bg-gray-100'
                       }`}
                     >
                       <Icon icon="solar:pen-new-square-line-duotone" className="w-4 h-4" />
@@ -414,14 +417,14 @@ export function AdditionalInfoModal({
                           key={opt}
                           type="button"
                           onClick={() => setForm({ ...form, customsAddress: opt })}
-                          className={`relative flex flex-col items-start p-3 rounded-xl border transition-all duration-200 text-left group ${
+                          className={`relative flex flex-col items-start gap-1.5 min-h-[84px] p-3 rounded-xl border transition-colors text-left group ${
                             form.customsAddress === opt
-                              ? 'bg-indigo-50/60 border-indigo-500 shadow-sm'
-                              : 'bg-white border-gray-200 hover:border-gray-300 hover:bg-gray-50 hover:shadow-sm'
+                              ? 'bg-[#F4F5FE] border-indigo-600'
+                              : 'bg-white border-[#E3E5EE] hover:bg-gray-50'
                           }`}
                           title={opt}
                         >
-                          <div className="flex items-center justify-between w-full mb-1">
+                          <div className="flex items-center justify-between w-full">
                             <span className={`text-[10px] font-bold uppercase tracking-wider ${form.customsAddress === opt ? 'text-indigo-600' : 'text-gray-400 group-hover:text-gray-500'}`}>
                               Manzil {idx + 1}
                             </span>
@@ -429,7 +432,7 @@ export function AdditionalInfoModal({
                               <Icon icon="solar:check-circle-bold" className="w-4 h-4 text-indigo-500" />
                             )}
                           </div>
-                          <span className={`text-xs leading-relaxed line-clamp-3 ${form.customsAddress === opt ? 'text-indigo-900 font-medium' : 'text-gray-600'}`}>
+                          <span className={`text-[13px] leading-snug line-clamp-3 text-[#151827] ${form.customsAddress === opt ? 'font-medium' : ''}`}>
                             {opt}
                           </span>
                         </button>
@@ -441,10 +444,10 @@ export function AdditionalInfoModal({
                             setForm({ ...form, customsAddress: '' });
                           }
                         }}
-                        className={`relative flex flex-col items-center justify-center p-3 rounded-xl border transition-all duration-200 min-h-[72px] ${
+                        className={`relative flex flex-col items-center justify-center p-3 rounded-xl border transition-colors min-h-[84px] ${
                           !options.includes(form.customsAddress || '')
-                            ? 'bg-indigo-50/60 border-indigo-500 shadow-sm text-indigo-700'
-                            : 'bg-gray-50 border-dashed border-gray-300 text-gray-500 hover:border-gray-400 hover:bg-gray-100'
+                            ? 'bg-[#F4F5FE] border-indigo-600 text-[#3F3BC4]'
+                            : 'bg-[#F7F8FB] border-dashed border-[#BFC4D8] text-[#5B6178] hover:bg-gray-100'
                         }`}
                       >
                         <Icon icon="solar:pen-new-square-bold-duotone" className={`w-6 h-6 mb-1 ${!options.includes(form.customsAddress || '') ? 'text-indigo-500' : 'opacity-50'}`} />
@@ -462,7 +465,7 @@ export function AdditionalInfoModal({
 
           {/* ===== Транспорт ===== */}
           <SectionCard icon="solar:bus-bold-duotone" title="Транспорт">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
               <FieldBlock
                 compact
                 label="Номер автотранспорта:"
@@ -488,10 +491,12 @@ export function AdditionalInfoModal({
                   title="Faqat lotin harflarida yozing (kirill qabul qilinmaydi)"
                   className={inputCompactCls}
                 />
-                {vehicleNumberCyrillicWarning && (
-                  <p className="mt-1 text-xs text-red-500">
+                {vehicleNumberCyrillicWarning ? (
+                  <p className="mt-1.5 text-xs text-red-500">
                     Faqat lotin alifbosida yozing — kirill harflari qabul qilinmaydi
                   </p>
+                ) : (
+                  <p className="mt-1.5 text-xs text-[#6A7088]">Faqat lotin harflarida</p>
                 )}
               </FieldBlock>
               <FieldBlock compact label="Примечание:" hint="vehicleWeight">
@@ -511,10 +516,11 @@ export function AdditionalInfoModal({
                   className={inputCompactCls}
                   placeholder="Masalan: 16400"
                 />
+                <p className="mt-1.5 text-xs text-[#6A7088]">Bo&apos;sh avtotransport og&apos;irligi, kg</p>
               </FieldBlock>
             </div>
 
-            <div className="grid grid-cols-3 gap-2.5">
+            <div className="grid grid-cols-3 gap-3.5">
               <FieldBlock compact label="Yuk tortuvchi" hint="loaderWeight">
                 <input type="number" min={0} step="any" value={form.loaderWeight} onChange={(e) => setForm({ ...form, loaderWeight: e.target.value })} className={inputCompactCls + ' text-right'} placeholder="кг" />
               </FieldBlock>
@@ -584,15 +590,15 @@ export function AdditionalInfoModal({
                       setDraggedFieldIdx(null);
                       setDragOverFieldIdx(null);
                     }}
-                    className={`flex items-center gap-1.5 py-1 px-2 rounded-lg border ${
+                    className={`flex items-center gap-1.5 min-h-[46px] py-1 pl-1.5 pr-2 rounded-xl border ${
                       isDragging ? 'opacity-40' : ''
                     } ${
-                      isDragOver ? 'border-indigo-400 bg-indigo-50/40' : 'border-gray-200 bg-white'
+                      isDragOver ? 'border-indigo-400 bg-indigo-50/40' : 'border-[#E3E5EE] bg-white'
                     }`}
                   >
                     {canEditEffective && (
                       <div
-                        className="cursor-grab active:cursor-grabbing p-0.5 text-gray-300 hover:text-indigo-500 shrink-0"
+                        className="cursor-grab active:cursor-grabbing p-1 text-[#B4B9CC] hover:text-indigo-500 shrink-0"
                         title="Sudrab joyini o'zgartirish"
                       >
                         <Icon icon="solar:menu-dots-bold-duotone" className="w-4 h-4" />
@@ -650,7 +656,7 @@ export function AdditionalInfoModal({
 
           {/* Yangi maydon tugmasi */}
           {canEditEffective && (
-            <button type="button" onClick={onShowAddField} className="w-full px-4 py-2.5 border-2 border-dashed border-gray-300 text-gray-600 rounded-xl hover:border-indigo-400 hover:text-indigo-600 hover:bg-indigo-50/40 transition-all text-sm font-medium flex items-center justify-center gap-2">
+            <button type="button" onClick={onShowAddField} className="mt-6 w-full h-[46px] border-[1.5px] border-dashed border-[#BFC4D8] text-indigo-600 rounded-xl hover:border-indigo-400 hover:bg-indigo-50/40 transition-all text-sm font-semibold flex items-center justify-center gap-2">
               <Icon icon="solar:add-circle-bold-duotone" className="w-5 h-5" />
               <span>Yangi maydon qo&apos;shish</span>
             </button>
@@ -658,12 +664,12 @@ export function AdditionalInfoModal({
         </div>
 
         {/* Sticky footer */}
-        <div className="flex justify-end gap-3 px-5 py-4 border-t border-gray-100 shrink-0 bg-white">
-          <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-100 text-gray-700 font-medium rounded-xl hover:bg-gray-200 transition-colors">
+        <div className="flex items-center justify-end gap-2.5 px-6 py-3.5 border-t border-[#ECEEF4] shrink-0 bg-white">
+          <button type="button" onClick={onClose} className="h-10 px-[18px] border border-[#D5D8E6] bg-white text-sm text-[#151827] font-semibold rounded-[10px] hover:bg-gray-50 transition-colors">
             Yopish
           </button>
           {canEditEffective && (
-            <button type="button" onClick={onClose} className="px-5 py-2 bg-indigo-600 text-white font-semibold rounded-xl hover:bg-indigo-700 transition-colors shadow-sm shadow-indigo-500/25 active:scale-[0.98]">
+            <button type="button" onClick={onClose} className="h-10 px-[22px] bg-indigo-600 text-sm text-white font-semibold rounded-[10px] hover:bg-indigo-700 transition-colors active:scale-[0.98]">
               Saqlash
             </button>
           )}
@@ -710,17 +716,12 @@ function PackingFieldAdder({ onAdd }: { onAdd: (label: string) => void }) {
 }
 
 /* Bo'lim kartasi — ikonka + sarlavha bilan guruhlash */
-function SectionCard({ icon, title, subtitle, children }: { icon: string; title: string; subtitle?: string; children: React.ReactNode }) {
+function SectionCard({ title, subtitle, children }: { icon?: string; title: string; subtitle?: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-2xl border border-gray-200 bg-gray-50/40 p-4 space-y-3">
-      <div className="flex items-center gap-2">
-        <div className="w-7 h-7 rounded-lg bg-white border border-gray-200 flex items-center justify-center text-indigo-500 shrink-0">
-          <Icon icon={icon} className="w-4 h-4" />
-        </div>
-        <div className="min-w-0">
-          <h3 className="text-sm font-semibold text-gray-700 leading-tight">{title}</h3>
-          {subtitle && <p className="text-[11px] text-gray-400 leading-tight">{subtitle}</p>}
-        </div>
+    <section className="flex flex-col gap-3.5 pt-7 first:pt-5">
+      <div className="flex items-baseline justify-between gap-2.5 border-b border-[#ECEEF4] pb-2">
+        <h3 className="m-0 text-xs font-semibold uppercase tracking-[0.1em] text-indigo-600">{title}</h3>
+        {subtitle && <p className="m-0 text-xs text-[#6A7088]">{subtitle}</p>}
       </div>
       {children}
     </section>
@@ -749,8 +750,8 @@ function FieldBlock({
   if (inline) {
     return (
       <div className="flex items-center gap-2.5">
-        <div className="w-44 shrink-0 flex items-center gap-1">
-          <label className="min-w-0 text-xs font-medium text-gray-600 leading-tight" title={label}>
+        <div className="w-[200px] shrink-0 flex items-center gap-1">
+          <label className="min-w-0 text-[13px] text-[#5B6178] leading-tight" title={label}>
             {label}
             {required && <span className="text-red-500 ml-0.5">*</span>}
           </label>
@@ -768,9 +769,9 @@ function FieldBlock({
 
   return (
     <div>
-      <div className={`flex items-start justify-between gap-2 ${compact ? 'mb-0.5' : 'mb-1'}`}>
+      <div className={`flex items-start justify-between gap-2 ${compact ? 'mb-1.5' : 'mb-2'}`}>
         <div className="flex items-center gap-1 min-w-0">
-          <label className={`font-medium leading-snug min-w-0 ${compact ? 'text-xs text-gray-600' : 'text-sm text-gray-700'}`}>
+          <label className="font-medium leading-snug min-w-0 text-[13px] text-[#3A4058]">
             {label}
             {required && <span className="text-red-500 ml-0.5">*</span>}
           </label>
@@ -793,7 +794,7 @@ function EyeToggle({ visible, onToggle }: { visible: boolean; onToggle: () => vo
     <button
       type="button"
       onClick={onToggle}
-      className={`${visible ? 'text-gray-400 hover:text-gray-600' : 'text-gray-300 hover:text-gray-500'} p-0.5 rounded hover:bg-gray-100 transition-colors`}
+      className={`${visible ? 'text-[#6A7088] hover:text-[#151827]' : 'text-[#C4C8D8] hover:text-[#6A7088]'} w-7 h-7 inline-flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors`}
       title={visible ? 'Invoysda yashirish' : "Invoysda ko'rsatish"}
     >
       <Icon icon={visible ? 'solar:eye-bold-duotone' : 'solar:eye-closed-bold-duotone'} className="w-4 h-4" />
@@ -807,7 +808,7 @@ function ClearBtn({ onClick }: { onClick: () => void }) {
     <button
       type="button"
       onClick={onClick}
-      className="text-red-400 hover:text-red-600 p-0.5 rounded hover:bg-red-50 transition-colors"
+      className="text-[#E0786E] hover:text-red-600 w-7 h-7 inline-flex items-center justify-center rounded-lg hover:bg-red-50 transition-colors"
       title="O'chirish"
     >
       <Icon icon="solar:close-circle-bold-duotone" className="w-4 h-4" />

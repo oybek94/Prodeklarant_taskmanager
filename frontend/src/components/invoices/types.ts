@@ -37,6 +37,15 @@ export interface Invoice {
 export interface Client {
   id: number;
   name: string;
+  inn?: string | null;
+  _count?: { contracts: number };
+}
+
+export interface CreateTaskForm {
+  branchId: string;
+  hasPsr: boolean;
+  driverPhone: string;
+  comments: string;
 }
 
 export interface Contract {

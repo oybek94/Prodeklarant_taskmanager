@@ -1,10 +1,10 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Icon } from '@iconify/react';
 import DateInput from '../../components/DateInput';
 import TaskProcessModal from '../tasks/TaskProcessModal';
 import Clients from '../../pages/Clients';
-import type { Invoice, Client, Contract, Branch, Worker } from './types';
+import { CreateInvoiceModal } from './CreateInvoiceModal';
+import type { Invoice, Client, Contract, Branch, Worker, CreateTaskForm } from './types';
 
 interface InvoicesModalsManagerProps {
   canEdit: boolean;
@@ -20,8 +20,8 @@ interface InvoicesModalsManagerProps {
   contracts: Contract[];
   loadingContracts: boolean;
   branches: Branch[];
-  createTaskForm: any;
-  setCreateTaskForm: any;
+  createTaskForm: CreateTaskForm;
+  setCreateTaskForm: React.Dispatch<React.SetStateAction<CreateTaskForm>>;
   creatingTask: boolean;
   handleCreateInvoice: () => void;
   setContracts: (val: Contract[]) => void;
@@ -91,221 +91,36 @@ export const InvoicesModalsManager: React.FC<InvoicesModalsManagerProps> = ({
   showContractModalId,
   setShowContractModalId
 }) => {
+  const closeCreateModal = useCallback(() => {
+    setShowCreateModal(false);
+    setDuplicateInvoiceId(null);
+    setSelectedClientId('');
+    setSelectedContractId('');
+    setContracts([]);
+    setCreateTaskForm({ branchId: '', hasPsr: false, driverPhone: '', comments: '' });
+  }, [setShowCreateModal, setDuplicateInvoiceId, setSelectedClientId, setSelectedContractId, setContracts, setCreateTaskForm]);
+
   return (
     <>
-      {/* Create Invoice Modal (yangi invoice yoki dublikat) */}
-      <AnimatePresence>
-        {canEdit && showCreateModal && (
-          <motion.div
-            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 backdrop-blur-sm"
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }}
-            onMouseDown={(e) => {
-              if (e.target === e.currentTarget) {
-                setShowCreateModal(false);
-                setDuplicateInvoiceId(null);
-                setCreateTaskForm({ branchId: '', hasPsr: false, driverPhone: '', comments: '' });
-              }
-            }}
-          >
-            <motion.div
-              className="bg-white rounded-lg shadow-2xl p-6 max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto"
-              initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 16 }} transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold">Yangi Invoice yaratish</h2>
-              <button
-                onClick={() => {
-                  setShowCreateModal(false);
-                  setDuplicateInvoiceId(null);
-                }}
-                className="text-gray-400 hover:text-gray-600 text-2xl font-bold"
-              >
-                ×
-              </button>
-            </div>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Mijoz tanlang *
-                </label>
-                <select
-                  value={selectedClientId}
-                  onChange={(e) => {
-                    setSelectedClientId(e.target.value);
-                    setSelectedContractId('');
-                  }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                  required
-                >
-                  <option value="">Mijoz tanlang</option>
-                  {clients.map((client) => (
-                    <option key={client.id} value={client.id}>
-                      {client.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {selectedClientId && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Shartnoma tanlang *
-                  </label>
-                  {loadingContracts ? (
-                    <div className="text-sm text-gray-500 py-2">Yuklanmoqda...</div>
-                  ) : contracts.length === 0 ? (
-                    <div className="text-sm text-red-500 py-2">
-                      Bu mijoz uchun shartnomalar topilmadi. Iltimos, mijoz profiliga kirib shartnoma qo&apos;shing.
-                    </div>
-                  ) : (
-                    <select
-                      value={selectedContractId}
-                      onChange={(e) => setSelectedContractId(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                      required
-                    >
-                      <option value="">Shartnoma tanlang</option>
-                      {contracts.map((contract) => (
-                        <option key={contract.id} value={contract.id}>
-                          {contract.contractNumber} - {contract.buyerName} ({new Date(contract.contractDate).toLocaleDateString('uz-UZ')}) [ID: {contract.id}]
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                </div>
-              )}
-
-              {/* Filial */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                  <Icon icon="solar:buildings-2-bold-duotone" className="w-4 h-4 text-blue-600" />
-                  Filial *
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  {branches.length > 0 ? (
-                    branches.filter((branch) => branch.isActive !== false).map((branch) => (
-                      <button
-                        key={branch.id}
-                        type="button"
-                        onClick={() =>
-                          setCreateTaskForm((f: any) => ({ ...f, branchId: branch.id.toString() }))
-                        }
-                        className={`flex-1 min-w-0 px-3 py-2 border-2 rounded-lg font-medium transition-colors text-sm ${createTaskForm.branchId === branch.id.toString()
-                          ? 'bg-blue-600 text-white border-blue-600'
-                          : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500'
-                          }`}
-                      >
-                        {branch.name}
-                      </button>
-                    ))
-                  ) : (
-                    <div className="text-sm text-gray-500 py-2">Filiallar yuklanmoqda...</div>
-                  )}
-                </div>
-              </div>
-
-              {/* PSR */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                  <Icon icon="solar:document-text-bold-duotone" className="w-4 h-4 text-blue-600" />
-                  PSR *
-                </label>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setCreateTaskForm((f: any) => ({ ...f, hasPsr: true }))
-                    }
-                    className={`flex-1 px-3 py-2 border-2 rounded-lg font-medium transition-colors text-sm ${createTaskForm.hasPsr === true
-                      ? 'bg-blue-600 text-white border-blue-600'
-                      : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500'
-                      }`}
-                  >
-                    Bor
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setCreateTaskForm((f: any) => ({ ...f, hasPsr: false }))
-                    }
-                    className={`flex-1 px-3 py-2 border-2 rounded-lg font-medium transition-colors text-sm ${createTaskForm.hasPsr === false
-                      ? 'bg-blue-600 text-white border-blue-600'
-                      : 'bg-white text-gray-700 border-gray-300 hover:border-blue-500'
-                      }`}
-                  >
-                    Yo&apos;q
-                  </button>
-                </div>
-              </div>
-
-              {/* Sho'pir tel raqami */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                  <Icon icon="solar:phone-bold-duotone" className="w-4 h-4 text-blue-600" />
-                  Sho&apos;pir tel raqami
-                </label>
-                <input
-                  type="tel"
-                  value={createTaskForm.driverPhone}
-                  onChange={(e) =>
-                    setCreateTaskForm((f: any) => ({ ...f, driverPhone: e.target.value }))
-                  }
-                  className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none text-sm"
-                  placeholder="+998901234567"
-                />
-              </div>
-
-              {/* Comments */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1 flex items-center gap-2">
-                  <Icon icon="solar:chat-square-bold-duotone" className="w-4 h-4 text-blue-600" />
-                  Comments
-                </label>
-                <textarea
-                  value={createTaskForm.comments}
-                  onChange={(e) =>
-                    setCreateTaskForm((f: any) => ({ ...f, comments: e.target.value }))
-                  }
-                  className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:ring-0 focus:border-blue-500 transition-colors outline-none text-sm resize-none"
-                  rows={3}
-                  placeholder="Izohlar..."
-                />
-              </div>
-
-              <div className="flex gap-2">
-                <button
-                  onClick={handleCreateInvoice}
-                  disabled={
-                    !selectedClientId ||
-                    !selectedContractId ||
-                    !createTaskForm.branchId ||
-                    loadingContracts ||
-                    creatingTask
-                  }
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
-                >
-                  {creatingTask ? 'Yaratilmoqda...' : 'Yaratish'}
-                </button>
-                <button
-                  onClick={() => {
-                    setShowCreateModal(false);
-                    setDuplicateInvoiceId(null);
-                    setSelectedClientId('');
-                    setSelectedContractId('');
-                    setContracts([]);
-                    setCreateTaskForm({ branchId: '', hasPsr: false, driverPhone: '', comments: '' });
-                  }}
-                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
-                >
-                  Bekor
-                </button>
-              </div>
-            </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Yangi invoys yaratish oynasi (yangi invoys yoki dublikat) */}
+      <CreateInvoiceModal
+        open={canEdit && showCreateModal}
+        isDuplicate={duplicateInvoiceId !== null}
+        selectedClientId={selectedClientId}
+        setSelectedClientId={setSelectedClientId}
+        selectedContractId={selectedContractId}
+        setSelectedContractId={setSelectedContractId}
+        clients={clients}
+        contracts={contracts}
+        loadingContracts={loadingContracts}
+        branches={branches}
+        createTaskForm={createTaskForm}
+        setCreateTaskForm={setCreateTaskForm}
+        creatingTask={creatingTask}
+        onSubmit={handleCreateInvoice}
+        onClose={closeCreateModal}
+        onOpenClientProfile={setShowClientModalId}
+      />
 
       {/* Xatolik qo'shish modali */}
       <AnimatePresence>

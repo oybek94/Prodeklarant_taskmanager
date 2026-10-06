@@ -58,7 +58,7 @@ router.get('/', requireAuth(), async (req: AuthRequest, res) => {
     // If just for dropdowns, return lightweight list
     if (req.query.selectList === 'true') {
       const list = await prisma.client.findMany({
-        select: { id: true, name: true },
+        select: { id: true, name: true, inn: true, _count: { select: { contracts: true } } },
         orderBy: { name: 'asc' },
       });
       return res.json(list);

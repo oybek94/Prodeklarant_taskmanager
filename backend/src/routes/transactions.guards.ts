@@ -7,6 +7,7 @@ export interface SelfSalaryInput {
   type: 'INCOME' | 'EXPENSE' | 'SALARY';
   date: Date;
   workerId?: number;
+  salarySource?: 'SALARY' | 'CLIENT_BONUS';
   clientId?: number;
   expenseCategory?: string;
   taskId?: number;
@@ -39,6 +40,8 @@ export function applySelfSalaryRestrictions(
   }
 
   data.workerId = userId;
+  // Bonus hisobidan to'lovni faqat admin kiritadi
+  data.salarySource = 'SALARY';
   data.clientId = undefined;
   data.expenseCategory = undefined;
   data.taskId = undefined;

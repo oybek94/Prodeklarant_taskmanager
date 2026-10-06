@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, Response } from 'express';
 import { prisma } from '../prisma';
 import { z } from 'zod';
 import { AuthRequest, requireAuth } from '../middleware/auth';
@@ -51,6 +51,38 @@ async function deleteMatchingWorkerPayment(
   }
   return matching;
 }
+
+class BonusBalanceError extends Error {}
+
+/** CLIENT_BONUS to'lovi bonus qoldig'idan oshmasligini tranzaksiya ichida tekshiradi */
+async function assertBonusBalance(
+  tx: Prisma.TransactionClient,
+  data: { type: string; salarySource?: string; workerId?: number },
+  amountUzs: Decimal,
+  excludeTransactionId?: number
+) {
+  if (data.type !== 'SALARY' || data.salarySource !== 'CLIENT_BONUS') return;
+  const bonus = await getClientBonusBalance(tx, data.workerId!, excludeTransactionId);
+  if (amountUzs.greaterThan(bonus.balanceUzs)) {
+    throw new BonusBalanceError(`Biriktirilgan mijozdan bonus qoldig'i yetarli emas (qoldiq: ${bonus.balanceUzs.toFixed(2)} so'm)`);
+  }
+}
+
+/** Bonus tekshiruvi xatolarini HTTP javobiga o'giradi; boshqa xatolar qayta tashlanadi */
+function bonusErrorResponse(err: unknown, res: Response): boolean {
+  if (err instanceof BonusBalanceError) {
+    res.status(400).json({ error: err.message });
+    return true;
+  }
+  if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2034') {
+    res.status(409).json({ error: "Bir vaqtda boshqa to'lov kiritildi, qayta urinib ko'ring" });
+    return true;
+  }
+  return false;
+}
+
+const bonusTxOptions = (data: { salarySource?: string }) =>
+  data.salarySource === 'CLIENT_BONUS' ? { isolationLevel: Prisma.TransactionIsolationLevel.Serializable } : undefined;
 
 const baseSchema = z.object({
   type: z.enum(['INCOME', 'EXPENSE', 'SALARY']),
@@ -397,15 +429,6 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
   // Calculate converted UZS amount
   const amountUzs = calculateAmountUzs(originalAmount, originalCurrency, exchangeRate);
 
-  if (data.type === 'SALARY' && data.salarySource === 'CLIENT_BONUS') {
-    const bonus = await getClientBonusBalance(prisma, data.workerId!);
-    if (amountUzs.greaterThan(bonus.balanceUzs)) {
-      return res.status(400).json({
-        error: `Biriktirilgan mijozdan bonus qoldig'i yetarli emas (qoldiq: ${bonus.balanceUzs.toFixed(2)} so'm)`,
-      });
-    }
-  }
-
   // Validate universal monetary fields
   const validation = validateMonetaryFields({
     amount_original: originalAmount,
@@ -422,7 +445,10 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
   }
 
   // Transaction yaratish va balansni yangilash
-  const result = await prisma.$transaction(async (tx) => {
+  let result;
+  try {
+  result = await prisma.$transaction(async (tx) => {
+    await assertBonusBalance(tx, data, amountUzs);
     // Transaction yaratish
     const created = await tx.transaction.create({
       data: {
@@ -489,7 +515,11 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
     }
 
     return created;
-  });
+  }, bonusTxOptions(data));
+  } catch (err) {
+    if (bonusErrorResponse(err, res)) return;
+    throw err;
+  }
 
   // If this is a SALARY transaction, also create a WorkerPayment record
   let workerPaymentWarning: string | undefined;
@@ -586,15 +616,6 @@ router.put('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
 
   const amountUzs = calculateAmountUzs(originalAmount, originalCurrency, exchangeRate);
 
-  if (data.type === 'SALARY' && data.salarySource === 'CLIENT_BONUS') {
-    const bonus = await getClientBonusBalance(prisma, data.workerId!, id);
-    if (amountUzs.greaterThan(bonus.balanceUzs)) {
-      return res.status(400).json({
-        error: `Biriktirilgan mijozdan bonus qoldig'i yetarli emas (qoldiq: ${bonus.balanceUzs.toFixed(2)} so'm)`,
-      });
-    }
-  }
-
   const validation = validateMonetaryFields({
     amount_original: originalAmount,
     currency: originalCurrency,
@@ -610,7 +631,10 @@ router.put('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
   }
 
   // Transaction yangilash va balansni to'g'rilash
-  const result = await prisma.$transaction(async (tx) => {
+  let result;
+  try {
+  result = await prisma.$transaction(async (tx) => {
+    await assertBonusBalance(tx, data, amountUzs, id);
     // Eski balansni qaytarish (agar paymentMethod bo'lsa)
     if (oldTransaction.paymentMethod) {
       const oldAmount = new Prisma.Decimal(oldTransaction.originalAmount || oldTransaction.amount);
@@ -700,7 +724,11 @@ router.put('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
     }
 
     return updated;
-  });
+  }, bonusTxOptions(data));
+  } catch (err) {
+    if (bonusErrorResponse(err, res)) return;
+    throw err;
+  }
 
   // SALARY to'lovi tahrirlansa, unga mos WorkerPayment ham qayta yaratilishi kerak —
   // aks holda ishchining "Joriy qarz"i eski summa bo'yicha qolib ketadi

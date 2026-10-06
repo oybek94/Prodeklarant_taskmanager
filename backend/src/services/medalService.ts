@@ -233,7 +233,7 @@ export class MedalService {
     
     // YEAR_STAR (HLTV #1 Player)
     const users = await prisma.user.findMany({
-      where: { active: true },
+      where: { active: true, role: { not: 'ADMIN' } }, // direktor mukofot olmaydi
       select: { id: true, name: true, xp: true }
     });
     

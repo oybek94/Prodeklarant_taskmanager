@@ -41,6 +41,11 @@ export async function logKpiForStage(
 ) {
   if (!userId) return;
 
+  // Admin — korxona direktori: bajargan ishi uchun ish haqi (KpiLog) yozilmaydi,
+  // uning ishi korxona hisobiga qo'shiladi.
+  const performer = await (tx as any).user.findUnique({ where: { id: userId }, select: { role: true } });
+  if (performer?.role === 'ADMIN') return;
+
   // Mijozga biriktirilgan xodim o'sha mijozning ishini bajarsa, unga xizmat
   // haqi (KpiLog) yozilmaydi — buning o'rniga profit-share bonus sxemasi ishlaydi.
   const taskForClient = await (tx as any).task.findUnique({

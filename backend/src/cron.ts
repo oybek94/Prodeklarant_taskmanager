@@ -18,7 +18,7 @@ export const initCronJobs = () => {
 
       // Find all eligible workers
       const users = await prisma.user.findMany({
-        where: { role: { in: ['DEKLARANT', 'ADMIN', 'MANAGER', 'CERTIFICATE_WORKER'] }, active: true },
+        where: { role: { in: ['DEKLARANT', 'MANAGER', 'CERTIFICATE_WORKER'] }, active: true },
         select: { id: true, name: true }
       });
 

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
+import { usePresence } from '../hooks/usePresence';
 import apiClient from '../lib/api';
 import { Icon } from '@iconify/react';
 import TrophyRoom from '../components/medals/TrophyRoom';
@@ -83,13 +84,15 @@ export default function Profile() {
 
   const totalTasksCount = stageStats?.totals?.totalTasks ?? stageStats?.totals?.totalParticipation ?? 0;
 
-  const handleDelete = async () => {
+  const { onlineUsers } = usePresence();
+  const isWorkerOnline = workerId !== undefined && onlineUsers.some((u) => u.id === workerId);
+
+  const handleArchive = async () => {
     if (!workerId) return;
-    if (!window.confirm('Bu ishchini o\'chirishni xohlaysizmi? Bu amalni qaytarib bo\'lmaydi.')) return;
+    if (!window.confirm(`${displayUser?.name || 'Xodim'} arxivlansinmi? U ishdan chiqqan deb belgilanadi, tizimga kira olmaydi va asosiy ro'yxatda ko'rinmaydi. Ma'lumotlari saqlanadi.`)) return;
 
     try {
-      await apiClient.delete(`/users/${workerId}`);
-      alert('Ishchi muvaffaqiyatli o\'chirildi');
+      await apiClient.put(`/users/${workerId}`, { active: false });
       navigate('/workers');
     } catch (error: any) {
       alert(error.response?.data?.error || 'Xatolik yuz berdi');
@@ -103,67 +106,88 @@ export default function Profile() {
     }
   };
 
+  const formatUzs = (n: number) => `${new Intl.NumberFormat('en-US').format(Math.round(n)).replace(/,/g, ' ')} so'm`;
+
+  const outlineBtn =
+    'h-11 px-4 flex items-center gap-2 rounded-xl border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-sm font-bold text-gray-900 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors';
+
   return (
-    <div className="space-y-6 pb-8">
-      {/* ─── Clean Header ─── */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-r from-indigo-50/80 via-purple-50/80 to-pink-50/80 dark:from-indigo-900/30 dark:via-purple-900/30 dark:to-pink-900/30 p-6 rounded-2xl border border-indigo-100 dark:border-indigo-800/50 shadow-sm">
-        <div className="flex items-center gap-4">
-          <div className="w-16 h-16 rounded-full bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-xl font-bold text-indigo-600 dark:text-indigo-400">
-            {getUserInitials(displayUser?.name)}
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-              {getGreeting()}, {displayUser?.name || 'Foydalanuvchi'}!
+    <div className="max-w-7xl mx-auto space-y-6 pb-8">
+      {id && (
+        <Link to="/workers" className="inline-flex items-center gap-1.5 text-[13px] font-bold text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">
+          <Icon icon="solar:alt-arrow-left-bold-duotone" className="w-4 h-4" />
+          Xodimlar
+        </Link>
+      )}
+
+      {/* ─── Header ─── */}
+      <div className="flex flex-wrap items-center justify-between gap-5">
+        <div className="flex items-center gap-5 min-w-0">
+          <span className="relative shrink-0 w-[76px] h-[76px]">
+            <span className="w-[76px] h-[76px] rounded-[22px] flex items-center justify-center text-[26px] font-extrabold bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900">
+              {getUserInitials(displayUser?.name)}
+            </span>
+            {id && workerId && (
+              <span
+                title={isWorkerOnline ? 'Onlayn' : 'Oflayn'}
+                className={`absolute -right-1 -bottom-1 w-5 h-5 rounded-full border-[3.5px] border-gray-100 dark:border-slate-900 ${isWorkerOnline ? 'bg-emerald-600' : 'bg-gray-300 dark:bg-slate-600'}`}
+              />
+            )}
+          </span>
+          <div className="min-w-0 flex flex-col gap-2">
+            {!id && <div className="text-[13px] font-semibold text-gray-500 dark:text-gray-400">{getGreeting()}</div>}
+            <h1 className="text-3xl font-extrabold tracking-tight text-gray-900 dark:text-gray-100 truncate">
+              {displayUser?.name || 'Foydalanuvchi'}
             </h1>
-            <div className="flex items-center gap-2 mt-1">
-              <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
+            <div className="flex flex-wrap items-center gap-3 text-sm font-semibold text-gray-500 dark:text-gray-400">
+              <span className="inline-flex items-center h-7 px-3 rounded-full text-xs font-bold bg-blue-100 text-blue-900 dark:bg-blue-500/15 dark:text-blue-300">
                 {roleLabels[displayUser?.role || ''] || displayUser?.role}
               </span>
               {workerDetail?.branch && (
-                <>
-                  <span className="text-gray-300 dark:text-gray-600">•</span>
-                  <span className="text-sm font-medium text-gray-500 dark:text-gray-400 flex items-center">
-                    <Icon icon="solar:map-point-bold-duotone" className="w-3.5 h-3.5 mr-1" />
-                    {workerDetail.branch.name}
-                  </span>
-                </>
+                <span className="inline-flex items-center gap-1.5">
+                  <Icon icon="solar:map-point-bold-duotone" className="w-4 h-4" />
+                  {workerDetail.branch.name}
+                </span>
               )}
+              {displayUser?.email && <span className="truncate">{displayUser.email}</span>}
             </div>
           </div>
         </div>
-        
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-          {/* Period Selector */}
-          <div className="flex items-center p-1 bg-gray-50 dark:bg-gray-900/50 rounded-xl border border-gray-100 dark:border-gray-700">
-            {PERIOD_OPTIONS.map(opt => (
-              <button
-                key={opt.value}
-                onClick={() => setPeriod(opt.value)}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-1.5 ${
-                  period === opt.value
-                    ? 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm'
-                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-                }`}
-              >
-                <Icon icon={opt.icon} className="w-4 h-4" />
-                <span className="hidden sm:inline">{opt.label}</span>
-              </button>
-            ))}
+
+        {isAdmin && id && (
+          <div className="flex flex-wrap items-center gap-2.5">
+            <button type="button" onClick={() => setShowEditModal(true)} className={outlineBtn}>
+              <Icon icon="solar:pen-bold-duotone" className="w-[18px] h-[18px]" />
+              Tahrirlash
+            </button>
+            <button type="button" onClick={handleArchive} className={outlineBtn}>
+              <Icon icon="solar:archive-down-bold-duotone" className="w-[18px] h-[18px]" />
+              Arxivlash
+            </button>
           </div>
-          {isAdmin && id && (
-            <div className="flex gap-2">
-              <button onClick={() => setShowEditModal(true)} className="p-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-xl text-gray-600 dark:text-gray-300 transition-colors shadow-sm">
-                <Icon icon="solar:pen-bold-duotone" className="w-4 h-4" />
-              </button>
-              <button onClick={handleDelete} className="p-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-xl text-red-500 transition-colors shadow-sm">
-                <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4" />
-              </button>
-            </div>
-          )}
+        )}
+      </div>
+
+      {/* ─── Period ─── */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="text-[13px] font-semibold text-gray-500 dark:text-gray-400">Ko'rsatkichlar davri</div>
+        <div className="flex flex-wrap gap-1 p-1 rounded-xl bg-gray-200/70 dark:bg-slate-800">
+          {PERIOD_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => setPeriod(opt.value)}
+              className={`h-9 px-[18px] rounded-[9px] text-[13px] font-bold transition-colors ${period === opt.value
+                ? 'bg-white dark:bg-slate-600 text-gray-900 dark:text-gray-100 shadow-sm'
+                : 'text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'}`}
+            >
+              {opt.label}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* ─── KPI Stat Cards ─── */}
+      {/* ─── KPI strip ─── */}
       <KpiStats
         stats={stats}
         loading={loading}
@@ -177,62 +201,56 @@ export default function Profile() {
         onOpenErrors={() => setShowErrorsModal(true)}
       />
 
-      {/* ─── Middle Section (Payment Progress & Stage Chart) ─── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <PaymentProgressRing stats={stats} loading={loading} />
-        
-        <div className="lg:col-span-2">
+      {/* ─── Main grid ─── */}
+      <div className="flex flex-wrap lg:flex-nowrap gap-6 items-start">
+        <div className="flex-1 min-w-0 w-full space-y-6">
+          <StageStatisticsList
+            stageStats={stageStats}
+            loading={stageStatsLoading}
+            onOpenParticipations={() => setShowParticipationsModal(true)}
+          />
+          <ActivityCalendar contributions={contributions} />
+
+          {clientBonuses && clientBonuses.bonuses.length > 0 && (
+            <section className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-2xl overflow-hidden">
+              <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-5 border-b border-gray-100 dark:border-slate-700/60">
+                <h2 className="text-[17px] font-extrabold tracking-tight text-gray-900 dark:text-gray-100">Biriktirilgan mijozdan bonus</h2>
+                <span className="inline-flex items-center h-[30px] px-3 rounded-full text-[13px] font-bold tabular-nums bg-emerald-100 text-emerald-900 dark:bg-emerald-900/30 dark:text-emerald-200">
+                  Jami: {formatUzs(clientBonuses.totalBonusUzs)}
+                </span>
+              </div>
+              <div className="overflow-x-auto">
+                <div className="min-w-[560px]">
+                  <div className="grid grid-cols-[110px_minmax(0,1.4fr)_minmax(0,1.4fr)_minmax(0,1fr)] gap-4 px-6 py-3 bg-gray-50 dark:bg-slate-900/50 border-b border-gray-200 dark:border-slate-700 text-xs font-bold text-gray-500 dark:text-gray-400">
+                    <div>Sana</div>
+                    <div>Mijoz</div>
+                    <div>Vazifa</div>
+                    <div className="text-right">Bonus</div>
+                  </div>
+                  {clientBonuses.bonuses.map((b) => (
+                    <button
+                      key={b.id}
+                      type="button"
+                      onClick={() => setSelectedBonusId(b.id)}
+                      title="Hisob-kitobni ko'rish"
+                      className="w-full grid grid-cols-[110px_minmax(0,1.4fr)_minmax(0,1.4fr)_minmax(0,1fr)] gap-4 items-center px-6 py-3.5 text-left text-sm border-b border-gray-100 dark:border-slate-700/60 hover:bg-gray-50 dark:hover:bg-slate-700/30 transition-colors"
+                    >
+                      <span className="text-gray-500 dark:text-gray-400 tabular-nums">{new Date(b.createdAt).toLocaleDateString('en-US')}</span>
+                      <span className="font-bold text-gray-900 dark:text-gray-100 truncate">{b.clientName || '-'}</span>
+                      <span className="text-gray-600 dark:text-gray-300 truncate">{b.taskTitle || '-'}</span>
+                      <span className="text-right font-extrabold tabular-nums text-emerald-800 dark:text-emerald-300">{formatUzs(b.bonusUzs)}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </section>
+          )}
+        </div>
+
+        <div className="w-full lg:w-[360px] shrink-0 space-y-6">
+          <PaymentProgressRing stats={stats} loading={loading} onOpenPayments={() => setShowPaymentsModal(true)} />
           <TrophyRoom userId={workerId} />
         </div>
-      </div>
-
-      {/* ─── Mijozga biriktirilgan xodim uchun bonus ─── */}
-      {clientBonuses && clientBonuses.bonuses.length > 0 && (
-        <div className="bg-white/70 backdrop-blur-xl rounded-2xl shadow-sm border border-white/80 ring-1 ring-black/5 overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-100/80 bg-emerald-50/40 flex justify-between items-center">
-            <h3 className="text-base font-bold text-gray-800 flex items-center gap-2">
-              <Icon icon="solar:hand-money-bold-duotone" className="w-5 h-5 text-emerald-500" />
-              Biriktirilgan mijozdan bonus
-            </h3>
-            <span className="text-xs text-gray-500 font-medium bg-white px-3 py-1 rounded-full border">
-              Jami: <span className="font-bold text-emerald-600">{new Intl.NumberFormat('en-US').format(Math.round(clientBonuses.totalBonusUzs)).replace(/,/g, ' ')} so'm</span>
-            </span>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50/80 text-xs text-gray-500 uppercase">
-                <tr>
-                  <th className="px-6 py-3 text-left">Sana</th>
-                  <th className="px-6 py-3 text-left">Mijoz</th>
-                  <th className="px-6 py-3 text-left">Vazifa</th>
-                  <th className="px-6 py-3 text-right">Bonus</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100/80">
-                {clientBonuses.bonuses.map((b) => (
-                  <tr key={b.id} onClick={() => setSelectedBonusId(b.id)} title="Hisob-kitobni ko'rish" className="hover:bg-gray-50/50 cursor-pointer">
-                    <td className="px-6 py-3 text-gray-600 whitespace-nowrap">{new Date(b.createdAt).toLocaleDateString('en-US')}</td>
-                    <td className="px-6 py-3 text-gray-700">{b.clientName || '-'}</td>
-                    <td className="px-6 py-3 text-gray-700">{b.taskTitle || '-'}</td>
-                    <td className="px-6 py-3 text-right font-bold text-emerald-600 whitespace-nowrap">
-                      {new Intl.NumberFormat('en-US').format(Math.round(b.bonusUzs)).replace(/,/g, ' ')} so'm
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* ─── Stage Statistics & Calendar ─── */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-        <StageStatisticsList
-          stageStats={stageStats}
-          loading={stageStatsLoading}
-          onOpenParticipations={() => setShowParticipationsModal(true)}
-        />
-        <ActivityCalendar contributions={contributions} />
       </div>
 
       {/* ═══════════════════════  MODALS  ═══════════════════════ */}

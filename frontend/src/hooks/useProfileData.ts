@@ -62,6 +62,8 @@ export interface ClientBonus {
 
 export interface ClientBonuses {
   totalBonusUzs: number;
+  paidBonusUzs: number;
+  balanceBonusUzs: number;
   bonuses: ClientBonus[];
 }
 

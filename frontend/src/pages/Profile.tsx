@@ -215,13 +215,21 @@ export default function Profile() {
             <section className="bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-2xl overflow-hidden">
               <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-5 border-b border-gray-100 dark:border-slate-700/60">
                 <h2 className="text-[17px] font-extrabold tracking-tight text-gray-900 dark:text-gray-100">Biriktirilgan mijozdan bonus</h2>
-                <span className="inline-flex items-center h-[30px] px-3 rounded-full text-[13px] font-bold tabular-nums bg-emerald-100 text-emerald-900 dark:bg-emerald-900/30 dark:text-emerald-200">
-                  Jami: {formatUzs(clientBonuses.totalBonusUzs)}
-                </span>
+                <div className="flex flex-wrap items-center gap-2 text-[13px] font-bold tabular-nums">
+                  <span className="inline-flex items-center h-[30px] px-3 rounded-full bg-gray-100 text-gray-700 dark:bg-slate-700 dark:text-gray-200">
+                    Jami: {formatUzs(clientBonuses.totalBonusUzs)}
+                  </span>
+                  <span className="inline-flex items-center h-[30px] px-3 rounded-full bg-gray-100 text-gray-700 dark:bg-slate-700 dark:text-gray-200">
+                    To'langan: {formatUzs(clientBonuses.paidBonusUzs)}
+                  </span>
+                  <span className="inline-flex items-center h-[30px] px-3 rounded-full bg-emerald-100 text-emerald-900 dark:bg-emerald-900/30 dark:text-emerald-200">
+                    Qoldiq: {formatUzs(clientBonuses.balanceBonusUzs)}
+                  </span>
+                </div>
               </div>
-              <div className="overflow-x-auto">
+              <div className="overflow-auto max-h-[360px]">
                 <div className="min-w-[560px]">
-                  <div className="grid grid-cols-[110px_minmax(0,1.4fr)_minmax(0,1.4fr)_minmax(0,1fr)] gap-4 px-6 py-3 bg-gray-50 dark:bg-slate-900/50 border-b border-gray-200 dark:border-slate-700 text-xs font-bold text-gray-500 dark:text-gray-400">
+                  <div className="sticky top-0 z-10 grid grid-cols-[110px_minmax(0,1.4fr)_minmax(0,1.4fr)_minmax(0,1fr)] gap-4 px-6 py-3 bg-gray-50 dark:bg-slate-900 border-b border-gray-200 dark:border-slate-700 text-xs font-bold text-gray-500 dark:text-gray-400">
                     <div>Sana</div>
                     <div>Mijoz</div>
                     <div>Vazifa</div>

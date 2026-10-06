@@ -4,7 +4,7 @@ import type { TransactionFormData } from './types';
 
 const form = (p: Partial<TransactionFormData> = {}): TransactionFormData => ({
   type: 'INCOME', amount: '1 250 000', currency: 'UZS', exchangeRate: '', paymentMethod: 'CARD',
-  comment: ' 2-to\'lov ', date: '2026-09-26', clientId: '3', workerId: '', expenseCategory: '', virtualCardId: '', ...p,
+  comment: ' 2-to\'lov ', date: '2026-09-26', clientId: '3', workerId: '', expenseCategory: '', virtualCardId: '', salarySource: 'SALARY', ...p,
 });
 
 describe('buildListParams', () => {

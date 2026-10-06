@@ -3,7 +3,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '../prisma';
 import { requireAuth, AuthRequest } from '../middleware/auth';
 import { getWorkerPaymentReport } from '../services/worker-payment';
-import { computeClientAssignmentBonusBreakdown } from '../services/client-assignment-bonus';
+import { computeClientAssignmentBonusBreakdown, getClientBonusBalance } from '../services/client-assignment-bonus';
 
 const router = Router();
 
@@ -557,9 +557,12 @@ router.get('/:id/client-bonuses', requireAuth(), async (req: AuthRequest, res) =
     });
 
     const totalBonusUzs = bonuses.reduce((sum: number, b: any) => sum + Number(b.bonusUzs || 0), 0);
+    const balance = await getClientBonusBalance(prisma, workerId);
 
     res.json({
       totalBonusUzs,
+      paidBonusUzs: Number(balance.paidUzs),
+      balanceBonusUzs: Number(balance.balanceUzs),
       bonuses: bonuses.map((b: any) => ({
         id: b.id,
         taskId: b.taskId,

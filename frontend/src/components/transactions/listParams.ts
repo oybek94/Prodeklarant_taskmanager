@@ -47,6 +47,7 @@ export function buildTransactionPayload(
   } else {
     if (!form.workerId) return { ok: false, error: 'Ishchini tanlang' };
     payload.workerId = Number(form.workerId);
+    payload.salarySource = form.salarySource;
   }
   if (form.type !== 'INCOME' && form.virtualCardId) payload.virtualCardId = Number(form.virtualCardId);
   return { ok: true, payload };

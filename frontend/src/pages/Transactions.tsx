@@ -24,7 +24,7 @@ function emptyForm(isAdmin: boolean, userId: number | null): TransactionFormData
   return {
     type: isAdmin ? 'INCOME' : 'SALARY', amount: '', currency: 'UZS', exchangeRate: '', paymentMethod: 'CASH',
     comment: '', date: localIsoDate(), clientId: '', workerId: isAdmin || userId == null ? '' : String(userId),
-    expenseCategory: '', virtualCardId: '',
+    expenseCategory: '', virtualCardId: '', salarySource: 'SALARY',
   };
 }
 
@@ -109,6 +109,7 @@ const Transactions = () => {
       date: localIsoDate(new Date(t.date)),
       clientId: t.client?.id ? String(t.client.id) : '', workerId: t.worker?.id ? String(t.worker.id) : '',
       expenseCategory: t.expenseCategory ?? '', virtualCardId: t.virtualCardId ? String(t.virtualCardId) : '',
+      salarySource: t.salarySource ?? 'SALARY',
     });
     if (isMobile) {
       handledEditId.current = t.id;

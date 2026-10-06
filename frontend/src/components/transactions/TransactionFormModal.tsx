@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { Icon } from '@iconify/react';
+import apiClient from '../../lib/api';
 import DateInput from '../DateInput';
 import { ClientPicker } from './ClientPicker';
+import { formatSom } from './format';
 import { formatAmountInput, localIsoDate, shiftDays } from './formHelpers';
 import type { Client, TransactionFormData, TransactionType, User } from './types';
 
@@ -46,6 +48,17 @@ export function TransactionFormModal({
   const [newCategory, setNewCategory] = useState('');
   const [addingCategory, setAddingCategory] = useState(false);
   const amountRef = useRef<HTMLInputElement>(null);
+  const [bonus, setBonus] = useState<{ total: number; balance: number } | null>(null);
+
+  const bonusWorkerId = open && isAdmin && form.type === 'SALARY' ? form.workerId : '';
+  useEffect(() => {
+    if (!bonusWorkerId) { setBonus(null); return; }
+    let cancelled = false;
+    apiClient.get(`/workers/${bonusWorkerId}/client-bonuses`)
+      .then((r) => { if (!cancelled) setBonus({ total: Number(r.data.totalBonusUzs || 0), balance: Number(r.data.balanceBonusUzs || 0) }); })
+      .catch(() => { if (!cancelled) setBonus(null); });
+    return () => { cancelled = true; };
+  }, [bonusWorkerId]);
 
   useEffect(() => {
     if (!open) return;
@@ -158,10 +171,27 @@ export function TransactionFormModal({
             {isAdmin && form.type === 'SALARY' && (
               <div>
                 <label className={labelCls} htmlFor="tx-worker">Ishchi</label>
-                <select id="tx-worker" value={form.workerId} onChange={(e) => onFormChange({ workerId: e.target.value })} className={input}>
+                <select id="tx-worker" value={form.workerId} onChange={(e) => onFormChange({ workerId: e.target.value, salarySource: 'SALARY' })} className={input}>
                   <option value="">Tanlang</option>
                   {workers.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
                 </select>
+              </div>
+            )}
+
+            {isAdmin && form.type === 'SALARY' && bonus && (bonus.total > 0 || form.salarySource === 'CLIENT_BONUS') && (
+              <div>
+                <span className={labelCls}>To'lov qaysi hisobdan</span>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <button type="button" onClick={() => onFormChange({ salarySource: 'SALARY' })}
+                    className={`rounded-lg border px-3 py-2 text-left text-sm font-medium ${form.salarySource === 'SALARY' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+                    Ish haqi
+                  </button>
+                  <button type="button" onClick={() => onFormChange({ salarySource: 'CLIENT_BONUS' })}
+                    className={`rounded-lg border px-3 py-2 text-left text-sm font-medium ${form.salarySource === 'CLIENT_BONUS' ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+                    Biriktirilgan mijozdan to'lov
+                    <span className="block text-xs font-normal opacity-80">Qoldiq: {formatSom(bonus.balance)}</span>
+                  </button>
+                </div>
               </div>
             )}
 

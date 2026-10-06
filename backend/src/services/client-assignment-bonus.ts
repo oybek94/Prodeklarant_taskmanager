@@ -216,3 +216,30 @@ export async function deleteClientAssignmentBonus(
 ): Promise<void> {
   await (tx as any).clientAssignmentBonus.deleteMany({ where: { taskId } });
 }
+
+/**
+ * Xodimning biriktirilgan mijozdan bonus hisobi: hisoblangan jami, to'langan (CLIENT_BONUS
+ * tranzaksiyalari) va qoldiq. `excludeTransactionId` — tahrirlanayotgan tranzaksiyani
+ * qoldiqdan chiqarib yubormaslik uchun.
+ */
+export async function getClientBonusBalance(
+  tx: PrismaClient | Prisma.TransactionClient,
+  workerId: number,
+  excludeTransactionId?: number
+): Promise<{ totalUzs: Decimal; paidUzs: Decimal; balanceUzs: Decimal }> {
+  const [bonusAgg, paidAgg] = await Promise.all([
+    tx.clientAssignmentBonus.aggregate({ where: { userId: workerId }, _sum: { bonusUzs: true } }),
+    tx.transaction.aggregate({
+      where: {
+        type: 'SALARY',
+        salarySource: 'CLIENT_BONUS',
+        workerId,
+        ...(excludeTransactionId ? { id: { not: excludeTransactionId } } : {}),
+      },
+      _sum: { amount_uzs: true },
+    }),
+  ]);
+  const totalUzs = new Decimal(bonusAgg._sum.bonusUzs ?? 0);
+  const paidUzs = new Decimal(paidAgg._sum.amount_uzs ?? 0);
+  return { totalUzs, paidUzs, balanceUzs: totalUzs.minus(paidUzs) };
+}

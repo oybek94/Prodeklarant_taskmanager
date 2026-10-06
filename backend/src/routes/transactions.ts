@@ -8,6 +8,7 @@ import { getLatestExchangeRate, getExchangeRate } from '../services/exchange-rat
 import { validateMonetaryFields, calculateAmountUzs } from '../services/monetary-validation';
 import { applySelfSalaryRestrictions, canWorkerDeleteTransaction, uzsOnlyError } from './transactions.guards';
 import { buildTransactionListArgs } from './transactions.query';
+import { getClientBonusBalance } from '../services/client-assignment-bonus';
 import { amountInUzs, toMoneyNumber, warnSkippedUzs, ZERO } from '../utils/money';
 
 const router = Router();
@@ -62,6 +63,7 @@ const baseSchema = z.object({
   date: z.coerce.date(),
   clientId: z.number().optional(),
   workerId: z.number().optional(),
+  salarySource: z.enum(['SALARY', 'CLIENT_BONUS']).optional(),
   expenseCategory: z.string().optional(),
   taskId: z.number().optional(),
   branchId: z.number().optional(),
@@ -308,6 +310,8 @@ router.get('/worker-stats', requireAuth('ADMIN'), async (req: AuthRequest, res) 
     const salaryAgg = await prisma.transaction.aggregate({
       where: {
         type: 'SALARY',
+        // Biriktirilgan mijozdan bonus to'lovlari ish haqi hisobiga kirmaydi
+        OR: [{ salarySource: null }, { salarySource: 'SALARY' }],
       },
       _sum: {
         amount_uzs: true,
@@ -316,7 +320,7 @@ router.get('/worker-stats', requireAuth('ADMIN'), async (req: AuthRequest, res) 
     let totalPaid = Number(salaryAgg._sum.amount_uzs || 0);
     if (totalPaid === 0) {
       const salaryFallback = await prisma.transaction.aggregate({
-        where: { type: 'SALARY' },
+        where: { type: 'SALARY', OR: [{ salarySource: null }, { salarySource: 'SALARY' }] },
         _sum: {
           convertedUzsAmount: true,
           amount: true,
@@ -393,6 +397,15 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
   // Calculate converted UZS amount
   const amountUzs = calculateAmountUzs(originalAmount, originalCurrency, exchangeRate);
 
+  if (data.type === 'SALARY' && data.salarySource === 'CLIENT_BONUS') {
+    const bonus = await getClientBonusBalance(prisma, data.workerId!);
+    if (amountUzs.greaterThan(bonus.balanceUzs)) {
+      return res.status(400).json({
+        error: `Biriktirilgan mijozdan bonus qoldig'i yetarli emas (qoldiq: ${bonus.balanceUzs.toFixed(2)} so'm)`,
+      });
+    }
+  }
+
   // Validate universal monetary fields
   const validation = validateMonetaryFields({
     amount_original: originalAmount,
@@ -436,6 +449,7 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
         taskId: data.taskId ?? null,
         branchId: data.branchId ?? null,
         virtualCardId: data.virtualCardId ?? null,
+        salarySource: data.type === 'SALARY' ? data.salarySource ?? 'SALARY' : null,
       },
     });
 
@@ -479,7 +493,7 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
 
   // If this is a SALARY transaction, also create a WorkerPayment record
   let workerPaymentWarning: string | undefined;
-  if (data.type === 'SALARY' && data.workerId) {
+  if (data.type === 'SALARY' && data.workerId && data.salarySource !== 'CLIENT_BONUS') {
     try {
       const { createWorkerPayment } = await import('../services/worker-payment');
       await createWorkerPayment(
@@ -572,6 +586,15 @@ router.put('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
 
   const amountUzs = calculateAmountUzs(originalAmount, originalCurrency, exchangeRate);
 
+  if (data.type === 'SALARY' && data.salarySource === 'CLIENT_BONUS') {
+    const bonus = await getClientBonusBalance(prisma, data.workerId!, id);
+    if (amountUzs.greaterThan(bonus.balanceUzs)) {
+      return res.status(400).json({
+        error: `Biriktirilgan mijozdan bonus qoldig'i yetarli emas (qoldiq: ${bonus.balanceUzs.toFixed(2)} so'm)`,
+      });
+    }
+  }
+
   const validation = validateMonetaryFields({
     amount_original: originalAmount,
     currency: originalCurrency,
@@ -641,6 +664,7 @@ router.put('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
         taskId: data.taskId ?? null,
         branchId: data.branchId ?? null,
         virtualCardId: data.virtualCardId ?? null,
+        salarySource: data.type === 'SALARY' ? data.salarySource ?? 'SALARY' : null,
       },
     });
 
@@ -681,8 +705,10 @@ router.put('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
   // SALARY to'lovi tahrirlansa, unga mos WorkerPayment ham qayta yaratilishi kerak —
   // aks holda ishchining "Joriy qarz"i eski summa bo'yicha qolib ketadi
   let workerPaymentWarning: string | undefined;
-  const wasSalary = oldTransaction.type === 'SALARY' && oldTransaction.workerId !== null;
-  const isSalary = data.type === 'SALARY' && data.workerId !== undefined;
+  // Biriktirilgan mijozdan bonus to'lovi ishchining oylik qarziga (WorkerPayment) ta'sir qilmaydi
+  const wasSalary = oldTransaction.type === 'SALARY' && oldTransaction.workerId !== null
+    && oldTransaction.salarySource !== 'CLIENT_BONUS';
+  const isSalary = data.type === 'SALARY' && data.workerId !== undefined && data.salarySource !== 'CLIENT_BONUS';
 
   if (wasSalary || isSalary) {
     try {
@@ -769,7 +795,7 @@ router.delete('/:id', requireAuth(), async (req: AuthRequest, res) => {
     }
 
     // Agar bu ish haqi (SALARY) to'lovi bo'lsa, unga mos WorkerPayment'ni ham o'chiramiz
-    if (transaction.type === 'SALARY' && transaction.workerId) {
+    if (transaction.type === 'SALARY' && transaction.workerId && transaction.salarySource !== 'CLIENT_BONUS') {
       await deleteMatchingWorkerPayment(tx, {
         workerId: transaction.workerId,
         amount: transaction.amount,

@@ -343,6 +343,11 @@ model TaskError {
   @@index([workerId, date])
 }
 
+enum SalarySource {
+  SALARY
+  CLIENT_BONUS
+}
+
 model Transaction {
   id                 Int             @id @default(autoincrement())
   type               TransactionType
@@ -367,6 +372,8 @@ model Transaction {
   exchange_rate      Decimal?        @db.Decimal(10, 4)
   amount_uzs         Decimal?        @db.Decimal(16, 2)
   exchange_source    ExchangeSource?
+  /// SALARY tranzaksiyasi qaysi hisobdan to'langani: null/SALARY — ish haqi, CLIENT_BONUS — biriktirilgan mijozdan bonus
+  salarySource       SalarySource?
   branch             Branch?         @relation(fields: [branchId], references: [id])
   client             Client?         @relation("TransactionClient", fields: [clientId], references: [id])
   task               Task?           @relation(fields: [taskId], references: [id])

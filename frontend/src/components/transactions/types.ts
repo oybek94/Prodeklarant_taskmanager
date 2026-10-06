@@ -1,4 +1,5 @@
 export type TransactionType = 'INCOME' | 'EXPENSE' | 'SALARY';
+export type SalarySource = 'SALARY' | 'CLIENT_BONUS';
 export type PaymentMethod = 'CASH' | 'CARD';
 
 export interface Transaction {
@@ -14,6 +15,7 @@ export interface Transaction {
   worker?: { id: number; name: string } | null;
   expenseCategory?: string | null;
   virtualCardId?: number | null;
+  salarySource?: SalarySource | null;
 }
 
 export interface Client { id: number; name: string }
@@ -48,6 +50,7 @@ export interface TransactionFormData {
   workerId: string;
   expenseCategory: string;
   virtualCardId: string;
+  salarySource: SalarySource;
 }
 
 export interface TransactionPayload {
@@ -59,6 +62,7 @@ export interface TransactionPayload {
   date: string;
   clientId?: number;
   workerId?: number;
+  salarySource?: SalarySource;
   expenseCategory?: string;
   virtualCardId?: number;
 }

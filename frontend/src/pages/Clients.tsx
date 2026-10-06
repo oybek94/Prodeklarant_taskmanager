@@ -108,6 +108,13 @@ interface AssignableUser {
   role: string;
 }
 
+interface ClientsSummary {
+  totalClients: number;
+  debtors: number;
+  usd: { debt: number; deal: number };
+  uzs: { debt: number; deal: number };
+}
+
 interface ClientStats {
   total: { current: number; change: number };
   active: { current: number; change: number };
@@ -145,6 +152,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
   const [loading, setLoading] = useState(true);
   const [clientsPage, setClientsPage] = useState(1);
   const [previewClientId, setPreviewClientId] = useState<number | null>(null);
+  const [summary, setSummary] = useState<ClientsSummary | null>(null);
   const [clientsTotalPages, setClientsTotalPages] = useState(1);
   const [clientsTotalCount, setClientsTotalCount] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
@@ -613,6 +621,14 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
       setStats(response.data);
     } catch (error) {
       console.error('Error loading stats:', error);
+    }
+    if (!isNonAdmin) {
+      try {
+        const summaryResponse = await apiClient.get<ClientsSummary>('/clients/summary');
+        setSummary(summaryResponse.data);
+      } catch (error) {
+        console.error('Error loading clients summary:', error);
+      }
     }
   };
 
@@ -1497,6 +1513,50 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
             )}
           </div>
 
+          {/* Summary strip */}
+          {!isNonAdmin && summary && (
+            <div className="flex flex-wrap bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-2xl overflow-hidden">
+              {[
+                { label: 'Jami mijozlar', node: <>{summary.totalClients}</>, tone: '' },
+                { label: 'Qarzdorlar', node: <>{summary.debtors}</>, tone: 'text-orange-800 dark:text-orange-300' },
+                {
+                  label: 'Umumiy qarz',
+                  node: (
+                    <>
+                      <CurrencyDisplay amount={summary.usd.debt} originalCurrency="USD" />
+                      {summary.uzs.debt > 0 && (
+                        <div className="text-base font-bold mt-0.5"><CurrencyDisplay amount={summary.uzs.debt} originalCurrency="UZS" /></div>
+                      )}
+                    </>
+                  ),
+                  tone: 'text-orange-800 dark:text-orange-300',
+                },
+                {
+                  label: 'Shartnomalar summasi',
+                  node: (
+                    <>
+                      <CurrencyDisplay amount={summary.usd.deal} originalCurrency="USD" />
+                      {summary.uzs.deal > 0 && (
+                        <div className="text-base font-bold mt-0.5"><CurrencyDisplay amount={summary.uzs.deal} originalCurrency="UZS" /></div>
+                      )}
+                    </>
+                  ),
+                  tone: '',
+                },
+              ].map((item) => (
+                <div
+                  key={item.label}
+                  className="flex-1 basis-[220px] min-w-0 px-6 py-5 border-r border-b sm:border-b-0 border-gray-100 dark:border-slate-700/60 last:border-r-0"
+                >
+                  <div className="text-[13px] font-semibold text-gray-500 dark:text-gray-400 mb-1.5">{item.label}</div>
+                  <div className={`text-[26px] font-extrabold tracking-tight tabular-nums leading-tight ${item.tone || 'text-gray-900 dark:text-gray-100'}`}>
+                    {item.node}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
           {/* Toolbar */}
           <div className="flex flex-wrap items-center gap-3">
             <label className="flex-1 min-w-[260px] max-w-md h-11 px-3.5 flex items-center gap-2.5 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl">
@@ -1580,13 +1640,21 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
             >
               <div
                 className={isMobile && isNewClientRoute
-                  ? 'bg-white w-full h-full p-6 overflow-y-auto'
-                  : 'bg-white rounded-lg shadow-2xl p-6 max-w-3xl w-full mx-4 max-h-[90vh] overflow-y-auto'}
+                  ? 'bg-white w-full h-full overflow-y-auto flex flex-col'
+                  : 'bg-white rounded-2xl shadow-2xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto flex flex-col'}
                 style={isMobile && isNewClientRoute ? undefined : { animation: 'modalFadeIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)' }}
               >
-                <div className="flex justify-between items-center mb-4">
-                  <h2 className="text-xl font-semibold text-gray-800">Yangi mijoz</h2>
+                <div className="flex items-center gap-3.5 px-6 sm:px-8 py-6 border-b border-gray-100">
+                  <span className="shrink-0 w-11 h-11 rounded-xl bg-gray-900 text-white flex items-center justify-center">
+                    <Icon icon="solar:user-plus-bold-duotone" className="w-[22px] h-[22px]" />
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <h2 className="text-xl font-extrabold tracking-tight text-gray-900">Yangi mijoz</h2>
+                    <div className="text-[13px] text-gray-500 mt-0.5">Asosiy ma'lumotlarni kiriting, qolganini keyin to'ldirasiz</div>
+                  </div>
                   <button
+                    type="button"
+                    aria-label="Yopish"
                     onClick={() => {
                       if (isMobile && isNewClientRoute) {
                         navigate('/clients');
@@ -1594,178 +1662,171 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
                         setShowForm(false);
                       }
                     }}
-                    className="text-gray-400 hover:text-gray-600 text-2xl font-bold leading-none"
+                    className="shrink-0 w-10 h-10 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-600 flex items-center justify-center"
                   >
-                    ×
+                    <Icon icon="solar:close-circle-bold-duotone" className="w-5 h-5" />
                   </button>
                 </div>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
-                    <input
-                      type="text"
-                      value={form.name}
-                      onChange={(e) => setForm({ ...form, name: e.target.value })}
-                      required
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                    />
-                  </div>
-                  <MonetaryInput
-                    amount={form.dealAmount || ''}
-                    currency={form.dealAmountCurrency || 'USD'}
-                    exchangeRate={form.dealAmountExchangeRate || ''}
-                    date={new Date().toISOString().split('T')[0]} // Use current date for deal amount
-                    onAmountChange={(value) => {
-                      setForm({ ...form, dealAmount: value });
-                      setMonetaryErrors({ ...monetaryErrors, amount: undefined });
-                    }}
-                    onCurrencyChange={(value) => {
-                      setForm({ ...form, dealAmountCurrency: value });
-                      setMonetaryErrors({ ...monetaryErrors, currency: undefined });
-                    }}
-                    onExchangeRateChange={(value) => {
-                      setForm({ ...form, dealAmountExchangeRate: value });
-                      setMonetaryErrors({ ...monetaryErrors, exchangeRate: undefined });
-                    }}
-                    label="Deal Amount"
-                    required={false}
-                    showLabels={true}
-                    currencyRules={{
-                      exchangeRateRequired: true,
-                    }}
-                    hideExchangeRate={true}
-                    errors={monetaryErrors}
-                  />
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Shartnoma turi</label>
-                    <select
-                      value={form.contractPaymentType}
-                      onChange={(e) => setForm({ ...form, contractPaymentType: e.target.value as typeof form.contractPaymentType })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                    >
-                      <option value="CASH_ALL_INCLUSIVE">Naqt (hammasi ichida, eski)</option>
-                      <option value="TRANSFER_ONLY">Xizmat haqi — 100% perechisleniya</option>
-                      <option value="CASH_ONLY">Xizmat haqi — 100% naqt</option>
-                      <option value="MIXED">Xizmat haqi — aralash (naqt + perechisleniya)</option>
-                    </select>
-                  </div>
-                  {form.contractPaymentType === 'MIXED' && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Perechisleniya summasi (so'm)</label>
+
+                <form onSubmit={handleSubmit} className="flex flex-col flex-1">
+                  <div className="px-6 sm:px-8 py-7 space-y-6">
+                    <div className="space-y-2">
+                      <label htmlFor="client-name" className="block text-[13px] font-bold text-gray-700">
+                        Mijoz nomi <span className="text-orange-700">*</span>
+                      </label>
                       <input
-                        type="number"
-                        min="0"
-                        value={form.serviceFeeTransferUzs}
-                        onChange={(e) => setForm({ ...form, serviceFeeTransferUzs: e.target.value })}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                        id="client-name"
+                        type="text"
+                        value={form.name}
+                        onChange={(e) => setForm({ ...form, name: e.target.value })}
+                        required
+                        placeholder="Masalan: Sharq Logistik MChJ"
+                        className="w-full h-12 px-4 border border-gray-300 rounded-xl text-[15px] font-semibold text-gray-900 placeholder:text-gray-400 placeholder:font-normal focus:outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-600/15"
                       />
                     </div>
-                  )}
-                  <div className="border border-blue-100 rounded-lg p-3 bg-blue-50/50">
-                    <h3 className="text-sm font-medium text-gray-700 mb-2">O'tgan yilgi / eski qarzdorlik (ixtiyoriy)</h3>
-                    <MonetaryInput
-                      amount={form.initialDebt || ''}
-                      currency={form.initialDebtCurrency || 'USD'}
-                      exchangeRate={''}
-                      date={new Date().toISOString().split('T')[0]}
-                      onAmountChange={(value) => {
-                        setForm({ ...form, initialDebt: value });
-                      }}
-                      onCurrencyChange={(value) => {
-                        setForm({ ...form, initialDebtCurrency: value as 'USD' | 'UZS' });
-                      }}
-                      onExchangeRateChange={() => { }} // Initial debt does not enforce exchange rate typing strictly on client side
-                      label="Oldingi qarz summasi"
-                      required={false}
-                      showLabels={false}
-                      hideExchangeRate={true}
-                      currencyRules={{ exchangeRateRequired: false }}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
-                    <input
-                      type="tel"
-                      value={form.phone}
-                      onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                    />
-                  </div>
 
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Mas'ul xodim</label>
-                    <select
-                      value={form.assignedUserId}
-                      onChange={(e) => setForm({ ...form, assignedUserId: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                    >
-                      <option value="">Admin (biriktirilmagan)</option>
-                      {assignableUsers.map((u) => (
-                        <option key={u.id} value={u.id}>{u.name}</option>
-                      ))}
-                    </select>
-                  </div>
+                    <div className="space-y-2">
+                      <label htmlFor="client-deal" className="block text-[13px] font-bold text-gray-700">
+                        Shartnoma summasi <span className="font-medium text-gray-500">(bir ish uchun)</span>
+                      </label>
+                      <div className="flex gap-2.5">
+                        <input
+                          id="client-deal"
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={form.dealAmount || ''}
+                          onChange={(e) => {
+                            setForm({ ...form, dealAmount: e.target.value });
+                            setMonetaryErrors({ ...monetaryErrors, amount: undefined });
+                          }}
+                          placeholder="0.00"
+                          className="flex-1 min-w-0 h-12 px-4 border border-gray-300 rounded-xl text-[15px] font-semibold tabular-nums text-gray-900 placeholder:text-gray-400 placeholder:font-normal focus:outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-600/15"
+                        />
+                        <div className="flex gap-1 p-1 rounded-xl bg-gray-100" role="group" aria-label="Valyuta">
+                          {(['USD', 'UZS'] as const).map((cur) => (
+                            <button
+                              key={cur}
+                              type="button"
+                              onClick={() => {
+                                setForm({ ...form, dealAmountCurrency: cur });
+                                setMonetaryErrors({ ...monetaryErrors, currency: undefined });
+                              }}
+                              className={`w-16 h-10 rounded-[9px] text-[13px] font-extrabold transition-colors ${(form.dealAmountCurrency || 'USD') === cur
+                                ? 'bg-white text-gray-900 shadow-sm'
+                                : 'text-gray-500 hover:text-gray-800'}`}
+                            >
+                              {cur}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      {(monetaryErrors.amount || monetaryErrors.currency) && (
+                        <p className="text-[13px] font-medium text-red-700">{monetaryErrors.amount || monetaryErrors.currency}</p>
+                      )}
+                    </div>
 
-                  {/* Nasiya shartlari */}
-                  <div className="border-t border-gray-200 pt-4 mt-4">
-                    <h3 className="text-sm font-medium text-gray-700 mb-3">Nasiya shartlari (ixtiyoriy)</h3>
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Nasiya turi</label>
+                    <div className="space-y-2">
+                      <div className="text-[13px] font-bold text-gray-700" id="contract-type-label">Shartnoma turi</div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5" role="radiogroup" aria-labelledby="contract-type-label">
+                        {([
+                          { id: 'CASH_ALL_INCLUSIVE', title: 'Naqt (hammasi ichida)', sub: 'Eski tartib: barcha xarajatlar bitta summada' },
+                          { id: 'TRANSFER_ONLY', title: '100% perechisleniya', sub: "Xizmat haqi to'liq bank orqali" },
+                          { id: 'CASH_ONLY', title: '100% naqt', sub: "Xizmat haqi to'liq naqd to'lanadi" },
+                          { id: 'MIXED', title: 'Aralash', sub: 'Naqt va perechisleniya birga' },
+                        ] as const).map((opt) => {
+                          const on = form.contractPaymentType === opt.id;
+                          return (
+                            <button
+                              key={opt.id}
+                              type="button"
+                              role="radio"
+                              aria-checked={on}
+                              onClick={() => setForm({ ...form, contractPaymentType: opt.id })}
+                              className={`flex items-start gap-3 p-3.5 text-left rounded-xl border-[1.5px] transition-colors ${on
+                                ? 'border-blue-600 bg-blue-50'
+                                : 'border-gray-200 bg-white hover:border-gray-300'}`}
+                            >
+                              <span className={`shrink-0 mt-0.5 w-[18px] h-[18px] rounded-full border-2 flex items-center justify-center ${on ? 'border-blue-600' : 'border-gray-300'}`}>
+                                <span className={`w-2 h-2 rounded-full ${on ? 'bg-blue-600' : 'bg-transparent'}`} />
+                              </span>
+                              <span className="min-w-0 flex flex-col gap-0.5">
+                                <span className="text-sm font-bold text-gray-900">{opt.title}</span>
+                                <span className="text-xs leading-snug text-gray-500">{opt.sub}</span>
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {form.contractPaymentType === 'MIXED' && (
+                      <div className="space-y-2">
+                        <label htmlFor="client-transfer" className="block text-[13px] font-bold text-gray-700">Perechisleniya summasi</label>
+                        <div className="flex items-center h-12 px-4 border border-gray-300 rounded-xl focus-within:border-blue-600 focus-within:ring-4 focus-within:ring-blue-600/15">
+                          <input
+                            id="client-transfer"
+                            type="number"
+                            min="0"
+                            value={form.serviceFeeTransferUzs}
+                            onChange={(e) => setForm({ ...form, serviceFeeTransferUzs: e.target.value })}
+                            placeholder="0"
+                            className="flex-1 min-w-0 bg-transparent outline-none text-[15px] font-semibold tabular-nums text-gray-900"
+                          />
+                          <span className="text-[13px] font-bold text-gray-500">so'm</span>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label htmlFor="client-phone" className="block text-[13px] font-bold text-gray-700">Telefon</label>
+                        <input
+                          id="client-phone"
+                          type="tel"
+                          value={form.phone}
+                          onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                          placeholder="+998 __ ___ __ __"
+                          className="w-full h-12 px-4 border border-gray-300 rounded-xl text-[15px] font-semibold text-gray-900 placeholder:text-gray-400 placeholder:font-normal focus:outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-600/15"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label htmlFor="client-owner" className="block text-[13px] font-bold text-gray-700">Mas'ul xodim</label>
                         <select
-                          value={form.creditType}
-                          onChange={(e) => setForm({ ...form, creditType: e.target.value as 'TASK_COUNT' | 'AMOUNT' | '' })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                          id="client-owner"
+                          value={form.assignedUserId}
+                          onChange={(e) => setForm({ ...form, assignedUserId: e.target.value })}
+                          className="w-full h-12 px-3 border border-gray-300 rounded-xl text-[15px] font-semibold text-gray-900 bg-white focus:outline-none focus:border-blue-600 focus:ring-4 focus:ring-blue-600/15"
                         >
-                          <option value="">Nasiya yo'q</option>
-                          <option value="TASK_COUNT">Ma'lum bir ish sonigacha</option>
-                          <option value="AMOUNT">Ma'lum bir summagacha</option>
+                          <option value="">Admin (biriktirilmagan)</option>
+                          {assignableUsers.map((u) => (
+                            <option key={u.id} value={u.id}>{u.name}</option>
+                          ))}
                         </select>
                       </div>
-                      {form.creditType && (
-                        <>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                              {form.creditType === 'TASK_COUNT' ? 'Ish soni' : 'Summa (USD)'}
-                            </label>
-                            <input
-                              type="number"
-                              step={form.creditType === 'TASK_COUNT' ? '1' : '0.01'}
-                              value={form.creditLimit}
-                              onChange={(e) => setForm({ ...form, creditLimit: e.target.value })}
-                              required={!!form.creditType}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                              placeholder={form.creditType === 'TASK_COUNT' ? 'Masalan: 5' : 'Masalan: 1000'}
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">Nasiya boshlangan sana</label>
-                            <DateInput
-                              value={form.creditStartDate}
-                              onChange={(value) => setForm({ ...form, creditStartDate: value })}
-                              required={!!form.creditType}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                            />
-                          </div>
-                        </>
-                      )}
                     </div>
                   </div>
 
-                  <div className="flex gap-2">
+                  <div className="mt-auto flex justify-end gap-2.5 px-6 sm:px-8 py-5 bg-gray-50 border-t border-gray-100">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (isMobile && isNewClientRoute) {
+                          navigate('/clients');
+                        } else {
+                          setShowForm(false);
+                        }
+                      }}
+                      className="h-[46px] px-6 border border-gray-300 rounded-xl bg-white text-gray-900 text-sm font-bold hover:bg-gray-50"
+                    >
+                      Bekor
+                    </button>
                     <button
                       type="submit"
                       disabled={savingClient}
-                      className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed"
+                      className="h-[46px] px-7 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold disabled:opacity-60 disabled:cursor-not-allowed"
                     >
                       {savingClient ? 'Saqlanmoqda...' : 'Saqlash'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setShowForm(false)}
-                      className="bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300"
-                    >
-                      Bekor
                     </button>
                   </div>
                 </form>

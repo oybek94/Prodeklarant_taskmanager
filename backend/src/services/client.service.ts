@@ -70,6 +70,33 @@ export class ClientService {
     };
   }
 
+  /** Mijozlar sahifasi yuqoridagi ko'rsatkichlar: barcha mijozlar bo'yicha, valyuta kesimida */
+  async getSummary() {
+    const clients = await this.clientRepo.findManyWithRelations({});
+    const { rateAt, latest } = await loadUsdRateAt();
+    const empty = () => ({ debt: 0, deal: 0 });
+    const byCurrency: Record<'USD' | 'UZS', { debt: number; deal: number }> = { USD: empty(), UZS: empty() };
+    let debtors = 0;
+
+    for (const client of clients) {
+      const c = this.calculateClientBalance(client, rateAt, latest);
+      const currency: 'USD' | 'UZS' = c.balanceCurrency === 'UZS' ? 'UZS' : 'USD';
+      byCurrency[currency].deal += Number(c.totalDealAmount || 0);
+      if (Number(c.balance.toFixed(2)) > 0) {
+        byCurrency[currency].debt += c.balance;
+        debtors += 1;
+      }
+    }
+
+    const round = (n: number) => Math.round(n * 100) / 100;
+    return {
+      totalClients: clients.length,
+      debtors,
+      usd: { debt: round(byCurrency.USD.debt), deal: round(byCurrency.USD.deal) },
+      uzs: { debt: round(byCurrency.UZS.debt), deal: round(byCurrency.UZS.deal) },
+    };
+  }
+
   /** Qarz — yagona qoida: services/client-debt.ts */
   private calculateClientBalance(client: any, rateAt: UsdRateAt, currentRate: number | null) {
     try {

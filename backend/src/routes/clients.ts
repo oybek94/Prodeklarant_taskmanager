@@ -250,6 +250,15 @@ router.get('/stats', requireAuth(), async (req: AuthRequest, res) => {
   });
 });
 
+router.get('/summary', requireAuth('ADMIN'), async (_req: AuthRequest, res) => {
+  try {
+    res.json(await clientService.getSummary());
+  } catch (error) {
+    console.error('Error fetching clients summary:', error);
+    res.status(500).json({ error: 'Ko\'rsatkichlarni yuklashda xatolik yuz berdi' });
+  }
+});
+
 router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
   try {
     const parsed = clientSchema.safeParse(req.body);

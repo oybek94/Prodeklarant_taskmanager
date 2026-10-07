@@ -8,6 +8,7 @@ export interface Invoice {
   date: string;
   currency: string;
   totalAmount: number;
+  notes?: string | null;
   additionalInfo?: { vehicleNumber?: string; trailerNumber?: string; [k: string]: unknown };
   task?: {
     id: number;

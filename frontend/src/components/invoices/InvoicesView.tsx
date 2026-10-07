@@ -136,6 +136,9 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                     <div className="text-xs text-[#5B6472] dark:text-gray-400 mt-0.5">
                       {formatDateOnly(invoice.date)} · {branchName} · {vehicle}
                     </div>
+                    {invoice.notes?.trim() && (
+                      <div className="text-xs text-[#2B3340] dark:text-gray-300 mt-1 line-clamp-2 break-words">{invoice.notes.trim()}</div>
+                    )}
                   </div>
                   <div className="flex-none">
                     <StatusPill
@@ -176,13 +179,14 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
         </div>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1180px] border-collapse text-sm">
+          <table className="w-full min-w-[1400px] border-collapse text-sm">
             <thead>
               <tr>
                 <th className={`${TH} !pl-5`}>Invoys</th>
                 <th className={TH}>Mijoz / shartnoma</th>
                 <th className={TH}>Filial</th>
                 <th className={TH}>Avto</th>
+                <th className={TH}>Izoh</th>
                 <th className={`${TH} w-[190px]`}>Bosqichlar</th>
                 <th className={`${TH} !text-right`}>Summa</th>
                 <th className={TH}>Holat</th>
@@ -240,6 +244,12 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                           />
                         )}
                       </div>
+                    </td>
+                    <td
+                      className="py-2 px-3 max-w-[220px] text-xs text-[#2B3340] dark:text-gray-300"
+                      title={invoice.notes?.trim() || undefined}
+                    >
+                      <div className="line-clamp-2 break-words">{invoice.notes?.trim() || '—'}</div>
                     </td>
                     <td className="py-2 px-3">
                       <StageProgress stages={invoice.task?.stages} taskStatus={invoice.task?.status} hasErrors={hasErrors} />

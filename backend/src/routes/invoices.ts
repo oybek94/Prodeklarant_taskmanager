@@ -245,6 +245,7 @@ router.get('/', requireAuth(), async (req: AuthRequest, res) => {
               id: true,
               title: true,
               status: true,
+              comments: true,
               branch: { select: { id: true, name: true } },
               stages: { select: { name: true, status: true } },
               _count: { select: { errors: true } }

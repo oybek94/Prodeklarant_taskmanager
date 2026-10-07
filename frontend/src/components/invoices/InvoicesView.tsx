@@ -136,8 +136,8 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                     <div className="text-xs text-[#5B6472] dark:text-gray-400 mt-0.5">
                       {formatDateOnly(invoice.date)} · {branchName} · {vehicle}
                     </div>
-                    {invoice.notes?.trim() && (
-                      <div className="text-xs text-[#2B3340] dark:text-gray-300 mt-1 line-clamp-2 break-words">{invoice.notes.trim()}</div>
+                    {invoice.task?.comments?.trim() && (
+                      <div className="text-xs text-[#2B3340] dark:text-gray-300 mt-1 line-clamp-2 break-words">{invoice.task.comments.trim()}</div>
                     )}
                   </div>
                   <div className="flex-none">
@@ -247,9 +247,9 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                     </td>
                     <td
                       className="py-2 px-3 max-w-[220px] text-xs text-[#2B3340] dark:text-gray-300"
-                      title={invoice.notes?.trim() || undefined}
+                      title={invoice.task?.comments?.trim() || undefined}
                     >
-                      <div className="line-clamp-2 break-words">{invoice.notes?.trim() || '—'}</div>
+                      <div className="line-clamp-2 break-words">{invoice.task?.comments?.trim() || '—'}</div>
                     </td>
                     <td className="py-2 px-3">
                       <StageProgress stages={invoice.task?.stages} taskStatus={invoice.task?.status} hasErrors={hasErrors} />

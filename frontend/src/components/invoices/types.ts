@@ -8,12 +8,12 @@ export interface Invoice {
   date: string;
   currency: string;
   totalAmount: number;
-  notes?: string | null;
   additionalInfo?: { vehicleNumber?: string; trailerNumber?: string; [k: string]: unknown };
   task?: {
     id: number;
     title: string;
     status: string;
+    comments?: string | null;
     branch?: { id: number; name: string };
     stages?: { name: string; status: string }[];
     _count?: { errors: number };

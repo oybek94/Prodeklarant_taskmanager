@@ -2,6 +2,7 @@ import ExcelJS from 'exceljs';
 import fs from 'fs/promises';
 import path from 'path';
 import { Invoice, InvoiceItem, Contract } from '@prisma/client';
+import { formatWeight } from './format-weight';
 
 export type CmrInvoicePayload = {
   invoice: Invoice;
@@ -288,8 +289,8 @@ export const generateCmrExcel = async (payload: CmrInvoicePayload) => {
       : '',
     '$Наименование товара$': buildGoodsDescription(payload.items),
     '$Код ТН ВЭД$': toPlain(firstItem?.tnvedCode),
-    '$Брутто$': firstItem?.grossWeight ? `${Math.round(Number(firstItem.grossWeight))} кг` : '',
-    '$Общий вес брутто$': grossWeight ? `${Math.round(grossWeight)} кг` : '',
+    '$Брутто$': firstItem?.grossWeight ? `${formatWeight(firstItem.grossWeight)} кг` : '',
+    '$Общий вес брутто$': grossWeight ? `${formatWeight(grossWeight)} кг` : '',
     '$Место там. очистки:$': toPlain(additionalInfo.customsAddress),
     '$Условия поставки$': toPlain(additionalInfo.deliveryTerms),
     '$Номер автотранспорта$': toPlain(additionalInfo.vehicleNumber),
@@ -308,7 +309,7 @@ export const generateCmrExcel = async (payload: CmrInvoicePayload) => {
     graph8PackageType: toPlain(firstItem?.packageType),
     graph9GoodsDescription: buildGoodsDescription(payload.items),
     graph10HsCode: toPlain(firstItem?.tnvedCode),
-    graph11GrossWeight: grossWeight ? `${Math.round(grossWeight)} кг` : '',
+    graph11GrossWeight: grossWeight ? `${formatWeight(grossWeight)} кг` : '',
     graph13CustomsInstructions: toPlain(additionalInfo.customsAddress),
     graph13TirNumber: toPlain(additionalInfo.tirNumber),
     graph16Carrier: toPlain(additionalInfo.carrier),
@@ -424,7 +425,7 @@ export const generateCmrExcel = async (payload: CmrInvoicePayload) => {
     writeItemCell(row, 'G', buildG34Text(item));
     writeItemCell(row, 'U', item.name || '');
     writeItemCell(row, 'AM', item.tnvedCode || '');
-    writeItemCell(row, 'AT', item.grossWeight ? `${Math.round(Number(item.grossWeight))} кг` : '');
+    writeItemCell(row, 'AT', item.grossWeight ? `${formatWeight(item.grossWeight)} кг` : '');
   });
   for (let row = tableStartRow + payload.items.length; row <= tableEndRow; row += 1) {
     writeItemCell(row, 'B', '');

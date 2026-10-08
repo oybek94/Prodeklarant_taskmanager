@@ -2,6 +2,7 @@ import ExcelJS from 'exceljs';
 import fs from 'fs/promises';
 import path from 'path';
 import { Invoice, InvoiceItem, Contract } from '@prisma/client';
+import { formatWeight } from './format-weight';
 
 export type TirInvoicePayload = {
   invoice: Invoice;
@@ -217,7 +218,7 @@ export const generateTirExcel = async (payload: TirInvoicePayload) => {
   const totalPlaces = payload.items.reduce((sum, item) => sum + getPlaces(item), 0);
 
   // Write bottom cells
-  sheet.getCell(map.totalGrossCell).value = totalGross ? `${Math.round(totalGross)} кг` : '';
+  sheet.getCell(map.totalGrossCell).value = totalGross ? `${formatWeight(totalGross)} кг` : '';
   sheet.getCell(map.totalPlacesCell).value = totalPlaces ? `${Math.round(totalPlaces)}` : '';
 
   const buildPlacesText = (item: InvoiceItem) => {
@@ -246,7 +247,7 @@ export const generateTirExcel = async (payload: TirInvoicePayload) => {
       ? `${item.name || ''} (${item.tnvedCode})`
       : (item.name || '');
     sheet.getCell(`${map.grossCol}${rowIndex}`).value = item.grossWeight
-      ? `${Math.round(Number(item.grossWeight))} кг`
+      ? `${formatWeight(item.grossWeight)} кг`
       : '';
   });
   for (let rowIndex = tableStartRow + payload.items.length; rowIndex <= tableEndRow; rowIndex += 1) {

@@ -3,6 +3,7 @@ import Docxtemplater from 'docxtemplater';
 import fs from 'fs/promises';
 import path from 'path';
 import { Invoice, InvoiceItem, Contract } from '@prisma/client';
+import { formatWeight } from './format-weight';
 
 export type CmrDocPayload = {
   invoice: Invoice;
@@ -129,7 +130,7 @@ export const generateCmrDocx = async (payload: CmrDocPayload): Promise<Buffer> =
     invoys_raqami: invoice.invoiceNumber || '',
     'TIR №:': additionalInfo.tirNumber || '',
     items: itemRows,
-    MUB: totalGrossWeight ? String(totalGrossWeight) : '',
+    MUB: totalGrossWeight ? formatWeight(totalGrossWeight) : '',
     'Место там. очистки:': additionalInfo.customsAddress || '',
     'Условия поставки:': additionalInfo.deliveryTerms || '',
     'Номер автотранспорта:': [additionalInfo.vehicleNumber, additionalInfo.trailerNumber].filter(Boolean).join(' / ') || '',

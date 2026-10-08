@@ -211,20 +211,14 @@ export const SEAL_HEIGHT_CM = 3.8;
  */
 type ExpertizaRecipient = { filial: string; filial_direktori: string; viloyat: string };
 
-const NAMANGAN_RECIPIENT: ExpertizaRecipient = {
-  filial: 'Наманганэкспертиза',
-  filial_direktori: 'Мусаеву Ш.М.',
-  viloyat: 'Наманганской области',
-};
 const FERGANA_RECIPIENT: ExpertizaRecipient = {
   filial: 'Ферганаэкспертиза',
   filial_direktori: 'Камалову Ш.Н.',
   viloyat: 'Ферганской области',
 };
 
-// Boshqa filiallar uchun oldingi (Namangan) adresat saqlanadi
-const resolveRecipient = (branchName?: string | null): ExpertizaRecipient =>
-  (branchName || '').toLowerCase().includes('oltiariq') ? FERGANA_RECIPIENT : NAMANGAN_RECIPIENT;
+// Xat doim Farg'ona ekspertiza filialiga yoziladi (filialdan qat'i nazar)
+const resolveRecipient = (_branchName?: string | null): ExpertizaRecipient => FERGANA_RECIPIENT;
 
 export type OriginInfoFields = ExpertizaRecipient & {
   Invoys_sana: string;

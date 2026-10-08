@@ -90,7 +90,7 @@ export const generateOriginInfoPdf = async (payload: OriginInfoDocPayload): Prom
 
   // --- Sana (chapda) va adresat (o'ngda, qalin) bitta qatorda boshlanadi ---
   const headerTop = doc.y;
-  doc.font(FONT_REGULAR).text(`от ${f.Invoys_sana}`, left + TAB_STOP, headerTop, { lineBreak: false });
+  doc.font(FONT_REGULAR).text(`№ ${f.invoys_raqam} от ${f.Invoys_sana}`, left + TAB_STOP, headerTop, { lineBreak: false });
   doc.font(FONT_BOLD).text(`Директору\nДХО ООО «${f.filial}»\n${f.filial_direktori}`, left, headerTop, {
     width: contentWidth,
     align: 'right',

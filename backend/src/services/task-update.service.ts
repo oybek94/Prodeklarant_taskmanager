@@ -6,6 +6,7 @@ import { socketEmitter } from './socketEmitter';
 import { buildDealSnapshot, buildFeeSnapshot, loadPricingInputs, clientPricingSelect } from './task-create.service';
 import { declarationClientSelect, declarationCompletedFields, bxmAt } from './declaration-pricing';
 import { taskUsdRate } from './task-money';
+import { STAFF_ROLES } from '../middleware/auth';
 
 /**
  * Vazifa maydonlarini tahrirlash — PATCH /tasks/:id.
@@ -284,11 +285,9 @@ export async function updateTask(id: number, input: UpdateTaskInput, actor: Acto
   const task = await prisma.task.findUnique({ where: { id }, select: taskBeforeSelect });
   if (!task) throw new TaskUpdateError(404, 'Task not found');
 
-  const isCreator = task.createdById === actor.id;
-  const isAdmin = actor.role === 'ADMIN' || actor.role === 'MANAGER';
-  // Faqat "ish vaqtidan tashqari" maydonlarini yangilashda har qanday xodimga ruxsat
-  if (!isAdmin && !isCreator && !isOnlyAfterHoursUpdate(input)) {
-    throw new TaskUpdateError(403, 'Faqat task yaratgan ishchi taskni o\'zgartirishi mumkin');
+  // Har qanday xodim istalgan taskni istalgan vaqtda tahrirlashi mumkin; mijoz portali emas
+  if (!(STAFF_ROLES as readonly string[]).includes(actor.role)) {
+    throw new TaskUpdateError(403, 'Faqat xodimlar taskni o\'zgartirishi mumkin');
   }
 
   const branchChanged = Boolean(input.branchId && input.branchId !== task.branchId);

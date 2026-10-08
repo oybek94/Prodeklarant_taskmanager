@@ -224,7 +224,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
   );
 
   const statusChip = STATUS_CHIP[selectedTask.status] ?? STATUS_CHIP_DEFAULT;
-  const canAddDocs = selectedTask.status !== 'YAKUNLANDI' || user?.role === 'ADMIN';
+  const canAddDocs = true;
   const createdLine = [ruDate(selectedTask.createdAt), ruTime(selectedTask.createdAt)].filter(Boolean).join(', ');
   const afterHoursPayerCompany = String((selectedTask.client as any)?.defaultAfterHoursPayer ?? selectedTask.afterHoursPayer ?? 'CLIENT').toUpperCase() === 'COMPANY';
   const contractText = selectedTask.invoice?.contract?.contractNumber
@@ -309,7 +309,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
               className={`${iconBtn} border-[#f3d3a6] bg-[#fff7ea] text-[#b45309] hover:bg-[#ffefd2] dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-400 dark:hover:bg-amber-500/20`}>
               <IcAlert />
             </button>
-            {selectedTask.createdBy && user && (user.role === 'ADMIN' || selectedTask.createdBy.id === user.id) && (
+            {user && (
               <button type="button" onClick={() => onEdit()} title="Tahrirlash" aria-label="Vazifani tahrirlash"
                 className={`${iconBtn} border-[#d5d9e6] bg-white text-[#3b4152] hover:bg-[#f8f9fc] dark:border-slate-600 dark:bg-slate-800 dark:text-gray-300 dark:hover:bg-slate-700`}>
                 <IcPen />

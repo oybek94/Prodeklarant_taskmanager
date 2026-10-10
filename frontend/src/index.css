@@ -339,6 +339,79 @@ body {
   color: var(--pd-text-secondary) !important;
 }
 
+/* Invoice "Дополнительная информация" card + modal: components use hardcoded
+   hex colors (text-[#151827], border-[#E3E5EE], ...), so the gray-ramp vars
+   don't reach them. Remap the hex classes to the --pd-* palette, scoped. */
+.dark .invoice-additional-info-card,
+.dark .invoice-additional-info-modal > div {
+  background-color: var(--pd-surface) !important;
+  border-color: var(--pd-border) !important;
+}
+
+.dark .invoice-additional-info-card [class~="bg-white"],
+.dark .invoice-additional-info-modal [class~="bg-white"] {
+  background-color: var(--pd-surface) !important;
+}
+
+.dark .invoice-additional-info-card [class*="border-[#"],
+.dark .invoice-additional-info-modal [class*="border-[#"] {
+  border-color: var(--pd-border) !important;
+}
+
+.dark .invoice-additional-info-card [class~="text-[#151827]"],
+.dark .invoice-additional-info-modal [class~="text-[#151827]"],
+.dark .invoice-additional-info-modal [class~="text-[#3A4058]"],
+.dark .invoice-additional-info-modal [class~="hover:text-[#151827]"]:hover {
+  color: var(--pd-text) !important;
+}
+
+.dark .invoice-additional-info-card [class~="text-[#5B6178]"],
+.dark .invoice-additional-info-modal [class~="text-[#5B6178]"],
+.dark .invoice-additional-info-modal [class~="text-[#6A7088]"],
+.dark .invoice-additional-info-modal [class~="text-[#7A8098]"] {
+  color: var(--pd-text-secondary) !important;
+}
+
+.dark .invoice-additional-info-modal [class~="text-[#C4C8D8]"],
+.dark .invoice-additional-info-modal [class~="text-[#B4B9CC]"] {
+  color: var(--pd-accent) !important;
+}
+
+/* Indigo chips / selected states */
+.dark .invoice-additional-info-card [class~="bg-[#EEF0FB]"],
+.dark .invoice-additional-info-modal [class~="bg-[#EEF0FB]"],
+.dark .invoice-additional-info-modal [class~="bg-[#F4F5FE]"] {
+  background-color: rgba(99, 102, 241, 0.18) !important;
+}
+
+.dark .invoice-additional-info-card [class~="text-[#3F3BC4]"],
+.dark .invoice-additional-info-modal [class~="text-[#3F3BC4]"] {
+  color: #a5b4fc !important;
+}
+
+/* Inputs + dashed/neutral surfaces */
+.dark .invoice-additional-info-modal [class~="bg-[#F9FAFC]"],
+.dark .invoice-additional-info-modal [class~="bg-[#F7F8FB]"] {
+  background-color: var(--pd-elevated) !important;
+}
+
+.dark .invoice-additional-info-modal input {
+  background-color: var(--pd-elevated);
+  color: var(--pd-text);
+}
+
+.dark .invoice-additional-info-modal input:focus {
+  background-color: var(--pd-raised);
+}
+
+.dark .invoice-additional-info-modal input::placeholder {
+  color: var(--pd-accent);
+}
+
+.dark .invoice-additional-info-modal [class~="border-[#BFC4D8]"] {
+  border-color: var(--pd-border) !important;
+}
+
 @keyframes checkmarkDraw {
   0% {
     stroke-dashoffset: 20;

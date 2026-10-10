@@ -149,7 +149,7 @@ export const InvoiceAdditionalInfoDisplay: React.FC<InvoiceAdditionalInfoDisplay
   };
 
   return (
-    <div className="mb-0 overflow-hidden rounded-2xl border border-[#E3E5EE] bg-white">
+    <div className="invoice-additional-info-card mb-0 overflow-hidden rounded-2xl border border-[#E3E5EE] bg-white">
       <div className="flex items-center justify-between gap-4 border-b border-[#ECEEF4] px-6 py-3.5">
         <div className="flex min-w-0 items-center gap-3">
           <h3 className="m-0 text-lg font-semibold leading-tight tracking-tight text-[#151827]">Дополнительная информация</h3>

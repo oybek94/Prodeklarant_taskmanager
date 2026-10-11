@@ -4,6 +4,7 @@ import { prisma } from '../prisma';
 import { requireAuth, AuthRequest } from '../middleware/auth';
 import { z } from 'zod';
 import { deepNormalizeStrings } from '../utils/text-normalize';
+import { syncContractCustomsToInvoices } from '../services/contract-invoice-sync.service';
 
 const router = Router();
 const deliveryTermsSchema = z.object({
@@ -555,6 +556,13 @@ router.put('/:id', requireAuth(), async (req: AuthRequest, res: Response) => {
         WHERE "id" = ${id}
       `;
     }
+
+    // Invoyslardagi bojxona manzili nusxasi shartnoma bilan birga yangilansin (SMR/CMR shu nusxadan o'qiydi)
+    await syncContractCustomsToInvoices(
+      { id, clientId: existingContract.clientId, contractNumber: existingContract.contractNumber },
+      { deliveryTerms: existingContract.deliveryTerms, customsAddress: existingContract.customsAddress },
+      { deliveryTerms: contract.deliveryTerms, customsAddress: contract.customsAddress }
+    );
 
     if (contractData.specification !== undefined) {
       console.log('[contracts PUT] saved specification length:', Array.isArray(contract.specification) ? (contract.specification as any[]).length : 'not array');

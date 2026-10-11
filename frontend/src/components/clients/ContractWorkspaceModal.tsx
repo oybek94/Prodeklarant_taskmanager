@@ -1007,7 +1007,7 @@ export default function ContractWorkspaceModal({
                   <>
                     {/* Keng ekranda jadval forma ustuni bilan birga aylanadi (sarlavha sticky);
                         torroq ekranda gorizontal scroll kerak bo'lgani uchun jadvalning o'z scrolli bor. */}
-                    <div className="max-h-[calc(100vh-340px)] min-h-[220px] overflow-auto rounded-2xl border border-gray-200 dark:border-slate-700/80 bg-white dark:bg-slate-900 xl:max-h-none xl:min-h-0 xl:overflow-clip">
+                    <div className="max-h-[calc(100vh-340px)] min-h-[220px] shrink-0 overflow-auto rounded-2xl border border-gray-200 dark:border-slate-700/80 bg-white dark:bg-slate-900 xl:max-h-none xl:min-h-0 xl:overflow-clip">
                       <div role="table" aria-label="Spetsifikatsiya" className="min-w-[840px]">
                         <div role="row" className={`${SPEC_GRID} sticky top-0 z-10 h-[42px] border-b border-gray-200 dark:border-slate-700/80 bg-gray-100 dark:bg-slate-800`}>
                           <span role="columnheader" className={TH}>№</span>

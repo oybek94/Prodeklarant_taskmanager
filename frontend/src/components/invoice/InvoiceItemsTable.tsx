@@ -745,21 +745,21 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = React.memo(({
                 </tbody>
                 {renderTableFooter()}
               </table>
+              {canEditEffective && (
+                <button
+                  type="button"
+                  onClick={addItem}
+                  className="group w-full flex items-center justify-center gap-2 py-2.5 border-t border-black bg-gray-50 dark:bg-slate-800/60 text-gray-600 dark:text-gray-300 text-sm font-medium transition-colors hover:bg-blue-50 dark:hover:bg-blue-500/15 hover:text-blue-600 dark:hover:text-blue-400 focus:outline-none focus-visible:bg-blue-50 no-screenshot"
+                >
+                  <Icon icon="solar:add-circle-bold-duotone" className="w-5 h-5 transition-transform duration-200 group-hover:rotate-90" />
+                  Yangi qator qo'shish
+                </button>
+              )}
             </div>
             {effectiveColumns.total && (
               <div className="mt-0 px-2 py-1.5 text-left text-sm bg-white invoice-sum-words">
                 Сумма прописью: {numberToWordsRu(sumItemTotals(items), invoiceCurrency)}
               </div>
-            )}
-            {canEditEffective && (
-              <button
-                type="button"
-                onClick={addItem}
-                className="group mt-3 w-full flex items-center justify-center gap-2 py-3 rounded-xl border-2 border-dashed border-blue-300 dark:border-blue-500/50 bg-blue-50/50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 text-sm font-semibold transition-all duration-200 hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-500/20 hover:shadow-sm active:scale-[0.995] focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 no-screenshot"
-              >
-                <Icon icon="solar:add-circle-bold-duotone" className="w-5 h-5 transition-transform duration-200 group-hover:rotate-90" />
-                Yangi qator qo'shish
-              </button>
             )}
           </>
         )}

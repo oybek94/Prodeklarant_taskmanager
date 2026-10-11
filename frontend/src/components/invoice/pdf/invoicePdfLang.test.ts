@@ -264,7 +264,7 @@ describe('Invoys PDF — til', () => {
     expect(drawn).toContain('Total:');
     expect(drawn).toContain('Amount in words');
     expect(drawn).toContain('Notes:');
-    expect(drawn).toContain('Supplier Director:');
+    expect(drawn).toContain('Director:');
     expect(drawn).toContain('Goods Released By:');
 
     // Ruscha yorliqlardan asar qolmasligi kerak

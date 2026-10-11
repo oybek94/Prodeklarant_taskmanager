@@ -204,7 +204,7 @@ const EN: PdfLabels = {
   partyShipper: 'Shipper/Manufacturer',
   partyConsignee: 'Consignee',
   directorPrefix: 'Director',
-  supplierDirector: 'Supplier Director:',
+  supplierDirector: 'Director:',
   goodsReleasedBy: 'Goods Released By:',
 };
 

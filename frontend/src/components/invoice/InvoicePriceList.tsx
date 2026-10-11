@@ -165,7 +165,7 @@ export const InvoicePriceList: React.FC<InvoicePriceListProps> = React.memo(({
           <div className="flex flex-row flex-wrap gap-4 items-start">
             <div className="space-y-3">
               <div className="space-y-1">
-                <div className="text-xl font-semibold text-gray-700">Руководитель Поставщика:</div>
+                <div className="text-xl font-semibold text-gray-700">Директор:</div>
                 <div className="text-xl text-gray-800">{contract.supplierDirector}</div>
               </div>
             </div>

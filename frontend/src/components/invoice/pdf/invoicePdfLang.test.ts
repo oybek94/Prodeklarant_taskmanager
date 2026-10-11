@@ -240,7 +240,7 @@ describe('Invoys PDF — til', () => {
     expect(drawn).toContain('Всего:');
     expect(drawn).toContain('Сумма прописью');
     expect(drawn).toContain('Примечания:');
-    expect(drawn).toContain('Руководитель Поставщика:');
+    expect(drawn).toContain('Директор:');
     // Tarjima berilmagani uchun asl matnlar chiziladi
     expect(drawn).toContain(collapse(contract.sellerName));
     expect(drawn).toContain(collapse(items[0].name));

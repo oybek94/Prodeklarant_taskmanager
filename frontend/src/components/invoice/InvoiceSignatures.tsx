@@ -18,7 +18,7 @@ export const InvoiceSignatures = React.memo(function InvoiceSignatures({ contrac
     <div className="flex flex-row flex-wrap gap-4 items-start">
       <div className="space-y-3">
         <div className="space-y-1">
-          <div className="text-base font-semibold text-gray-700">Руководитель Поставщика:</div>
+          <div className="text-base font-semibold text-gray-700">Директор:</div>
           <div className="text-base text-gray-800">{contract.supplierDirector}</div>
         </div>
         {contract.goodsReleasedBy && (

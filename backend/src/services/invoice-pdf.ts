@@ -810,7 +810,7 @@ export function generateInvoicePDF(data: InvoiceData): any {
     const signaturePath = resolveUploadImagePath(data.contract?.signatureUrl);
     const sealPath = resolveUploadImagePath(data.contract?.sealUrl);
     
-    const supplierText = supplierDirector ? `Руководитель Поставщика: ${supplierDirector}` : 'Руководитель Поставщика _________________';
+    const supplierText = supplierDirector ? `Директор: ${supplierDirector}` : 'Директор _________________';
     doc.text(ensureUTF8(supplierText), startX, signatureY);
 
     // Signature and seal images (to the right of director name)
@@ -832,7 +832,7 @@ export function generateInvoicePDF(data: InvoiceData): any {
   } catch (sigError: any) {
     console.error('Error in signature section:', sigError);
     // Fallback to default text if there's an error
-    doc.text('Руководитель Поставщика _________________', startX, doc.y);
+    doc.text('Директор _________________', startX, doc.y);
     doc.text('Товар отпустил _________________', startX, doc.y + 30);
   }
   

@@ -143,7 +143,7 @@ const RU: PdfLabels = {
   partyShipper: 'Грузоотправитель/Изготовитель',
   partyConsignee: 'Грузополучатель',
   directorPrefix: 'Директор',
-  supplierDirector: 'Руководитель Поставщика:',
+  supplierDirector: 'Директор:',
   goodsReleasedBy: 'Товар отпустил:',
 };
 

@@ -127,7 +127,7 @@ export const PdfPriceList: React.FC<PdfPriceListProps> = ({
         <View style={{ marginTop: sc(40), marginBottom: sc(15) }}>
           <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
             <View style={{ width: '50%' }}>
-              <Text style={{ fontSize: sc(14), fontWeight: 'bold', color: '#374151', marginBottom: sc(4) }}>Руководитель Поставщика:</Text>
+              <Text style={{ fontSize: sc(14), fontWeight: 'bold', color: '#374151', marginBottom: sc(4) }}>Директор:</Text>
               <Text style={{ fontSize: sc(14), color: '#1f2937' }}>{selectedContract.supplierDirector}</Text>
             </View>
             

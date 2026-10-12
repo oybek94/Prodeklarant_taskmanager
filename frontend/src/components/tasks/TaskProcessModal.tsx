@@ -161,6 +161,7 @@ const TaskProcessModal: React.FC<TaskProcessModalProps> = ({ taskId, onClose }) 
             modals.setDocumentNames([]);
             modals.setDocumentDescriptions([]);
           }}
+          onSaveComment={taskActions.handleSaveComment}
           onDeleteTask={taskActions.handleDeleteTask}
           onStageClick={taskActions.handleStageClick}
           onDeleteDocument={taskActions.handleDeleteDocument}

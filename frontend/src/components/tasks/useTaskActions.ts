@@ -409,6 +409,20 @@ export function useTaskActions(params: UseTaskActionsParams) {
     }
   }, [selectedTask, modals, setSelectedTask]);
 
+  /** Jarayonlar oynasidagi tezkor izoh saqlash; bo'sh qator izohni o'chiradi (backend null qiladi) */
+  const handleSaveComment = useCallback(async (comments: string): Promise<boolean> => {
+    if (!selectedTask) return false;
+    try {
+      await apiClient.patch(`/tasks/${selectedTask.id}`, { comments: comments.trim() });
+      await loadTaskDetail(selectedTask.id);
+      return true;
+    } catch (error: any) {
+      const apiError = error.response?.data?.error;
+      toast.error(typeof apiError === 'string' && apiError ? apiError : "Izohni saqlashda xatolik. Qayta urinib ko'ring");
+      return false;
+    }
+  }, [selectedTask, loadTaskDetail]);
+
   const handleEditSubmit = useCallback(async (
     e: React.FormEvent,
     editForm: { title: string; clientId: string; branchId: string; comments: string; hasPsr: boolean; afterHoursPayer: 'CLIENT' | 'COMPANY'; driverPhone: string; contractId: string },
@@ -549,6 +563,7 @@ export function useTaskActions(params: UseTaskActionsParams) {
     handleAfterHoursDeclarationChange,
     // Task CRUD
     handleEditSubmit,
+    handleSaveComment,
     handleDeleteTask,
     // Email
     handleOpenSendEmailModal,

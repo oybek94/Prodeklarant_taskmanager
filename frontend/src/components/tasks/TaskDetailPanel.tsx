@@ -11,6 +11,7 @@ import {
 } from './taskHelpers';
 import type { TaskDetail, TaskStage, TaskDocument, AiCheck, AiCheckDetails, AiCheckError, AiCheckFinding } from './types';
 import { DocumentVerificationReport } from './DocumentVerificationReport';
+import TaskCommentBlock from './TaskCommentBlock';
 import { getPsrAmount, getDealAmountDisplay, getDealAmountBaseDisplay, getBranchPaymentsDisplay } from './taskBusinessHelpers';
 
 
@@ -38,6 +39,7 @@ interface TaskDetailPanelProps {
   onStageClick: (stage: TaskStage) => void;
   onDeleteDocument: (id: number) => void;
   onDeleteTask: () => void;
+  onSaveComment: (comments: string) => Promise<boolean>;
   onDownloadDocument: (fileUrl: string, originalName?: string) => void;
   onDownloadSticker: (taskId: number) => void;
   onOpenSendEmail: () => void;
@@ -90,7 +92,6 @@ const IcTrash = () => <svg width="18" height="18" viewBox="0 0 24 24" strokeWidt
 const IcDownload = () => <svg width="16" height="16" viewBox="0 0 24 24" strokeWidth="2" {...svgProps}><path d="M12 4v11m0 0-4-4m4 4 4-4M5 20h14" /></svg>;
 const IcClose = () => <svg width="18" height="18" viewBox="0 0 24 24" strokeWidth="2" {...svgProps}><path d="M6 6l12 12M18 6 6 18" /></svg>;
 const IcCheck = () => <svg width="14" height="14" viewBox="0 0 24 24" strokeWidth="3" {...svgProps}><path d="m5 12.5 4.5 4.5L19 7.5" /></svg>;
-const IcComment = () => <svg width="18" height="18" viewBox="0 0 24 24" strokeWidth="1.8" {...svgProps}><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v8a2.5 2.5 0 0 1-2.5 2.5H10l-4.5 4V16A2.5 2.5 0 0 1 4 13.5v-8Z" /></svg>;
 const IcMail = () => <svg width="16" height="16" viewBox="0 0 24 24" strokeWidth="1.9" {...svgProps}><rect x="3" y="5" width="18" height="14" rx="2.5" /><path d="m4 7 8 6 8-6" /></svg>;
 
 
@@ -118,6 +119,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
   onStageClick: handleStageClick,
   onDeleteDocument: handleDeleteDocument,
   onDeleteTask,
+  onSaveComment,
   onDownloadDocument: downloadDocument,
   onDownloadSticker: downloadStickerPng,
   onOpenSendEmail: handleOpenSendEmailModal,
@@ -362,18 +364,8 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
           )}
         </div>
 
-        {/* Izohlar: izoh bo'lsa ko'rinadi, bo'sh bo'lsa umuman yo'q */}
-        {userComment && (
-          <div className="relative z-10 px-4 pt-4 sm:px-7 sm:pt-5">
-            <div className="flex gap-2.5 sm:gap-3 p-3.5 sm:px-4 rounded-xl bg-[#fff8e8] border border-[#f2d9a2] dark:bg-amber-500/10 dark:border-amber-500/30">
-              <span className="shrink-0 mt-0.5 text-[#8a5a00] dark:text-amber-400"><IcComment /></span>
-              <div className="flex flex-col gap-1 min-w-0">
-                <span className="text-[11px] font-bold uppercase tracking-[0.06em] text-[#8a5a00] dark:text-amber-400">Izohlar</span>
-                <span className="text-sm leading-normal text-[#14161f] dark:text-gray-200 whitespace-pre-wrap break-words">{userComment}</span>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Izoh: shu yerning o'zida yoziladi va tahrirlanadi (key — boshqa vazifaga o'tganda qoralama qolmasin) */}
+        <TaskCommentBlock key={selectedTask.id} value={userComment} isMobile={isMobile} onSave={onSaveComment} />
 
         {/* Asosiy qism */}
         <div className="relative z-10 px-4 pt-5 pb-2 sm:px-7 flex flex-col sm:flex-row gap-5 sm:gap-6 items-start">

@@ -300,8 +300,13 @@ function validateEnvironment() {
 // Validate environment before starting server
 validateEnvironment();
 
-// Initialize background workers (only on primary PM2 instance to avoid conflicts)
-if (!process.env.NODE_APP_INSTANCE || process.env.NODE_APP_INSTANCE === '0') {
+// Initialize background workers (only on primary PM2 instance to avoid conflicts).
+// INSTANCE_ROLE=standby — zaxira server: API ishlaydi, lekin cron/bot/scheduler'lar o'chiq
+// (ikkala serverda parallel ishlasa dublikat xabar/hisob-kitob va Telegram 409 bo'lmasligi uchun).
+const isStandby = process.env.INSTANCE_ROLE === 'standby';
+if (isStandby) {
+  console.log('INSTANCE_ROLE=standby — background jobs (cron, schedulers, bots) skipped.');
+} else if (!process.env.NODE_APP_INSTANCE || process.env.NODE_APP_INSTANCE === '0') {
   initializeExchangeRateScheduler();
   initializeProcessScheduler();
   initCronJobs();

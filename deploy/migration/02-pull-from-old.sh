@@ -2,6 +2,8 @@
 # YANGI serverda ishga tushiriladi. Eski serverdan faqat O'QIYDI (--delete ishlatilmaydi).
 # Qayta-qayta ishga tushirish mumkin: 1-marta uzoq, keyingilari faqat farqni oladi.
 set -euo pipefail
+# HIMOYA: ko'chishdan keyin bu skript yangi serverdagi .env va dist ni eskisi bilan QAYTA YOZIB yuboradi.
+[[ -f /root/migration/.cutover-done ]] && { echo "02 to'xtatildi: ko'chish tugagan (.cutover-done bor). Eski serverning .env/dist i yangisini buzadi."; exit 1; }
 OLD="${OLD:-root@138.249.7.15}"
 # Eski serverda paket yo'qolishi bor: qotgan ulanish tez uzilsin (--timeout) va tashqi retry sikli davom ettirsin.
 SSH="ssh -o BatchMode=yes -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3"
@@ -33,6 +35,8 @@ fi
 $SSH "$OLD" "systemctl show -p EnvironmentFiles --value alifbek-api" | awk '{print $1}' | sed 's/^-//' | while read -r f; do
   [[ -n "$f" ]] && { mkdir -p "$(dirname "$f")"; rs "$OLD:$f" "$f"; }
 done
+# alifbek ma'lumotlari (SQLite, www-data egasi). Eski xizmat to'xtatilgan paytda izchil nusxa olinadi.
+mkdir -p /var/lib/alifbek; rs "$OLD:/var/lib/alifbek/" /var/lib/alifbek/; chown -R www-data:www-data /var/lib/alifbek
 systemctl daemon-reload
 
 echo "OK. alifbek-api ishchi papkasi: ${WD:-yoq}"

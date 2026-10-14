@@ -88,7 +88,8 @@ case "$MODE" in
     ;;
   rollback) do_rollback ;;
   selftest)
-    T=/tmp/hc; rm -rf "$T"; render "$T" 127.0.0.1 9443 9080
+    T="$(mktemp -d /tmp/hc.XXXXXX)"; chmod 700 "$T"   # taxmin qilinadigan /tmp yo'li (symlink hujumi) o'rniga
+    render "$T" 127.0.0.1 9443 9080
     cat > "$T/nginx.conf" <<EOF
 pid $T/n.pid; error_log $T/err.log; events {}
 http { access_log $T/acc.log; include $T/handoff-map.conf; include $T/handoff; }
@@ -99,7 +100,7 @@ EOF
     done
     curl -s -k --max-time 15 --resolve app.prodeklarant.uz:9443:127.0.0.1 https://app.prodeklarant.uz:9443/api/health/db; echo
     curl -s -k --max-time 15 --resolve app.prodeklarant.uz:9443:127.0.0.1 "https://app.prodeklarant.uz:9443/socket.io/?EIO=4&transport=polling" | head -c 60; echo
-    kill "$(cat "$T/n.pid")"; echo "selftest tugadi"
+    kill "$(cat "$T/n.pid")"; rm -rf "$T"; echo "selftest tugadi"
     ;;
   *) echo "apply|rollback|selftest"; exit 1 ;;
 esac

@@ -92,7 +92,8 @@ case "$MODE" in
     render "$T" 127.0.0.1 9443 9080
     cat > "$T/nginx.conf" <<EOF
 pid $T/n.pid; error_log $T/err.log; events {}
-http { access_log $T/acc.log; include $T/handoff-map.conf; include $T/handoff; }
+# Vaqtinchalik nginx haqiqiy nginx ning /var/lib/nginx/* papkalariga (egasi www-data) TEGMASLIGI uchun
+http { access_log $T/acc.log; proxy_temp_path $T/p; client_body_temp_path $T/b; fastcgi_temp_path $T/f; uwsgi_temp_path $T/u; scgi_temp_path $T/s; include $T/handoff-map.conf; include $T/handoff; }
 EOF
     nginx -t -c "$T/nginx.conf" && nginx -c "$T/nginx.conf" && sleep 1
     for h in app.prodeklarant.uz prodeklarant.uz alifbek.prodeklarant.uz; do

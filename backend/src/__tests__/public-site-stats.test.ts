@@ -21,12 +21,31 @@ describe('normalizeCountry', () => {
     ["Qozog'iston", 'KZ'],
     ['Qozog‘iston', 'KZ'],
     ['KAZAKHSTAN', 'KZ'],
+    ['RU', 'RU'],
+    ['kz', 'KZ'],
+    ['Беларусь', 'BY'],
+    ['Республика Беларусь', 'BY'],
+    ['Россия, г. Москва', 'RU'],
+    ['Российской Федерации', 'RU'],
+    ['Rossiya Federatsiyasi (Moskva)', 'RU'],
+    ['Qirg‘iziston Respublikasi', 'KG'],
+    ['Таджикистан', 'TJ'],
+    ['Afg‘oniston', 'AF'],
+    ['Saudi Arabia', 'SA'],
+    ['UAE', 'AE'],
+    ['Нидерланды', 'NL'],
+    ['Финляндия', 'FI'],
+    ['Latvia', 'LV'],
   ])('%s → %s', (raw, code) => expect(normalizeCountry(raw)).toBe(code));
 
   it('tanilmagan va bo\'sh qiymat → null', () => {
     expect(normalizeCountry('Atlantida')).toBeNull();
     expect(normalizeCountry('  ')).toBeNull();
     expect(normalizeCountry(null)).toBeNull();
+    // so'z ichidagi tasodifiy moslik yo'q
+    expect(normalizeCountry('Indiana')).toBeNull();
+    expect(normalizeCountry('Ukrainian Village')).toBeNull();
+    expect(normalizeCountry('XX')).toBeNull();
   });
 });
 
@@ -37,6 +56,31 @@ describe('productKeyFromTnved', () => {
     ['0809100000', 'apricot'],
     ['0806 10 100 0', 'grape'],
     ['0703101900', 'onion'],
+    ['0809300000', 'peach'],
+    ['0809400000', 'plum'],
+    ['0807110000', 'melon'],
+    ['0807190000', 'melon'],
+    ['0808100000', 'apple'],
+    ['0808300000', 'apple'],
+    ['0806200000', 'dried'],
+    ['0813100000', 'dried'],
+    ['0802320000', 'nuts'],
+    ['0804100000', 'tropical'],
+    ['0810500000', 'tropical'],
+    ['0810909500', 'otherfruit'],
+    ['0810100000', 'berries'],
+    ['0701900000', 'potato'],
+    ['0702000000', 'tomato'],
+    ['0703200000', 'garlic'],
+    ['0706100000', 'carrot'],
+    ['0707000500', 'cucumber'],
+    ['0709600000', 'pepper'],
+    ['0709300000', 'vegetables'],
+    ['0704900000', 'vegetables'],
+    ['0713200000', 'pulses'],
+    ['0710801000', 'frozen'],
+    ['2009890000', 'processed'],
+    ['2002100000', 'processed'],
     ['1234567890', 'other'],
     ['', 'other'],
     [null, 'other'],

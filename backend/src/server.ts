@@ -63,6 +63,7 @@ import exchangeRateRouter from './routes/exchange-rate';
 import faqRouter from './routes/faq';
 import medalsRouter from './routes/medals';
 import sellerKpiRouter from './routes/seller-kpi';
+import publicSiteStatsRouter from './routes/public-site-stats';
 import { initFinanceBot } from './services/finance-bot.service';
 import { initLeadReminderBot } from './services/lead-reminder-bot.service';
 import { stripSecretsReplacer } from './utils/json-secrets';
@@ -250,6 +251,8 @@ app.use('/api/exchange-rate', exchangeRateRouter);
 app.use('/api/faq', faqRouter);
 app.use('/api/medals', medalsRouter);
 app.use('/api/seller-kpi', requireAuth(), sellerKpiRouter);
+// Landing uchun jamlangan statistika: JWT emas, SITE_STATS_KEY sarlavhasi (middleware/auth.ts PUBLIC_API_EXACT)
+app.use('/api/public/site-stats', publicSiteStatsRouter);
 
 // LMS endpoints (v1) - stream token issuance and streaming proxy
 app.use('/api/v1', lmsRouter);

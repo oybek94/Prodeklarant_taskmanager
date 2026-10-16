@@ -62,6 +62,7 @@ const PUBLIC_API_EXACT = new Set([
   '/auth/client/login',
   '/auth/refresh',
   '/health/db',
+  '/public/site-stats', // landing statistikasi — router o'zi SITE_STATS_KEY ni tekshiradi
 ]);
 const PUBLIC_API_PREFIXES = [
   '/q/', // QR orqali hujjatni ochiq tekshirish

@@ -12,7 +12,7 @@ import { authenticateApi, isPublicApiPath, CLIENT_ROLE } from '../middleware/aut
 import { signAccessToken } from '../utils/jwt';
 
 describe('isPublicApiPath', () => {
-  it.each(['/auth/login', '/auth/client/login', '/auth/refresh', '/auth/login/', '/health/db', '/q/abc123', '/v1/media/stream/5', '/v1/media/stream/5/segments/a.ts'])(
+  it.each(['/auth/login', '/auth/client/login', '/auth/refresh', '/auth/login/', '/health/db', '/public/site-stats', '/q/abc123', '/v1/media/stream/5', '/v1/media/stream/5/segments/a.ts'])(
     'ochiq: %s',
     (path) => expect(isPublicApiPath(path)).toBe(true),
   );

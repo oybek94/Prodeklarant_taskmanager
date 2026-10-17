@@ -28,6 +28,11 @@
     {
       "matches": ["*://*.singlewindow.uz/*", "*://singlewindow.uz/*", "*://app.expertiza.uz/*", "*://cabinet.karantin.uz/*", "*://cargo.customs.uz/*"],
       "js": ["content.js"]
+    },
+    {
+      "matches": ["*://app.expertiza.uz/*"],
+      "js": ["page-bridge.js"],
+      "world": "MAIN"
     }
   ]
 }

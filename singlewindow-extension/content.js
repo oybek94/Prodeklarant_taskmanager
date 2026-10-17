@@ -193,8 +193,8 @@ function runAction(request, sendResponse) {
     if (request.action === "fill_form") {
         const data = request.data;
         if (data) {
-            fillForm(data);
-            sendResponse({ success: true });
+            const warnings = fillForm(data);
+            sendResponse({ success: true, warnings });
         } else {
             sendResponse({ success: false });
         }
@@ -254,7 +254,96 @@ function runAction(request, sendResponse) {
     }
 }
 
+// "Страна-импортер" — <datalist id="stranaL1"> ga bog'langan matn maydoni
+// (IMP_CNTY_NM). Qiymati ro'yxatdagi variantning aynan o'zi: "KZ - Республика
+// Казахстан". Sayt o'zi "RU - Российская Федерация" ni oldindan qo'yib qo'yadi,
+// shuning uchun to'ldirilmasa xato davlat jim qolib ketadi.
+// Ro'yxatdagi qisqa nomlar bir xil emas ("Белоруссия", "Кыргызстан", "ОАЭ",
+// "Республика Казахстан"), shuning uchun nom emas, ISO alpha-2 kod bo'yicha
+// tanlanadi. Kalit — cargoCountryKey() natijasi. Jadval app.expertiza.uz da ham
+// ishlatiladi (variant yozuvidagi `alpha2_code` bo'yicha — sayt tiliga bog'liq emas).
+const COUNTRY_ALPHA2 = {
+    russia: 'RU', rossiya: 'RU', россия: 'RU', русия: 'RU', российскаяфедерация: 'RU', рф: 'RU',
+    belarus: 'BY', belorussiya: 'BY', беларус: 'BY', белоруссия: 'BY',
+    kazakhstan: 'KZ', qozogiston: 'KZ', казахстан: 'KZ', козогистон: 'KZ', республиказахстан: 'KZ',
+    kyrgyzstan: 'KG', qirgiziston: 'KG', киргизия: 'KG', кыргызстан: 'KG', кыргызия: 'KG', киргизистон: 'KG',
+    tajikistan: 'TJ', tojikiston: 'TJ', таджикистан: 'TJ', тожикистон: 'TJ',
+    turkmenistan: 'TM', turkmaniston: 'TM', туркмения: 'TM', туркменистан: 'TM', туркманистон: 'TM',
+    uzbekistan: 'UZ', ozbekiston: 'UZ', узбекистан: 'UZ', узбекистон: 'UZ',
+    ukraine: 'UA', ukraina: 'UA', украина: 'UA',
+    georgia: 'GE', gruziya: 'GE', грузия: 'GE',
+    azerbaijan: 'AZ', ozarbayjon: 'AZ', азербайджан: 'AZ', озарбайжон: 'AZ',
+    armenia: 'AM', armaniston: 'AM', армения: 'AM', арманистон: 'AM',
+    moldova: 'MD', молдова: 'MD', молдовареспублика: 'MD',
+    china: 'CN', xitoy: 'CN', китай: 'CN', хитой: 'CN',
+    turkey: 'TR', turkiya: 'TR', турция: 'TR', туркия: 'TR',
+    iran: 'IR', эрон: 'IR', иран: 'IR',
+    afghanistan: 'AF', афганистан: 'AF',
+    pakistan: 'PK', пакистан: 'PK',
+    india: 'IN', hindiston: 'IN', индия: 'IN', хиндистон: 'IN',
+    mongolia: 'MN', монголия: 'MN',
+    uae: 'AE', oaa: 'AE', оаэ: 'AE', баа: 'AE', объединенныеарабскиеэмираты: 'AE',
+    southkorea: 'KR', республикакорея: 'KR', корея: 'KR', кореяреспублика: 'KR', южнаякорея: 'KR',
+    poland: 'PL', polsha: 'PL', польша: 'PL', полша: 'PL',
+    lithuania: 'LT', litva: 'LT', литва: 'LT',
+    latvia: 'LV', latviya: 'LV', латвия: 'LV',
+    estonia: 'EE', estoniya: 'EE', эстония: 'EE',
+    germany: 'DE', germaniya: 'DE', германия: 'DE',
+    czechia: 'CZ', чехия: 'CZ',
+    italy: 'IT', italiya: 'IT', италия: 'IT',
+    netherlands: 'NL', niderlandiya: 'NL', нидерланды: 'NL', нидерландия: 'NL',
+    vietnam: 'VN', вьетнам: 'VN',
+    thailand: 'TH', tailand: 'TH', таиланд: 'TH', тайланд: 'TH',
+    malaysia: 'MY', malayziya: 'MY', малайзия: 'MY'
+};
+
+// Shartnomadagi davlat nomining ISO alpha-2 kodi ("КАЗАХСТАН" → "KZ"); bilmasa null
+function countryAlpha2(value) {
+    const key = cargoCountryKey(value);
+    return COUNTRY_ALPHA2[key] || (/^[a-z]{2}$/.test(key) ? key.toUpperCase() : null);
+}
+
+// Shartnomadagi davlatga mos "Страна-импортер" varianti (datalist qiymati).
+// Topilmasa null — chaqiruvchi ogohlantirish chiqaradi.
+function singlewindowResolveImporterCountry(value) {
+    const key = cargoCountryKey(value);
+    if (!key) return null;
+
+    const list = document.getElementById('stranaL1');
+    if (!list) return null;
+    const options = [...list.options]
+        .filter((option) => option.value)
+        .map((option) => {
+            const code = option.value.split(' - ')[0].trim();
+            const name = option.value.split(' - ').slice(1).join(' - ');
+            return { value: option.value, code, nameKey: cargoCountryKey(name), labelKey: cargoCountryKey(option.label) };
+        });
+
+    const alpha2 = countryAlpha2(value);
+    if (alpha2) {
+        const byCode = options.find((option) => option.code === alpha2);
+        if (byCode) return byCode.value;
+    }
+
+    // Jadvalda yo'q nom: to'liq mos kelsa yoki yagona "ichida bor" bo'lsa
+    const exact = options.filter((option) => option.nameKey === key || option.labelKey === key);
+    if (exact.length === 1) return exact[0].value;
+    const partial = options.filter((option) => option.nameKey.includes(key) || option.labelKey.includes(key));
+    return partial.length === 1 ? partial[0].value : null;
+}
+
 function fillForm(data) {
+    // "Страна-импортер" ro'yxati hozirgi sahifada bor — qiymatni hozir aniqlab,
+    // topilmasa popup ogohlantirsin (500 ms dan keyin xabar berib bo'lmaydi)
+    const warnings = [];
+    const destination = String(data.DESTINATION_COUNTRY || '').trim();
+    const importerCountry = destination ? singlewindowResolveImporterCountry(destination) : null;
+    if (!destination) {
+        warnings.push("shartnomada hamkor davlat ko'rsatilmagan — «Страна-импортер» tegilmadi");
+    } else if (!importerCountry) {
+        warnings.push(`«Страна-импортер» ro'yxatidan "${destination}" topilmadi — qo'lda tanlang`);
+    }
+
     // 1. Birinchi navbatda avtoToldr chekvoksini bosish
     const avtoToldrCheckbox = document.querySelector('#avtoToldr');
     if (avtoToldrCheckbox) {
@@ -276,8 +365,9 @@ function fillForm(data) {
             // Sotib oluvchi (Importyor)
             "IMPPN_NM": data.IMPPN_NM,
             "IMPPN_ADDR": data.IMPPN_ADDR,
-            
+
             // Shartnoma ma'lumotlari
+            "IMP_CNTY_NM": importerCountry || undefined,
             "EXP_CTDC_NO": data.EXP_CTDC_NO,
             "EXP_CVNT_DT": data.EXP_CVNT_DT,
 
@@ -301,6 +391,8 @@ function fillForm(data) {
             console.warn(`[AutoFill] Element topilmadi: #IDFY_LBL_INDC_YNY`);
         }
     }, 500);
+
+    return warnings;
 }
 
 // ---------------------------------------------------------------------------
@@ -405,16 +497,16 @@ async function fillAppExpertizaSt1(data) {
     //    keyingisining menyusi ochilmaydi
     const selects = [
         ["point_id", APP_EXPERTIZA_PURPOSE, "Ariza maqsadi"],
-        ["consignee_country_id", resolveCountryName(data.DESTINATION_COUNTRY), "Yuk qabul qiluvchi davlat"],
-        ["delivery_type_id", APP_EXPERTIZA_DELIVERY_TYPE, "Yuk tashish turi"]
+        ["consignee_country_id", resolveCountryName(data.DESTINATION_COUNTRY), "Yuk qabul qiluvchi davlat", countryAlpha2(data.DESTINATION_COUNTRY)],
+        ["delivery_type_id", APP_EXPERTIZA_DELIVERY_TYPE, "Yuk tashish turi", null]
     ];
 
-    for (const [name, wanted, label] of selects) {
+    for (const [name, wanted, label, alpha2] of selects) {
         if (!wanted) {
             warnings.push(`${label}: qiymat yo'q`);
             continue;
         }
-        const err = await selectReactSelectOption(name, wanted);
+        const err = await selectReactSelectOption(name, wanted, alpha2);
         if (err) warnings.push(`${label}: ${err}`);
     }
 
@@ -476,7 +568,9 @@ async function closeOpenOverlays() {
 // react-select'ni qiymat o'rnatish orqali to'ldirib bo'lmaydi — yashirin input
 // React state'dan boshqariladi. Shuning uchun menyu ochilib, kerakli variant
 // bosiladi. Xato bo'lsa matn qaytadi, muvaffaqiyatda null.
-async function selectReactSelectOption(name, wanted) {
+// `alpha2` berilsa (davlatlar uchun), avval variant yozuvidagi `alpha2_code`
+// bo'yicha tanlanadi — u sayt tiliga umuman bog'liq emas; topilmasa nomlarga o'tiladi.
+async function selectReactSelectOption(name, wanted, alpha2 = null) {
     const hidden = document.querySelector(`[name="${name}"]`);
     if (!hidden) return "maydon topilmadi";
 
@@ -510,15 +604,27 @@ async function selectReactSelectOption(name, wanted) {
     }
     if (options.length === 0) return "ro'yxat ochilmadi";
 
+    // Variant yozuvlarini sahifa olamidan DOM atributiga ko'chirtiramiz
+    // (page-bridge.js), so'ng o'qiymiz
+    document.dispatchEvent(new CustomEvent(ANNOTATE_OPTIONS_EVENT));
+
     const targets = (Array.isArray(wanted) ? wanted : [wanted])
         .map(normalizeOptionText)
         .filter(Boolean);
-    const candidates = options.map(getOptionCandidates);
+    const records = options.map(getReactOptionRecord);
+    const candidates = options.map((el, i) => getOptionCandidates(el, records[i]));
+
+    let index = -1;
+    if (alpha2) {
+        index = records.findIndex((record) => record && String(record.alpha2_code || '').toUpperCase() === alpha2);
+    }
 
     // Avval butun ro'yxat bo'ylab aniq moslik qidiriladi, faqat topilmasa
     // prefiks qoidasiga o'tiladi — aks holda "Индия" birinchi uchragan
     // "Индийский океан" ga yopishib qolishi mumkin
-    let index = options.findIndex((_, i) => candidates[i].some(c => targets.includes(c)));
+    if (index === -1) {
+        index = options.findIndex((_, i) => candidates[i].some(c => targets.includes(c)));
+    }
     if (index === -1) {
         index = options.findIndex((_, i) => candidates[i].some(c => targets.some(t => c.startsWith(t))));
     }
@@ -549,10 +655,9 @@ async function selectReactSelectOption(name, wanted) {
 // Shu bois solishtirish uchun react-select variantining ORQASIDAGI yozuv
 // olinadi va uning barcha tildagi nomlari nomzod sifatida qaytariladi.
 // React ichki tuzilmasi o'zgarib qolsa, ekrandagi matn zaxira bo'lib qoladi.
-function getOptionCandidates(el) {
+function getOptionCandidates(el, record = getReactOptionRecord(el)) {
     const values = [el.innerText];
 
-    const record = getReactOptionRecord(el);
     if (record) {
         for (const [key, value] of Object.entries(record)) {
             if (typeof value !== 'string') continue;
@@ -563,9 +668,23 @@ function getOptionCandidates(el) {
     return values.map(normalizeOptionText).filter(Boolean);
 }
 
-// react-select variantning ma'lumot obyektini `data` prop'ida saqlaydi —
-// DOM tugunidan fiber bo'ylab yuqoriga chiqib topamiz
+// react-select variantning ma'lumot obyektini `data` prop'ida saqlaydi.
+// Fiber (`__reactFiber$...`) sahifaning o'z olamida turadi va bu skript (izolyatsiyalangan
+// olam) uni ko'ra olmaydi, shuning uchun yozuvni page-bridge.js atributga qo'yib beradi.
+// Bridge yuklanmagan bo'lsa (masalan kengaytma qayta yuklanmagan) fiberga to'g'ridan-to'g'ri
+// urinib ko'riladi — bu faqat bir olamda bo'lgandagina ishlaydi.
+const ANNOTATE_OPTIONS_EVENT = 'prodeklarant:annotate-options';
+const OPTION_RECORD_ATTR = 'data-prodeklarant-record';
+
 function getReactOptionRecord(el) {
+    const annotated = el.getAttribute(OPTION_RECORD_ATTR);
+    if (annotated) {
+        try {
+            const record = JSON.parse(annotated);
+            if (record && typeof record === 'object') return record;
+        } catch (e) { /* buzilgan atribut — fiberga o'tamiz */ }
+    }
+
     const fiberKey = Object.keys(el).find(k => k.startsWith('__reactFiber'));
     if (!fiberKey) return null;
 
@@ -756,6 +875,7 @@ function checkData(data) {
         "EXPPN_TELNO": "+998911187007", // fillForm() da bor bo'lgani uchun
         "IMPPN_NM": data.IMPPN_NM,
         "IMPPN_ADDR": data.IMPPN_ADDR,
+        "IMP_CNTY_NM": data.DESTINATION_COUNTRY ? singlewindowResolveImporterCountry(data.DESTINATION_COUNTRY) : null,
         "EXP_CTDC_NO": data.EXP_CTDC_NO,
         "EXP_CVNT_DT": data.EXP_CVNT_DT ? String(data.EXP_CVNT_DT).split('T')[0] : ''
     };

@@ -1,5 +1,6 @@
 import path from 'path';
 import fs from 'fs';
+import { createHash } from 'crypto';
 import { z } from 'zod';
 import { TaskStatus, DocumentType } from '@prisma/client';
 import { prisma } from '../prisma';
@@ -62,8 +63,14 @@ export const phoneKey = (value: string): string => digitsOf(value).slice(-9);
 
 const DUMMY_HASH = '$2a$10$abcdefghijklmnopqrstuuABCDEFGHIJKLMNOPQRSTUVWXYZ01234';
 
-const issueTokens = (client: { id: number; name: string }) => {
-  const payload: JwtPayload = { sub: client.id, role: PORTAL_ROLE, branchId: null, name: client.name };
+/** Parol hash'ining qisqa izi. Parol almashtirilsa/o'chirilsa o'zgaradi → eski tokenlar bekor. */
+export const passwordVersion = (passwordHash: string): string =>
+  createHash('sha256').update(passwordHash).digest('hex').slice(0, 16);
+
+const issueTokens = (client: { id: number; name: string; passwordHash: string }) => {
+  const payload: JwtPayload = {
+    sub: client.id, role: PORTAL_ROLE, branchId: null, name: client.name, pv: passwordVersion(client.passwordHash),
+  };
   return { accessToken: signAccessToken(payload), refreshToken: signRefreshToken(payload) };
 };
 
@@ -79,7 +86,7 @@ export async function loginClient(login: string, password: string) {
   // Bir telefon bir nechta korxonaga tegishli bo'lishi mumkin — paroli mos kelganini olamiz
   for (const c of candidates) {
     if (c.passwordHash && (await comparePassword(password, c.passwordHash))) {
-      return { ...issueTokens(c), client: { id: c.id, name: c.name } };
+      return { ...issueTokens({ id: c.id, name: c.name, passwordHash: c.passwordHash }), client: { id: c.id, name: c.name } };
     }
   }
   // Vaqt bo'yicha "foydalanuvchi mavjud emas"ni bildirmaslik uchun
@@ -87,13 +94,21 @@ export async function loginClient(login: string, password: string) {
   return null;
 }
 
-export async function refreshClient(clientId: number) {
+/** Token hanuzgi amaldagi parolga bog'liqmi (mijoz o'chirilgan/paroli almashgan/olib tashlangan bo'lsa false). */
+export async function isPortalSessionValid(clientId: number, pv: string | undefined): Promise<boolean> {
+  if (!pv) return false;
+  const client = await prisma.client.findUnique({ where: { id: clientId }, select: { passwordHash: true } });
+  return !!client?.passwordHash && passwordVersion(client.passwordHash) === pv;
+}
+
+export async function refreshClient(clientId: number, pv: string | undefined) {
+  if (!pv) return null;
   const client = await prisma.client.findUnique({
     where: { id: clientId },
     select: { id: true, name: true, passwordHash: true },
   });
-  if (!client || !client.passwordHash) return null;
-  return issueTokens(client);
+  if (!client || !client.passwordHash || passwordVersion(client.passwordHash) !== pv) return null;
+  return issueTokens({ id: client.id, name: client.name, passwordHash: client.passwordHash });
 }
 
 export async function getClientProfile(clientId: number) {
@@ -235,7 +250,7 @@ export async function getShipment(clientId: number, taskId: number) {
 }
 
 export interface PortalDocument {
-  id: string; // "t-<TaskDocument.id>" yoki "a-<ArchiveDocument.id>"
+  id: string; // "t-<TaskDocument.id>"
   shipmentId: number;
   shipmentTitle: string;
   name: string;
@@ -245,6 +260,11 @@ export interface PortalDocument {
   createdAt: Date;
 }
 
+/**
+ * Faqat TaskDocument, va faqat CLIENT_VISIBLE_DOC_TYPES. ArchiveDocument ATAYLAB yo'q: unda hujjat
+ * turi saqlanmaydi, ichki (OTHER) hujjatlar ham arxivga ko'chadi; asl TaskDocument arxivlangandan
+ * keyin ham o'chirilmaydi, shuning uchun yakunlangan yuklar hujjatlari baribir shu yerda ko'rinadi.
+ */
 export async function listDocuments(clientId: number, shipmentId?: number): Promise<PortalDocument[]> {
   const tasks = await prisma.task.findMany({
     where: { clientId, ...(shipmentId ? { id: shipmentId } : {}) },
@@ -252,46 +272,22 @@ export async function listDocuments(clientId: number, shipmentId?: number): Prom
   });
   if (tasks.length === 0) return [];
   const titleById = new Map(tasks.map((t) => [t.id, t.title]));
-  const taskIds = tasks.map((t) => t.id);
 
-  const [taskDocs, archiveDocs] = await Promise.all([
-    prisma.taskDocument.findMany({
-      where: { taskId: { in: taskIds }, documentType: { in: CLIENT_VISIBLE_DOC_TYPES } },
-      orderBy: { createdAt: 'desc' },
-      select: { id: true, taskId: true, name: true, documentType: true, fileType: true, fileSize: true, createdAt: true },
-    }),
-    prisma.archiveDocument.findMany({
-      where: { taskId: { in: taskIds } },
-      orderBy: { archivedAt: 'desc' },
-      select: { id: true, taskId: true, name: true, fileType: true, fileSize: true, archivedAt: true },
-    }),
-  ]);
-
-  // Yakunlangan yukda hujjatlar arxivga ko'chadi; ikkalasi ham bo'lsa arxiv ustun (staff download-all kabi)
-  const archivedTaskIds = new Set(archiveDocs.map((d) => d.taskId));
-  const fromTask: PortalDocument[] = taskDocs
-    .filter((d) => !archivedTaskIds.has(d.taskId))
-    .map((d) => ({
-      id: `t-${d.id}`,
-      shipmentId: d.taskId,
-      shipmentTitle: titleById.get(d.taskId) ?? '',
-      name: d.name,
-      type: d.documentType,
-      fileType: d.fileType,
-      fileSize: d.fileSize,
-      createdAt: d.createdAt,
-    }));
-  const fromArchive: PortalDocument[] = archiveDocs.map((d) => ({
-    id: `a-${d.id}`,
+  const docs = await prisma.taskDocument.findMany({
+    where: { taskId: { in: tasks.map((t) => t.id) }, documentType: { in: CLIENT_VISIBLE_DOC_TYPES } },
+    orderBy: { createdAt: 'desc' },
+    select: { id: true, taskId: true, name: true, documentType: true, fileType: true, fileSize: true, createdAt: true },
+  });
+  return docs.map((d) => ({
+    id: `t-${d.id}`,
     shipmentId: d.taskId,
     shipmentTitle: titleById.get(d.taskId) ?? '',
     name: d.name,
-    type: null,
+    type: d.documentType,
     fileType: d.fileType,
     fileSize: d.fileSize,
-    createdAt: d.archivedAt,
+    createdAt: d.createdAt,
   }));
-  return [...fromTask, ...fromArchive];
 }
 
 const UPLOADS_ROOT = path.resolve(path.join(__dirname, '../../uploads'));
@@ -317,23 +313,17 @@ export function resolveUploadPath(fileUrl: string): string | null {
   return abs;
 }
 
-const DOC_ID = /^([ta])-(\d+)$/;
+const DOC_ID = /^t-(\d+)$/;
 
 export async function getDownloadableDocument(clientId: number, docId: string) {
   const m = DOC_ID.exec(docId);
   if (!m) return null;
-  const id = Number(m[2]);
 
-  const doc = m[1] === 't'
-    ? await prisma.taskDocument.findFirst({
-        // Egalik task.clientId orqali; ko'rinadigan turlar ro'yxati list bilan bir xil
-        where: { id, documentType: { in: CLIENT_VISIBLE_DOC_TYPES }, task: { clientId } },
-        select: { name: true, fileUrl: true, fileType: true },
-      })
-    : await prisma.archiveDocument.findFirst({
-        where: { id, taskId: { in: (await prisma.task.findMany({ where: { clientId }, select: { id: true } })).map((t) => t.id) } },
-        select: { name: true, fileUrl: true, fileType: true },
-      });
+  const doc = await prisma.taskDocument.findFirst({
+    // Egalik task.clientId orqali; ko'rinadigan turlar ro'yxati list bilan bir xil
+    where: { id: Number(m[1]), documentType: { in: CLIENT_VISIBLE_DOC_TYPES }, task: { clientId } },
+    select: { name: true, fileUrl: true, fileType: true },
+  });
   if (!doc) return null;
 
   const abs = resolveUploadPath(doc.fileUrl);

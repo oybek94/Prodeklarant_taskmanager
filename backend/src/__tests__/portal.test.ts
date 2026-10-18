@@ -15,7 +15,6 @@ const mocks = vi.hoisted(() => {
     taskFindFirst: vi.fn(),
     taskDocumentFindMany: vi.fn(),
     taskDocumentFindFirst: vi.fn(),
-    archiveDocumentFindMany: vi.fn(),
   };
 });
 
@@ -25,7 +24,6 @@ vi.mock('../prisma', () => ({
     user: { findUnique: mocks.userFindUnique },
     task: { findMany: mocks.taskFindMany, findFirst: mocks.taskFindFirst },
     taskDocument: { findMany: mocks.taskDocumentFindMany, findFirst: mocks.taskDocumentFindFirst },
-    archiveDocument: { findMany: mocks.archiveDocumentFindMany, findFirst: vi.fn() },
   },
 }));
 
@@ -34,9 +32,10 @@ import authRouter from '../routes/auth';
 import { authenticateApi, requireAuth } from '../middleware/auth';
 import { signAccessToken, signRefreshToken, verifyAccessToken } from '../utils/jwt';
 import { hashPassword } from '../utils/hash';
-import { summarizeStages, phoneKey, resolveUploadPath, toShipmentStatus } from '../services/portal.service';
+import { summarizeStages, phoneKey, resolveUploadPath, toShipmentStatus, passwordVersion } from '../services/portal.service';
 
-const portalPayload = { sub: 3, role: 'PORTAL', branchId: null, name: 'Sunrise Fruits' };
+const HASH = '$2a$10$fixture-hash-for-tests';
+const portalPayload = { sub: 3, role: 'PORTAL', branchId: null, name: 'Sunrise Fruits', pv: passwordVersion(HASH) };
 const adminPayload = { sub: 3, role: 'ADMIN', branchId: 1, name: 'Admin' };
 
 let server: Server;
@@ -60,6 +59,7 @@ afterAll(() => { server.close(); });
 beforeEach(() => {
   Object.values(mocks).forEach((m) => m.mockReset());
   mocks.taskFindMany.mockResolvedValue([]);
+  mocks.clientFindUnique.mockResolvedValue({ id: 3, name: 'Sunrise Fruits', passwordHash: HASH });
 });
 
 const get = (path: string, token?: string) =>
@@ -104,6 +104,25 @@ describe('token izolyatsiyasi', () => {
     expect((await get('/api/portal/auth/me', signAccessToken(adminPayload))).status).toBe(403);
   });
 
+  it('parol almashtirilgach eski token ham, eski refresh ham yaroqsiz', async () => {
+    mocks.clientFindUnique.mockResolvedValue({ id: 3, name: 'S', passwordHash: '$2a$10$yangi-parol-hash' });
+    expect((await get('/api/portal/shipments', signAccessToken(portalPayload))).status).toBe(401);
+    const res = await post('/api/portal/auth/refresh', { refreshToken: signRefreshToken(portalPayload) });
+    expect(res.status).toBe(401);
+  });
+
+  it('paroli olib tashlangan yoki o‘chirilgan mijoz tokeni 401', async () => {
+    mocks.clientFindUnique.mockResolvedValue({ id: 3, name: 'S', passwordHash: null });
+    expect((await get('/api/portal/shipments', signAccessToken(portalPayload))).status).toBe(401);
+    mocks.clientFindUnique.mockResolvedValue(null);
+    expect((await get('/api/portal/shipments', signAccessToken(portalPayload))).status).toBe(401);
+  });
+
+  it('pvsiz (eski/soxta) PORTAL tokeni 401', async () => {
+    const { pv: _pv, ...noPv } = portalPayload;
+    expect((await get('/api/portal/shipments', signAccessToken(noPv))).status).toBe(401);
+  });
+
   it('portal tokeni xodim endpointiga o\'tmaydi (requireAuth ham, unutilgan ham)', async () => {
     const t = signAccessToken(portalPayload);
     expect((await get('/api/staff-guarded', t)).status).toBe(403);
@@ -125,7 +144,6 @@ describe('token izolyatsiyasi', () => {
   });
 
   it('portal refresh tokeni yangi PORTAL tokenlarini beradi', async () => {
-    mocks.clientFindUnique.mockResolvedValue({ id: 3, name: 'S', passwordHash: 'hash' });
     const res = await post('/api/portal/auth/refresh', { refreshToken: signRefreshToken(portalPayload) });
     expect(res.status).toBe(200);
     expect(verifyAccessToken(((await res.json()) as { accessToken: string }).accessToken).role).toBe('PORTAL');
@@ -175,7 +193,6 @@ describe('ma\'lumot izolyatsiyasi', () => {
   it('hujjatlar ro\'yxati faqat ko\'rinadigan turlar bilan so\'raladi', async () => {
     mocks.taskFindMany.mockResolvedValue([{ id: 5, title: 'Olma' }]);
     mocks.taskDocumentFindMany.mockResolvedValue([]);
-    mocks.archiveDocumentFindMany.mockResolvedValue([]);
     const res = await get('/api/portal/documents', signAccessToken(portalPayload));
     expect(res.status).toBe(200);
     const where = (mocks.taskDocumentFindMany.mock.calls[0][0] as { where: { documentType: { in: string[] } } }).where;

@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => {
   process.env.JWT_REFRESH_SECRET = 'test-refresh-secret-0123456789abcdef012345678';
   return {
     clientFindMany: vi.fn(),
+    clientUpdate: vi.fn(),
     clientFindUnique: vi.fn(),
     userFindUnique: vi.fn(),
     taskFindMany: vi.fn(),
@@ -20,7 +21,7 @@ const mocks = vi.hoisted(() => {
 
 vi.mock('../prisma', () => ({
   prisma: {
-    client: { findMany: mocks.clientFindMany, findUnique: mocks.clientFindUnique },
+    client: { findMany: mocks.clientFindMany, findUnique: mocks.clientFindUnique, update: mocks.clientUpdate },
     user: { findUnique: mocks.userFindUnique },
     task: { findMany: mocks.taskFindMany, findFirst: mocks.taskFindFirst },
     taskDocument: { findMany: mocks.taskDocumentFindMany, findFirst: mocks.taskDocumentFindFirst },
@@ -32,7 +33,7 @@ import authRouter from '../routes/auth';
 import { authenticateApi, requireAuth } from '../middleware/auth';
 import { signAccessToken, signRefreshToken, verifyAccessToken } from '../utils/jwt';
 import { hashPassword } from '../utils/hash';
-import { summarizeStages, phoneKey, resolveUploadPath, toShipmentStatus, passwordVersion } from '../services/portal.service';
+import { summarizeStages, phoneKey, resolveUploadPath, toShipmentStatus, passwordVersion, generatePortalPassword, resetPortalPassword } from '../services/portal.service';
 
 const HASH = '$2a$10$fixture-hash-for-tests';
 const portalPayload = { sub: 3, role: 'PORTAL', branchId: null, name: 'Sunrise Fruits', pv: passwordVersion(HASH) };
@@ -203,6 +204,35 @@ describe('ma\'lumot izolyatsiyasi', () => {
   it('noto\'g\'ri docId 404', async () => {
     expect((await get('/api/portal/documents/abc/download', signAccessToken(portalPayload))).status).toBe(404);
     expect((await get('/api/portal/documents/t-1/download', signAccessToken(portalPayload))).status).toBe(404);
+  });
+});
+
+describe('admin: portal kirishini berish', () => {
+  it('parol tasodifiy, oxshash belgilarsiz va uzunligi 10', () => {
+    const seen = new Set(Array.from({ length: 50 }, () => generatePortalPassword()));
+    expect(seen.size).toBe(50);
+    for (const p of seen) {
+      expect(p).toHaveLength(10);
+      expect(p).not.toMatch(/[01lIO]/);
+    }
+  });
+
+  it('telefonsiz mijozga parol berilmaydi', async () => {
+    mocks.clientFindUnique.mockResolvedValue({ phone: null });
+    expect(await resetPortalPassword(3)).toEqual({ error: 'NO_PHONE' });
+    mocks.clientFindUnique.mockResolvedValue({ phone: '123' });
+    expect(await resetPortalPassword(3)).toEqual({ error: 'NO_PHONE' });
+    expect(mocks.clientUpdate).not.toHaveBeenCalled();
+  });
+
+  it('parol bcrypt hash sifatida saqlanadi, ochiq parol bazaga yozilmaydi', async () => {
+    mocks.clientFindUnique.mockResolvedValue({ phone: '+998 90 123 45 67' });
+    const r = await resetPortalPassword(3);
+    if ('error' in r) throw new Error('kutilmagan xato');
+    const data = (mocks.clientUpdate.mock.calls[0][0] as { data: { passwordHash: string } }).data;
+    expect(data.passwordHash).not.toContain(r.password);
+    expect(data.passwordHash).toMatch(/^\$2[aby]\$/);
+    expect(r.login).toBe('+998 90 123 45 67');
   });
 });
 

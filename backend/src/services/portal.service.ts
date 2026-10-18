@@ -1,10 +1,10 @@
 import path from 'path';
 import fs from 'fs';
-import { createHash } from 'crypto';
+import { createHash, randomInt } from 'crypto';
 import { z } from 'zod';
 import { TaskStatus, DocumentType } from '@prisma/client';
 import { prisma } from '../prisma';
-import { comparePassword } from '../utils/hash';
+import { comparePassword, hashPassword } from '../utils/hash';
 import { PORTAL_ROLE } from '../middleware/auth';
 import { signAccessToken, signRefreshToken, JwtPayload } from '../utils/jwt';
 
@@ -332,4 +332,45 @@ export async function getDownloadableDocument(clientId: number, docId: string) {
   const ext = path.extname(abs);
   const fileName = path.extname(doc.name) ? doc.name : `${doc.name}${ext}`;
   return { absolutePath: abs, fileName, fileType: doc.fileType };
+}
+
+// ---------------------------------------------------------------------------
+// Admin: mijozga portal kirishini berish
+// ---------------------------------------------------------------------------
+
+// O'xshash belgilar (0/O, 1/l/I) chiqarib tashlangan — telefon orqali aytib berish oson
+const PASSWORD_ALPHABET = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
+export const generatePortalPassword = (length = 10): string =>
+  Array.from({ length }, () => PASSWORD_ALPHABET[randomInt(PASSWORD_ALPHABET.length)]).join('');
+
+export async function getPortalAccess(clientId: number) {
+  const client = await prisma.client.findUnique({
+    where: { id: clientId },
+    select: { phone: true, passwordHash: true },
+  });
+  if (!client) return null;
+  return {
+    login: client.phone,
+    loginValid: !!client.phone && phoneKey(client.phone).length === 9,
+    hasPassword: !!client.passwordHash,
+  };
+}
+
+/** Yangi parol yaratadi (eskisini almashtiradi → eski tokenlar ham o'chadi). Ochiq parol FAQAT shu javobda. */
+export async function resetPortalPassword(clientId: number) {
+  const client = await prisma.client.findUnique({ where: { id: clientId }, select: { phone: true } });
+  if (!client) return { error: 'NOT_FOUND' as const };
+  if (!client.phone || phoneKey(client.phone).length !== 9) return { error: 'NO_PHONE' as const };
+
+  const password = generatePortalPassword();
+  await prisma.client.update({ where: { id: clientId }, data: { passwordHash: await hashPassword(password) } });
+  return { login: client.phone, password };
+}
+
+export async function revokePortalAccess(clientId: number): Promise<boolean> {
+  const exists = await prisma.client.findUnique({ where: { id: clientId }, select: { id: true } });
+  if (!exists) return false;
+  await prisma.client.update({ where: { id: clientId }, data: { passwordHash: null } });
+  return true;
 }

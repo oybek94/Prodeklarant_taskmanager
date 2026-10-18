@@ -27,8 +27,6 @@ const TrainingStageDetail = lazy(() => import('./pages/TrainingStageDetail'));
 const TrainingStageEdit = lazy(() => import('./pages/TrainingStageEdit'));
 const Exam = lazy(() => import('./pages/Exam'));
 const ExamResult = lazy(() => import('./pages/ExamResult'));
-const ClientLogin = lazy(() => import('./pages/ClientLogin'));
-const ClientDashboard = lazy(() => import('./pages/ClientDashboard'));
 const Invoice = lazy(() => import('./pages/Invoice'));
 const Invoices = lazy(() => import('./pages/Invoices'));
 const Reports = lazy(() => import('./pages/Reports'));
@@ -135,14 +133,6 @@ const AppRoutes = () => {
             ? <Navigate to={user?.role === 'SELLER' ? '/crm' : '/invoices'} />
             : <Login />
         }
-      />
-      <Route
-        path="/client/login"
-        element={<ClientLogin />}
-      />
-      <Route
-        path="/client/dashboard"
-        element={<ClientDashboard />}
       />
       <Route
         path="/q/:token"

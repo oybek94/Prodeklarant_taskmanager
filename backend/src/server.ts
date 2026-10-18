@@ -9,6 +9,7 @@ import rateLimit from 'express-rate-limit';
 import { prisma } from './prisma';
 import authRouter from './routes/auth';
 import clientsRouter from './routes/clients';
+import portalRouter from './routes/portal';
 import tasksRouter from './routes/tasks';
 import transactionsRouter from './routes/transactions';
 import kpiRouter from './routes/kpi';
@@ -196,15 +197,15 @@ app.get(['/health/db', '/api/health/db'], async (_req, res) => {
 
 // Rate limiting qo'llash
 app.use('/api/auth/login', loginLimiter);         // Login uchun qat'iy limit
-app.use('/api/auth/client/login', loginLimiter);  // Client login uchun ham
+app.use('/api/portal/auth/login', loginLimiter);  // Mijoz portali login
 app.use('/api', apiLimiter);                      // Barcha API uchun umumiy limit
 // Sukut bo'yicha yopiq: /api ostida token talab qilinadi (ochiq yo'llar — middleware/auth.ts PUBLIC_API)
 app.use('/api', authenticateApi);
 
 app.use('/api/auth', authRouter);
+app.use('/api/portal', portalRouter);
 // AI endpoints (protected, requires authentication)
 app.use('/api/ai', requireAuth(), aiRouter);
-// Client endpoints (public for client login, but protected for other operations)
 app.use('/api/clients', clientsRouter);
 app.use('/api/tasks', requireAuth(), auditLog('ACCESS', 'TASK'), tasksRouter);
 app.use('/api/tasks', requireAuth(), taskStatusRouter);
@@ -335,7 +336,7 @@ io.use((socket, next) => {
     const payload = verifyAccessToken(token);
     // Mijoz tokeni (sub = Client.id) `user:<id>` xonasida shu ID'li xodimning
     // bildirishnomalarini olardi — socket faqat xodimlar uchun
-    if (payload.role === 'CLIENT') return next(new Error('Forbidden'));
+    if (payload.role === 'CLIENT' || payload.role === 'PORTAL') return next(new Error('Forbidden'));
     socket.data.user = { id: payload.sub, role: payload.role, name: payload.name, branchId: payload.branchId };
     next();
   } catch {

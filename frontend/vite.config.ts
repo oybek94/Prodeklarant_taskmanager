@@ -1,10 +1,28 @@
-import { defineConfig } from 'vite'
+import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import svgr from 'vite-plugin-svgr'
 import tailwindcss from '@tailwindcss/vite'
 
+// Mijoz portali (my.prodeklarant.uz) dev rejimida: fayl bo'lmagan har bir yo'l portal.html'ga tushadi
+// (SPA fallback). Build'da kerak emas — nginx `try_files $uri /portal.html` qiladi.
+const portalDevFallback = (): Plugin => ({
+  name: 'portal-dev-fallback',
+  configureServer(server) {
+    server.middlewares.use((req, _res, next) => {
+      const url = req.url ?? '/'
+      const isAsset = url.startsWith('/@') || url.startsWith('/src/') || url.startsWith('/node_modules/') || /\.[a-z0-9]+(\?|$)/i.test(url)
+      if (req.method === 'GET' && !isAsset) req.url = '/portal.html'
+      next()
+    })
+  },
+})
+
 // https://vite.dev/config/
-export default defineConfig({
+export default defineConfig(({ mode }) => {
+  const isPortal = mode === 'portal'
+  return {
+  // Portal'ga xodimlar ilovasining public/ papkasi (tinymce, rasmlar) kirmasin
+  ...(isPortal ? { publicDir: 'public-portal' } : {}),
   plugins: [
     tailwindcss(),
     react(),
@@ -13,9 +31,13 @@ export default defineConfig({
         icon: true,
       },
     }),
+    ...(isPortal ? [portalDevFallback()] : []),
   ],
   build: {
+    // Mijoz portali xodimlar ilovasidan butunlay alohida bundle (App.tsx, PDF/grafik kutubxonalari kirmaydi)
+    ...(isPortal ? { outDir: 'dist-portal' } : {}),
     rolldownOptions: {
+      ...(isPortal ? { input: 'portal.html' } : {}),
       output: {
         // Rolldown: har guruh o'z modullarining bog'liqliklarini ham "tortib oladi".
         // Oldingi manualChunks'da React yadrosi grafik/PDF chunk'lariga tushib qolardi va
@@ -40,4 +62,5 @@ export default defineConfig({
     },
     chunkSizeWarningLimit: 500,
   },
+  }
 })

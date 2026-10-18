@@ -23,7 +23,7 @@ const errorText = (e: unknown, fallback: string): string => {
 };
 
 /** Mijozga my.prodeklarant.uz kirishini berish (faqat ADMIN). Parol faqat yaratilgan paytda ko'rinadi. */
-export default function PortalAccessCard({ clientId }: { clientId: number }) {
+export default function PortalAccessCard({ clientId, className = 'mb-4' }: { clientId: number; className?: string }) {
   const [access, setAccess] = useState<Access | null>(null);
   const [issued, setIssued] = useState<Issued | null>(null);
   const [busy, setBusy] = useState(false);
@@ -80,7 +80,7 @@ export default function PortalAccessCard({ clientId }: { clientId: number }) {
     : '';
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 mb-4">
+    <div className={`rounded-2xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800/60 p-5 ${className}`}>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100 flex items-center gap-2">

@@ -14,6 +14,7 @@ import { getDefaultTnvedProducts } from '../utils/tnvedProducts';
 import EmptyValue from '../components/common/EmptyValue';
 import ContractWorkspaceModal, { type ContractFileItem, type ContractFormState, type ContractImageField, type SpecRow } from '../components/clients/ContractWorkspaceModal';
 import ClientOverview, { type ClientDetail } from '../components/clients/ClientOverview';
+import PortalAccessCard from '../components/clients/PortalAccessCard';
 import ClientContractsTab, { type ClientContractRow } from '../components/clients/ClientContractsTab';
 import ClientTasksTab, { type MonthlyTaskCount } from '../components/clients/ClientTasksTab';
 import ClientTransactionsTab from '../components/clients/ClientTransactionsTab';
@@ -2038,7 +2039,10 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
             <div className="flex-1 overflow-y-auto px-6 py-5">
             {/* TAB: OVERVIEW */}
             {clientModalTab === 'overview' && (
-              <ClientOverview client={selectedClient} hideMoney={isNonAdmin} />
+              <>
+                <ClientOverview client={selectedClient} hideMoney={isNonAdmin} />
+                {!isNonAdmin && <PortalAccessCard clientId={selectedClient.id} className="mt-4" />}
+              </>
             )}
 
             {clientModalTab === 'contracts' && (

@@ -6,6 +6,8 @@ export interface JwtPayload {
   role: string;
   branchId: number | null;
   name: string;
+  /** Faqat PORTAL tokeni: parol hash'i izi — parol almashtirilsa eski tokenlar yaroqsiz bo'ladi */
+  pv?: string;
 }
 
 export const signAccessToken = (payload: JwtPayload): string =>

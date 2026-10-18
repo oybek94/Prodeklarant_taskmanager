@@ -28,3 +28,8 @@ worktrees/
 backend/users*.json
 *.dump
 *-dump.json
+
+# Build keshi va Python bytecode
+*.tsbuildinfo
+__pycache__/
+*.pyc

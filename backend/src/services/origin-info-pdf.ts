@@ -12,11 +12,9 @@ import {
 /**
  * "Информация о происхождении товара" PDF varianti.
  *
- * Docx shablonini serverda PDF'ga aylantirish uchun LibreOffice kerak bo'lardi —
- * shuning uchun xat pdfkit bilan alohida chiziladi. MATN VA JOYLASHUV
- * templates/Информация_о_происхождении_товара.docx dan KO'CHIRILGAN: shablon
- * o'zgarsa, shu fayl ham qo'lda moslanadi. Qiymatlar esa umumiy
- * buildOriginInfoData'dan olinadi.
+ * Xat pdfkit bilan chiziladi (serverda LibreOffice yo'q). Matn va joylashuv
+ * eski Docx shablonidan ko'chirilgan (shablon o'chirilgan, git tarixida bor);
+ * endi shu fayl yagona manba. Qiymatlar umumiy buildOriginInfoData'dan olinadi.
  *
  * Shrift — Liberation Serif: Times New Roman bilan bir xil o'lchamli, shuning
  * uchun qatorlar Word'dagidek bo'linadi.

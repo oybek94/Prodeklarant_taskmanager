@@ -213,7 +213,7 @@ type ExpertizaRecipient = { filial: string; filial_direktori: string; viloyat: s
 
 const FERGANA_RECIPIENT: ExpertizaRecipient = {
   filial: 'Ферганаэкспертиза',
-  filial_direktori: 'Камалову Ш.Н.',
+  filial_direktori: 'И.О.Азимову',
   viloyat: 'Ферганской области',
 };
 

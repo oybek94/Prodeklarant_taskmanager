@@ -14,7 +14,6 @@ import { ensureTirForInvoice } from '../services/tir-service';
 import { generateST1GoodsExcel } from '../services/st1-goods-excel';
 import { generateCommodityEkExcel } from '../services/commodity-ek-excel';
 import { generateCmrDocx } from '../services/cmr-doc';
-import { generateOriginInfoDocx } from '../services/origin-info-doc';
 import { generateOriginInfoPdf } from '../services/origin-info-pdf';
 import fs from 'fs/promises';
 import { socketEmitter } from '../services/socketEmitter';
@@ -610,16 +609,9 @@ router.get('/:id/cmr-doc', requireAuth(), async (req: AuthRequest, res: Response
   }
 });
 
-// GET /invoices/:id/origin-info-doc?format=docx|pdf - "Информация о происхождении товара"
-const originInfoQuerySchema = z.object({ format: z.enum(['docx', 'pdf']).default('docx') });
-
+// GET /invoices/:id/origin-info-doc - "Информация о происхождении товара" (PDF)
 router.get('/:id/origin-info-doc', requireAuth(), async (req: AuthRequest, res: Response) => {
   try {
-    const query = originInfoQuerySchema.safeParse(req.query);
-    if (!query.success) {
-      return res.status(400).json({ error: "Noto'g'ri format" });
-    }
-    const { format } = query.data;
     const id = parseInt(req.params.id, 10);
     if (!Number.isFinite(id)) {
       return res.status(404).json({ error: 'Invoice topilmadi' });
@@ -643,16 +635,10 @@ router.get('/:id/origin-info-doc', requireAuth(), async (req: AuthRequest, res: 
     const companySettings = await prisma.companySettings.findFirst();
 
     const payload = { invoice, items: invoice.items, contract, companySettings, branchName: invoice.branch.name };
-    const buffer =
-      format === 'pdf' ? await generateOriginInfoPdf(payload) : await generateOriginInfoDocx(payload);
+    const buffer = await generateOriginInfoPdf(payload);
 
-    const fileName = `Proisxozhdenie_${invoice.invoiceNumber || invoice.id}.${format}`;
-    res.setHeader(
-      'Content-Type',
-      format === 'pdf'
-        ? 'application/pdf'
-        : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-    );
+    const fileName = `Proisxozhdenie_${invoice.invoiceNumber || invoice.id}.pdf`;
+    res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', attachmentDisposition(fileName));
     res.setHeader('Content-Length', buffer.length);
     res.end(buffer);

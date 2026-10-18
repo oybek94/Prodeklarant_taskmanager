@@ -165,7 +165,6 @@ export function useInvoiceDownloads({
     }
     try {
       const response = await apiClient.get(`/invoices/${invoice.id}/origin-info-doc`, {
-        params: { format: 'pdf' },
         responseType: 'blob',
       });
       const fileName = `${buildDownloadBase('PROISXOJDENIE')}.pdf`;

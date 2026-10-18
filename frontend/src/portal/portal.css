@@ -1,0 +1,122 @@
+/* Faqat portal kodini skanerlaydi (xodimlar ilovasining klasslari CSS'ga kirmasin) */
+@import "tailwindcss" source(none);
+@source "./";
+@source "../../portal.html";
+
+/* Mijoz portali ranglari: xodimlar paneli palitrasi (#004E98 / #3A6EA5), dark — #121212 charcoal */
+:root {
+  --p-bg: #F3F5F8;
+  --p-card: #FFFFFF;
+  --p-ink: #0B1B2E;
+  --p-muted: #566574;
+  --p-line: #E1E6EC;
+  --p-field: #CBD4DD;
+  --p-brand: #004E98;
+  --p-brand-ink: #FFFFFF;
+  --p-tint: #E6EEF7;
+  --p-tint-ink: #004E98;
+  --p-hero: #004E98;
+  --p-amber-bg: #FDF1D3;
+  --p-amber-fg: #8A4B06;
+  --p-amber: #E39A12;
+  --p-green-bg: #DDF3E4;
+  --p-green-fg: #15602F;
+  --p-green: #1E9E4F;
+  --p-gray-bg: #E8ECF0;
+  --p-gray-fg: #3E4C5A;
+  --p-gray: #98A5B2;
+  --p-red-bg: #FDE4E1;
+  --p-red-fg: #9B1C12;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --p-bg: #121212;
+    --p-card: #1B1C1E;
+    --p-ink: #EEF1F4;
+    --p-muted: #9AA5B1;
+    --p-line: #2B2E32;
+    --p-field: #3A3E43;
+    --p-brand: #3A6EA5;
+    --p-brand-ink: #FFFFFF;
+    --p-tint: #1A2A3B;
+    --p-tint-ink: #8FB8DE;
+    --p-hero: #0E2A47;
+    --p-amber-bg: #3A2C0C;
+    --p-amber-fg: #F5C25B;
+    --p-amber: #E39A12;
+    --p-green-bg: #102B1B;
+    --p-green-fg: #6EDC95;
+    --p-green: #2FB765;
+    --p-gray-bg: #26292D;
+    --p-gray-fg: #B6C0CB;
+    --p-gray: #5E6A76;
+    --p-red-bg: #3A1512;
+    --p-red-fg: #FF9C92;
+  }
+}
+
+@theme inline {
+  --color-p-bg: var(--p-bg);
+  --color-p-card: var(--p-card);
+  --color-p-ink: var(--p-ink);
+  --color-p-muted: var(--p-muted);
+  --color-p-line: var(--p-line);
+  --color-p-field: var(--p-field);
+  --color-p-brand: var(--p-brand);
+  --color-p-brand-ink: var(--p-brand-ink);
+  --color-p-tint: var(--p-tint);
+  --color-p-tint-ink: var(--p-tint-ink);
+  --color-p-hero: var(--p-hero);
+  --color-p-amber-bg: var(--p-amber-bg);
+  --color-p-amber-fg: var(--p-amber-fg);
+  --color-p-amber: var(--p-amber);
+  --color-p-green-bg: var(--p-green-bg);
+  --color-p-green-fg: var(--p-green-fg);
+  --color-p-green: var(--p-green);
+  --color-p-gray-bg: var(--p-gray-bg);
+  --color-p-gray-fg: var(--p-gray-fg);
+  --color-p-gray: var(--p-gray);
+  --color-p-red-bg: var(--p-red-bg);
+  --color-p-red-fg: var(--p-red-fg);
+  --font-sans: 'Onest', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--p-bg);
+  color: var(--p-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+:focus-visible {
+  outline: 3px solid var(--p-brand);
+  outline-offset: 2px;
+}
+
+@keyframes pulse-ring {
+  0% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.6); }
+  100% { box-shadow: 0 0 0 14px rgba(255, 255, 255, 0); }
+}
+
+.pulse-ring {
+  animation: pulse-ring 1.8s ease-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse-ring { animation: none; }
+}

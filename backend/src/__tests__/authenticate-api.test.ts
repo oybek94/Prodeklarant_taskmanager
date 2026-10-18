@@ -8,16 +8,16 @@ vi.hoisted(() => {
   process.env.JWT_REFRESH_SECRET = 'test-refresh-secret-0123456789abcdef012345678';
 });
 
-import { authenticateApi, isPublicApiPath, CLIENT_ROLE } from '../middleware/auth';
+import { authenticateApi, isPublicApiPath } from '../middleware/auth';
 import { signAccessToken } from '../utils/jwt';
 
 describe('isPublicApiPath', () => {
-  it.each(['/auth/login', '/auth/client/login', '/auth/refresh', '/auth/login/', '/health/db', '/public/site-stats', '/q/abc123', '/v1/media/stream/5', '/v1/media/stream/5/segments/a.ts'])(
+  it.each(['/auth/login', '/portal/auth/login', '/portal/auth/refresh', '/auth/refresh', '/auth/login/', '/health/db', '/public/site-stats', '/q/abc123', '/v1/media/stream/5', '/v1/media/stream/5/segments/a.ts'])(
     'ochiq: %s',
     (path) => expect(isPublicApiPath(path)).toBe(true),
   );
 
-  it.each(['/auth/me', '/auth/register', '/auth/client/me', '/auth/loginx', '/tasks', '/system/restore', '/q', '/v1/lessons/1/stream-token', '/leads', '/'])(
+  it.each(['/portal/auth/me', '/portal/shipments', '/auth/me', '/auth/register', '/auth/client/login', '/auth/client/me', '/auth/loginx', '/tasks', '/system/restore', '/q', '/v1/lessons/1/stream-token', '/leads', '/'])(
     'yopiq: %s',
     (path) => expect(isPublicApiPath(path)).toBe(false),
   );
@@ -56,8 +56,8 @@ describe('authenticateApi — /api sukut bo\'yicha yopiq', () => {
     expect((await get('/api/forgotten', signAccessToken({ sub: 1, role: 'ADMIN', branchId: 1, name: 'A' }))).status).toBe(200);
   });
 
-  it('mijoz tokeni ham baza darajasida o\'tadi (rol cheklovi endpointda)', async () => {
-    expect((await get('/api/forgotten', signAccessToken({ sub: 1, role: CLIENT_ROLE, branchId: null, name: 'M' }))).status).toBe(200);
+  it('eski mijoz tokeni rad etiladi (portal olib tashlangan)', async () => {
+    expect((await get('/api/forgotten', signAccessToken({ sub: 1, role: 'CLIENT', branchId: null, name: 'M' }))).status).toBe(403);
   });
 
   it('login va QR token\'siz ochiq', async () => {

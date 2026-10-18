@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { prisma } from '../prisma';
 import { comparePassword, hashPassword } from '../utils/hash';
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from '../utils/jwt';
-import { requireAuth, AuthRequest, CLIENT_ROLE } from '../middleware/auth';
+import { requireAuth, AuthRequest } from '../middleware/auth';
 import { z } from 'zod';
 
 const router = Router();
@@ -142,18 +142,9 @@ router.post('/refresh', async (req, res) => {
   try {
     const payload = verifyRefreshToken(parsed.data.refreshToken);
 
-    // Mijoz tokenida `sub` = Client.id. Uni User jadvalidan qidirish mijozga
-    // shu ID'li xodim (hatto ADMIN) tokenini berib yuborardi — shuning uchun
-    // CLIENT faqat Client jadvalidan va faqat CLIENT tokeni bilan yangilanadi.
-    if (payload.role === CLIENT_ROLE) {
-      const client = await prisma.client.findUnique({ where: { id: payload.sub } });
-      if (!client || !client.passwordHash) return res.status(401).json({ error: 'Invalid refresh' });
-      const clientPayload = { sub: client.id, role: CLIENT_ROLE, branchId: null, name: client.name };
-      return res.json({
-        accessToken: signAccessToken(clientPayload),
-        refreshToken: signRefreshToken(clientPayload),
-      });
-    }
+    // Eski mijoz tokeni (sub = Client.id) User jadvalidan qidirilsa, shu ID'li
+    // xodimning tokenini olib qo'yardi — mijoz portali yo'q, rad etiladi.
+    if (payload.role === 'CLIENT' || payload.role === 'PORTAL') return res.status(401).json({ error: 'Invalid refresh' });
 
     const user = await prisma.user.findUnique({ where: { id: payload.sub } });
     // Bloklangan xodim refresh orqali yangi token ololmasligi kerak
@@ -202,77 +193,6 @@ router.post('/register', requireAuth('ADMIN'), async (req, res) => {
     refreshToken: signRefreshToken(payload),
     user: { id: user.id, name: user.name, role: user.role, branchId: user.branchId },
   });
-});
-
-// Client login endpoint
-const clientLoginSchema = z.object({
-  phone: z.string().min(1),
-  password: z.string().min(4),
-});
-
-router.post('/client/login', async (req, res) => {
-  try {
-    const parsed = clientLoginSchema.safeParse(req.body);
-    if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
-    const { phone, password } = parsed.data;
-
-    // Find client by phone
-    const client = await prisma.client.findFirst({
-      where: { phone },
-    });
-
-    if (!client) {
-      return res.status(401).json({ error: 'Telefon raqam yoki parol noto\'g\'ri' });
-    }
-
-    // Check if client has password set
-    if (!client.passwordHash) {
-      return res.status(401).json({ error: 'Parol o\'rnatilmagan. Iltimos, administrator bilan bog\'laning.' });
-    }
-
-    // Verify password
-    const isValid = await comparePassword(password, client.passwordHash);
-    if (!isValid) {
-      return res.status(401).json({ error: 'Telefon raqam yoki parol noto\'g\'ri' });
-    }
-
-    // Generate tokens for client
-    const payload = { sub: client.id, role: 'CLIENT', branchId: null, name: client.name };
-    return res.json({
-      accessToken: signAccessToken(payload),
-      refreshToken: signRefreshToken(payload),
-      user: { id: client.id, name: client.name, role: 'CLIENT', branchId: null },
-    });
-  } catch (error: any) {
-    console.error('Client login error:', error);
-    return res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-// Client me endpoint
-router.get('/client/me', requireAuth(CLIENT_ROLE), async (req: AuthRequest, res) => {
-  try {
-    if (req.user!.role !== 'CLIENT') {
-      return res.status(403).json({ error: 'Access denied' });
-    }
-
-    const client = await prisma.client.findUnique({
-      where: { id: req.user!.id },
-      select: {
-        id: true,
-        name: true,
-        phone: true,
-        dealAmount: true,
-        createdAt: true,
-      },
-    });
-
-    if (!client) return res.status(404).json({ error: 'Client not found' });
-    res.json(client);
-  } catch (error: any) {
-    console.error('Client me error:', error);
-    return res.status(500).json({ error: 'Internal server error' });
-  }
 });
 
 router.get('/me', requireAuth(), async (req: AuthRequest, res) => {

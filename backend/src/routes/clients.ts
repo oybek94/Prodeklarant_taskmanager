@@ -3,8 +3,7 @@ import { prisma } from '../prisma';
 import { Prisma, Currency, ExchangeSource, ContractPaymentType } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 import { z } from 'zod';
-import { AuthRequest, requireAuth, requireStaffOrClient, CLIENT_ROLE } from '../middleware/auth';
-import { hashPassword } from '../utils/hash';
+import { AuthRequest, requireAuth } from '../middleware/auth';
 import { deepNormalizeStrings } from '../utils/text-normalize';
 import { getLatestExchangeRate } from '../services/exchange-rate';
 import { validateMonetaryFields, calculateAmountUzs, validateDealAmountPlausibility } from '../services/monetary-validation';
@@ -96,113 +95,6 @@ router.get('/', requireAuth(), async (req: AuthRequest, res) => {
     res.status(500).json({
       error: 'Mijozlarni yuklashda xatolik yuz berdi',
       details: error instanceof Error ? error.message : String(error)
-    });
-  }
-});
-
-// Get task detail with stages and duration - CLIENT can access their own tasks, ADMIN can access any
-// IMPORTANT: This route must come BEFORE all /:id/* routes to avoid route matching conflicts
-router.get('/tasks/:taskId', requireStaffOrClient(), async (req: AuthRequest, res) => {
-  try {
-    const taskId = Number(req.params.taskId);
-    const userId = req.user!.id;
-    const userRole = req.user!.role;
-
-    // For CLIENT role, userId is the clientId
-    const clientId = userRole === 'CLIENT' ? userId : Number(req.query.clientId || userId);
-
-    // Check if CLIENT is accessing their own data
-    if (userRole === 'CLIENT' && userId !== clientId) {
-      return res.status(403).json({ error: 'Access denied' });
-    }
-
-    // Get task with all details including stages
-    const task = await prisma.task.findFirst({
-      where: {
-        id: taskId,
-        clientId: clientId, // Ensure task belongs to this client
-      },
-      include: {
-        client: {
-          select: {
-            id: true,
-            name: true,
-            phone: true,
-          },
-        },
-        branch: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-        stages: {
-          orderBy: { stageOrder: 'asc' },
-          select: {
-            id: true,
-            name: true,
-            status: true,
-            stageOrder: true,
-            durationMin: true,
-            startedAt: true,
-            completedAt: true,
-            assignedTo: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-              },
-            },
-          },
-        },
-      },
-    });
-
-    if (!task) {
-      return res.status(404).json({ error: 'Task topilmadi' });
-    }
-
-    // Format stages with duration information
-    const formattedStages = task.stages.map((stage) => {
-      let durationText = '';
-      if (stage.status === 'TAYYOR' && stage.durationMin !== null) {
-        const hours = Math.floor(stage.durationMin / 60);
-        const minutes = stage.durationMin % 60;
-        if (hours > 0) {
-          durationText = `${hours} soat ${minutes} daqiqa`;
-        } else {
-          durationText = `${minutes} daqiqa`;
-        }
-      } else if (stage.status === 'BOSHLANMAGAN') {
-        durationText = 'Boshlanmagan';
-      } else {
-        durationText = 'Jarayonda...';
-      }
-
-      return {
-        ...stage,
-        durationText,
-      };
-    });
-
-    res.json({
-      id: task.id,
-      title: task.title,
-      status: task.status,
-      comments: task.comments,
-      hasPsr: task.hasPsr,
-      driverPhone: task.driverPhone,
-      createdAt: task.createdAt,
-      updatedAt: task.updatedAt,
-      client: task.client,
-      branch: task.branch,
-      stages: formattedStages,
-    });
-  } catch (error: any) {
-    console.error('Error fetching task detail:', error);
-    res.status(500).json({
-      error: 'Task ma\'lumotlarini yuklashda xatolik yuz berdi',
-      details: error.message
     });
   }
 });
@@ -389,12 +281,6 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
       createData.creditStartDate = parsed.data.creditStartDate ? new Date(parsed.data.creditStartDate) : null;
     }
 
-    // Hash password if both email and password are provided
-    if (req.body.password && req.body.email) {
-      const passwordHash = await hashPassword(req.body.password);
-      createData.passwordHash = passwordHash;
-    }
-
     const client = await prisma.client.create({
       data: createData,
     });
@@ -451,13 +337,8 @@ router.get('/:id/requisites', requireAuth(), async (req: AuthRequest, res) => {
   res.json(client);
 });
 
-router.get('/:id/monthly-tasks', requireStaffOrClient(), async (req: AuthRequest, res) => {
+router.get('/:id/monthly-tasks', requireAuth(), async (req: AuthRequest, res) => {
   const id = Number(req.params.id);
-  const user = req.user as any;
-  
-  if (user?.role === 'CLIENT' && user?.id !== id) {
-    return res.status(403).json({ error: 'Access denied' });
-  }
 
   const client = await prisma.client.findUnique({ where: { id } });
   if (!client) return res.status(404).json({ error: 'Not found' });
@@ -770,12 +651,6 @@ router.patch('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
         : 'CLIENT';
     }
 
-    // Hash password if provided
-    if (req.body.password) {
-      const passwordHash = await hashPassword(req.body.password);
-      updateData.passwordHash = passwordHash;
-    }
-
     // Update using Prisma with explicit data object
     const updatedClient = await prisma.client.update({
       where: { id },
@@ -814,183 +689,6 @@ router.patch('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
   }
 });
 
-// Client invoice stats endpoint (for client dashboard)
-router.get('/me/invoice-stats', requireAuth(CLIENT_ROLE), async (req: AuthRequest, res) => {
-  try {
-    const user = req.user;
-    if (!user) {
-      return res.status(401).json({ error: 'Unauthorized' });
-    }
-    if (user.role !== 'CLIENT') {
-      return res.status(403).json({ error: 'Access denied' });
-    }
-
-    const monthParam = String(req.query.month || '');
-    const monthSchema = z.string().regex(/^\d{4}-\d{2}$/);
-    const parsedMonth = monthSchema.safeParse(monthParam);
-    if (!parsedMonth.success) {
-      return res.status(400).json({ error: 'Invalid month format. Use YYYY-MM.' });
-    }
-
-    const [yearStr, monthStr] = parsedMonth.data.split('-');
-    const year = Number(yearStr);
-    const monthIndex = Number(monthStr) - 1;
-    const startDate = new Date(Date.UTC(year, monthIndex, 1));
-    const endDate = new Date(Date.UTC(year, monthIndex + 1, 1));
-
-    const invoices = await prisma.invoice.findMany({
-      where: {
-        clientId: user.id,
-        date: {
-          gte: startDate,
-          lt: endDate,
-        },
-      },
-      select: {
-        currency: true,
-        items: {
-          select: {
-            name: true,
-            quantity: true,
-            totalPrice: true,
-          },
-        },
-        contract: {
-          select: {
-            destinationCountry: true,
-          },
-        },
-      },
-    });
-
-    const totals = { totalQuantity: 0, totalValue: 0 };
-    const productMap = new Map<string, { name: string; totalQuantity: number; totalValue: number }>();
-    const countryMap = new Map<string, { country: string; totalQuantity: number; totalValue: number }>();
-
-    const currencySet = new Set<string>();
-    invoices.forEach((invoice) => {
-      currencySet.add(invoice.currency);
-      const country = invoice.contract?.destinationCountry || 'Noma\'lum';
-      invoice.items.forEach((item) => {
-        const quantity = Number(item.quantity || 0);
-        const totalValue = Number(item.totalPrice || 0);
-
-        totals.totalQuantity += quantity;
-        totals.totalValue += totalValue;
-
-        const productEntry = productMap.get(item.name) || {
-          name: item.name,
-          totalQuantity: 0,
-          totalValue: 0,
-        };
-        productEntry.totalQuantity += quantity;
-        productEntry.totalValue += totalValue;
-        productMap.set(item.name, productEntry);
-
-        const countryEntry = countryMap.get(country) || {
-          country,
-          totalQuantity: 0,
-          totalValue: 0,
-        };
-        countryEntry.totalQuantity += quantity;
-        countryEntry.totalValue += totalValue;
-        countryMap.set(country, countryEntry);
-      });
-    });
-
-    const products = Array.from(productMap.values()).sort((a, b) => b.totalValue - a.totalValue);
-    const countries = Array.from(countryMap.values()).sort((a, b) => b.totalValue - a.totalValue);
-
-    res.json({
-      month: parsedMonth.data,
-      currency: currencySet.size === 1 ? Array.from(currencySet)[0] : 'MIXED',
-      totals,
-      products,
-      countries,
-    });
-  } catch (error: any) {
-    console.error('Error fetching invoice stats:', error);
-    res.status(500).json({ error: 'Xatolik yuz berdi', details: error.message });
-  }
-});
-
-// Client tasks endpoint (for client dashboard) - CLIENT can access their own, ADMIN can access any
-router.get('/:id/tasks', requireStaffOrClient(), async (req: AuthRequest, res) => {
-  try {
-    const id = Number(req.params.id);
-    const userId = req.user!.id;
-    const userRole = req.user!.role;
-
-    // Check if CLIENT is accessing their own data
-    if (userRole === 'CLIENT' && userId !== id) {
-      return res.status(403).json({ error: 'Access denied' });
-    }
-
-    // Get tasks with branch information
-    const tasks = await prisma.task.findMany({
-      where: { clientId: id },
-      orderBy: { createdAt: 'desc' },
-      include: {
-        branch: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-      },
-    });
-
-    // Format response to match frontend expectations
-    const formattedTasks = tasks.map(task => ({
-      id: task.id,
-      title: task.title,
-      status: task.status,
-      createdAt: task.createdAt,
-      branch: task.branch ? {
-        name: task.branch.name
-      } : null,
-    }));
-
-    res.json(formattedTasks);
-  } catch (error: any) {
-    console.error('Error fetching client tasks:', error);
-    res.status(500).json({
-      error: 'Ishlarni yuklashda xatolik yuz berdi',
-      details: error.message || 'Noma\'lum xatolik'
-    });
-  }
-});
-
-// Client transactions endpoint (for client dashboard) - CLIENT can access their own, ADMIN can access any
-router.get('/:id/transactions', requireStaffOrClient(), async (req: AuthRequest, res) => {
-  try {
-    const id = Number(req.params.id);
-    const userId = req.user!.id;
-    const userRole = req.user!.role;
-
-    // Check if CLIENT is accessing their own data
-    if (userRole === 'CLIENT' && userId !== id) {
-      return res.status(403).json({ error: 'Access denied' });
-    }
-
-    const transactions = await prisma.transaction.findMany({
-      where: { clientId: id },
-      orderBy: { date: 'desc' },
-      select: {
-        id: true,
-        amount: true,
-        currency: true,
-        date: true,
-        comment: true,
-      },
-    });
-
-    res.json(transactions);
-  } catch (error: any) {
-    console.error('Error fetching client transactions:', error);
-    res.status(500).json({ error: 'Xatolik yuz berdi', details: error.message });
-  }
-});
 router.delete('/:id', requireAuth('ADMIN'), async (req, res) => {
   try {
     const id = Number(req.params.id);

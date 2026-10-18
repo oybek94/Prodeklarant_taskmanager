@@ -7,6 +7,7 @@ import { AuthRequest, requireAuth } from '../middleware/auth';
 import { deepNormalizeStrings } from '../utils/text-normalize';
 import { getLatestExchangeRate } from '../services/exchange-rate';
 import { validateMonetaryFields, calculateAmountUzs, validateDealAmountPlausibility } from '../services/monetary-validation';
+import { getPortalAccess, resetPortalPassword, revokePortalAccess } from '../services/portal.service';
 import { ClientService } from '../services/client.service';
 import { ClientRepository } from '../repositories/client.repository';
 
@@ -314,6 +315,35 @@ router.get('/:id', requireAuth(), async (req: AuthRequest, res) => {
 });
 
 /** Shartnoma muharriri uchun faqat rekvizitlar — to'liq kartochka (ishlar, qarz hisobi) kerak emas */
+// Mijoz portali (my.prodeklarant.uz) kirishi — faqat ADMIN. Parol faqat yaratilgan javobda ko'rinadi.
+router.get('/:id/portal-access', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(404).json({ error: 'Not found' });
+  const access = await getPortalAccess(id);
+  if (!access) return res.status(404).json({ error: 'Not found' });
+  res.json(access);
+});
+
+router.post('/:id/portal-access', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(404).json({ error: 'Not found' });
+  const result = await resetPortalPassword(id);
+  if ('error' in result) {
+    return result.error === 'NOT_FOUND'
+      ? res.status(404).json({ error: 'Not found' })
+      : res.status(400).json({ error: 'Avval mijozning telefon raqamini kiriting (login shu raqam bo‘ladi)' });
+  }
+  res.set('Cache-Control', 'no-store');
+  res.json(result);
+});
+
+router.delete('/:id/portal-access', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(404).json({ error: 'Not found' });
+  if (!(await revokePortalAccess(id))) return res.status(404).json({ error: 'Not found' });
+  res.json({ ok: true });
+});
+
 router.get('/:id/requisites', requireAuth(), async (req: AuthRequest, res) => {
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ error: 'Invalid id' });

@@ -4,6 +4,7 @@ import { Icon } from '@iconify/react';
 import apiClient from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import EmptyValue from '../components/common/EmptyValue';
+import PortalAccessCard from '../components/clients/PortalAccessCard';
 import ContractFieldHint from '../components/contracts/ContractFieldHint';
 import CurrencyDisplay from '../components/CurrencyDisplay';
 import DateInput from '../components/DateInput';
@@ -698,6 +699,8 @@ const ClientDetail = () => {
           <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">{client.name}</h1>
         </div>
       </div>
+
+      {user?.role === 'ADMIN' && client.id ? <PortalAccessCard clientId={client.id} /> : null}
 
       {/* Client Info - faqat ADMIN uchun (Telefon, Kelishuv, Jami tushgan, Balans) */}
       {user?.role === 'ADMIN' && client.stats && (

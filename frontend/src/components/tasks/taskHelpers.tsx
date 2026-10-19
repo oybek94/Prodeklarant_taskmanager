@@ -190,12 +190,13 @@ export const evaluateStageTime = (
 };
 
 /** Pul miqdorini formatlash */
-export const formatMoney = (amount: number, currency: 'USD' | 'UZS'): string => {
+export const formatMoney = (amount: number, currency: 'USD' | 'UZS', withUsdSymbol = true): string => {
   const formatted = new Intl.NumberFormat('en-US', {
     minimumFractionDigits: currency === 'USD' ? 2 : 0,
     maximumFractionDigits: currency === 'USD' ? 2 : 0,
   }).format(amount).replace(/,/g, ' ').replace(/\./g, ',');
-  return currency === 'USD' ? `$ ${formatted}` : `UZS ${formatted}`;
+  if (currency === 'USD') return withUsdSymbol ? `$ ${formatted}` : formatted;
+  return `UZS ${formatted}`;
 };
 
 /** Mijoz valyutasini aniqlash */

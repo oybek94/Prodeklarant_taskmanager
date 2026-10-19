@@ -5,7 +5,7 @@ import apiClient from '../../lib/api';
 import { useFileHelpers } from './useFileHelpers';
 import { Icon } from '@iconify/react';
 import {
-  formatFileSize, formatMoney, getClientCurrency,
+  formatFileSize, formatMoney as formatMoneyWithSymbol, getClientCurrency,
   getStatusInfo, canPreview, canShowOCR,
   calculateStageDuration, evaluateStageTime,
 } from './taskHelpers';
@@ -14,6 +14,9 @@ import { DocumentVerificationReport } from './DocumentVerificationReport';
 import TaskCommentBlock from './TaskCommentBlock';
 import { getPsrAmount, getDealAmountDisplay, getDealAmountBaseDisplay, getBranchPaymentsDisplay } from './taskBusinessHelpers';
 
+/** Moliyaviy hisobotda USD summalar `$` belgisisiz ko'rsatiladi */
+const formatMoney = (amount: number, currency: 'USD' | 'UZS'): string =>
+  formatMoneyWithSymbol(amount, currency, false);
 
 interface TaskDetailPanelProps {
   task: TaskDetail;
@@ -682,11 +685,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                                 {log.stageName}:
                               </span>
                               <span className="font-bold text-gray-900 dark:text-white px-2.5 py-1 bg-white dark:bg-slate-600 rounded-md shadow-sm border border-gray-100 dark:border-slate-500">
-                                {new Intl.NumberFormat('en-US', {
-                                  style: 'currency',
-                                  currency: 'USD',
-                                  minimumFractionDigits: 2,
-                                }).format(log.amount).replace(/,/g, ' ').replace(/\./g, ',')}
+                                {formatMoney(Number(log.amount), 'USD')}
                               </span>
                             </div>
                           ))}
@@ -696,11 +695,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                             Jami tushum:
                           </span>
                           <span className="text-xl font-black text-emerald-600 dark:text-emerald-400 tracking-tight">
-                            {new Intl.NumberFormat('en-US', {
-                              style: 'currency',
-                              currency: 'USD',
-                              minimumFractionDigits: 2,
-                            }).format(totalAmount).replace(/,/g, ' ').replace(/\./g, ',')}
+                            {formatMoney(totalAmount, 'USD')}
                           </span>
                         </div>
                       </div>

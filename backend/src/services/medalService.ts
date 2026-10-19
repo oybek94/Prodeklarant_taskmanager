@@ -25,14 +25,21 @@ export const MEDAL_DESCRIPTIONS: Record<string, string> = {
 
 export class MedalService {
 
+  // Direktor (ADMIN) ishchi emas — hech qanday musobaqa/medalda qatnashmaydi
+  private static async getAdminIds(): Promise<number[]> {
+    const admins = await prisma.user.findMany({ where: { role: 'ADMIN' }, select: { id: true } });
+    return admins.map(a => a.id);
+  }
+
   // Haftalik medallar: FAST_WORKER, SHIELD, EAGLE_EYE
   static async calculateWeeklyWinners(startDate: Date, endDate: Date, periodStr: string) {
     const nominations: any[] = [];
+    const adminIds = await this.getAdminIds();
     
     // 1. FAST_WORKER (Entry Fragger)
     const stages = await prisma.taskStage.groupBy({
       by: ['assignedToId'],
-      where: { completedAt: { gte: startDate, lte: endDate }, assignedToId: { not: null } },
+      where: { completedAt: { gte: startDate, lte: endDate }, assignedToId: { not: null, notIn: adminIds } },
       _count: { id: true },
       orderBy: { _count: { id: 'desc' } },
     });
@@ -75,7 +82,7 @@ export class MedalService {
     });
     const foundCount: Record<number, number> = {};
     foundErrors.forEach(e => {
-      if (e.workerId !== null && e.createdById !== e.workerId) {
+      if (e.workerId !== null && e.createdById !== e.workerId && !adminIds.includes(e.createdById)) {
         foundCount[e.createdById] = (foundCount[e.createdById] || 0) + 1;
       }
     });
@@ -97,11 +104,12 @@ export class MedalService {
   // Oylik medallar: GOLDEN_KD, NIGHT_OWL
   static async calculateMonthlyWinners(startDate: Date, endDate: Date, periodStr: string) {
     const nominations: any[] = [];
+    const adminIds = await this.getAdminIds();
     
     // 1. GOLDEN_KD (Top Fragger)
     const stages = await prisma.taskStage.groupBy({
       by: ['assignedToId'],
-      where: { completedAt: { gte: startDate, lte: endDate }, assignedToId: { not: null } },
+      where: { completedAt: { gte: startDate, lte: endDate }, assignedToId: { not: null, notIn: adminIds } },
       _count: { id: true },
     });
     const errors = await prisma.taskError.groupBy({
@@ -132,7 +140,7 @@ export class MedalService {
 
     // 2. NIGHT_OWL (Midnight Operative) - 22:00 dan 06:00 gacha ishlaganlar
     const allStages = await prisma.taskStage.findMany({
-      where: { completedAt: { gte: startDate, lte: endDate }, assignedToId: { not: null } },
+      where: { completedAt: { gte: startDate, lte: endDate }, assignedToId: { not: null, notIn: adminIds } },
       select: { assignedToId: true, completedAt: true }
     });
 
@@ -169,11 +177,12 @@ export class MedalService {
   // Choraklik medallar: COMPANY_PILLAR, PROBLEM_SOLVER
   static async calculateQuarterlyWinners(startDate: Date, endDate: Date, periodStr: string) {
     const nominations: any[] = [];
+    const adminIds = await this.getAdminIds();
     
     // 1. COMPANY_PILLAR (The Global Elite)
     const stages = await prisma.taskStage.groupBy({
       by: ['assignedToId'],
-      where: { completedAt: { gte: startDate, lte: endDate }, assignedToId: { not: null } },
+      where: { completedAt: { gte: startDate, lte: endDate }, assignedToId: { not: null, notIn: adminIds } },
       _count: { id: true },
     });
     const errors = await prisma.taskError.groupBy({
@@ -208,7 +217,7 @@ export class MedalService {
     });
     const foundCount: Record<number, number> = {};
     foundErrors.forEach(e => {
-      if (e.workerId !== null && e.createdById !== e.workerId) {
+      if (e.workerId !== null && e.createdById !== e.workerId && !adminIds.includes(e.createdById)) {
         foundCount[e.createdById] = (foundCount[e.createdById] || 0) + 1;
       }
     });
@@ -254,9 +263,10 @@ export class MedalService {
 
   static async awardMedals(nominations: any[], title?: string) {
     const awardedMedals: any[] = [];
+    const adminIds = await this.getAdminIds();
     
     for (const nom of nominations) {
-      if (!nom.userId) continue;
+      if (!nom.userId || adminIds.includes(nom.userId)) continue;
 
       // Check if already awarded
       const existing = await prisma.userMedal.findFirst({

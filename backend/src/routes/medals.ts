@@ -256,6 +256,7 @@ router.get('/user/:userId/bonus', requireAuth(), async (req, res) => {
 router.get('/all', requireAuth(), async (req, res) => {
   try {
     const medals = await prisma.userMedal.findMany({
+      where: { user: { role: { not: 'ADMIN' } } }, // direktor musobaqada qatnashmaydi
       orderBy: { awardedAt: 'desc' }
     });
     res.json(medals);

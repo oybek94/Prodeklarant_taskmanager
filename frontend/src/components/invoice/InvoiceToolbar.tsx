@@ -292,15 +292,6 @@ export const InvoiceToolbar: React.FC<InvoiceToolbarProps> = React.memo(({
                 <div className={MENU_PANEL} role="menu">
                   <button
                     type="button"
-                    onClick={() => { openFssRegionPicker('Ichki'); setSertifikatlarDropdownOpen(false); }}
-                    disabled={templatesDisabled}
-                    className={MENU_ITEM}
-                    role="menuitem"
-                  >
-                    Ichki
-                  </button>
-                  <button
-                    type="button"
                     onClick={() => { openFssRegionPicker('Tashqi'); setSertifikatlarDropdownOpen(false); }}
                     disabled={templatesDisabled}
                     className={MENU_ITEM}

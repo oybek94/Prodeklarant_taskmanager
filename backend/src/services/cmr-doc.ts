@@ -53,7 +53,7 @@ export const generateCmrDocx = async (payload: CmrDocPayload): Promise<Buffer> =
   const baseBuyerAddress = contract?.buyerAddress || client?.address || '';
 
   // Sotuvchi va yuk jo'natuvchi (shipper) boshqa-boshqa korxona bo'lsa — 1-punktga
-  // yuk jo'natuvchi yoziladi, manziliga esa uning yuridik manzili + " п/п. " + sotuvchi nomi.
+  // yuk jo'natuvchi yoziladi, manziliga esa uning yuridik manzili + " по поручению " + sotuvchi nomi.
   // Xuddi shu qoida sotib oluvchi va yuk qabul qiluvchi (consignee) uchun 2-punktda.
   const shipperName = (contract?.shipperName || '').trim();
   const consigneeName = (contract?.consigneeName || '').trim();
@@ -63,11 +63,11 @@ export const generateCmrDocx = async (payload: CmrDocPayload): Promise<Buffer> =
   const sellerName = isSellerShipper ? baseSellerName : shipperName;
   const sellerAddress = isSellerShipper
     ? baseSellerAddress
-    : `${contract?.shipperAddress || ''} п/п. ${baseSellerName}`.replace(/\s+/g, ' ').trim();
+    : `${contract?.shipperAddress || ''} по поручению ${baseSellerName}`.replace(/\s+/g, ' ').trim();
   const buyerName = isBuyerConsignee ? baseBuyerName : consigneeName;
   const buyerAddress = isBuyerConsignee
     ? baseBuyerAddress
-    : `${contract?.consigneeAddress || ''} п/п. ${baseBuyerName}`.replace(/\s+/g, ' ').trim();
+    : `${contract?.consigneeAddress || ''} по поручению ${baseBuyerName}`.replace(/\s+/g, ' ').trim();
 
   // Filialning "viloyat" matni (Sozlamalar > Tuzilma'da belgilanadi)
   const defaultRegion = String((invoice as any).branch?.regionText || '');

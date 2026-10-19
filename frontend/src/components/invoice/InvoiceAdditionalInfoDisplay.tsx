@@ -128,7 +128,7 @@ export const InvoiceAdditionalInfoDisplay: React.FC<InvoiceAdditionalInfoDisplay
     if (selectedContract) {
       const gruzManzil = (selectedContract.consigneeAddress ?? '').trim().replace(/\n/g, ' ');
       if (gruzManzil) parts.push(gruzManzil);
-      parts.push('п/п.');
+      parts.push('по поручению');
       const buyerName = (selectedContract.buyerName ?? '').trim();
       if (buyerName) parts.push(buyerName);
       const buyerAddr = (selectedContract.buyerAddress ?? '').trim();
@@ -163,7 +163,7 @@ export const InvoiceAdditionalInfoDisplay: React.FC<InvoiceAdditionalInfoDisplay
               type="button"
               onClick={copyAddress}
               aria-label="Manzilni nusxalash"
-              title="Грузополучатель manzili + п/п. + Покупатель nomi + Покупатель manzili"
+              title="Грузополучатель manzili + по поручению + Покупатель nomi + Покупатель manzili"
               className={`inline-flex h-10 w-10 items-center justify-center rounded-[10px] text-white transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 ${
                 addressCopySuccess ? 'bg-green-600' : 'bg-indigo-600 hover:bg-indigo-700'
               }`}

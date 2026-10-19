@@ -151,7 +151,7 @@ const buildSender = (contract?: Contract | null) => {
     return [
       shipperName,
       shipperAddress,
-      `п/п ${sellerName}`
+      `по поручению ${sellerName}`
     ].filter(Boolean).join('\n');
   }
 
@@ -168,7 +168,7 @@ const buildReceiver = (contract?: Contract | null) => {
     return [
       consigneeName,
       consigneeAddress,
-      `п/п ${buyerName}`,
+      `по поручению ${buyerName}`,
     ]
       .filter(Boolean)
       .join('\n');

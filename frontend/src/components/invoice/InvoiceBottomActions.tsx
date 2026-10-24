@@ -22,7 +22,7 @@ export const InvoiceBottomActions: React.FC<InvoiceBottomActionsProps> = React.m
   navigate,
 }) => {
   return (
-    <div className="flex flex-wrap items-center justify-end gap-3 mt-8 pt-6 border-t pdf-hide-border">
+    <div className="flex flex-wrap items-center justify-end gap-3 mt-6 md:mt-8 pt-4 md:pt-6 border-t pdf-hide-border max-sm:[&>button]:flex-1">
       {additionalInfoError && (
         <div className="w-full text-sm text-red-600 text-right">
           {additionalInfoError}

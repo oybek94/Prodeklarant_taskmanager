@@ -8,6 +8,7 @@ import InvoiceFieldHint from './InvoiceFieldHint';
 import type { InvoiceFieldHintKey } from '../../constants/invoiceFieldHints';
 import { InvoiceItemRow } from './InvoiceItemRow';
 import { useTableKeyboardNav } from './hooks/useTableKeyboardNav';
+import { useIsMobile } from '../../utils/useIsMobile';
 import { Icon } from '@iconify/react';
 import toast from 'react-hot-toast';
 
@@ -98,6 +99,9 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = React.memo(({
 }) => {
   const isReadonly = isPdfMode || viewTab === 'spec' || viewTab === 'packing';
   const { tableRef, handleCellKeyDown } = useTableKeyboardNav();
+  // Telefonda 10+ ustunli jadval o'rniga har bir qator alohida karta
+  const isMobile = useIsMobile();
+  const useCards = isMobile && !isReadonly;
 
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
@@ -280,7 +284,7 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = React.memo(({
   /** Ustun sarlavhasi yonidagi "i" — PDF rejimida chizilmaydi */
   const headerHint = (field: InvoiceFieldHintKey) => (isPdfMode ? null : <InvoiceFieldHint field={field} />);
 
-  const renderTableHeader = (py: string) => {
+  const unitPriceLabelFor = () => {
     const uniqueUnits = Array.from(new Set(items.map(i => i.unit).filter(Boolean)));
     let unitPriceLabel = columnLabels.unitPrice || 'Цена за ед.изм.';
     if (invoiceCurrency === 'UZS') {
@@ -292,6 +296,39 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = React.memo(({
       else if (u === 'шт.' || u === 'шт') unitPriceLabel = 'Цена за шт.';
       else unitPriceLabel = `Цена за ${u}`;
     }
+    return unitPriceLabel;
+  };
+
+  /** Mobil kartalar ostidagi jami qatori (jadvaldagi tfoot o'rnida) */
+  const renderCardTotals = () => {
+    const entries: { label: string; value: string }[] = [];
+    const sum = (pick: (i: InvoiceItem) => number) => items.reduce((acc, i) => acc + pick(i), 0);
+    if (effectiveColumns.quantity) {
+      const t = sum((i) => Number(i.quantity) || 0);
+      if (t !== 0) entries.push({ label: columnLabels.quantity, value: formatNumber(t) });
+    }
+    if (effectiveColumns.packagesCount) entries.push({ label: columnLabels.packagesCount, value: formatNumber(sum((i) => i.packagesCount ?? 0)) });
+    if (effectiveColumns.gross) entries.push({ label: columnLabels.gross, value: formatNumber(sum((i) => i.grossWeight || 0)) });
+    if (effectiveColumns.net) entries.push({ label: columnLabels.net, value: formatNumber(sum((i) => i.netWeight || 0)) });
+    if (effectiveColumns.total) entries.push({ label: totalColumnLabel, value: `${getCurrencySymbol(invoiceCurrency)} ${formatNumberFixed(sumItemTotals(items))}` });
+    if (entries.length === 0) return null;
+    return (
+      <div className="rounded-xl border-2 border-gray-800 bg-white p-3">
+        <div className="mb-1 text-sm font-semibold text-gray-900">Всего:</div>
+        <dl className="m-0 grid grid-cols-2 gap-x-3 gap-y-1 text-sm">
+          {entries.map((e) => (
+            <div key={e.label} className="min-w-0">
+              <dt className="text-xs text-gray-500">{e.label}</dt>
+              <dd className="m-0 font-semibold text-gray-900">{e.value}</dd>
+            </div>
+          ))}
+        </dl>
+      </div>
+    );
+  };
+
+  const renderTableHeader = (py: string) => {
+    const unitPriceLabel = unitPriceLabelFor();
 
     return (
     <thead className="text-left">
@@ -549,7 +586,7 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = React.memo(({
                   >
                     Ustunlar
                   </summary>
-                  <div className="absolute right-0 mt-2 w-96 max-h-[75vh] overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-xl p-3 z-20">
+                  <div className="absolute right-0 mt-2 w-[calc(100vw-3rem)] max-w-96 max-h-[75vh] overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-xl p-3 z-20">
                     <div className="mb-2 pb-2 border-b border-gray-100 text-xs font-semibold text-gray-500 uppercase tracking-wider">
                       Ustunlar tartibi va nomi
                     </div>
@@ -711,6 +748,50 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = React.memo(({
           </>
         ) : (
           <>
+            {useCards ? (
+              <div className="space-y-3">
+                {items.map((item, index) => (
+                  <InvoiceItemRow
+                    key={index}
+                    variant="card"
+                    labels={{ ...columnLabels, unitPrice: unitPriceLabelFor(), total: totalColumnLabel }}
+                    item={item}
+                    index={index}
+                    isReadonly={false}
+                    orderedVisibleColumns={orderedVisibleColumns}
+                    colIndexMap={colIndexMap as Record<string, number>}
+                    showItemErrors={showItemErrors}
+                    handleItemChange={handleItemChange as any}
+                    handleNameChange={handleNameChange}
+                    handlePackagesCountChange={handlePackagesCountChange}
+                    applyPackagesCountFormula={applyPackagesCountFormula}
+                    getPackagesCountDisplayValue={getPackagesCountDisplayValue}
+                    handleGrossWeightChange={handleGrossWeightChange}
+                    applyGrossWeightFormula={applyGrossWeightFormula}
+                    getGrossWeightDisplayValue={getGrossWeightDisplayValue}
+                    handleNetWeightChange={handleNetWeightChange}
+                    applyNetWeightFormula={applyNetWeightFormula}
+                    getNetWeightDisplayValue={getNetWeightDisplayValue}
+                    handleCustomFieldChange={handleCustomFieldChange}
+                    removeItem={removeItem}
+                    handleCellKeyDown={handleCellKeyDown}
+                    showRemoveButton={items.length > 1}
+                    packagingTypes={packagingTypes}
+                  />
+                ))}
+                {renderCardTotals()}
+                {canEditEffective && (
+                  <button
+                    type="button"
+                    onClick={addItem}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-gray-400 bg-gray-50 py-3 text-sm font-medium text-gray-600 no-screenshot"
+                  >
+                    <Icon icon="solar:add-circle-bold-duotone" className="w-5 h-5" />
+                    Yangi qator qo'shish
+                  </button>
+                )}
+              </div>
+            ) : (
             <div className="overflow-x-auto border border-black rounded-lg invoice-table-wrap flex flex-wrap justify-start items-start">
               <table ref={tableRef} className="w-full text-sm items-table-compact border-0">
                 {renderTableHeader('py-3')}
@@ -756,8 +837,9 @@ export const InvoiceItemsTable: React.FC<InvoiceItemsTableProps> = React.memo(({
                 </button>
               )}
             </div>
+            )}
             {effectiveColumns.total && (
-              <div className="mt-0 px-2 py-1.5 text-left text-sm bg-white invoice-sum-words">
+              <div className={`px-2 py-1.5 text-left text-sm bg-white invoice-sum-words${useCards ? ' mt-2' : ' mt-0'}`}>
                 Сумма прописью: {numberToWordsRu(sumItemTotals(items), invoiceCurrency)}
               </div>
             )}

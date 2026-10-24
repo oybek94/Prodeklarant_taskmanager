@@ -36,13 +36,13 @@ export const InvoiceHeader: React.FC<InvoiceHeaderProps> = React.memo(({
 }) => {
   const dateWarning = getInvoiceDateError(form.date, invoice?.date);
   return (
-    <div className="flex flex-col md:flex-row justify-between items-start md:items-center w-full mb-0 invoice-header gap-6 md:gap-4">
+    <div className="flex flex-col md:flex-row justify-between items-start md:items-center w-full mb-0 invoice-header gap-3 md:gap-4">
 
       {/* Left: Document title */}
 
       <div className="flex-1 min-w-0 md:pr-4">
 
-        <h1 className="text-3xl md:text-5xl font-bold text-gray-800 dark:text-gray-100 mb-2 md:mb-6">
+        <h1 className="text-2xl md:text-5xl font-bold text-gray-800 dark:text-gray-100 mb-0 md:mb-6">
           {viewTab === 'invoice'
             ? 'Инвойс'
             : viewTab === 'spec'

@@ -34,7 +34,7 @@ export const InvoiceSignatures = React.memo(function InvoiceSignatures({ contrac
             <img
               src={resolveUploadUrl(contract.sellerSignatureUrl || contract.signatureUrl)}
               alt="Imzo"
-              className="h-[90px] w-auto object-contain"
+              className="h-16 sm:h-[90px] w-auto object-contain"
             />
           </div>
         )}
@@ -43,7 +43,7 @@ export const InvoiceSignatures = React.memo(function InvoiceSignatures({ contrac
             <img
               src={resolveUploadUrl(contract.sellerSealUrl || contract.sealUrl)}
               alt="Muhr"
-              className="h-[215px] w-auto object-contain"
+              className="h-36 sm:h-[215px] w-auto object-contain"
             />
           </div>
         )}
@@ -81,7 +81,7 @@ export const SpecSignatures = React.memo(function SpecSignatures({ contract }: S
   return (
     <div className="space-y-4 w-full">
       <div className="text-sm font-semibold text-gray-700">Подписи сторон</div>
-      <div className="grid gap-4 w-full" style={{ gridTemplateColumns: `repeat(${participants.length}, 1fr)` }}>
+      <div className="grid grid-cols-1 md:[grid-template-columns:repeat(var(--cols),1fr)] gap-4 w-full" style={{ '--cols': participants.length } as React.CSSProperties}>
         {participants.map((p) => (
           <div key={`${p.label}-${p.name}`} className="p-3 space-y-2 min-w-0 flex flex-col">
             <div className="text-sm font-semibold text-gray-800">{p.label}</div>

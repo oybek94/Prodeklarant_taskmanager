@@ -1,8 +1,12 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Icon } from '@iconify/react';
 import toast from 'react-hot-toast';
 import { CopyIconButton } from '../CopyIconButton';
 import type { ViewTab } from './types';
+import { useIsMobile } from '../../utils/useIsMobile';
+
+/** Telefonda shuncha qatordan ko'pi "Yana N ta" tugmasi ostiga yig'iladi */
+const MOBILE_COLLAPSED_ROWS = 5;
 
 interface InvoiceAdditionalInfoDisplayProps {
   form: any;
@@ -32,6 +36,8 @@ export const InvoiceAdditionalInfoDisplay: React.FC<InvoiceAdditionalInfoDisplay
   setShowAdditionalInfoModal,
   additionalFieldsOrder,
 }) => {
+  const isMobile = useIsMobile();
+  const [expanded, setExpanded] = useState(false);
   const fieldOrder = useMemo(() => {
     const order = additionalFieldsOrder ? [...additionalFieldsOrder] : [];
     const baseFields = ['shipmentPlace', 'destination', 'origin', 'manufacturer', 'orderNumber', 'gln', 'temperature', 'harvestYear'];
@@ -148,11 +154,15 @@ export const InvoiceAdditionalInfoDisplay: React.FC<InvoiceAdditionalInfoDisplay
     }
   };
 
+  const collapsible = isMobile && rows.length > MOBILE_COLLAPSED_ROWS;
+  const visibleRows = collapsible && !expanded ? rows.slice(0, MOBILE_COLLAPSED_ROWS) : rows;
+  const hiddenCount = rows.length - visibleRows.length;
+
   return (
     <div className="invoice-additional-info-card mb-0 overflow-hidden rounded-2xl border border-[#E3E5EE] bg-white">
-      <div className="flex items-center justify-between gap-4 border-b border-[#ECEEF4] px-6 py-3.5">
-        <div className="flex min-w-0 items-center gap-3">
-          <h3 className="m-0 text-lg font-semibold leading-tight tracking-tight text-[#151827]">Дополнительная информация</h3>
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-[#ECEEF4] px-3 py-2.5 sm:px-6 sm:py-3.5">
+        <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+          <h3 className="m-0 text-base font-semibold leading-tight tracking-tight text-[#151827] sm:text-lg">Дополнительная информация</h3>
           <span className="no-screenshot flex h-6 shrink-0 items-center rounded-full bg-[#EEF0FB] px-2.5 text-xs font-semibold text-[#3F3BC4]">
             {rows.length} ta maydon
           </span>
@@ -164,7 +174,7 @@ export const InvoiceAdditionalInfoDisplay: React.FC<InvoiceAdditionalInfoDisplay
               onClick={copyAddress}
               aria-label="Manzilni nusxalash"
               title="Грузополучатель manzili + по поручению + Покупатель nomi + Покупатель manzili"
-              className={`inline-flex h-10 w-10 items-center justify-center rounded-[10px] text-white transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 ${
+              className={`inline-flex h-9 w-9 items-center justify-center rounded-[10px] text-white transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 sm:h-10 sm:w-10 ${
                 addressCopySuccess ? 'bg-green-600' : 'bg-indigo-600 hover:bg-indigo-700'
               }`}
             >
@@ -174,7 +184,7 @@ export const InvoiceAdditionalInfoDisplay: React.FC<InvoiceAdditionalInfoDisplay
           <button
             type="button"
             onClick={() => setShowAdditionalInfoModal(true)}
-            className="inline-flex h-10 items-center gap-2 rounded-[10px] border border-[#D5D8E6] bg-white px-4 text-sm font-semibold text-[#151827] transition-colors hover:bg-gray-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
+            className="inline-flex h-9 items-center gap-2 rounded-[10px] border border-[#D5D8E6] bg-white px-3 text-sm font-semibold text-[#151827] transition-colors hover:bg-gray-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 sm:h-10 sm:px-4"
           >
             <Icon icon="solar:pen-bold-duotone" className="h-4 w-4" />
             Tahrirlash
@@ -183,14 +193,14 @@ export const InvoiceAdditionalInfoDisplay: React.FC<InvoiceAdditionalInfoDisplay
       </div>
 
       {rows.length > 0 && (
-        <dl className="m-0 px-6 pb-1 pt-0">
-          {rows.map((row) => (
+        <dl className="m-0 px-3 pb-1 pt-0 sm:px-6">
+          {visibleRows.map((row) => (
             <div
               key={row.key}
-              className="flex min-h-8 items-center gap-4 border-b border-[#F0F1F6] py-1 last:border-b-0"
+              className="flex flex-col gap-0 border-b border-[#F0F1F6] py-1.5 last:border-b-0 sm:min-h-8 sm:flex-row sm:items-center sm:gap-4 sm:py-1"
             >
-              <dt className="w-[300px] shrink-0 text-sm leading-snug text-[#5B6178]">{row.label}:</dt>
-              <dd className="m-0 flex min-w-0 flex-1 items-center gap-2.5 text-[15px] font-medium leading-snug text-[#151827]">
+              <dt className="text-xs leading-snug text-[#5B6178] sm:w-[300px] sm:shrink-0 sm:text-sm">{row.label}:</dt>
+              <dd className="m-0 flex min-w-0 flex-1 items-center gap-2.5 text-sm font-medium leading-snug text-[#151827] sm:text-[15px]">
                 <span className="min-w-0 break-words">{row.value}</span>
                 {row.copyText && (
                   <span className="no-screenshot">
@@ -205,6 +215,18 @@ export const InvoiceAdditionalInfoDisplay: React.FC<InvoiceAdditionalInfoDisplay
             </div>
           ))}
         </dl>
+      )}
+
+      {collapsible && (
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          aria-expanded={expanded}
+          className="no-screenshot flex w-full items-center justify-center gap-1.5 border-t border-[#F0F1F6] py-2 text-sm font-medium text-indigo-600"
+        >
+          <Icon icon={expanded ? 'solar:alt-arrow-up-linear' : 'solar:alt-arrow-down-linear'} className="h-4 w-4" />
+          {expanded ? 'Yig\'ish' : `Yana ${hiddenCount} ta maydon`}
+        </button>
       )}
     </div>
   );

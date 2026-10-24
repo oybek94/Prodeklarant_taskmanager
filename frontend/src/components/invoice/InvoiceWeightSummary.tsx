@@ -34,7 +34,7 @@ export const InvoiceWeightSummary = React.memo(function InvoiceWeightSummary({ i
 
   return (
     <div className="mt-4 flex flex-wrap gap-4">
-      <div className="relative p-3 bg-gray-100 rounded-lg border border-gray-200 text-sm w-1/2">
+      <div className="relative p-3 bg-gray-100 rounded-lg border border-gray-200 text-sm w-full md:w-1/2">
         <span className="absolute top-1.5 right-1.5">
           <InvoiceFieldHint field="weightSummary" />
         </span>

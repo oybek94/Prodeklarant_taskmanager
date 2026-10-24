@@ -261,17 +261,17 @@ export function AdditionalInfoModal({
   };
 
   return (
-    <motion.div className="invoice-additional-info-modal fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }}>
+    <motion.div className="invoice-additional-info-modal fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-2 sm:p-4" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }}>
       <motion.div className={`bg-white rounded-2xl shadow-2xl w-full max-w-[720px] max-h-[90vh] flex flex-col overflow-hidden${!canEditEffective ? ' invoice-additional-info-modal-readonly' : ''}`} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 16 }} transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}>
         {/* Sticky sarlavha */}
-        <div className="flex items-center justify-between gap-4 px-6 py-[18px] border-b border-[#ECEEF4] shrink-0">
+        <div className="flex items-center justify-between gap-4 px-4 sm:px-6 py-3.5 sm:py-[18px] border-b border-[#ECEEF4] shrink-0">
           <div className="flex min-w-0 items-center gap-3.5">
             <div className="w-10 h-10 rounded-xl bg-[#EEF0FB] text-indigo-600 flex items-center justify-center shrink-0">
               <Icon icon="solar:clipboard-list-bold-duotone" className="w-5 h-5" />
             </div>
             <div className="flex min-w-0 flex-col gap-0.5">
               <h2 className="m-0 text-[19px] font-semibold leading-tight tracking-tight text-[#151827]">Дополнительная информация</h2>
-              <span className="text-[13px] text-[#6A7088]">Invoysda ko&apos;rinadigan maydonlar va transport ma&apos;lumotlari</span>
+              <span className="hidden sm:block text-[13px] text-[#6A7088]">Invoysda ko&apos;rinadigan maydonlar va transport ma&apos;lumotlari</span>
             </div>
           </div>
           <button type="button" onClick={onClose} aria-label="Yopish" className="w-9 h-9 flex items-center justify-center text-[#7A8098] hover:text-[#151827] hover:bg-gray-100 rounded-[10px] transition-colors shrink-0" title="Yopish">
@@ -280,7 +280,7 @@ export function AdditionalInfoModal({
         </div>
 
         {/* Scroll qismi */}
-        <div className="flex-1 overflow-y-auto px-6 pt-2 pb-6">
+        <div className="flex-1 overflow-y-auto px-4 sm:px-6 pt-2 pb-6">
           {/* ===== Поставка ===== */}
           <SectionCard icon="solar:delivery-bold-duotone" title="Поставка">
             {/* Условия поставки */}
@@ -520,7 +520,7 @@ export function AdditionalInfoModal({
               </FieldBlock>
             </div>
 
-            <div className="grid grid-cols-3 gap-3.5">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
               <FieldBlock compact label="Yuk tortuvchi" hint="loaderWeight">
                 <input type="number" min={0} step="any" value={form.loaderWeight} onChange={(e) => setForm({ ...form, loaderWeight: e.target.value })} className={inputCompactCls + ' text-right'} placeholder="кг" />
               </FieldBlock>
@@ -664,7 +664,7 @@ export function AdditionalInfoModal({
         </div>
 
         {/* Sticky footer */}
-        <div className="flex items-center justify-end gap-2.5 px-6 py-3.5 border-t border-[#ECEEF4] shrink-0 bg-white">
+        <div className="flex items-center justify-end gap-2.5 px-4 sm:px-6 py-3 sm:py-3.5 border-t border-[#ECEEF4] shrink-0 bg-white">
           <button type="button" onClick={onClose} className="h-10 px-[18px] border border-[#D5D8E6] bg-white text-sm text-[#151827] font-semibold rounded-[10px] hover:bg-gray-50 transition-colors">
             Yopish
           </button>
@@ -749,8 +749,8 @@ function FieldBlock({
 }) {
   if (inline) {
     return (
-      <div className="flex items-center gap-2.5">
-        <div className="w-[200px] shrink-0 flex items-center gap-1">
+      <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 sm:flex-nowrap">
+        <div className="w-full sm:w-[200px] shrink-0 flex items-center gap-1">
           <label className="min-w-0 text-[13px] text-[#5B6178] leading-tight" title={label}>
             {label}
             {required && <span className="text-red-500 ml-0.5">*</span>}

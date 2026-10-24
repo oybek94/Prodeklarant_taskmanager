@@ -769,7 +769,7 @@ const Invoice = () => {
 
     <div className="min-h-full bg-gray-50 py-2 sm:py-8">
 
-      <div className="max-w-6xl mx-auto px-4">
+      <div className="max-w-6xl mx-auto px-2 sm:px-4">
         {/* Invoice tahrirlash konflikti xabari */}
         <InvoiceConflictWarning editors={editingConflictEditors} />
 
@@ -839,7 +839,7 @@ const Invoice = () => {
 
           <div
             ref={invoiceRef}
-            className={`flex flex-col bg-white ${isPdfMode ? 'px-10 pt-8 pb-6 pdf-mode' : 'rounded-lg shadow-lg px-4 md:px-14 pt-6 md:pt-10 pb-6 md:pb-8'}`}
+            className={`flex flex-col bg-white ${isPdfMode ? 'px-10 pt-8 pb-6 pdf-mode' : 'rounded-lg shadow-lg px-3 sm:px-4 md:px-14 pt-4 md:pt-10 pb-6 md:pb-8'}`}
             style={{ 
               minWidth: isPdfMode ? '950px' : undefined,
             }}
@@ -872,7 +872,7 @@ const Invoice = () => {
                 />
 
                 {/* Ajratuvchi chiziq */}
-                <div className="border-t-[1.5px] border-gray-400 my-6"></div>
+                <div className="border-t-[1.5px] border-gray-400 my-4 md:my-6"></div>
 
                 {/* Sotuvchi va Sotib oluvchi Info */}
                 <InvoiceParties

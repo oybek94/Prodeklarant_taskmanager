@@ -27,10 +27,10 @@ export const InvoicePriceList: React.FC<InvoicePriceListProps> = React.memo(({
   const displayCurrency = contract?.contractCurrency || form.currency || 'USD';
 
   return (
-    <div className={`w-full px-10 ${isPdfMode ? 'pt-24' : 'pt-10'}`}>
+    <div className={`w-full ${isPdfMode ? 'px-10 pt-24' : 'px-0 pt-2 md:px-10 md:pt-10'}`}>
 
       {/* ===== HEADER (InvoiceHeader uslubida) ===== */}
-      <div className="flex justify-between items-start w-full mb-0 invoice-header">
+      <div className="flex flex-col md:flex-row justify-between items-start w-full mb-0 invoice-header gap-3 md:gap-0">
         {/* Left side */}
         <div className="flex-1 min-w-0 pr-4">
           <div className="space-y-2 mb-4">
@@ -67,10 +67,10 @@ export const InvoicePriceList: React.FC<InvoicePriceListProps> = React.memo(({
         </div>
 
         {/* Right: Title */}
-        <div className="flex-1 min-w-0 pl-4 text-right">
+        <div className="flex-1 min-w-0 md:pl-4 md:text-right order-first md:order-none">
           <h1 
             className="font-bold text-gray-800 dark:text-gray-100 mb-6"
-            style={{ fontSize: isPdfMode ? '64px' : '3.75rem', lineHeight: 1 }}
+            style={{ fontSize: isPdfMode ? '64px' : 'clamp(1.75rem, 8vw, 3.75rem)', lineHeight: 1 }}
           >
             ПРАЙС-ЛИСТ
           </h1>
@@ -114,7 +114,7 @@ export const InvoicePriceList: React.FC<InvoicePriceListProps> = React.memo(({
 
       {/* ===== TABLE (InvoiceItemsTable readonly uslubida) ===== */}
       {/* Jadval kichikroq, markazda, tepadan va pastdan erkin joy bilan */}
-      <div className="mt-44 mb-16 mx-auto" style={{ maxWidth: '85%' }}>
+      <div className="mt-8 md:mt-44 mb-8 md:mb-16 mx-auto md:max-w-[85%]" style={isPdfMode ? { maxWidth: '85%' } : undefined}>
         <div className="overflow-x-auto">
           <table className="w-full text-lg items-table-compact pricelist-table border-collapse border border-black">
             <thead className="text-left">
@@ -161,7 +161,7 @@ export const InvoicePriceList: React.FC<InvoicePriceListProps> = React.memo(({
 
       {/* ===== SIGNATURES (InvoiceSignatures uslubida) ===== */}
       {contract?.supplierDirector && (
-        <div className="mt-40 mb-8 space-y-3">
+        <div className="mt-10 md:mt-40 mb-8 space-y-3">
           <div className="flex flex-row flex-wrap gap-4 items-start">
             <div className="space-y-3">
               <div className="space-y-1">
@@ -175,7 +175,7 @@ export const InvoicePriceList: React.FC<InvoicePriceListProps> = React.memo(({
                   <img
                     src={resolveUploadUrl(contract.sellerSignatureUrl || contract.signatureUrl)}
                     alt="Imzo"
-                    className="h-[90px] w-auto object-contain"
+                    className="h-16 sm:h-[90px] w-auto object-contain"
                     crossOrigin="anonymous"
                   />
                 </div>
@@ -185,7 +185,7 @@ export const InvoicePriceList: React.FC<InvoicePriceListProps> = React.memo(({
                   <img
                     src={resolveUploadUrl(contract.sellerSealUrl || contract.sealUrl)}
                     alt="Muhr"
-                    className="h-[215px] w-auto object-contain"
+                    className="h-36 sm:h-[215px] w-auto object-contain"
                     crossOrigin="anonymous"
                   />
                 </div>

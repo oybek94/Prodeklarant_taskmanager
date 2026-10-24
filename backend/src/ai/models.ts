@@ -14,11 +14,6 @@ export function translationModel(): string {
   return process.env.OPENAI_TRANSLATION_MODEL ?? DEFAULT_EXTRACTION_MODEL;
 }
 
-/** CRM tahlili (lid bali, xulosa, dashboard, xabar) va suhbat tahlili */
-export function crmModel(): string {
-  return process.env.OPENAI_CRM_MODEL ?? 'gpt-6-luna';
-}
-
 /** Ma'lumot yordamchisi — SQL yozadi, shuning uchun kuchliroq model */
 export function assistantModel(): string {
   return process.env.OPENAI_ASSISTANT_MODEL ?? 'gpt-6-sol';

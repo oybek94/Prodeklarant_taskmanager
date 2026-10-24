@@ -9,9 +9,8 @@ const imagesDir = path.join(uploadsDir, 'images');
 const videosDir = path.join(uploadsDir, 'videos');
 const audiosDir = path.join(uploadsDir, 'audios');
 const documentsDir = path.join(uploadsDir, 'documents');
-const conversationsDir = path.join(uploadsDir, 'conversations');
 
-[uploadsDir, imagesDir, videosDir, audiosDir, documentsDir, conversationsDir].forEach(dir => {
+[uploadsDir, imagesDir, videosDir, audiosDir, documentsDir].forEach(dir => {
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
@@ -30,8 +29,6 @@ const storage = multer.diskStorage({
       uploadPath = audiosDir;
     } else if (file.fieldname === 'document' || file.fieldname === 'documents') {
       uploadPath = documentsDir;
-    } else if (file.fieldname === 'conversation') {
-      uploadPath = conversationsDir;
     }
     
     cb(null, uploadPath);
@@ -136,5 +133,4 @@ export const uploadVideo = upload.single('video');
 export const uploadAudio = upload.single('audio');
 export const uploadDocument = upload.single('document');
 export const uploadDocuments = upload.array('documents', 10);
-export const uploadConversation = upload.single('conversation');
 

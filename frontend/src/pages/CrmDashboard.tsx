@@ -56,8 +56,6 @@ export default function CrmDashboard() {
     const isMobile = useIsMobile();
     const [stats, setStats] = useState<Stats | null>(null);
     const [loading, setLoading] = useState(true);
-    const [insights, setInsights] = useState<{ trend: string; forecast: string; anomaly: string } | null>(null);
-    const [loadingInsights, setLoadingInsights] = useState(false);
 
     useEffect(() => {
         apiClient
@@ -68,18 +66,6 @@ export default function CrmDashboard() {
             .catch(console.error)
             .finally(() => setLoading(false));
     }, []);
-
-    const fetchInsights = async (data: Stats) => {
-        setLoadingInsights(true);
-        try {
-            const res = await apiClient.post('/ai/crm/insights', { stats: data });
-            setInsights(res.data.data);
-        } catch (e) {
-            console.error('Failed to load AI insights', e);
-        } finally {
-            setLoadingInsights(false);
-        }
-    };
 
     const isDark = theme === 'dark';
     const gridColor = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)';
@@ -134,64 +120,6 @@ export default function CrmDashboard() {
                     <Icon icon="solar:target-bold-duotone" className="w-4 h-4" />
                     Lidlar ro'yxati
                 </button>
-            </div>
-
-            {/* AI Insights Widget */}
-            <div className="bg-gradient-to-r from-indigo-500 to-blue-600 rounded-3xl p-6 sm:p-8 text-white shadow-lg relative overflow-hidden">
-                <div className="absolute top-0 right-0 p-6 opacity-20">
-                    <Icon icon="solar:magic-stick-3-bold-duotone" className="w-24 h-24" />
-                </div>
-                <div className="relative z-10">
-                    <h2 className="text-xl font-bold flex items-center gap-2 mb-6">
-                        <Icon icon="solar:chat-round-dots-bold-duotone" className="w-6 h-6" />
-                        AI Tahlili va Bashorat
-                    </h2>
-                    {loadingInsights ? (
-                        <div className="flex items-center gap-3 animate-pulse">
-                            <Icon icon="solar:refresh-bold-duotone" className="w-5 h-5 animate-spin" />
-                            <p className="text-indigo-100">Ma'lumotlar tahlil qilinmoqda, kuting...</p>
-                        </div>
-                    ) : insights ? (
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                            <div className="bg-white/10 backdrop-blur-md rounded-2xl p-5 border border-white/20">
-                                <div className="flex items-center gap-2 mb-2 text-indigo-100">
-                                    <Icon icon="solar:graph-up-bold-duotone" className="w-4 h-4" />
-                                    <h3 className="font-semibold">Tendensiya (Trend)</h3>
-                                </div>
-                                <p className="text-sm leading-relaxed">{insights.trend}</p>
-                            </div>
-                            <div className="bg-white/10 backdrop-blur-md rounded-2xl p-5 border border-white/20">
-                                <div className="flex items-center gap-2 mb-2 text-emerald-300">
-                                    <Icon icon="solar:target-bold-duotone" className="w-4 h-4" />
-                                    <h3 className="font-semibold">Bashorat</h3>
-                                </div>
-                                <p className="text-sm leading-relaxed">{insights.forecast}</p>
-                            </div>
-                            <div className="bg-white/10 backdrop-blur-md rounded-2xl p-5 border border-white/20">
-                                <div className="flex items-center gap-2 mb-2 text-rose-300">
-                                    <Icon icon="solar:danger-circle-bold-duotone" className="w-4 h-4" />
-                                    <h3 className="font-semibold">Kuzatuv (Anomaliya)</h3>
-                                </div>
-                                <p className="text-sm leading-relaxed">{insights.anomaly}</p>
-                            </div>
-                        </div>
-                    ) : (
-                        <div>
-                            <p className="text-indigo-100 mb-4 leading-relaxed">
-                                Jami qo'ng'iroqlar tendensiyasi, navbatdagi uchrashuv holatlari va sotuv konversiyasini tahlil qilib, 
-                                sun'iy intellektdan aniq bashorat (forecast) lar olish uchun quyidagi tugmani bosing.
-                            </p>
-                            <button
-                                onClick={() => stats && fetchInsights(stats)}
-                                disabled={loadingInsights}
-                                className="bg-white text-indigo-600 hover:bg-white/90 active:scale-95 font-bold py-2.5 px-6 rounded-xl shadow-sm transition-all flex items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
-                            >
-                                <Icon icon="solar:magic-stick-3-bold-duotone" className="w-5 h-5" />
-                                AI tahlilni boshlash
-                            </button>
-                        </div>
-                    )}
-                </div>
             </div>
 
             {/* KPI Cards */}

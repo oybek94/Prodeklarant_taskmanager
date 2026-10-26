@@ -183,7 +183,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
             <thead>
               <tr>
                 <th className={`${TH} !pl-5`}>Invoys</th>
-                <th className={TH}>Mijoz / shartnoma</th>
+                <th className={TH}>Mijoz / jo'natuvchi → qabul qiluvchi</th>
                 <th className={TH}>Filial</th>
                 <th className={TH}>Avto</th>
                 <th className={TH}>Izoh</th>
@@ -200,6 +200,9 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                 const parties = [invoice.contract?.shipperName || invoice.contract?.sellerName, invoice.contract?.buyerName, invoice.contract?.consigneeName]
                   .filter(Boolean)
                   .join(' / ');
+                const sender = invoice.contract?.shipperName || invoice.contract?.sellerName;
+                const receiver = invoice.contract?.consigneeName || invoice.contract?.buyerName;
+                const senderReceiver = [sender, receiver].filter(Boolean).join(' → ');
                 const vehicle = invoice.additionalInfo?.vehicleNumber;
                 return (
                   <tr
@@ -216,7 +219,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                     </td>
                     <td className="py-2 px-3 max-w-[280px]" title={parties || undefined}>
                       <div className="font-semibold text-[#151A22] dark:text-gray-100 truncate">{invoice.client?.name || '-'}</div>
-                      {invoice.clientId && invoice.contractNumber ? (
+                      {invoice.clientId && invoice.contractId && senderReceiver ? (
                         <button
                           type="button"
                           onClick={() => {
@@ -225,11 +228,11 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                           }}
                           className="block max-w-full text-left text-xs text-[#5B6472] dark:text-gray-400 mt-0.5 hover:text-[#0B6E6E] dark:hover:text-[#5FD0C8] hover:underline truncate"
                         >
-                          Shartnoma {invoice.contractNumber}
+                          {senderReceiver}
                         </button>
                       ) : (
-                        <div className="text-xs text-[#5B6472] dark:text-gray-400 mt-0.5">
-                          {invoice.contractNumber ? `Shartnoma ${invoice.contractNumber}` : '—'}
+                        <div className="text-xs text-[#5B6472] dark:text-gray-400 mt-0.5 truncate">
+                          {senderReceiver || '—'}
                         </div>
                       )}
                     </td>

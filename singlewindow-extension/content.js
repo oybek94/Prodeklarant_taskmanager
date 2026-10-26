@@ -765,6 +765,18 @@ function delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+// Qat'iy `delay` o'rniga: shart bajarilishi bilan davom etadi, bajarilmasa
+// `timeout` dan keyin null qaytaradi (chaqiruvchi eski xatti-harakatda qoladi)
+async function waitUntil(condition, timeout = 3000, interval = 30) {
+    const deadline = Date.now() + timeout;
+    for (;;) {
+        const result = condition();
+        if (result) return result;
+        if (Date.now() >= deadline) return null;
+        await delay(interval);
+    }
+}
+
 // Qattiq (majburiy) bosish funksiyasi (barcha frameworklarni chetlab o'tishga harakat)
 function forceCheck(element) {
     if (!element) return;
@@ -1211,12 +1223,13 @@ async function karantinOpenSelect(container) {
     const select = container.querySelector('.ant-select');
     const selector = container.querySelector('.ant-select-selector');
     if (!select || !selector) return false;
+    const isOpen = () => select.classList.contains('ant-select-open');
     for (let attempt = 0; attempt < 4; attempt++) {
-        if (select.classList.contains('ant-select-open')) return true;
+        if (isOpen()) return true;
         selector.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
-        await delay(300);
+        if (await waitUntil(isOpen, 400)) return true;
     }
-    return select.classList.contains('ant-select-open');
+    return isOpen();
 }
 
 // Escape bu saytda oynani yopish tasdig'ini chaqiradi, shuning uchun ro'yxat
@@ -1225,8 +1238,17 @@ async function karantinCloseSelect(container) {
     const select = container.querySelector('.ant-select');
     if (select && select.classList.contains('ant-select-open')) {
         container.querySelector('.ant-select-selector').dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
-        await delay(200);
+        await waitUntil(() => !select.classList.contains('ant-select-open'), 300);
     }
+}
+
+// Qidiruv oynalari uchun: jadval qatorlari o'zgarganini va yuklanish tugaganini aniqlash
+function karantinRowsSignature(root) {
+    return [...root.querySelectorAll('tbody tr')].map(row => row.innerText).join('|');
+}
+
+function karantinBusy(root) {
+    return !!root.querySelector('.ant-spin-spinning');
 }
 
 // Ochiq antd Select ro'yxatidan kerakli variantni topib bosadi.
@@ -1237,10 +1259,13 @@ async function karantinChooseInOpenSelect(container, wanted, label) {
     if (targets.length === 0) return `${label}: qiymat yo'q`;
 
     const input = container.querySelector('input');
-    const list = input && document.getElementById(`${input.id}_list`);
+    const list = input && await waitUntil(() => document.getElementById(`${input.id}_list`), 1000);
     if (!list) return `${label}: ro'yxat topilmadi`;
     const dropdown = list.closest('.ant-select-dropdown');
     const holder = dropdown.querySelector('.rc-virtual-list-holder');
+
+    // Variantlar chizilmasdan surish boshlansa, ro'yxat bo'sh ko'rinib "topilmadi" chiqadi
+    await waitUntil(() => dropdown.querySelector('.ant-select-item-option'), 1000);
 
     const findMatch = () => {
         const items = [...dropdown.querySelectorAll('.ant-select-item-option')];
@@ -1248,16 +1273,20 @@ async function karantinChooseInOpenSelect(container, wanted, label) {
         if (index === -1) index = items.findIndex(el => targets.some(t => karantinNorm(el.innerText).startsWith(t)));
         return index === -1 ? null : items[index];
     };
+    const renderedSignature = () => [...dropdown.querySelectorAll('.ant-select-item-option')]
+        .map(el => el.innerText).join('|');
 
     let match = null;
     for (let step = 0; step < 40; step++) {
         match = findMatch();
         if (match || !holder) break;
         const before = holder.scrollTop;
+        const signature = renderedSignature();
         holder.scrollTop = before + holder.clientHeight * 0.8;
         holder.dispatchEvent(new Event('scroll', { bubbles: true }));
-        await delay(120);
+        // scrollTop sinxron o'zgaradi: surilmagan bo'lsa ro'yxat oxiriga yetgan
         if (holder.scrollTop <= before) break;
+        await waitUntil(() => renderedSignature() !== signature, 250, 15);
     }
 
     if (!match) {
@@ -1267,7 +1296,10 @@ async function karantinChooseInOpenSelect(container, wanted, label) {
 
     match.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
     match.click();
-    await delay(300);
+    // Tanlangach ro'yxat yopiladi; React formani qayta chizishga ulgurishi uchun qisqa pauza
+    const select = container.querySelector('.ant-select');
+    await waitUntil(() => !select.classList.contains('ant-select-open'), 500);
+    await delay(60);
     return null;
 }
 
@@ -1303,15 +1335,18 @@ async function karantinSetDate(labelText, isoDate, root) {
     el.focus();
     el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
     el.click();
-    await delay(350);
+    const openPanel = () => document.querySelector('.ant-picker-dropdown:not(.ant-picker-dropdown-hidden)');
+    await waitUntil(openPanel, 800);
     karantinSetInput(el, isoDate);
-    await delay(500);
 
-    const panel = document.querySelector('.ant-picker-dropdown:not(.ant-picker-dropdown-hidden)');
-    const cell = panel && panel.querySelector(`td[title="${isoDate}"]`);
+    const cell = await waitUntil(() => {
+        const panel = openPanel();
+        return panel && panel.querySelector(`td[title="${isoDate}"]`);
+    }, 1000);
     if (!cell) return `${labelText}: sana katagi topilmadi`;
     (cell.querySelector('.ant-picker-cell-inner') || cell).click();
-    await delay(350);
+    // Ochiq qolgan panel keyingi bosishni yutadi — qiymat yozilib, panel yopilguncha kutiladi
+    await waitUntil(() => el.value === isoDate && !openPanel(), 800);
     return el.value === isoDate ? null : `${labelText}: sana yozilmadi`;
 }
 
@@ -1337,32 +1372,42 @@ async function karantinPickProduct(card, tnved, name) {
 
     trigger.click();
 
-    let picker = null;
-    for (let attempt = 0; attempt < 15 && !picker; attempt++) {
-        await delay(200);
-        picker = allPickers().find(el => !before.has(el)) || null;
-    }
-    // Karta oynasi allaqachon yaratilgan bo'lsa (qayta to'ldirish) — oxirgisi
-    if (!picker) picker = allPickers().pop() || null;
+    const picker = await waitUntil(() => allPickers().find(el => !before.has(el)), 3000)
+        // Karta oynasi allaqachon yaratilgan bo'lsa (qayta to'ldirish) — oxirgisi
+        || allPickers().pop() || null;
     if (!picker) return "Mahsulot tanlash oynasi ochilmadi";
 
     // Oyna ochiq qolsa formaning qolgan qismini to'sib qo'yadi
     const closePicker = async () => {
         const closeBtn = picker.querySelector('.ant-modal-close');
-        if (closeBtn) { closeBtn.click(); await delay(400); }
+        if (closeBtn) {
+            closeBtn.click();
+            await waitUntil(() => picker.offsetParent === null, 600);
+        }
     };
 
     const search = picker.querySelector('input');
     if (!search) { await closePicker(); return "Mahsulot qidiruv maydoni topilmadi"; }
-    karantinSetInput(search, query);
-    await delay(1500);
 
-    const rows = [...picker.querySelectorAll('tbody tr')].filter(row => row.querySelectorAll('td').length >= 3);
+    const isFullCode = /^\d{8,}$/.test(query);
+    const productRows = () => [...picker.querySelectorAll('tbody tr')].filter(row => row.querySelectorAll('td').length >= 3);
+    const findExact = () => productRows().find(row => row.querySelectorAll('td')[1].innerText.trim() === query);
+    const signature = karantinRowsSignature(picker);
+    karantinSetInput(search, query);
+    // To'liq kodda aniq qator chiqishi o'zi yetarli signal. Nom bo'yicha qidiruvda
+    // esa eski (filtrlanmagan) ro'yxatni o'qib qo'ymaslik uchun jadval yangilanib,
+    // yuklanish tugashi kutiladi.
+    if (isFullCode) {
+        await waitUntil(findExact, 2500);
+    } else {
+        await waitUntil(() => karantinRowsSignature(picker) !== signature && !karantinBusy(picker), 2000);
+    }
+
+    const rows = productRows();
     // Jadvalning 2-ustuni — TIF TN. To'liq kod bo'yicha faqat aniq moslik olinadi:
     // aks holda jimgina boshqa mahsulot tanlanib qolishi mumkin. Kod qisqa yoki
     // nom bo'yicha qidirilganda esa birinchi qator olinadi.
-    const isFullCode = /^\d{8,}$/.test(query);
-    const exact = rows.find(row => row.querySelectorAll('td')[1].innerText.trim() === query);
+    const exact = findExact();
     const target = exact || (isFullCode ? null : rows[0]);
     if (!target) {
         await closePicker();
@@ -1370,7 +1415,8 @@ async function karantinPickProduct(card, tnved, name) {
     }
 
     target.click();
-    await delay(600);
+    await waitUntil(() => trigger.value, 1500);
+    await delay(150);
     if (trigger.value) return null;
     await closePicker();
     return `Mahsulot: "${query}" tanlanmadi`;
@@ -1406,10 +1452,7 @@ async function karantinPickImporter(modal, name) {
     let picker = importerPicker();
     if (!picker) {
         trigger.click();
-        for (let attempt = 0; attempt < 15 && !picker; attempt++) {
-            await delay(200);
-            picker = importerPicker();
-        }
+        picker = await waitUntil(importerPicker, 3000);
     }
     if (!picker) return "Importerlar oynasi ochilmadi";
 
@@ -1417,7 +1460,10 @@ async function karantinPickImporter(modal, name) {
     const closePicker = async () => {
         if (picker.offsetParent === null || /-leave/.test(picker.className)) return;
         const btn = picker.querySelector('.ant-modal-close');
-        if (btn) { btn.click(); await delay(400); }
+        if (btn) {
+            btn.click();
+            await waitUntil(() => picker.offsetParent === null, 600);
+        }
     };
 
     const inputs = [...picker.querySelectorAll('input')];
@@ -1434,8 +1480,11 @@ async function karantinPickImporter(modal, name) {
     let lastSeen = [];
 
     for (const query of karantinImporterQueries(name)) {
+        // Eski (oldingi so'rov yoki filtrlanmagan) natijani o'qib qo'ymaslik uchun
+        // jadval yangilanib, yuklanish tugashi kutiladi
+        const signature = karantinRowsSignature(picker);
         karantinSetInput(search, query);
-        await delay(1500);
+        await waitUntil(() => karantinRowsSignature(picker) !== signature && !karantinBusy(picker), 1800);
 
         const rows = [...picker.querySelectorAll('tbody tr')].filter(row => row.querySelectorAll('td').length >= 2);
         if (rows.length === 0) continue;
@@ -1457,7 +1506,7 @@ async function karantinPickImporter(modal, name) {
         const chosen = rowName(target);
         target.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
         target.click();
-        await delay(800);
+        await waitUntil(() => karantinNorm(trigger.value) === karantinNorm(chosen), 1500);
         await closePicker();
         if (karantinNorm(trigger.value) === karantinNorm(chosen)) return null;
         return `Importer "${name}" tanlanmadi`;
@@ -1522,7 +1571,7 @@ async function fillKarantinIchkiFss(data) {
     }
 
     // Davlat tanlangandan keyingina "Importer nomi" ro'yxatli maydonga aylanadi
-    await delay(400);
+    await waitUntil(() => modal.querySelector('[name="importer_name"]')?.readOnly, 1500);
     push(await karantinPickImporter(modal, data.IMPPN_NM));
 
     // 2. Shartnoma sanasi. Ochiq qolgan sana paneli keyingi bosishni yutadi,
@@ -1563,7 +1612,7 @@ async function fillKarantinIchkiFss(data) {
                     .find(btn => karantinNorm(btn.innerText).includes("mahsulot qo'shish"));
                 if (!addBtn) { warnings.push(`#${index + 1} mahsulot: qo'shish tugmasi topilmadi`); break; }
                 addBtn.click();
-                await delay(700);
+                await waitUntil(() => modal.querySelectorAll('.product-card').length > index, 1500);
                 cards = [...modal.querySelectorAll('.product-card')];
             }
             const card = cards[index];
@@ -1576,7 +1625,7 @@ async function fillKarantinIchkiFss(data) {
                 `#${index + 1} to'ldirish darajasi`,
             );
             if (levelError) { warnings.push(levelError); continue; }
-            await delay(400);
+            await waitUntil(() => modal.querySelector(`[name="products.${index}.transport_number"]`), 1500);
 
             if (data.vehicleNumber) {
                 if (!karantinSetInputByName(`products.${index}.transport_number`, toSingleLine(data.vehicleNumber), modal)) {
@@ -1632,7 +1681,7 @@ const FUMIGATSIYA_DEFAULTS = {
     // Sayt o'zbek kirilida yozadi ("Олтиариқ"), karantinNorm қ→к keltiradi
     district: "Олтиарик тумани",
     tradeType: "Eksport",
-    objectType: "Yogoch mahsulotlari",
+    objectType: "Transport vositalari",
 };
 
 // "Yashil yo'lak" ma'lumot oynasi ham `.ant-modal` — ariza oynasi ichidagi
@@ -1660,7 +1709,10 @@ function fumigatsiyaSetSelect(el, optionText, label) {
     const wanted = karantinNorm(optionText);
     const option = [...el.options].find(o => karantinNorm(o.text) === wanted)
         || [...el.options].find(o => karantinNorm(o.text).startsWith(wanted));
-    if (!option) return `${label}: "${optionText}" ro'yxatda yo'q`;
+    if (!option) {
+        const available = [...el.options].map(o => o.text.trim()).filter(Boolean).join(', ');
+        return `${label}: "${optionText}" ro'yxatda yo'q (bor: ${available})`;
+    }
 
     const setter = Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, 'value')?.set;
     const previous = el.value;
@@ -1693,25 +1745,28 @@ async function fillFumigatsiya() {
     push(setText('Buyurtma beruvchi', FUMIGATSIYA_DEFAULTS.customerName));
     push(setList('Viloyat', FUMIGATSIYA_DEFAULTS.region));
 
-    // Tuman ro'yxati viloyat tanlangandan keyin serverdan yuklanadi —
-    // "Tanlang" dan boshqa variant paydo bo'lgunicha kutiladi
-    let districtReady = false;
-    for (let attempt = 0; attempt < 40 && !districtReady; attempt++) {
-        await delay(200);
+    // Tuman ro'yxati viloyat tanlangandan keyin serverdan yuklanadi — kerakli
+    // tuman paydo bo'lgunicha kutiladi (oldingi viloyatning eski ro'yxati
+    // "yuklangan" deb adashtirmasligi uchun "Tanlang" dan boshqa variant emas,
+    // aynan shu tumanning o'zi kutiladi)
+    const wantedDistrict = karantinNorm(FUMIGATSIYA_DEFAULTS.district);
+    await waitUntil(() => {
         const el = fumigatsiyaField('Tuman');
-        districtReady = !!(el && el.options.length > 1);
-    }
-    if (districtReady) {
+        return el && [...el.options].some(o => karantinNorm(o.text).startsWith(wantedDistrict));
+    }, 8000);
+    const districtEl = fumigatsiyaField('Tuman');
+    if (districtEl && districtEl.options.length > 1) {
         push(setList('Tuman', FUMIGATSIYA_DEFAULTS.district));
-        await delay(300);
     } else {
         warnings.push("Tuman: ro'yxat yuklanmadi");
     }
 
+    // Select o'zgarishi React formani qayta chizadi — keyingisidan oldin qisqa pauza
+    await delay(80);
     push(setList('Export/Import/Mahalliy', FUMIGATSIYA_DEFAULTS.tradeType));
-    await delay(300);
+    await delay(80);
     push(setList('Zararsizlantiriladigan', FUMIGATSIYA_DEFAULTS.objectType));
-    await delay(400);
+    await delay(150);
 
     // Ro'yxat tanlanganda React formani qayta chizadi — qiymatlar joyida
     // qolganini oxirida tekshiramiz

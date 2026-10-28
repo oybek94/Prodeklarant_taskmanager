@@ -102,7 +102,7 @@ const cases: Case[] = [
   ['filial: UZS, hiredWorkerRate', { clientCurrency: 'UZS', certConfig: { hiredWorkerRate: D(50000) } }, { branchId: 4 }],
   ["filial: davlat to'lovi yo'q", { statePayment: null, invoice: { id: 9, additionalInfo: null } }, { branchId: 4 }],
   ['boshqa xodim: faqat ish vaqtidan tashqari', {}, { afterHoursDeclaration: true, afterHoursPayer: 'COMPANY' }, { id: 99, name: 'Bek', role: 'DEKLARANT', branchId: 1 }],
-  ['boshqa xodim: sarlavha → 403', {}, { title: 'X' }, { id: 99, name: 'Bek', role: 'DEKLARANT', branchId: 1 }],
+  ['boshqa xodim: sarlavha → 200', {}, { title: 'X' }, { id: 99, name: 'Bek', role: 'DEKLARANT', branchId: 1 }],
   ['menejer: mijoz + telefon', {}, { clientId: 5, driverPhone: '+998' }, { id: 50, name: 'Men', role: 'MANAGER', branchId: 1 }],
   ['topilmadi', { task: null }, { title: 'X' }],
   ['validatsiya xatosi', {}, { title: '' }],

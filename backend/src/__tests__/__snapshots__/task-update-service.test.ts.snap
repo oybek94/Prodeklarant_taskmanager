@@ -45,14 +45,45 @@ exports[`updateTask — yon ta'sirlar > boshqa xodim: faqat ish vaqtidan tashqar
 }
 `;
 
-exports[`updateTask — yon ta'sirlar > boshqa xodim: sarlavha → 403 1`] = `
+exports[`updateTask — yon ta'sirlar > boshqa xodim: sarlavha → 200 1`] = `
 {
-  "effects": [],
+  "effects": [
+    [
+      "version",
+      1,
+      99,
+    ],
+    [
+      "task.update",
+      {
+        "data": {
+          "title": "X",
+          "updatedById": 99,
+        },
+        "where": {
+          "id": 1,
+        },
+      },
+    ],
+    [
+      "socket",
+      99,
+      "task:updated",
+      {
+        "changes": {
+          "title": "X",
+        },
+        "taskId": 1,
+        "updatedBy": "Bek",
+      },
+    ],
+  ],
   "result": {
     "body": {
-      "error": "Faqat task yaratgan ishchi taskni o'zgartirishi mumkin",
+      "id": 1,
+      "updated": true,
     },
-    "status": 403,
+    "status": 200,
   },
 }
 `;

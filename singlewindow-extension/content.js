@@ -1056,6 +1056,8 @@ const KARANTIN_DEFAULTS = {
     destinationRegion: ["Farg`ona viloyati", "Farg'ona viloyati", "Fargona viloyati"],
     customsPost: ["Водий TIF", "Водий ТИФ", "Vodiy TIF"],
     packagingType: "Oddiy qadoq",
+    // "Avto" tanlanmaguncha mahsulot kartasida fumigatsiya akti maydonlari chizilmaydi
+    transportType: "Avto",
     productSource: "Yetishtirilgan hudud asosida",
     productLevel: "Tuman darajasida",
     unit: "kg",
@@ -1332,12 +1334,19 @@ async function karantinSetDate(labelText, isoDate, root) {
     if (!el) return `"${labelText}" sana maydoni topilmadi`;
     if (!/^\d{4}-\d{2}-\d{2}$/.test(String(isoDate || ''))) return `${labelText}: sana formati noto'g'ri`;
 
+    // Akt sanasi maydoni sanani "kk.oo.yyyy" ko'rinishida yozadi (placeholder'da
+    // shu yozuv), panel kataklarining title'i esa hamma joyda YYYY-MM-DD
+    const [year, month, day] = isoDate.split('-');
+    const dotted = `${day}.${month}.${year}`;
+    const typed = /kk\.oo|dd\.mm/i.test(el.placeholder) ? dotted : isoDate;
+    const isSet = () => el.value === isoDate || el.value === dotted;
+
     el.focus();
     el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
     el.click();
     const openPanel = () => document.querySelector('.ant-picker-dropdown:not(.ant-picker-dropdown-hidden)');
     await waitUntil(openPanel, 800);
-    karantinSetInput(el, isoDate);
+    karantinSetInput(el, typed);
 
     const cell = await waitUntil(() => {
         const panel = openPanel();
@@ -1346,8 +1355,56 @@ async function karantinSetDate(labelText, isoDate, root) {
     if (!cell) return `${labelText}: sana katagi topilmadi`;
     (cell.querySelector('.ant-picker-cell-inner') || cell).click();
     // Ochiq qolgan panel keyingi bosishni yutadi — qiymat yozilib, panel yopilguncha kutiladi
-    await waitUntil(() => el.value === isoDate && !openPanel(), 800);
-    return el.value === isoDate ? null : `${labelText}: sana yozilmadi`;
+    await waitUntil(() => isSet() && !openPanel(), 800);
+    return isSet() ? null : `${labelText}: sana yozilmadi`;
+}
+
+// Mahsulot kartasidagi "Fumigatsiya akti raqami" + "Akt sanasi" ni yozib, qidiruv
+// tugmasini bosadi. Sayt aktni tekshirgach "Transport raqami" ni (faqat o'qish
+// uchun maydon) o'zi to'ldiradi — shuning uchun mashina raqami qo'lda yozilmaydi.
+async function karantinFillFumigationAct(card, index, actNumber, actDate, vehicleNumber) {
+    const prefix = `#${index + 1} mahsulot`;
+    const numberName = `products.${index}.transport_fumigation_number`;
+    const numberInput = () => card.querySelector(`[name="${numberName}"]`);
+
+    if (!(await waitUntil(numberInput, 1500))) {
+        return `${prefix}: fumigatsiya akti maydoni topilmadi (Transport turi "${KARANTIN_DEFAULTS.transportType}" tanlanganmi?)`;
+    }
+    karantinSetInput(numberInput(), actNumber);
+
+    const dateError = await karantinSetDate('Akt sanasi', actDate, card);
+    if (dateError) return `${prefix}: ${dateError}`;
+    // Sana tanlanganda React kartani qayta chizib, raqamni tozalab yuborishi mumkin
+    if (numberInput() && numberInput().value !== actNumber) karantinSetInput(numberInput(), actNumber);
+
+    // Qidiruv tugmasi raqam va sana ikkalasi to'lmaguncha o'chiq turadi
+    const wrap = karantinWrap('Akt sanasi', card);
+    const searchBtn = () => wrap && wrap.querySelector('button');
+    if (!(await waitUntil(() => searchBtn() && !searchBtn().disabled, 1500))) {
+        return `${prefix}: akt qidiruv tugmasi faollashmadi`;
+    }
+    searchBtn().click();
+
+    const transportInput = () => card.querySelector(`[name="products.${index}.transport_number"]`);
+    // "… raqamli fumigatsiya akti topilmadi…" va "Bu aktni ishlatib bo'lmaydi"
+    const failureText = () => (card.innerText.match(/[^\n]*(?:topilmadi|ishlatib bo.lmaydi)[^\n]*/i) || [])[0];
+    const outcome = await waitUntil(() => {
+        const found = transportInput();
+        if (found && found.value) return 'ok';
+        return failureText() ? 'fail' : null;
+    }, 10000, 100);
+
+    if (outcome === 'fail') return `${prefix}: ${failureText().trim()}`;
+    if (!outcome) return `${prefix}: akt tekshiruvidan javob kelmadi`;
+
+    // Saytdagi raqam aktdan keladi; invoysdagi bilan farq qilsa foydalanuvchi bilsin
+    const plate = (value) => String(value || '').toUpperCase().replace(/[^A-ZА-Я0-9]/g, '');
+    const fromAct = plate(transportInput().value);
+    const fromInvoice = plate(vehicleNumber);
+    if (fromAct && fromInvoice && !fromInvoice.includes(fromAct) && !fromAct.includes(fromInvoice)) {
+        return `${prefix}: aktdagi transport raqami (${transportInput().value}) invoysdagidan (${toSingleLine(vehicleNumber)}) farq qiladi`;
+    }
+    return null;
 }
 
 // "Mahsulot" maydoni oddiy input emas — bosilganda TIF TN bo'yicha qidiriladigan
@@ -1562,6 +1619,7 @@ async function fillKarantinIchkiFss(data) {
     push(await karantinPickOption('Mahsulot yetib boradigan hudud', KARANTIN_DEFAULTS.destinationRegion));
     push(await karantinPickOption('TIF', KARANTIN_DEFAULTS.customsPost));
     push(await karantinPickOption('Qadoq turi', KARANTIN_DEFAULTS.packagingType));
+    push(await karantinPickOption('Transport turi', KARANTIN_DEFAULTS.transportType));
 
     const country = karantinResolveCountry(data.DESTINATION_COUNTRY);
     if (country) {
@@ -1595,6 +1653,9 @@ async function fillKarantinIchkiFss(data) {
     }
 
     // 4. Mahsulot(lar)
+    // Fumigatsiya akti invoysda yo'q — foydalanuvchi popup'da qo'lda kiritadi
+    const actNumber = String(data.fumigationActNumber || '').replace(/\D/g, '');
+    const actDate = String(data.fumigationActDate || '');
     const items = karantinGroupItems(data.items);
     if (items.length === 0) {
         warnings.push("Invoysda mahsulot qatori yo'q");
@@ -1625,14 +1686,12 @@ async function fillKarantinIchkiFss(data) {
                 `#${index + 1} to'ldirish darajasi`,
             );
             if (levelError) { warnings.push(levelError); continue; }
-            await waitUntil(() => modal.querySelector(`[name="products.${index}.transport_number"]`), 1500);
 
-            if (data.vehicleNumber) {
-                if (!karantinSetInputByName(`products.${index}.transport_number`, toSingleLine(data.vehicleNumber), modal)) {
-                    warnings.push(`#${index + 1} mahsulot: transport raqami yozilmadi`);
-                }
+            // Transport raqami endi qo'lda yozilmaydi: u fumigatsiya aktidan olinadi
+            if (actNumber && actDate) {
+                push(await karantinFillFumigationAct(card, index, actNumber, actDate, data.vehicleNumber));
             } else {
-                warnings.push(`#${index + 1} mahsulot: transport raqami yo'q`);
+                warnings.push(`#${index + 1} mahsulot: fumigatsiya akti raqami/sanasi kiritilmagan`);
             }
 
             if (data.EXPPN_REGN_TP_NM) {

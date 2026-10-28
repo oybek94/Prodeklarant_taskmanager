@@ -139,6 +139,57 @@
 
     #here:empty { display: none; }
 
+    /* Fumigatsiya akti: foydalanuvchi qo'lda kiritadi, saqlangach to'ldirgich ishlaydi */
+    .act {
+      background: var(--card);
+      border: 1px solid var(--rule);
+      border-radius: 10px;
+      padding: 11px;
+    }
+
+    .act[hidden] { display: none; }
+
+    .act__title {
+      margin: 0 0 9px;
+      font-weight: 600;
+    }
+
+    .act__field { display: block; margin-bottom: 9px; }
+
+    .act__label {
+      display: block;
+      margin-bottom: 3px;
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .act__input {
+      width: 100%;
+      min-height: 34px;
+      padding: 6px 9px;
+      border: 1px solid var(--rule);
+      border-radius: 7px;
+      background: var(--paper);
+      color: var(--ink);
+      font: inherit;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .act__input:focus-visible {
+      outline: 2px solid var(--stamp);
+      outline-offset: 1px;
+    }
+
+    .act__hint {
+      margin: 0 0 9px;
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .act__actions { display: flex; gap: 6px; }
+    .act__actions .btn--read { width: auto; flex: 0 0 auto; }
+    .act__actions .btn--fill { flex: 1 1 auto; }
+
     #elsewhere-title { margin-top: 16px; }
 
     .status {
@@ -165,6 +216,23 @@
 <body>
   <p class="eyebrow" id="here-title" hidden>Siz shu yerdasiz</p>
   <div id="here"></div>
+
+  <form class="act" id="actPanel" hidden>
+    <p class="act__title">Fumigatsiya akti</p>
+    <label class="act__field">
+      <span class="act__label">Akt raqami (11 ta raqam)</span>
+      <input class="act__input" id="actNumber" type="text" inputmode="numeric" maxlength="11" autocomplete="off" required>
+    </label>
+    <label class="act__field">
+      <span class="act__label">Akt sanasi</span>
+      <input class="act__input" id="actDate" type="date" required>
+    </label>
+    <p class="act__hint">Akt berilgan kundan 10 kun amal qiladi. Saqlangach forma to'ldiriladi va akt tekshiriladi.</p>
+    <div class="act__actions">
+      <button class="btn btn--read" id="actCancelBtn" type="button">Bekor qilish</button>
+      <button class="btn btn--fill" id="actSaveBtn" type="submit">Saqlash va to'ldirish</button>
+    </div>
+  </form>
 
   <p class="eyebrow" id="elsewhere-title" hidden>Boshqa saytlarda</p>
   <div id="elsewhere"></div>

@@ -15,6 +15,7 @@ import { generateST1GoodsExcel } from '../services/st1-goods-excel';
 import { generateCommodityEkExcel } from '../services/commodity-ek-excel';
 import { generateCmrDocx } from '../services/cmr-doc';
 import { generateOriginInfoPdf } from '../services/origin-info-pdf';
+import { generateExporterLetterhead } from '../services/exporter-letterhead';
 import fs from 'fs/promises';
 import { socketEmitter } from '../services/socketEmitter';
 import {
@@ -644,6 +645,71 @@ router.get('/:id/origin-info-doc', requireAuth(), async (req: AuthRequest, res: 
     res.end(buffer);
   } catch (error: unknown) {
     console.error('Error generating origin info document:', error);
+    res.status(500).json({ error: 'Serverda xatolik yuz berdi' });
+  }
+});
+
+// GET /invoices/:id/letterhead?type=blank|gmo - eksportyor nomidan xat (Word):
+// bo'sh firma blankasi yoki GMO ishlatilmagani haqida spravka
+const letterheadQuerySchema = z.object({ type: z.enum(['blank', 'gmo']).default('blank') });
+
+router.get('/:id/letterhead', requireAuth(), async (req: AuthRequest, res: Response) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (!Number.isFinite(id)) {
+      return res.status(404).json({ error: 'Invoice topilmadi' });
+    }
+    const query = letterheadQuerySchema.safeParse(req.query);
+    if (!query.success) {
+      return res.status(400).json({ error: 'Noto\'g\'ri hujjat turi' });
+    }
+    const kind = query.data.type;
+
+    const invoice = await prisma.invoice.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        invoiceNumber: true,
+        date: true,
+        additionalInfo: true,
+        clientId: true,
+        contractId: true,
+        contractNumber: true,
+        items: { orderBy: { orderIndex: 'asc' }, select: { name: true, netWeight: true } },
+      },
+    });
+    if (!invoice) {
+      return res.status(404).json({ error: 'Invoice topilmadi' });
+    }
+
+    const contract = invoice.contractId
+      ? await prisma.contract.findUnique({ where: { id: invoice.contractId } })
+      : invoice.contractNumber
+        ? await prisma.contract.findFirst({
+            where: { clientId: invoice.clientId, contractNumber: invoice.contractNumber },
+          })
+        : null;
+    const companySettings = await prisma.companySettings.findFirst();
+
+    const buffer = await generateExporterLetterhead({
+      contract,
+      companySettings,
+      kind,
+      invoice,
+      items: invoice.items,
+    });
+
+    const prefix = kind === 'gmo' ? 'Spravka_GMO' : 'Blanka';
+    const fileName = `${prefix}_${invoice.invoiceNumber || invoice.id}.docx`;
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    );
+    res.setHeader('Content-Disposition', attachmentDisposition(fileName));
+    res.setHeader('Content-Length', buffer.length);
+    res.end(buffer);
+  } catch (error: unknown) {
+    console.error('Error generating letterhead:', error);
     res.status(500).json({ error: 'Serverda xatolik yuz berdi' });
   }
 });

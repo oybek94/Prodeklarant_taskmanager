@@ -72,7 +72,7 @@ const readImageSize = (data: Buffer): Omit<DocImage, 'data'> | null => {
   return null;
 };
 
-const loadUploadImage = async (url?: string | null): Promise<DocImage | null> => {
+export const loadUploadImage = async (url?: string | null): Promise<DocImage | null> => {
   if (!url || !url.startsWith('/uploads/')) return null;
   const filePath = path.resolve(UPLOADS_DIR, decodeURIComponent(url.slice('/uploads/'.length)));
   if (!filePath.startsWith(UPLOADS_DIR + path.sep)) return null;

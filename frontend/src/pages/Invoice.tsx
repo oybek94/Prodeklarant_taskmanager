@@ -283,6 +283,7 @@ const Invoice = () => {
     generateSmrExcel,
     generateCmrDoc,
     generateOriginInfoDoc,
+    generateLetterhead,
     generateTirExcel,
     generateST1GoodsExcel,
     generateCommodityEkExcel,
@@ -798,6 +799,7 @@ const Invoice = () => {
           generateSmrExcel={generateSmrExcel}
           generateCmrDoc={generateCmrDoc}
           generateOriginInfoDoc={generateOriginInfoDoc}
+          generateLetterhead={generateLetterhead}
           generateTirExcel={generateTirExcel}
           generateST1GoodsExcel={generateST1GoodsExcel}
           generateCommodityEkExcel={generateCommodityEkExcel}

@@ -31,6 +31,7 @@ interface InvoiceToolbarProps {
   generateSmrExcel: () => void;
   generateCmrDoc: () => void;
   generateOriginInfoDoc: () => void;
+  generateLetterhead: (type?: 'blank' | 'gmo') => void;
   generateTirExcel: () => void;
   generateST1GoodsExcel: () => void;
   generateCommodityEkExcel: () => void;
@@ -118,6 +119,7 @@ export const InvoiceToolbar: React.FC<InvoiceToolbarProps> = React.memo(({
   generateSmrExcel,
   generateCmrDoc,
   generateOriginInfoDoc,
+  generateLetterhead,
   generateTirExcel,
   generateST1GoodsExcel,
   generateCommodityEkExcel,
@@ -318,6 +320,26 @@ export const InvoiceToolbar: React.FC<InvoiceToolbarProps> = React.memo(({
                     title="Информация о происхождении товара (ПКМ № 994) — PDF"
                   >
                     Kelib chiqish xati
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { generateLetterhead('blank'); setSertifikatlarDropdownOpen(false); }}
+                    disabled={templatesDisabled}
+                    className={MENU_ITEM}
+                    role="menuitem"
+                    title="Eksportyor korxona rekvizitlari bilan xat blankasi — Word"
+                  >
+                    Firma blankasi (Word)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { generateLetterhead('gmo'); setSertifikatlarDropdownOpen(false); }}
+                    disabled={templatesDisabled}
+                    className={MENU_ITEM}
+                    role="menuitem"
+                    title="Eksportyor nomidan GMO ishlatilmagani haqida spravka — Word"
+                  >
+                    GMO spravka (Word)
                   </button>
                 </div>
               )}

@@ -64,10 +64,26 @@ describe('formatDraftMessage', () => {
     expect(text).toContain('🚛 Номер автотранспорта: <b>01A123BC</b>');
     expect(text).toContain('🏭 Место отгрузки груза: <b>Ташкентская обл.</b>');
     expect(text).toContain('🏷 Наименование: <b>Яблоки</b>');
-    expect(text).toContain('📦 Количество ящиков: <b>10</b>');
-    expect(text).toContain('⚖️ Нетто: <b>100</b>');
-    expect(text).toContain('⚖️ Брутто: <b>110</b>');
+    expect(text).toContain('📦 Количество ящиков: <b>10 шт.</b>');
+    expect(text).toContain('⚖️ Нетто: <b>100 кг.</b>');
+    expect(text).toContain('⚖️ Брутто: <b>110 кг.</b>');
     expect(text).toContain('💰 Цена: <b>2.5 USD</b>');
+  });
+
+  it("birliklar: ящиклар/поддонлар soni — шт., barcha og'irliklar — кг., narxda valyuta", () => {
+    const data: DraftData = {
+      ...completeData(),
+      items: [{ uid: 'u1', fields: { product: 'Яблоки', boxCount: '2000', boxWeight: '500', palletCount: '33', palletWeight: '429', netto: '21000', brutto: '21929', price: '100' }, bruttoManual: false }],
+    };
+    const text = formatDraftMessage({ data, authors: {}, context, status: 'OPEN' });
+    expect(text).toContain('Количество ящиков: <b>2000 шт.</b>');
+    expect(text).toContain('Общий вес ящиков: <b>500 кг.</b>');
+    expect(text).toContain('Количество поддонов: <b>33 шт.</b>');
+    expect(text).toContain('Общий вес поддонов: <b>429 кг.</b>');
+    expect(text).toContain('Нетто: <b>21000 кг.</b>');
+    expect(text).toContain('Брутто: <b>21929 кг.</b>');
+    expect(text).toContain('Цена: <b>100 USD</b>');
+    expect(text).toContain('Наименование: <b>Яблоки</b>'); // nomga birlik qo'shilmaydi
   });
 
   it("uzun qiymat (40 belgidan ortiq) alohida qatorda <blockquote> ichida, qisqasi shu qatorda qoladi", () => {

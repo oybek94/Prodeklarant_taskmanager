@@ -49,6 +49,8 @@ interface FormState {
   options: ChoiceOption[];
   promptMessageId: number | null;
   promptText: string;
+  /** Keyingi to'g'ri javobda chatdan o'chiriladigan xabarlar: /yangi buyrug'i, foydalanuvchi javoblari, xato izohlari */
+  trash: number[];
   busy: boolean;
   updatedAt: number;
 }
@@ -116,18 +118,13 @@ async function askStep(state: FormState): Promise<void> {
   state.promptText = text;
 }
 
-/** Javob berilgan savolni "Nom: qiymat" ko'rinishiga keltirib, tugmalarni olib tashlaydi */
-async function settlePrompt(state: FormState, step: CargoStep, value: string | null): Promise<void> {
-  if (state.promptMessageId === null) return;
-  try {
-    await bot!.editMessageText(`${step.label}: ${value ?? '—'}`, {
-      chat_id: state.chatId,
-      message_id: state.promptMessageId,
-      reply_markup: { inline_keyboard: [] },
-    });
-  } catch {
-    // Xabar o'chirilgan yoki o'zgarmagan bo'lishi mumkin — forma davom etadi
-  }
+/**
+ * Chatni tozalaydi. Foydalanuvchi xabarlarini guruhda faqat "Xabarlarni o'chirish" huquqi bor admin bot
+ * o'chira oladi; o'chmasa (huquq yo'q, 48 soatdan eski) forma baribir davom etadi.
+ */
+async function deleteMessages(chatId: number, ids: Array<number | null>): Promise<void> {
+  const unique = [...new Set(ids.filter((id): id is number => id !== null))];
+  await Promise.allSettled(unique.map((id) => bot!.deleteMessage(chatId, id)));
 }
 
 async function rememberProduct(clientId: number, name: string): Promise<void> {
@@ -174,13 +171,16 @@ async function recordAnswer(state: FormState, value: string | null, picked?: Cho
     }
   }
   state.updatedAt = Date.now();
-  await settlePrompt(state, step, value);
+  // Javob xotiraga (state.data) yozildi — endi savol va yozilgan javoblar chatdan o'chadi.
+  // Avval keyingi xabar yuboriladi, so'ng eskilari o'chadi: guruhda oraliq "bo'sh" holat ko'rinmaydi.
+  const stale = [state.promptMessageId, ...state.trash.splice(0)];
   state.stepIndex += 1;
   if (state.stepIndex >= CARGO_STEPS.length) {
     await finishForm(state);
-    return;
+  } else {
+    await askStep(state);
   }
-  await askStep(state);
+  await deleteMessages(state.chatId, stale);
 }
 
 /** busy bayrog'i bilan: ikki marta bosish/yozish bir qadamni ikki marta o'tkazib yubormasin */
@@ -194,7 +194,7 @@ async function withFormLock(state: FormState, action: () => Promise<void>): Prom
   }
 }
 
-async function startForm(chatId: number, userId: number): Promise<void> {
+async function startForm(chatId: number, userId: number, commandMessageId: number): Promise<void> {
   const client = await prisma.client.findUnique({
     where: { botGroupChatId: String(chatId) },
     select: { id: true },
@@ -243,12 +243,15 @@ async function startForm(chatId: number, userId: number): Promise<void> {
     options: [],
     promptMessageId: null,
     promptText: '',
+    trash: [commandMessageId],
     busy: false,
     updatedAt: Date.now(),
   };
-  // Shu foydalanuvchining oldingi tugallanmagan formasi almashtiriladi (eski tugmalar token tufayli o'chadi)
+  // Shu foydalanuvchining oldingi tugallanmagan formasi almashtiriladi: eski savol va javoblari chatdan o'chadi
+  const previous = forms.get(formKey(chatId, userId));
   forms.set(formKey(chatId, userId), state);
   await askStep(state);
+  if (previous) await deleteMessages(chatId, [previous.promptMessageId, ...previous.trash]);
 }
 
 function isLinkRateLimited(chatId: number): boolean {
@@ -313,7 +316,7 @@ function registerHandlers(instance: TelegramBot): void {
   instance.onText(/^\/yangi(?:@\w+)?\s*$/, async (msg) => {
     try {
       if (!(await requireGroup(msg)) || !msg.from) return;
-      await startForm(msg.chat.id, msg.from.id);
+      await startForm(msg.chat.id, msg.from.id, msg.message_id);
     } catch (e) {
       reportError('/yangi', msg.chat.id, e);
     }
@@ -326,6 +329,7 @@ function registerHandlers(instance: TelegramBot): void {
     if (!state) return;
     forms.delete(key);
     await instance.sendMessage(msg.chat.id, '❌ Forma bekor qilindi.');
+    await deleteMessages(msg.chat.id, [state.promptMessageId, ...state.trash, msg.message_id]);
   });
 
   // Matnli javoblar. Guruhda privacy-mode yoqilgan bo'lsa bot faqat o'z savoliga reply qilingan xabarlarni ko'radi.
@@ -341,8 +345,11 @@ function registerHandlers(instance: TelegramBot): void {
       await withFormLock(state, async () => {
         const step = CARGO_STEPS[state.stepIndex];
         const parsed = parseStepInput(step.kind, step.key, msg.text ?? '');
+        // Noto'g'ri javob ham, xato izohi ham keyingi to'g'ri javobda o'chadi
+        state.trash.push(msg.message_id);
         if (!parsed.ok) {
-          await instance.sendMessage(msg.chat.id, parsed.error, { reply_to_message_id: msg.message_id });
+          const reply = await instance.sendMessage(msg.chat.id, parsed.error, { reply_to_message_id: msg.message_id });
+          state.trash.push(reply.message_id);
           return;
         }
         await recordAnswer(state, parsed.value);
@@ -376,6 +383,7 @@ function registerHandlers(instance: TelegramBot): void {
             message_id: state.promptMessageId!,
             reply_markup: { inline_keyboard: [] },
           });
+          await deleteMessages(chatId, state.trash);
           return;
         }
         if (action === 's') {

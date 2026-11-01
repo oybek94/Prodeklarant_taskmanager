@@ -482,3 +482,16 @@
 .tgc .tgc-input::placeholder {
   -webkit-text-fill-color: var(--muted);
 }
+
+/* WebView'larga sahifa tungi rejimni qo'llashini bildiradi (prefers-color-scheme ishlatilgan sahifa
+   avtomatik qorong'ulashtirilmaydi). Haqiqiy rang data-theme orqali boshqariladi. */
+@media (prefers-color-scheme: dark) {
+  .tgc {
+    color-scheme: inherit;
+  }
+}
+
+.tgc,
+.tgc * {
+  forced-color-adjust: none;
+}

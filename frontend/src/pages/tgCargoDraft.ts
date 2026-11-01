@@ -144,6 +144,37 @@ export function deriveManualFlags(
   };
 }
 
+/** Qiymatlar 3 xonagacha o'nli: ming ga ko'paytirilgan butun son sifatida yig'iladi (0.1 + 0.2 kabi float xatosi bo'lmasin) */
+function sumMilli(values: string[]): number | null {
+  let total = 0;
+  let found = false;
+  for (const raw of values) {
+    const value = raw.trim().replace(',', '.');
+    const n = Number(value);
+    if (!value || !Number.isFinite(n)) continue;
+    total += Math.round(n * 1000);
+    found = true;
+  }
+  return found ? total : null;
+}
+
+/** 20330000 → "20 330"; 3000750 → "3 000.75" */
+function formatMilli(milli: number): string {
+  const whole = Math.floor(milli / 1000);
+  const fraction = milli % 1000;
+  const grouped = String(whole).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  return fraction === 0 ? grouped : `${grouped}.${String(fraction).padStart(3, '0').replace(/0+$/, '')}`;
+}
+
+/** Guruh xabaridagi kabi: 2 va undan ortiq tovar bo'lsa "Итого: 20 330 нетто / 21 770 брутто", aks holda null */
+export function totalsLine(items: Array<{ netto: string; brutto: string }>): string | null {
+  if (items.length < 2) return null;
+  const netto = sumMilli(items.map((i) => i.netto));
+  const brutto = sumMilli(items.map((i) => i.brutto));
+  const parts = [...(netto === null ? [] : [`${formatMilli(netto)} нетто`]), ...(brutto === null ? [] : [`${formatMilli(brutto)} брутто`])];
+  return parts.length > 0 ? `Итого: ${parts.join(' / ')}` : null;
+}
+
 /** Avto raqami faqat lotin alifbosida (invoys dasturidagi qoida bilan bir xil): kirill belgilari (U+0400–U+04FF) o'chiriladi */
 export function stripCyrillic(raw: string): { value: string; stripped: boolean } {
   const value = raw.replace(/[Ѐ-ӿ]/g, '');

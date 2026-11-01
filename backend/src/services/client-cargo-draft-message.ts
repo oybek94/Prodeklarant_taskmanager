@@ -86,6 +86,37 @@ function contributorsLine(authors: AuthorMap): string {
 
 const isItemFilled = (item: DraftItem): boolean => ITEM_FIELDS.some((f) => (item.fields[f.key] ?? '').trim() !== '');
 
+/** Qiymatlar 3 xonagacha o'nli: ming ga ko'paytirilgan butun son sifatida yig'iladi (0.1 + 0.2 kabi float xatosi bo'lmasin) */
+function sumMilli(values: Array<string | undefined>): number | null {
+  let total = 0;
+  let found = false;
+  for (const value of values) {
+    const n = Number(value);
+    if (!value || !Number.isFinite(n)) continue;
+    total += Math.round(n * 1000);
+    found = true;
+  }
+  return found ? total : null;
+}
+
+/** 20330000 → "20 330"; 3000750 → "3 000.75" (mingliklar bo'shliq bilan, o'nli qism nuqta bilan) */
+function formatMilli(milli: number): string {
+  const whole = Math.floor(milli / 1000);
+  const fraction = milli % 1000;
+  const grouped = String(whole).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  return fraction === 0 ? grouped : `${grouped}.${String(fraction).padStart(3, '0').replace(/0+$/, '')}`;
+}
+
+/** 2 va undan ortiq tovar bo'lsa: "📊 Итого: 20 330 нетто / 21 770 брутто". Qiymati bor qismigina chiqadi; hech biri bo'lmasa bo'sh. */
+function totalsLine(items: DraftItem[]): string {
+  const filled = items.filter(isItemFilled);
+  if (filled.length < 2) return '';
+  const netto = sumMilli(filled.map((i) => i.fields.netto));
+  const brutto = sumMilli(filled.map((i) => i.fields.brutto));
+  const parts = [...(netto === null ? [] : [`${formatMilli(netto)} нетто`]), ...(brutto === null ? [] : [`${formatMilli(brutto)} брутто`])];
+  return parts.length > 0 ? `📊 Итого: <b>${parts.join(' / ')}</b>` : '';
+}
+
 interface MessageParts {
   /** Sarlavha, sarlavha maydonlari va tovar bloklari (juda uzun bo'lsa qirqiladi) */
   main: string;
@@ -130,8 +161,10 @@ function buildBody(input: { data: DraftData; authors: AuthorMap; context: DraftM
   if (headerLines.length > 0) parts.push(headerLines.join('\n'));
   parts.push(...itemBlocks);
 
-  // Oxirgi blok (qirqilmaydi): yetishmayotganlar, keyin to'ldirganlar
+  // Oxirgi blok (qirqilmaydi): tovarlar jami, yetishmayotganlar, keyin to'ldirganlar
   const footerBlocks: string[] = [];
+  const totals = totalsLine(data.items);
+  if (totals) footerBlocks.push(totals);
   if (status === 'OPEN') {
     const missing = getMissingRequired(data);
     if (missing.length > 0) {

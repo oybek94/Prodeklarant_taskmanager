@@ -5,6 +5,7 @@ import {
   makeUid,
   snapshotFromDraft,
   stripCyrillic,
+  totalsLine,
   type DraftView,
   type FormSnapshot,
 } from './tgCargoDraft';
@@ -191,5 +192,21 @@ describe('Вид упаковки (packagingType)', () => {
     const cleared = structuredClone(base);
     cleared.items[0].fields.packagingType = '';
     expect(buildPatch(base, cleared)).toEqual({ items: { u1: { fields: { packagingType: null } } } });
+  });
+});
+
+describe('totalsLine — 2 va undan ortiq tovar bo\'lsa Итого', () => {
+  it("'20 330 нетто / 21 770 брутто' (mingliklar bo'shliq bilan)", () => {
+    expect(totalsLine([{ netto: '10000', brutto: '10700' }, { netto: '10330', brutto: '11070' }])).toBe('Итого: 20 330 нетто / 21 770 брутто');
+  });
+  it("1 ta tovar bo'lsa null", () => {
+    expect(totalsLine([{ netto: '100', brutto: '110' }])).toBeNull();
+  });
+  it("o'nli qiymatlar aniq yig'iladi (0.1 + 0.2 = 0.3, 1000.5 + 2000.25 = 3 000.75)", () => {
+    expect(totalsLine([{ netto: '0.1', brutto: '1000.5' }, { netto: '0.2', brutto: '2000.25' }])).toBe('Итого: 0.3 нетто / 3 000.75 брутто');
+  });
+  it("vergulli son ham yig'iladi; faqat bittasi bor bo'lsa shu qismi; hech biri bo'lmasa null", () => {
+    expect(totalsLine([{ netto: '1,5', brutto: '' }, { netto: '2,5', brutto: '' }])).toBe('Итого: 4 нетто');
+    expect(totalsLine([{ netto: '', brutto: '' }, { netto: '', brutto: '' }])).toBeNull();
   });
 });

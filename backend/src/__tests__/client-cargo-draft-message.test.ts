@@ -327,3 +327,58 @@ describe('Ящики: Количество (qadoq turi bilan) va Общий ве
     expect(text).toContain('Общий вес ящиков: <b>500 кг.</b>');
   });
 });
+
+describe('Итого — 2 va undan ortiq tovar bo\'lsa', () => {
+  const item = (uid: string, fields: Record<string, string>): DraftItem => ({ uid, fields, bruttoManual: false });
+  const render = (items: DraftItem[], status: 'OPEN' | 'COMPLETED' = 'OPEN') =>
+    formatDraftMessage({ data: { ...completeData(), items }, authors: {}, context, status });
+
+  it("2 ta tovar: 'Итого: 20 330 нетто / 21 770 брутто' (mingliklar bo'shliq bilan)", () => {
+    const text = render([
+      item('u1', { product: 'Виноград', boxCount: '10', netto: '10000', brutto: '10700' }),
+      item('u2', { product: 'Яблоки', boxCount: '5', netto: '10330', brutto: '11070' }),
+    ]);
+    expect(text).toContain('📊 Итого: <b>20 330 нетто / 21 770 брутто</b>');
+  });
+
+  it("1 ta tovar bo'lsa Итого chiqmaydi; butunlay bo'sh qo'shimcha blok tovar hisoblanmaydi", () => {
+    expect(render([item('u1', { product: 'Виноград', boxCount: '10', netto: '100', brutto: '110' })])).not.toContain('Итого');
+    expect(render([item('u1', { product: 'Виноград', boxCount: '10', netto: '100', brutto: '110' }), item('u2', {})])).not.toContain('Итого');
+  });
+
+  it("o'nli qiymatlar aniq yig'iladi va yaxlitlanadi (0.1 + 0.2 = 0.3; 1000.5 + 2000.25 = 3 000.75)", () => {
+    const a = render([item('u1', { product: 'А', netto: '0.1', brutto: '1000.5' }), item('u2', { product: 'Б', netto: '0.2', brutto: '2000.25' })]);
+    expect(a).toContain('Итого: <b>0.3 нетто / 3 000.75 брутто</b>');
+  });
+
+  it("faqat bittasi (netto yoki brutto) mavjud bo'lsa shu qismi chiqadi; ikkalasi ham yo'q bo'lsa qator yo'q", () => {
+    const onlyNetto = render([item('u1', { product: 'А', netto: '100' }), item('u2', { product: 'Б', netto: '200' })]);
+    expect(onlyNetto).toContain('Итого: <b>300 нетто</b>');
+    expect(onlyNetto).not.toContain('брутто</b>');
+    const neither = render([item('u1', { product: 'А', boxCount: '1' }), item('u2', { product: 'Б', boxCount: '2' })]);
+    expect(neither).not.toContain('Итого');
+  });
+
+  it("tovarlardan keyin, 'Не заполнено' va 'Заполнили' dan oldin turadi", () => {
+    const text = formatDraftMessage({
+      data: { ...completeData(), items: [item('u1', { product: 'А', netto: '100', brutto: '110' }), item('u2', { product: 'Б', netto: '200', brutto: '220' })] },
+      authors: { 'header.orderNumber': by('Aziz') },
+      context,
+      status: 'OPEN',
+    });
+    const total = text.indexOf('Итого');
+    expect(total).toBeGreaterThan(text.indexOf('Товар 2'));
+    expect(total).toBeLessThan(text.indexOf('Не заполнено'));
+    expect(total).toBeLessThan(text.indexOf('Заполнили'));
+  });
+
+  it("COMPLETED xabarda ham chiqadi; juda uzun xabar qirqilganda ham Итого saqlanadi", () => {
+    expect(render([item('u1', { product: 'А', netto: '1', brutto: '2' }), item('u2', { product: 'Б', netto: '3', brutto: '4' })], 'COMPLETED')).toContain('Итого: <b>4 нетто / 6 брутто</b>');
+    const many = Array.from({ length: 20 }, (_, i) =>
+      item(`u${i}`, { product: `Товар номер ${i}`, boxCount: '1000', boxWeight: '12345.5', packagingType: 'дер.ящик', palletCount: '10', palletWeight: '4321.25', netto: '1000', brutto: '1100', price: '99.99' })
+    );
+    const text = render(many);
+    expect(text.length).toBeLessThanOrEqual(4096);
+    expect(text).toContain('Итого: <b>20 000 нетто / 22 000 брутто</b>');
+  });
+});

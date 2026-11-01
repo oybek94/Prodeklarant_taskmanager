@@ -74,6 +74,8 @@ export function getMissingRequired(data: DraftData): MissingField[] {
 }
 
 const MAX_VALUE_LENGTH = 300;
+/** O'chirilgan va yangi tovarlar bir so'rovda keladi: yakuniy tovarlar soni baribir MAX_ITEMS dan oshmaydi (applyDraftPatch tekshiradi) */
+const MAX_PATCH_ITEM_KEYS = MAX_ITEMS * 2;
 const textValue = z.string().max(MAX_VALUE_LENGTH).nullable();
 const uidSchema = z.string().regex(/^[A-Za-z0-9_-]{1,24}$/);
 
@@ -115,7 +117,7 @@ export const draftPatchSchema = z
     header: headerPatchSchema.optional(),
     items: z
       .record(uidSchema, z.union([z.null(), itemPatchSchema]))
-      .refine((items) => Object.keys(items).length <= MAX_ITEMS, { message: `Ko'pi bilan ${MAX_ITEMS} ta tovar` })
+      .refine((items) => Object.keys(items).length <= MAX_PATCH_ITEM_KEYS, { message: `Bir so'rovda ko'pi bilan ${MAX_PATCH_ITEM_KEYS} ta tovar o'zgarishi` })
       .optional(),
   })
   .strict();
@@ -125,6 +127,14 @@ export type DraftPatch = z.infer<typeof draftPatchSchema>;
 export type ApplyPatchResult =
   | { ok: true; data: DraftData; authors: AuthorMap; changedPaths: string[] }
   | { ok: false; errors: FieldErrors };
+
+/** Netto + yashik + poddon og'irligi (3 xonagacha yaxlitlanadi); uchalasi ham bo'sh bo'lsa undefined. Qiymatlar parseDecimal bilan tekshirilgan. */
+function computeAutoBrutto(fields: CargoItem): string | undefined {
+  const parts = [fields.netto, fields.boxWeight, fields.palletWeight].map((v) => v ?? '');
+  if (parts.every((p) => p === '')) return undefined;
+  const sum = parts.reduce((acc, p) => acc + (p === '' ? 0 : Number(p)), 0);
+  return String(Math.round(sum * 1000) / 1000);
+}
 
 const cloneData = (data: DraftData): DraftData => ({
   contractId: data.contractId,
@@ -144,6 +154,21 @@ export function applyDraftPatch(data: DraftData, authors: AuthorMap, patch: Draf
   const errors: FieldErrors = {};
   const stamp = (path: string) => {
     nextAuthors[path] = { tgUserId: author.tgUserId, name: author.name, at: author.at };
+  };
+
+  /** Avtomatik Brutto = Netto + yashiklar jami og'irligi + poddonlar jami og'irligi (qiymat o'zgarsa muallif — o'zgartirgan odam) */
+  const syncAutoBrutto = (item: DraftItem): void => {
+    const path = `items.${item.uid}.brutto`;
+    const next = computeAutoBrutto(item.fields);
+    if (item.fields.brutto === next) return;
+    if (next === undefined) {
+      delete item.fields.brutto;
+      delete nextAuthors[path];
+    } else {
+      item.fields.brutto = next;
+      stamp(path);
+    }
+    changedPaths.push(path);
   };
 
   /** Bitta matnli maydonni qo'llaydi; qiymat yangilangan yoki tozalangan bo'lsa true */
@@ -209,10 +234,14 @@ export function applyDraftPatch(data: DraftData, authors: AuthorMap, patch: Draf
     for (const key of ITEM_KEYS) {
       const raw = entry.fields?.[key];
       if (raw === undefined) continue;
+      // Brutto: qo'lda emas bo'lsa serverda hisoblanadi; qo'lda qiymat faqat bruttoManual:true bilan birga qabul qilinadi
+      // (eskirgan brauzer o'z hisobini yuborib boshqa odamning qiymatini bosib ketmasin)
+      if (key === 'brutto' && entry.bruttoManual !== true) continue;
       const spec = ITEM_FIELDS.find((f) => f.key === key);
       applyText(item.fields, key, spec?.kind ?? 'text', raw, `items.${uid}.${key}`, `items.${uid}.${key}`);
     }
     if (entry.bruttoManual !== undefined) item.bruttoManual = entry.bruttoManual;
+    if (!item.bruttoManual) syncAutoBrutto(item);
   }
 
   if (next.items.length > MAX_ITEMS) errors.items = `Ko'pi bilan ${MAX_ITEMS} ta tovar bo'lishi mumkin`;

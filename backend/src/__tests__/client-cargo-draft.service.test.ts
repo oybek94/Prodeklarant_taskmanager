@@ -249,7 +249,9 @@ describe('completeDraft va cancelDraft', () => {
     const second = await completeDraft(scope, 41, vali);
     expect(second.ok).toBe(true);
     expect(m.draftUpdateMany).toHaveBeenCalledTimes(1);
-    expect(m.callTelegram.mock.calls.length).toBe(telegramCalls);
+    // I2: yopiq arizada ham xabar qayta moslanadi (oldingi tahrir muvaffaqiyatsiz bo'lgan bo'lishi mumkin)
+    expect(m.callTelegram.mock.calls.length).toBe(telegramCalls + 1);
+    expect(m.callTelegram.mock.calls[telegramCalls][1]).toBe('editMessageText');
   });
 
   it("bekor qilingan arizani yakunlab bo'lmaydi (409), yakunlanganini bekor qilib bo'lmaydi (409)", async () => {
@@ -322,5 +324,54 @@ describe('listOpenDrafts', () => {
     const list = await listOpenDrafts({ clientId: 1, chatId: '-100123' });
     expect(m.draftFindMany.mock.calls[0][0]).toMatchObject({ where: { clientId: 1, chatId: '-100123', status: 'OPEN' }, orderBy: { updatedAt: 'desc' }, take: 5 });
     expect(list).toEqual([{ id: 1, label: 'INV-9 | 01A123BC', missingCount: 7, updatedAt: '2026-11-01T09:00:00.000Z' }]);
+  });
+});
+
+describe('xavfsizlik tuzatishlari (review)', () => {
+  it("I1: bir ariza uchun sinxronlash ketma-ket bajariladi — kechikkan eski tahrir yangisini bosib ketmaydi", async () => {
+    m.draftFindUnique.mockResolvedValueOnce(row({ id: 60 })).mockResolvedValueOnce(row({ id: 60, status: 'CANCELLED' }));
+    let release: () => void = () => undefined;
+    m.callTelegram.mockImplementationOnce(() => new Promise((resolve) => { release = () => resolve({ ok: true, result: {} }); }));
+    m.callTelegram.mockResolvedValue({ ok: true, result: {} });
+
+    const first = syncDraftMessage('123:TEST', 60, { immediate: true });
+    const second = syncDraftMessage('123:TEST', 60, { immediate: true });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(m.callTelegram).toHaveBeenCalledTimes(1); // ikkinchisi birinchisi tugamaguncha boshlanmaydi
+    release();
+    await first;
+    await second;
+    expect(m.callTelegram).toHaveBeenCalledTimes(2);
+    expect(m.callTelegram.mock.calls[1][2].text).toBe('❌ <b>Отменено</b>');
+  });
+
+  it("I2: allaqachon bekor qilingan arizani qayta bekor qilish xabarni qayta moslaydi", async () => {
+    const cancelled = row({ id: 61, status: 'CANCELLED', version: 2 });
+    m.draftFindFirst.mockResolvedValue(cancelled);
+    m.draftFindUnique.mockResolvedValue(cancelled);
+    const result = await cancelDraft(scope, 61, actor);
+    expect(result.ok).toBe(true);
+    expect(m.draftUpdateMany).not.toHaveBeenCalled();
+    expect(m.callTelegram.mock.calls[0][2].text).toBe('❌ <b>Отменено</b>');
+  });
+
+  it("I4: yozuv commit bo'lgandan keyin xabar sinxronlashi yiqilsa ham saqlash muvaffaqiyatli (500 emas)", async () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    m.draftFindFirst.mockResolvedValue(row({ id: 70 }));
+    m.draftFindUnique.mockRejectedValue(new Error('db down'));
+    const result = await patchDraft(scope, 70, actor, { header: { invoiceNumber: 'INV-1' } });
+    expect(result.ok).toBe(true);
+    expect(m.draftUpdateMany).toHaveBeenCalledTimes(1);
+    spy.mockRestore();
+  });
+
+  it("I4: createDraft da sinxronlash xato otsa 502 va yaratilgan qoralama o'chiriladi (takroriy ariza qolmaydi)", async () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    m.draftCreate.mockResolvedValue(row({ id: 71, messageId: null }));
+    m.draftFindUnique.mockRejectedValue(new Error('db down'));
+    const result = await createDraft(scope, actor, { header: { invoiceNumber: 'INV-1' } });
+    expect(result).toMatchObject({ ok: false, status: 502 });
+    expect(m.draftDelete).toHaveBeenCalledWith({ where: { id: 71 } });
+    spy.mockRestore();
   });
 });

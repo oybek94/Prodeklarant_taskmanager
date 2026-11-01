@@ -135,3 +135,28 @@ describe('draftLabel va buildDraftLaunchLink', () => {
     expect(buildDraftLaunchLink('https://t.me/pd_client_bot/cargo', '-100123', 9)).toBe('https://t.me/pd_client_bot/cargo?startapp=-100123_9');
   });
 });
+
+describe('uzun xabarda oxirgi blok saqlanadi (I3)', () => {
+  const manyItems = (): DraftItem[] =>
+    Array.from({ length: 20 }, (_, i) => ({
+      uid: `u${i}`,
+      bruttoManual: false,
+      fields: { product: i === 19 ? '' : `Товар номер ${i}`, boxCount: '1000', boxWeight: '12345.5', palletCount: '10', palletWeight: '4321.25', netto: '123456.5', brutto: '234567.5', price: '99.99' },
+    }));
+
+  it("OPEN: tovarlar qirqilsa ham 'Не заполнено' bloki xabar oxirida qoladi", () => {
+    const text = formatDraftMessage({ data: { ...completeData(), items: manyItems() }, authors: {}, context, status: 'OPEN' });
+    expect(text.length).toBeLessThanOrEqual(4096);
+    expect(text).toContain('⏳ <b>Не заполнено:</b>');
+    expect(text).toContain('• Товар 20: Наименование');
+    expect(text).toContain('…');
+    expect((text.match(/<b>/g) ?? []).length).toBe((text.match(/<\/b>/g) ?? []).length);
+  });
+
+  it("COMPLETED: 'Завершил(а)' qatori qirqishda yo'qolmaydi", () => {
+    const full = manyItems().map((item) => ({ ...item, fields: { ...item.fields, product: 'Яблоки' } }));
+    const text = formatDraftMessage({ data: { ...completeData(), items: full }, authors: {}, context, status: 'COMPLETED', actorName: 'Aziz' });
+    expect(text.length).toBeLessThanOrEqual(4096);
+    expect(text.endsWith('Завершил(а): <b>Aziz</b>')).toBe(true);
+  });
+});

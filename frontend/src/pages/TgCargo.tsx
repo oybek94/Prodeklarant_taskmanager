@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { API_BASE_URL } from '../lib/api';
-import { authorOf, buildPatch, deriveManualFlags, makeUid, snapshotFromDraft, type DraftView, type FormSnapshot } from './tgCargoDraft';
+import { authorOf, buildPatch, deriveManualFlags, makeUid, snapshotFromDraft, type DraftView, type FormSnapshot, type SnapshotItem } from './tgCargoDraft';
 import './TgCargo.css';
 
 // Telegram Mini App: yuk ma'lumotlari formasi. Guruhdagi "Formani ochish" tugmasi orqali ochiladi.
@@ -72,6 +72,19 @@ const EMPTY_HEADER: HeaderValues = {
   sensorSerial: '',
 };
 const NO_MANUAL: ManualFlags = { deliveryTerms: false, customsPlace: false, destination: false };
+/** Saqlangan holatdagi tovarni forma holatiga o'tkazadi (Brutto qo'lda bo'lsagina override) */
+const itemStateOf = (item: SnapshotItem): ItemState => ({
+  uid: item.uid,
+  product: item.fields.product,
+  boxCount: item.fields.boxCount,
+  boxWeight: item.fields.boxWeight,
+  palletCount: item.fields.palletCount,
+  palletWeight: item.fields.palletWeight,
+  netto: item.fields.netto,
+  price: item.fields.price,
+  bruttoOverride: item.bruttoManual ? item.fields.brutto : null,
+});
+
 const newItem = (uid: string): ItemState => ({
   uid,
   product: '',
@@ -478,10 +491,12 @@ export default function TgCargo() {
   const [manual, setManual] = useState<ManualFlags>(NO_MANUAL);
   const [contractId, setContractId] = useState<number | null>(null);
   const [branchId, setBranchId] = useState<number | null>(null);
-  const [items, setItems] = useState<ItemState[]>(() => [newItem(makeUid())]);
+  // Boshlang'ich forma va solishtirish bazasi BIR snapshot'dan: aks holda tasodifiy uid'lar farq qilib, bo'sh tovar "o'chirilgan" deb yuboriladi
+  const initialSnapshot = useMemo(() => snapshotFromDraft(null), []);
+  const [items, setItems] = useState<ItemState[]>(() => initialSnapshot.items.map(itemStateOf));
   /** Serverdagi saqlangan ariza (yangi bo'lsa null) va uning formadagi ko'rinishi — o'zgarishni solishtirish uchun */
   const [draft, setDraft] = useState<DraftView | null>(null);
-  const baseRef = useRef<FormSnapshot>(snapshotFromDraft(null));
+  const baseRef = useRef<FormSnapshot>(initialSnapshot);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState('');
   const [keyboardOpen, setKeyboardOpen] = useState(false);
@@ -496,19 +511,7 @@ export default function TgCargo() {
     setContractId(snapshot.contractId);
     setBranchId(snapshot.branchId);
     setManual(deriveManualFlags(snapshot.header, contracts.find((c) => c.id === snapshot.contractId) ?? null));
-    setItems(
-      snapshot.items.map((item) => ({
-        uid: item.uid,
-        product: item.fields.product,
-        boxCount: item.fields.boxCount,
-        boxWeight: item.fields.boxWeight,
-        palletCount: item.fields.palletCount,
-        palletWeight: item.fields.palletWeight,
-        netto: item.fields.netto,
-        price: item.fields.price,
-        bruttoOverride: item.bruttoManual ? item.fields.brutto : null,
-      }))
-    );
+    setItems(snapshot.items.map(itemStateOf));
   }, []);
 
   useEffect(() => {

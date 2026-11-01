@@ -182,3 +182,68 @@ describe('parseLaunchParam', () => {
     }
   });
 });
+
+describe('Brutto — serverda hisoblanadi (C1)', () => {
+  const must = (r: ReturnType<typeof applyDraftPatch>) => {
+    if (!r.ok) throw new Error(`patch failed: ${JSON.stringify(r.errors)}`);
+    return r;
+  };
+  const patchItem = (data: DraftData, authors: AuthorMap, fields: Record<string, string | null>, author: FieldAuthor, bruttoManual?: boolean) =>
+    must(applyDraftPatch(data, authors, { items: { u1: { fields, ...(bruttoManual === undefined ? {} : { bruttoManual }) } } }, author));
+
+  it("qo'lda emas: Netto + yashik + poddon yig'indisi, muallif — o'zgartirgan odam", () => {
+    const first = patchItem(EMPTY_DRAFT_DATA, {}, { netto: '100', boxWeight: '10' }, aziz);
+    expect(first.data.items[0].fields.brutto).toBe('110');
+    expect(first.authors['items.u1.brutto']).toEqual(aziz);
+    const second = patchItem(first.data, first.authors, { boxWeight: '15' }, vali);
+    expect(second.data.items[0].fields.brutto).toBe('115');
+    expect(second.authors['items.u1.brutto']).toEqual(vali);
+  });
+
+  it("qo'lda emas bo'lsa mijozdan kelgan brutto e'tiborga olinmaydi (eskirgan brauzer hisobi)", () => {
+    const r = patchItem(EMPTY_DRAFT_DATA, {}, { netto: '100', brutto: '999' }, aziz);
+    expect(r.data.items[0].fields.brutto).toBe('100');
+  });
+
+  it("qo'lda yozilgan brutto bruttoManual:true siz kelgan (eskirgan) patchda o'zgarmaydi", () => {
+    const manual: DraftData = { ...EMPTY_DRAFT_DATA, items: [{ uid: 'u1', fields: { netto: '100', brutto: '120' }, bruttoManual: true }] };
+    const r = patchItem(manual, {}, { netto: '200', brutto: '210' }, vali);
+    expect(r.data.items[0].fields.brutto).toBe('120');
+    expect(r.data.items[0].fields.netto).toBe('200');
+    expect(r.data.items[0].bruttoManual).toBe(true);
+  });
+
+  it("bruttoManual:true bilan kelgan brutto qabul qilinadi va keyingi vazn o'zgarishida saqlanib qoladi", () => {
+    const first = patchItem(EMPTY_DRAFT_DATA, {}, { netto: '100', brutto: '120' }, aziz, true);
+    expect(first.data.items[0].fields.brutto).toBe('120');
+    expect(first.authors['items.u1.brutto']).toEqual(aziz);
+    const second = patchItem(first.data, first.authors, { netto: '300' }, vali);
+    expect(second.data.items[0].fields.brutto).toBe('120');
+  });
+
+  it("bruttoManual:false qo'lda qiymatni bekor qilib qayta hisoblaydi", () => {
+    const manual: DraftData = { ...EMPTY_DRAFT_DATA, items: [{ uid: 'u1', fields: { netto: '100', brutto: '120' }, bruttoManual: true }] };
+    const r = patchItem(manual, {}, {}, vali, false);
+    expect(r.data.items[0].fields.brutto).toBe('100');
+  });
+
+  it("Netto/yashik/poddon hammasi tozalansa brutto va uning muallifi ham o'chadi", () => {
+    const first = patchItem(EMPTY_DRAFT_DATA, {}, { netto: '100' }, aziz);
+    const second = patchItem(first.data, first.authors, { netto: null }, vali);
+    expect(second.data.items[0].fields.brutto).toBeUndefined();
+    expect(second.authors['items.u1.brutto']).toBeUndefined();
+  });
+
+  it("o'nli yig'indi 3 xonagacha yaxlitlanadi (0.1 + 0.2 = 0.3)", () => {
+    const r = patchItem(EMPTY_DRAFT_DATA, {}, { netto: '0.1', boxWeight: '0.2' }, aziz);
+    expect(r.data.items[0].fields.brutto).toBe('0.3');
+  });
+});
+
+describe('draftPatchSchema — tovar kalitlari chegarasi (C2)', () => {
+  const keys = (n: number) => Object.fromEntries(Array.from({ length: n }, (_, i) => [`u${i}`, null]));
+  it("o'chirilgan + yangi tovarlar uchun 40 tagacha kalit mumkin, 41 — yo'q", () => {
+    expect(draftPatchSchema.safeParse({ items: keys(40) }).success).toBe(true);
+    expect(draftPatchSchema.safeParse({ items: keys(41) }).success).toBe(false);
+  });
+});

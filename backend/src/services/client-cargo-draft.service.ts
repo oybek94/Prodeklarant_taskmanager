@@ -160,7 +160,7 @@ async function loadMessageContext(data: DraftData): Promise<DraftMessageContext>
   };
 }
 
-async function runSync(botToken: string, draftId: number): Promise<SyncResult> {
+async function runSyncNow(botToken: string, draftId: number): Promise<SyncResult> {
   lastSyncAt.set(draftId, Date.now());
   const row = await prisma.clientCargoDraft.findUnique({ where: { id: draftId } });
   if (!row) return { ok: false, description: 'Ariza topilmadi' };
@@ -199,6 +199,29 @@ async function runSync(botToken: string, draftId: number): Promise<SyncResult> {
   return { ok: true };
 }
 
+const syncChains = new Map<number, Promise<SyncResult>>();
+
+/**
+ * Bir ariza uchun sinxronlashlar ketma-ket bajariladi: kechikib tugagan eski tahrir yangi (masalan "Отменено") xabarni bosib ketmaydi,
+ * chunki keyingi sinxronlash oldingisi tugagach bazadagi eng yangi holatni o'qiydi. Xato otmaydi — natija sifatida qaytaradi.
+ */
+function runSync(botToken: string, draftId: number): Promise<SyncResult> {
+  const previous = syncChains.get(draftId);
+  const next: Promise<SyncResult> = (previous ? previous.catch(() => undefined) : Promise.resolve())
+    .then(() => runSyncNow(botToken, draftId))
+    .catch((e: unknown): SyncResult => {
+      const description = e instanceof Error ? e.message : "noma'lum xato";
+      console.error('[ClientCargoDraft] Xabarni moslashda xato:', description);
+      return { ok: false, description };
+    });
+  syncChains.set(draftId, next);
+  const cleanup = () => {
+    if (syncChains.get(draftId) === next) syncChains.delete(draftId);
+  };
+  next.then(cleanup, cleanup);
+  return next;
+}
+
 /**
  * Ariza xabarini bazadagi holatga moslaydi. `immediate` bo'lmasa shu ariza tahrirlari orasida kamida 3 soniya bo'ladi:
  * tez ketma-ket o'zgarishlar bitta kechiktirilgan tahrirga birlashadi (Telegram cheklovi + guruhni to'ldirmaslik uchun).
@@ -234,7 +257,7 @@ async function mutateDraft(
   scope: DraftScope,
   id: number,
   decide: (row: ClientCargoDraft, parsed: ParsedRow) => Promise<Decision> | Decision,
-  options: { immediateSync: boolean; afterWrite?: (parsed: ParsedRow) => Promise<void> }
+  options: { immediateSync: boolean; /** Yopiq arizada o'zgarish yo'q bo'lsa ham xabarni qayta moslash (oldingi tahrir yiqilgan bo'lishi mumkin) */ syncOnNoop?: boolean; afterWrite?: (parsed: ParsedRow) => Promise<void> }
 ): Promise<DraftResult> {
   for (let attempt = 0; attempt < MAX_WRITE_ATTEMPTS; attempt++) {
     const row = await findScoped(scope, id);
@@ -244,7 +267,10 @@ async function mutateDraft(
 
     const decision = await decide(row, parsed);
     if (decision.kind === 'error') return decision.error;
-    if (decision.kind === 'noop') return { ok: true, draft: toView(row, parsed) };
+    if (decision.kind === 'noop') {
+      if (options.syncOnNoop) await syncDraftMessage(scope.botToken, id, { immediate: true });
+      return { ok: true, draft: toView(row, parsed) };
+    }
 
     const written = await prisma.clientCargoDraft.updateMany({
       where: { id: row.id, version: row.version, status: 'OPEN' },
@@ -317,6 +343,7 @@ export async function completeDraft(scope: DraftScope, id: number, actor: DraftA
     },
     {
       immediateSync: true,
+      syncOnNoop: true,
       afterWrite: async (parsed) => {
         const products = new Set(parsed.data.items.map((item) => item.fields.product).filter((p): p is string => !!p));
         for (const name of products) {
@@ -340,6 +367,6 @@ export async function cancelDraft(scope: DraftScope, id: number, _actor: DraftAc
       if (row.status === 'COMPLETED') return { kind: 'error', error: CLOSED_ERROR };
       return { kind: 'write', data: { status: 'CANCELLED' } };
     },
-    { immediateSync: true }
+    { immediateSync: true, syncOnNoop: true }
   );
 }

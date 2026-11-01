@@ -204,11 +204,16 @@ function buildPreview(header: HeaderValues, contract: ContractInfo | null, shipm
     .map((item) => {
       const values: Record<(typeof ITEM_ORDER)[number], string> = {
         product: normalizeText(item.product),
-        boxCount: withUnit(item.boxCount.trim(), 'шт.'),
+        // Qadoq turi tanlangan bo'lsa ящиклар soni shu nom bilan: "2500 дер.ящик" (guruh xabaridagi kabi)
+        boxCount: withUnit(item.boxCount.trim(), normalizeText(item.packagingType) || 'шт.'),
         boxWeight: withUnit(normalizeDecimal(item.boxWeight), 'кг.'),
-        packagingType: normalizeText(item.packagingType),
-        palletCount: withUnit(item.palletCount.trim(), 'шт.'),
-        palletWeight: withUnit(normalizeDecimal(item.palletWeight), 'кг.'),
+        // Ящиклар soni bo'lsa qadoq turi unga birlashtirilgan — alohida qator chiqmaydi
+        packagingType: item.boxCount.trim() ? '' : normalizeText(item.packagingType),
+        // Поддоны: soni va vazni ikkalasi ham bo'lsa bitta qatorda "33 шт. (430 кг)" (guruh xabaridagi kabi)
+        palletCount: item.palletCount.trim()
+          ? `${item.palletCount.trim()} шт.${normalizeDecimal(item.palletWeight) ? ` (${normalizeDecimal(item.palletWeight)} кг)` : ''}`
+          : '',
+        palletWeight: item.palletCount.trim() ? '' : withUnit(normalizeDecimal(item.palletWeight), 'кг.'),
         netto: withUnit(normalizeDecimal(item.netto), 'кг.'),
         brutto: withUnit(normalizeDecimal(bruttoOf(item)), 'кг.'),
         price: normalizeDecimal(item.price) ? `${normalizeDecimal(item.price)}${contract?.currency ? ` ${contract.currency}` : ''}` : '',

@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
   formatCargoMessage,
-  orderCustomsOptions,
   parseCount,
   parseDecimal,
   parseStepInput,
@@ -51,18 +50,13 @@ describe('parseStepInput', () => {
   });
 });
 
-describe('splitContractLines / orderCustomsOptions', () => {
+describe('splitContractLines', () => {
   it("bo'sh qatorlarni tashlaydi, asl indeksni saqlaydi", () => {
     expect(splitContractLines('FCA Oltiariq\n\nDAP Moskva')).toEqual([
       { text: 'FCA Oltiariq', rawIndex: 0 },
       { text: 'DAP Moskva', rawIndex: 2 },
     ]);
     expect(splitContractLines(null)).toEqual([]);
-  });
-  it('tanlangan shahar juftidagi bojxonani birinchi qo\'yadi', () => {
-    const customs = splitContractLines('Oltiariq posti\nMoskva posti');
-    expect(orderCustomsOptions(customs, 1).map((o) => o.text)).toEqual(['Moskva posti', 'Oltiariq posti']);
-    expect(orderCustomsOptions(customs, undefined).map((o) => o.text)).toEqual(['Oltiariq posti', 'Moskva posti']);
   });
 });
 

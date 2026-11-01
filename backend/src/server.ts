@@ -10,6 +10,7 @@ import { prisma } from './prisma';
 import authRouter from './routes/auth';
 import clientsRouter from './routes/clients';
 import portalRouter from './routes/portal';
+import tgCargoRouter from './routes/tg-cargo';
 import tasksRouter from './routes/tasks';
 import transactionsRouter from './routes/transactions';
 import kpiRouter from './routes/kpi';
@@ -205,6 +206,7 @@ app.use('/api', authenticateApi);
 
 app.use('/api/auth', authRouter);
 app.use('/api/portal', portalRouter);
+app.use('/api/tg-cargo', tgCargoRouter); // Telegram Mini App: o'zi initData imzosini tekshiradi
 // AI endpoints (protected, requires authentication)
 app.use('/api/ai', requireAuth(), aiRouter);
 app.use('/api/clients', clientsRouter);

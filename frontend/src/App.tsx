@@ -31,6 +31,7 @@ const Invoice = lazy(() => import('./pages/Invoice'));
 const Invoices = lazy(() => import('./pages/Invoices'));
 const Reports = lazy(() => import('./pages/Reports'));
 const QRVerification = lazy(() => import('./pages/QRVerification'));
+const TgCargo = lazy(() => import('./pages/TgCargo'));
 const Leads = lazy(() => import('./pages/Leads'));
 const LeadDetail = lazy(() => import('./pages/LeadDetail'));
 const CrmDashboard = lazy(() => import('./pages/CrmDashboard'));
@@ -138,6 +139,7 @@ const AppRoutes = () => {
         path="/q/:token"
         element={<QRVerification />}
       />
+      <Route path="/tg/cargo" element={<TgCargo />} />
       <Route
         element={
           <ProtectedRoute>

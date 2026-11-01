@@ -58,6 +58,13 @@
   padding: 22px 16px calc(112px + env(safe-area-inset-bottom));
 }
 
+.tgc-logo {
+  display: block;
+  height: 34px;
+  width: auto;
+  margin: 0 0 18px;
+}
+
 .tgc-title {
   margin: 0;
   font-size: 27px;

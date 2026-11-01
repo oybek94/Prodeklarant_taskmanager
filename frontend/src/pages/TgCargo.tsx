@@ -727,6 +727,7 @@ export default function TgCargo() {
   return shell(
     <>
       <div className="tgc-wrap">
+        <img className="tgc-logo" src="/logo.png" alt="Prodeklarant" />
         <h1 className="tgc-title">Yuk ma'lumoti</h1>
         <p className="tgc-client">{c.clientName}</p>
 
@@ -909,7 +910,7 @@ export default function TgCargo() {
                         decimal
                         value={brutto}
                         error={fieldErrors[errorKey('brutto')]}
-                        onChange={(v) => updateItem(item.uid, { bruttoOverride: v === '' ? null : v }, errorKey('brutto'))}
+                        onChange={(v) => updateItem(item.uid, { bruttoOverride: v }, errorKey('brutto'))}
                         hint={
                           <p className="tgc-hint">
                             {item.bruttoOverride === null ? "Нетто + вес ящиков + вес поддонов. Kerak bo'lsa o'zgartiring." : "Qo'lda o'zgartirildi. "}

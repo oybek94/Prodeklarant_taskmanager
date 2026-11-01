@@ -14,14 +14,15 @@ const completeData = (): DraftData => ({
 });
 
 describe('formatDraftMessage', () => {
-  it("OPEN: sarlavha, muallifli qatorlar va yetishmayotgan majburiy maydonlar", () => {
+  it("OPEN: qatorlarda muallif yo'q; yetishmayotganlardan keyin oxirgi qatorda kimlar to'ldirgani", () => {
     const data: DraftData = { ...EMPTY_DRAFT_DATA, branchId: 3, header: { vehicleNumber: '01A123BC' }, items: [{ uid: 'u1', fields: { product: 'Яблоки' }, bruttoManual: false }] };
     const authors: AuthorMap = { 'header.vehicleNumber': by('Aziz'), branchId: by('Vali', 2), 'items.u1.product': by('Aziz') };
     const text = formatDraftMessage({ data, authors, context, status: 'OPEN' });
     expect(text.startsWith('🚛 <b>Данные о грузе</b>')).toBe(true);
-    expect(text).toContain('Номер автотранспорта: <b>01A123BC</b> — 👤 Aziz');
-    expect(text).toContain('Место отгрузки груза: <b>Ташкентская обл.</b> — 👤 Vali');
-    expect(text).toContain('Наименование: <b>Яблоки</b> — 👤 Aziz');
+    expect(text).toContain('Номер автотранспорта: <b>01A123BC</b>\n');
+    expect(text).toContain('Место отгрузки груза: <b>Ташкентская обл.</b>\n');
+    expect(text).toContain('Наименование: <b>Яблоки</b>\n');
+    expect(text).not.toContain('— 👤');
     expect(text).toContain('⏳ <b>Не заполнено:</b>');
     expect(text).toContain('• Условия поставки');
     expect(text).toContain('• Место там. очистки');
@@ -29,20 +30,48 @@ describe('formatDraftMessage', () => {
     expect(text).toContain('• Товар 1: Нетто');
     expect(text).toContain('• Товар 1: Брутто');
     expect(text).not.toContain('• Место отгрузки груза');
+    expect(text.endsWith('👤 Заполнили: Aziz, Vali')).toBe(true);
+    expect(text.indexOf('Не заполнено')).toBeLessThan(text.indexOf('Заполнили'));
   });
 
-  it("kontrakt matni context'dan, muallifi contractId kalitidan; narx valyuta bilan", () => {
+  it("kontrakt matni context'dan; narx valyuta bilan; muallif qatorda emas", () => {
     const authors: AuthorMap = { contractId: by('Aziz'), 'items.u1.price': by('Vali', 2) };
     const text = formatDraftMessage({ data: completeData(), authors, context, status: 'OPEN' });
-    expect(text).toContain('Контракт: <b>K-1, Buyer LLC</b> — 👤 Aziz');
-    expect(text).toContain('Цена: <b>2.5 USD</b> — 👤 Vali');
+    expect(text).toContain('Контракт: <b>K-1, Buyer LLC</b>\n');
+    expect(text).toContain('Цена: <b>2.5 USD</b>');
     expect(text).not.toContain('Не заполнено');
+    expect(text).not.toContain('— 👤');
+    expect(text.endsWith('👤 Заполнили: Aziz, Vali')).toBe(true);
   });
 
-  it("COMPLETED: to'liq sarlavha, kim yakunlagani, yetishmayotganlar bloki yo'q", () => {
-    const text = formatDraftMessage({ data: EMPTY_DRAFT_DATA, authors: {}, context, status: 'COMPLETED', actorName: 'Aziz' });
+  it("to'ldirganlar vaqt bo'yicha tartiblanadi va bir kishi bir marta chiqadi", () => {
+    const authors: AuthorMap = {
+      'header.orderNumber': { tgUserId: 1, name: 'Aziz', at: '2026-11-01T11:00:00.000Z' },
+      'header.temperature': { tgUserId: 2, name: 'Vali', at: '2026-11-01T09:00:00.000Z' },
+      'header.sensorSerial': { tgUserId: 1, name: 'Aziz', at: '2026-11-01T12:00:00.000Z' },
+    };
+    const data: DraftData = { ...EMPTY_DRAFT_DATA, header: { orderNumber: '7', temperature: '+2', sensorSerial: 'S1' } };
+    const text = formatDraftMessage({ data, authors, context, status: 'OPEN' });
+    expect(text.endsWith('👤 Заполнили: Vali, Aziz')).toBe(true);
+  });
+
+  it("hech kim to'ldirmagan bo'lsa 'Заполнили' qatori yo'q", () => {
+    expect(formatDraftMessage({ data: completeData(), authors: {}, context, status: 'OPEN' })).not.toContain('Заполнили');
+  });
+
+  it("12 dan ortiq ishtirokchi bo'lsa 10 tasi va 'и ещё N' chiqadi", () => {
+    const authors: AuthorMap = {};
+    for (let i = 1; i <= 12; i++) authors[`header.f${i}`] = { tgUserId: i, name: `U${i}`, at: `2026-11-01T10:${String(i).padStart(2, '0')}:00.000Z` };
+    const text = formatDraftMessage({ data: completeData(), authors, context, status: 'OPEN' });
+    expect(text.endsWith('👤 Заполнили: U1, U2, U3, U4, U5, U6, U7, U8, U9, U10 и ещё 2')).toBe(true);
+  });
+
+  it("COMPLETED: to'liq sarlavha, to'ldirganlar, so'ng kim yakunlagani; yetishmayotganlar bloki yo'q", () => {
+    const text = formatDraftMessage({ data: EMPTY_DRAFT_DATA, authors: { 'header.orderNumber': by('Vali', 2) }, context, status: 'COMPLETED' });
     expect(text.startsWith('✅ <b>Данные о грузе — полные</b>')).toBe(true);
-    expect(text).toContain('Завершил(а): <b>Aziz</b>');
+    expect(text).toContain('👤 Заполнили: Vali');
+    expect(text.endsWith('👤 Заполнили: Vali')).toBe(true);
+    expect(text).not.toContain('Завершил');
     expect(text).not.toContain('Не заполнено');
   });
 
@@ -53,11 +82,12 @@ describe('formatDraftMessage', () => {
   it("ism va qiymatdagi <, > va & belgilari HTML-escape qilinadi", () => {
     const data: DraftData = { ...EMPTY_DRAFT_DATA, header: { orderNumber: 'A&B <1>' } };
     const text = formatDraftMessage({ data, authors: { 'header.orderNumber': by('A<b>&') }, context, status: 'OPEN' });
-    expect(text).toContain('Номер заказа: <b>A&amp;B &lt;1&gt;</b> — 👤 A&lt;b&gt;&amp;');
+    expect(text).toContain('Номер заказа: <b>A&amp;B &lt;1&gt;</b>');
+    expect(text).toContain('👤 Заполнили: A&lt;b&gt;&amp;');
     expect(text).not.toContain('A<b>&');
   });
 
-  it("20 ta to'liq tovar bo'lsa ham xabar 4096 belgidan oshmaydi va teglari juft qoladi", () => {
+  it("20 ta to'liq tovar bo'lsa ham xabar 4096 belgidan oshmaydi, teglar juft, to'ldirganlar qatori saqlanadi", () => {
     const items: DraftItem[] = Array.from({ length: 20 }, (_, i) => ({
       uid: `u${i}`,
       bruttoManual: false,
@@ -68,22 +98,8 @@ describe('formatDraftMessage', () => {
     const text = formatDraftMessage({ data: { ...completeData(), items }, authors, context, status: 'OPEN' });
     expect(text.length).toBeLessThanOrEqual(4096);
     expect((text.match(/<b>/g) ?? []).length).toBe((text.match(/<\/b>/g) ?? []).length);
-    expect(text.endsWith('…')).toBe(true);
-  });
-
-  it("uzun bo'lsa avval mualliflarsiz qayta quriladi (sig'sa qirqilmaydi)", () => {
-    const items: DraftItem[] = Array.from({ length: 9 }, (_, i) => ({
-      uid: `u${i}`,
-      bruttoManual: false,
-      fields: { product: `Товар ${i}`, boxCount: '10', boxWeight: '12.5', palletCount: '1', palletWeight: '5', netto: '100', brutto: '117.5', price: '1' },
-    }));
-    const authors: AuthorMap = {};
-    for (const item of items) for (const key of Object.keys(item.fields)) authors[`items.${item.uid}.${key}`] = by('Aziz Karimovich Tursunov');
-    const withAuthors = formatDraftMessage({ data: { ...completeData(), items }, authors, context, status: 'OPEN' });
-    const without = formatDraftMessage({ data: { ...completeData(), items }, authors: {}, context, status: 'OPEN' });
-    expect(without.length).toBeLessThanOrEqual(4096);
-    expect(withAuthors.length).toBeLessThanOrEqual(4096);
-    expect(withAuthors.endsWith('…')).toBe(false);
+    expect(text).toContain('…');
+    expect(text.endsWith('👤 Заполнили: Очень Длинное Имя')).toBe(true);
   });
 });
 
@@ -153,10 +169,11 @@ describe('uzun xabarda oxirgi blok saqlanadi (I3)', () => {
     expect((text.match(/<b>/g) ?? []).length).toBe((text.match(/<\/b>/g) ?? []).length);
   });
 
-  it("COMPLETED: 'Завершил(а)' qatori qirqishda yo'qolmaydi", () => {
+  it("COMPLETED: uzun xabar qirqilganda 'Заполнили' qatori saqlanadi", () => {
     const full = manyItems().map((item) => ({ ...item, fields: { ...item.fields, product: 'Яблоки' } }));
-    const text = formatDraftMessage({ data: { ...completeData(), items: full }, authors: {}, context, status: 'COMPLETED', actorName: 'Aziz' });
+    const text = formatDraftMessage({ data: { ...completeData(), items: full }, authors: { 'header.orderNumber': by('Aziz') }, context, status: 'COMPLETED' });
     expect(text.length).toBeLessThanOrEqual(4096);
-    expect(text.endsWith('Завершил(а): <b>Aziz</b>')).toBe(true);
+    expect(text.endsWith('👤 Заполнили: Aziz')).toBe(true);
+    expect(text).not.toContain('Завершил');
   });
 });

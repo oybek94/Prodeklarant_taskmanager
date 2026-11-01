@@ -76,8 +76,8 @@ describe('formatDraftMessage', () => {
       items: [{ uid: 'u1', fields: { product: 'Яблоки', boxCount: '2000', boxWeight: '500', palletCount: '33', palletWeight: '429', netto: '21000', brutto: '21929', price: '100' }, bruttoManual: false }],
     };
     const text = formatDraftMessage({ data, authors: {}, context, status: 'OPEN' });
-    expect(text).toContain('Количество ящиков: <b>2000 шт.</b>');
-    expect(text).toContain('Общий вес ящиков: <b>500 кг.</b>');
+    expect(text).toContain('Количество ящиков: <b>2000 шт. (500 кг)</b>'); // ящиклар soni va vazni birlashtirilgan
+    expect(text).not.toContain('Общий вес ящиков');
     expect(text).toContain('Количество поддонов: <b>33 шт. (429 кг)</b>'); // поддонlar soni va vazni birlashtirilgan
     expect(text).not.toContain('Общий вес поддонов');
     expect(text).toContain('Нетто: <b>21000 кг.</b>');
@@ -236,7 +236,7 @@ describe('Вид упаковки xabarda — Количество ящиков 
       context,
       status: 'OPEN',
     });
-    expect(text).toContain('📦 Количество ящиков: <b>2500 дер.ящик</b>');
+    expect(text).toContain('📦 Количество ящиков: <b>2500 дер.ящик (5 кг)</b>');
     expect(text).not.toContain('Вид упаковки');
     expect(text).not.toContain('2500 шт.');
     expect(text).toContain('Количество поддонов: <b>2 шт.</b>'); // поддонlar birligi o'zgarmaydi
@@ -285,9 +285,45 @@ describe('Поддоны: Количество va Общий вес birlashtiril
     expect(text).not.toContain('Количество поддонов');
   });
 
-  it("ящиклар (Количество ящиков + Общий вес ящиков) o'zgarishsiz alohida qoladi", () => {
+  it("ящиклар va поддонlar birlashtirilishi bir-biriga xalaqit bermaydi", () => {
     const text = render({ product: 'Виноград', boxCount: '2500', boxWeight: '500', packagingType: 'дер.ящик', palletCount: '33', palletWeight: '430' });
-    expect(text).toContain('Количество ящиков: <b>2500 дер.ящик</b>');
+    expect(text).toContain('Количество ящиков: <b>2500 дер.ящик (500 кг)</b>');
+    expect(text).toContain('Количество поддонов: <b>33 шт. (430 кг)</b>');
+    expect(text).not.toContain('Общий вес');
+  });
+});
+
+describe('Ящики: Количество (qadoq turi bilan) va Общий вес birlashtiriladi', () => {
+  const render = (fields: Record<string, string>) =>
+    formatDraftMessage({ data: { ...completeData(), items: [{ uid: 'u1', fields, bruttoManual: false }] }, authors: {}, context, status: 'OPEN' });
+
+  it("qadoq turi bilan: '📦 Количество ящиков: 2500 пласт.ящик (2500 кг)', alohida vazn qatori yo'q", () => {
+    const text = render({ product: 'Виноград', boxCount: '2500', boxWeight: '2500', packagingType: 'пласт.ящик' });
+    expect(text).toContain('📦 Количество ящиков: <b>2500 пласт.ящик (2500 кг)</b>');
+    expect(text).not.toContain('Общий вес ящиков');
+    expect(text).not.toContain('Вид упаковки');
+  });
+
+  it("qadoq turisiz: 'шт.' bilan", () => {
+    expect(render({ product: 'Виноград', boxCount: '2100', boxWeight: '1000' })).toContain('Количество ящиков: <b>2100 шт. (1000 кг)</b>');
+  });
+
+  it("o'nli vazn o'zgarishsiz", () => {
+    expect(render({ product: 'Виноград', boxCount: '10', boxWeight: '12.5' })).toContain('<b>10 шт. (12.5 кг)</b>');
+  });
+
+  it("faqat soni: vazn qatori yo'q; faqat vazni: o'z qatorida 'кг.' bilan (ma'lumot yo'qolmaydi)", () => {
+    const onlyCount = render({ product: 'Виноград', boxCount: '10' });
+    expect(onlyCount).toContain('Количество ящиков: <b>10 шт.</b>');
+    expect(onlyCount).not.toContain('Общий вес ящиков');
+    const onlyWeight = render({ product: 'Виноград', boxWeight: '500' });
+    expect(onlyWeight).toContain('⚖️ Общий вес ящиков: <b>500 кг.</b>');
+    expect(onlyWeight).not.toContain('Количество ящиков: <b>'); // qiymat qatori yo'q (yetishmayotganlar ro'yxatida nomi bor)
+  });
+
+  it("ящиклар soni yo'q bo'lsa qadoq turi o'z qatorida, vazn ham o'z qatorida", () => {
+    const text = render({ product: 'Виноград', boxWeight: '500', packagingType: 'дер.ящик' });
+    expect(text).toContain('🗃 Вид упаковки: <b>дер.ящик</b>');
     expect(text).toContain('Общий вес ящиков: <b>500 кг.</b>');
   });
 });

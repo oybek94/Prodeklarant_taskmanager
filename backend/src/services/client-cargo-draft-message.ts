@@ -54,6 +54,10 @@ const ITEM_UNITS: Record<string, string> = {
   brutto: 'кг.',
 };
 
+/** Soni qatoriga vazni birlashtiriladigan juftliklar: soni → vazni (va aksincha: vazn qatori qaysi son qatoriga qo'shilgan) */
+const COUNT_MERGES_WEIGHT: Record<string, string> = { boxCount: 'boxWeight', palletCount: 'palletWeight' };
+const WEIGHT_MERGED_INTO: Record<string, string> = { boxWeight: 'boxCount', palletWeight: 'palletCount' };
+
 /** Shundan uzun qiymat (masalan bojxona manzili) alohida qatorda <blockquote> ichida: qatorlar bir-biriga yopishib ketmasin */
 const LONG_VALUE_LENGTH = 40;
 
@@ -107,12 +111,15 @@ function buildBody(input: { data: DraftData; authors: AuthorMap; context: DraftM
         // Qadoq turi ящиклар soniga birlashtiriladi: "2500 дер.ящик" (alohida "Вид упаковки" qatori yo'q).
         // Ящиклар soni bo'lmasa qadoq turi yo'qolmasligi uchun o'z qatorida qoladi.
         if (f.key === 'packagingType' && item.fields.boxCount) return [];
-        // Поддоны: soni va vazni ikkalasi ham kiritilgan bo'lsa bitta qatorda: "33 шт. (430 кг)". Bittasi bo'lsa o'z qatorida qoladi.
-        const palletWeight = item.fields.palletWeight;
-        if (f.key === 'palletWeight' && item.fields.palletCount) return [];
-        if (f.key === 'palletCount' && palletWeight) return [row(ITEM_ICONS[f.key], f.label, `${value} ${ITEM_UNITS.palletCount} (${palletWeight} кг)`)];
+        // Ящики va поддоны: soni va umumiy vazni ikkalasi ham kiritilgan bo'lsa bitta qatorda: "2500 дер.ящик (2500 кг)", "33 шт. (430 кг)".
+        // Bittasi kiritilgan bo'lsa o'z qatorida qoladi (ma'lumot yo'qolmaydi).
+        const countKey = WEIGHT_MERGED_INTO[f.key];
+        if (countKey && item.fields[countKey]) return [];
+        const weightKey = COUNT_MERGES_WEIGHT[f.key];
+        const weight = weightKey ? item.fields[weightKey] : undefined;
         const unit = f.key === 'price' ? context.currency : f.key === 'boxCount' && packaging ? packaging : ITEM_UNITS[f.key];
-        const shown = unit ? `${value} ${unit}` : value;
+        const base = unit ? `${value} ${unit}` : value;
+        const shown = weight ? `${base} (${weight} кг)` : base;
         return [row(ITEM_ICONS[f.key], f.label, shown)];
       });
       return [`<b>Товар ${index + 1}</b>`, ...lines].join('\n');

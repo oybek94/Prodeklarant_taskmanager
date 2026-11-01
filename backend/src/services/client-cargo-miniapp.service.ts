@@ -115,7 +115,7 @@ export async function getCargoContext(clientId: number): Promise<CargoContext | 
   };
 }
 
-async function rememberProduct(clientId: number, name: string): Promise<void> {
+export async function rememberProduct(clientId: number, name: string): Promise<void> {
   const existing = await prisma.clientBotProduct.findFirst({
     where: { clientId, name: { equals: name, mode: 'insensitive' } },
     select: { id: true },

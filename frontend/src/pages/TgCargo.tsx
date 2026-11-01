@@ -205,8 +205,11 @@ function buildPreview(header: HeaderValues, contract: ContractInfo | null, shipm
       const values: Record<(typeof ITEM_ORDER)[number], string> = {
         product: normalizeText(item.product),
         // Qadoq turi tanlangan bo'lsa ящиклар soni shu nom bilan: "2500 дер.ящик" (guruh xabaridagi kabi)
-        boxCount: withUnit(item.boxCount.trim(), normalizeText(item.packagingType) || 'шт.'),
-        boxWeight: withUnit(normalizeDecimal(item.boxWeight), 'кг.'),
+        // Ящиклар: soni (qadoq turi bilan) va vazni ikkalasi ham bo'lsa bitta qatorda "2500 дер.ящик (2500 кг)" (guruh xabaridagi kabi)
+        boxCount: item.boxCount.trim()
+          ? `${item.boxCount.trim()} ${normalizeText(item.packagingType) || 'шт.'}${normalizeDecimal(item.boxWeight) ? ` (${normalizeDecimal(item.boxWeight)} кг)` : ''}`
+          : '',
+        boxWeight: item.boxCount.trim() ? '' : withUnit(normalizeDecimal(item.boxWeight), 'кг.'),
         // Ящиклар soni bo'lsa qadoq turi unga birlashtirilgan — alohida qator chiqmaydi
         packagingType: item.boxCount.trim() ? '' : normalizeText(item.packagingType),
         // Поддоны: soni va vazni ikkalasi ham bo'lsa bitta qatorda "33 шт. (430 кг)" (guruh xabaridagi kabi)

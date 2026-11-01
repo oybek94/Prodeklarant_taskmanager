@@ -203,7 +203,8 @@ describe('createDraft', () => {
     expect(method).toBe('sendMessage');
     expect(body.chat_id).toBe('-100123');
     expect(body.parse_mode).toBe('HTML');
-    expect(body.text).toContain('Инвойс №: <b>INV-1</b> — 👤 Aziz');
+    expect(body.text).toContain('Инвойс №: <b>INV-1</b>\n');
+    expect(body.text).toContain('👤 Заполнили: Aziz');
     expect(JSON.stringify(body.reply_markup)).toContain('startapp=-100123_30');
     expect(m.draftUpdate).toHaveBeenCalledWith({ where: { id: 30 }, data: { messageId: 91 } });
   });
@@ -243,6 +244,7 @@ describe('completeDraft va cancelDraft', () => {
     const editBody = m.callTelegram.mock.calls[0][2];
     expect(m.callTelegram.mock.calls[0][1]).toBe('editMessageText');
     expect(editBody.text).toContain('✅ <b>Данные о грузе — полные</b>');
+    expect(editBody.text).not.toContain('Завершил'); // yakunlagan odam xabarda ko'rsatilmaydi (completedByName faqat bazada)
     expect(editBody.reply_markup).toEqual({ inline_keyboard: [] });
 
     const telegramCalls = m.callTelegram.mock.calls.length;

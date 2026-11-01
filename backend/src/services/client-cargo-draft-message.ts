@@ -19,9 +19,23 @@ const ELLIPSIS = '…';
 
 const escapeHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-function row(label: string, value: string, author: string | null): string {
-  const base = `${escapeHtml(label)}: <b>${escapeHtml(value)}</b>`;
-  return author ? `${base} — 👤 ${escapeHtml(author)}` : base;
+const row = (label: string, value: string): string => `${escapeHtml(label)}: <b>${escapeHtml(value)}</b>`;
+
+/** Xabarda ko'rsatiladigan ishtirokchilar soni; qolganlari "и ещё N" */
+const MAX_LISTED_CONTRIBUTORS = 10;
+
+/** "👤 Заполнили: Aziz, Vali" — to'ldirganlar birinchi kiritgan vaqti bo'yicha, bir kishi bir marta. Hech kim bo'lmasa bo'sh qator. */
+function contributorsLine(authors: AuthorMap): string {
+  const firstSeen = new Map<number, { name: string; at: string }>();
+  for (const author of Object.values(authors)) {
+    const known = firstSeen.get(author.tgUserId);
+    if (!known || author.at < known.at) firstSeen.set(author.tgUserId, { name: author.name, at: author.at });
+  }
+  const people = [...firstSeen.values()].sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : 0));
+  if (people.length === 0) return '';
+  const listed = people.slice(0, MAX_LISTED_CONTRIBUTORS).map((p) => escapeHtml(p.name));
+  const rest = people.length - listed.length;
+  return `👤 Заполнили: ${listed.join(', ')}${rest > 0 ? ` и ещё ${rest}` : ''}`;
 }
 
 const isItemFilled = (item: DraftItem): boolean => ITEM_FIELDS.some((f) => (item.fields[f.key] ?? '').trim() !== '');
@@ -33,23 +47,12 @@ interface MessageParts {
   footer: string;
 }
 
-function buildBody(input: { data: DraftData; authors: AuthorMap; context: DraftMessageContext; status: DraftStatus; actorName?: string | null }, withAuthors: boolean): MessageParts {
-  const { data, authors, context, status, actorName } = input;
-  const authorOf = (path: string): string | null => (withAuthors ? (authors[path]?.name ?? null) : null);
+function buildBody(input: { data: DraftData; authors: AuthorMap; context: DraftMessageContext; status: DraftStatus }): MessageParts {
+  const { data, authors, context, status } = input;
 
   const headerLines = HEADER_FIELDS.flatMap((f) => {
-    let value: string | undefined;
-    let authorPath = `header.${f.key}`;
-    if (f.key === 'contract') {
-      value = context.contractText ?? undefined;
-      authorPath = 'contractId';
-    } else if (f.key === 'shipmentPlace') {
-      value = context.shipmentPlace ?? undefined;
-      authorPath = 'branchId';
-    } else {
-      value = data.header[f.key];
-    }
-    return value ? [row(f.label, value, authorOf(authorPath))] : [];
+    const value = f.key === 'contract' ? context.contractText : f.key === 'shipmentPlace' ? context.shipmentPlace : data.header[f.key];
+    return value ? [row(f.label, value)] : [];
   });
 
   const itemBlocks = data.items
@@ -59,7 +62,7 @@ function buildBody(input: { data: DraftData; authors: AuthorMap; context: DraftM
         const value = item.fields[f.key];
         if (!value) return [];
         const shown = f.key === 'price' && context.currency ? `${value} ${context.currency}` : value;
-        return [row(f.label, shown, authorOf(`items.${item.uid}.${f.key}`))];
+        return [row(f.label, shown)];
       });
       return [`<b>Товар ${index + 1}</b>`, ...lines].join('\n');
     });
@@ -69,16 +72,18 @@ function buildBody(input: { data: DraftData; authors: AuthorMap; context: DraftM
   if (headerLines.length > 0) parts.push(headerLines.join('\n'));
   parts.push(...itemBlocks);
 
-  let footer = '';
+  // Oxirgi blok (qirqilmaydi): yetishmayotganlar, keyin to'ldirganlar
+  const footerBlocks: string[] = [];
   if (status === 'OPEN') {
     const missing = getMissingRequired(data);
     if (missing.length > 0) {
       const lines = missing.map((m) => `• ${m.itemNumber === null ? '' : `Товар ${m.itemNumber}: `}${escapeHtml(m.label)}`);
-      footer = ['⏳ <b>Не заполнено:</b>', ...lines].join('\n');
+      footerBlocks.push(['⏳ <b>Не заполнено:</b>', ...lines].join('\n'));
     }
   }
-  if (status === 'COMPLETED' && actorName) footer = `Завершил(а): <b>${escapeHtml(actorName)}</b>`;
-  return { main: parts.join('\n\n'), footer };
+  const contributors = contributorsLine(authors);
+  if (contributors) footerBlocks.push(contributors);
+  return { main: parts.join('\n\n'), footer: footerBlocks.join('\n\n') };
 }
 
 const joinParts = (p: MessageParts): string => (p.footer ? `${p.main}\n\n${p.footer}` : p.main);
@@ -90,23 +95,22 @@ function truncateAtLine(text: string, maxLength: number): string {
 }
 
 /**
- * Guruhdagi jonli xabar matni (HTML). Uzun bo'lsa avval mualliflarsiz qayta quriladi, hali ham uzun bo'lsa satr chegarasida qirqiladi.
+ * Guruhdagi jonli xabar matni (HTML). Qatorlarda muallif ko'rsatilmaydi: kimlar to'ldirgani oxirida bitta qatorda.
+ * Juda uzun bo'lsa tovarlar satr chegarasida qirqiladi, oxirgi blok (yetishmayotganlar, to'ldirganlar) saqlanadi.
  */
 export function formatDraftMessage(input: {
   data: DraftData;
   authors: AuthorMap;
   context: DraftMessageContext;
   status: DraftStatus;
-  actorName?: string | null;
 }): string {
   if (input.status === 'CANCELLED') return '❌ <b>Отменено</b>';
-  const full = joinParts(buildBody(input, true));
+  const parts = buildBody(input);
+  const full = joinParts(parts);
   if (full.length <= TELEGRAM_MESSAGE_LIMIT) return full;
-  const compact = buildBody(input, false);
-  if (joinParts(compact).length <= TELEGRAM_MESSAGE_LIMIT) return joinParts(compact);
-  // Tovarlar qirqiladi, lekin "Не заполнено" / "Завершил(а)" bloki saqlanadi: foydalanuvchi nima yetishmayotganini ko'rsin
-  const room = TELEGRAM_MESSAGE_LIMIT - (compact.footer ? compact.footer.length + 2 : 0);
-  return joinParts({ main: truncateAtLine(compact.main, room), footer: compact.footer });
+  // Foydalanuvchi nima yetishmayotganini ko'rsin: "Не заполнено" / "Заполнили" qirqilmaydi
+  const room = TELEGRAM_MESSAGE_LIMIT - (parts.footer ? parts.footer.length + 2 : 0);
+  return joinParts({ main: truncateAtLine(parts.main, room), footer: parts.footer });
 }
 
 export function buildDraftLaunchLink(baseLink: string, chatId: string, draft: number | 'new'): string {

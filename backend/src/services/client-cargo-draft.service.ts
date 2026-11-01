@@ -173,7 +173,6 @@ async function runSyncNow(botToken: string, draftId: number): Promise<SyncResult
     authors: parsed.authors,
     context: await loadMessageContext(parsed.data),
     status: row.status,
-    actorName: row.completedByName,
   });
   const reply_markup = {
     inline_keyboard: buildDraftKeyboard({ draftId, chatId: row.chatId, status: row.status, complete: view.complete, miniAppLink: miniAppLink() }),

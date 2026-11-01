@@ -67,6 +67,7 @@ export const submitBodySchema = z.object({
   palletCount: optionalText,
   palletWeight: optionalText,
   netto: optionalText,
+  brutto: optionalText,
   price: optionalText,
   customs: optionalText,
   unloading: optionalText,

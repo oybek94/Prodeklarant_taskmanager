@@ -78,3 +78,10 @@ describe('formatCargoMessage', () => {
     expect(formatCargoMessage({}, 'USD')).toBeNull();
   });
 });
+
+describe('formatCargoMessage — brutto', () => {
+  it("Brutto Netto'dan keyin, Narxi'dan oldin chiqadi", () => {
+    const text = formatCargoMessage({ price: '1.25', brutto: '19634.5', netto: '18000' }, 'USD');
+    expect(text?.split('\n').slice(2)).toEqual(['Netto: <b>18000</b>', 'Brutto: <b>19634.5</b>', 'Narxi: <b>1.25 USD</b>']);
+  });
+});

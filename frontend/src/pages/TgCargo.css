@@ -2,19 +2,19 @@
    global CSS'i (dark mode override'lari) bilan to'qnashmasligi uchun faqat shu klasslar ishlatiladi. */
 
 .tgc {
-  --bg: #f2f5f3;
+  --bg: #f0f5fb;
   --surface: #ffffff;
-  --field: #f2f5f3;
-  --ink: #12241f;
-  --muted: #5f716b;
-  --line: #e0e7e3;
-  --chip: #e8efeb;
-  --accent: #0e5c4b;
+  --field: #f0f5fb;
+  --ink: #1f2937;
+  --muted: #5b6b7f;
+  --line: #c8dceb;
+  --chip: #e1eaf6;
+  --accent: #004e98;
   --on-accent: #ffffff;
-  --warm: #ee8a2b;
+  --mark: #3a6ea5;
   --danger: #c2362b;
 
-  height: 100dvh;
+  height: var(--tgc-vh, 100dvh);
   overflow-y: auto;
   overscroll-behavior: contain;
   background: var(--bg);
@@ -26,16 +26,16 @@
 }
 
 .tgc[data-theme='dark'] {
-  --bg: #0f1715;
-  --surface: #17221f;
-  --field: #0f1715;
-  --ink: #e8f0ec;
-  --muted: #8fa39c;
-  --line: #25332f;
-  --chip: #1f2e2a;
-  --accent: #3dbe9c;
-  --on-accent: #06211a;
-  --warm: #f5a04a;
+  --bg: #121212;
+  --surface: #1e1e1e;
+  --field: #2a2a2a;
+  --ink: #e0e0e0;
+  --muted: #a0a0a0;
+  --line: #444444;
+  --chip: #333333;
+  --accent: #6ea3cb;
+  --on-accent: #0a1b2d;
+  --mark: #6ea3cb;
   --danger: #ff8a7a;
 }
 
@@ -150,7 +150,7 @@
   appearance: none;
   -webkit-appearance: none;
   padding-right: 40px;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%238fa39c' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%238a98aa' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 14px center;
 }
@@ -231,7 +231,7 @@
 /* Guruhga ketadigan xabarning jonli ko'rinishi */
 .tgc-bubble {
   padding: 14px 16px;
-  border-left: 4px solid var(--warm);
+  border-left: 4px solid var(--mark);
   border-radius: 6px 20px 20px 20px;
   background: var(--surface);
   font-size: 15px;
@@ -431,4 +431,52 @@
 
 .tgc .tgc-input[aria-invalid='true'] {
   border-color: var(--danger) !important;
+}
+
+.tgc-span2 {
+  grid-column: 1 / -1;
+}
+
+.tgc-hint {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.tgc-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+/* Ekran klaviaturasi ochiq: pastdagi tugma yozilayotgan maydonni yopib qo'ymasin */
+.tgc-bar-hidden {
+  display: none;
+}
+
+/* Mobil brauzerlarda yozilgan matn ko'rinmay qolmasligi uchun: "force dark" himoyasi va aniq matn rangi */
+.tgc[data-theme='light'] {
+  color-scheme: light;
+}
+
+.tgc[data-theme='dark'] {
+  color-scheme: dark;
+}
+
+.tgc .tgc-input {
+  -webkit-appearance: none;
+  appearance: none;
+  -webkit-text-fill-color: var(--ink);
+  caret-color: var(--accent);
+  opacity: 1;
+}
+
+.tgc .tgc-input::placeholder {
+  -webkit-text-fill-color: var(--muted);
 }

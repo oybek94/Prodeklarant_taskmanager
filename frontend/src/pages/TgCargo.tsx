@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { API_BASE_URL } from '../lib/api';
 import './TgCargo.css';
 
@@ -79,10 +79,12 @@ const FONT_URL = 'https://fonts.googleapis.com/css2?family=Onest:wght@400;500;60
 const CLOSE_DELAY_MS = 2200;
 /** Sotib oluvchilar shundan ko'p bo'lsa chip o'rniga ro'yxat (select) ko'rsatiladi */
 const MAX_BUYER_CHIPS = 8;
-const SCHEME_COLORS: Record<Scheme, string> = { light: '#f2f5f3', dark: '#0f1715' };
+const SCHEME_COLORS: Record<Scheme, string> = { light: '#f0f5fb', dark: '#121212' };
 
 /** Guruh xabaridagi tartib va nomlar (backend `client-cargo-form.ts` dagi CARGO_STEPS bilan bir xil bo'lishi kerak) */
-const PREVIEW_ORDER: ReadonlyArray<{ key: FieldKey | 'buyer'; label: string }> = [
+type PreviewKey = FieldKey | 'buyer' | 'brutto';
+
+const PREVIEW_ORDER: ReadonlyArray<{ key: PreviewKey; label: string }> = [
   { key: 'vehicleNumber', label: 'Avto nomer' },
   { key: 'buyer', label: 'Sotib oluvchi' },
   { key: 'city', label: 'Shahar' },
@@ -92,6 +94,7 @@ const PREVIEW_ORDER: ReadonlyArray<{ key: FieldKey | 'buyer'; label: string }> =
   { key: 'palletCount', label: 'Poddon soni' },
   { key: 'palletWeight', label: "Poddon jami og'irligi" },
   { key: 'netto', label: 'Netto' },
+  { key: 'brutto', label: 'Brutto' },
   { key: 'price', label: 'Narxi' },
   { key: 'customs', label: 'Таможня' },
   { key: 'unloading', label: 'Выгрузка' },
@@ -106,12 +109,25 @@ const sanitizeDecimal = (v: string) => {
   return cleaned.slice(0, sepIndex + 1) + cleaned.slice(sepIndex + 1).replace(/[.,]/g, '');
 };
 
+const toNumber = (v: string) => {
+  const n = Number(v.trim().replace(',', '.'));
+  return Number.isFinite(n) ? n : 0;
+};
+
+/** Brutto = Netto + yashiklar jami og'irligi + poddon jami og'irligi. Uchalasi ham bo'sh bo'lsa bo'sh qoladi. */
+const computeBrutto = (v: FormValues): string => {
+  const parts = [v.netto, v.boxWeight, v.palletWeight];
+  if (parts.every((p) => p.trim() === '')) return '';
+  const sum = parts.reduce((acc, p) => acc + toNumber(p), 0);
+  return String(Math.round(sum * 1000) / 1000);
+};
+
 /** Backend xabarga qanday yozsa, shunday ko'rsatamiz (avto nomer katta harfda, vergul nuqta bo'ladi) */
-const previewValue = (key: FieldKey | 'buyer', raw: string, currency: string | null): string => {
+const previewValue = (key: PreviewKey, raw: string, currency: string | null): string => {
   const value = raw.trim();
   if (!value) return '';
   if (key === 'vehicleNumber') return value.replace(/\s+/g, '').toUpperCase();
-  if (key === 'boxWeight' || key === 'palletWeight' || key === 'netto') return value.replace(',', '.');
+  if (key === 'boxWeight' || key === 'palletWeight' || key === 'netto' || key === 'brutto') return value.replace(',', '.');
   if (key === 'price') return `${value.replace(',', '.')}${currency ? ` ${currency}` : ''}`;
   return value;
 };
@@ -190,10 +206,11 @@ interface NumberFieldProps {
   error?: string;
   decimal?: boolean;
   suffix?: string | null;
+  hint?: ReactNode;
   onChange: (value: string) => void;
 }
 
-function NumberField({ id, label, value, error, decimal, suffix, onChange }: NumberFieldProps) {
+function NumberField({ id, label, value, error, decimal, suffix, hint, onChange }: NumberFieldProps) {
   const input = (
     <input
       id={id}
@@ -215,6 +232,7 @@ function NumberField({ id, label, value, error, decimal, suffix, onChange }: Num
       ) : (
         input
       )}
+      {hint}
     </Field>
   );
 }
@@ -306,6 +324,9 @@ export default function TgCargo() {
   const [contractId, setContractId] = useState<number | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<string, string>>>({});
   const [formError, setFormError] = useState('');
+  const [bruttoOverride, setBruttoOverride] = useState<string | null>(null);
+  const [keyboardOpen, setKeyboardOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
   const [sentRows, setSentRows] = useState<Array<{ label: string; value: string }>>([]);
 
   useEffect(() => {
@@ -359,6 +380,22 @@ export default function TgCargo() {
     }
   }, [scheme]);
 
+  // Ekran klaviaturasi ochilganda sahifa ko'rinadigan maydonga moslashsin (Telegram ba'zan oynani o'zi qisqartiradi,
+  // ba'zan faqat visualViewport o'zgaradi)
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const sync = () => {
+      rootRef.current?.style.setProperty('--tgc-vh', `${vv.height}px`);
+      const active = document.activeElement;
+      if (active instanceof HTMLElement && active.matches('input, select, textarea')) {
+        active.scrollIntoView({ block: 'center' });
+      }
+    };
+    vv.addEventListener('resize', sync);
+    return () => vv.removeEventListener('resize', sync);
+  }, []);
+
   const contract = useMemo(() => context?.contracts.find((c) => c.id === contractId) ?? null, [context, contractId]);
 
   const buyerLabel = useCallback(
@@ -397,6 +434,8 @@ export default function TgCargo() {
     if (paired) pick('customs', paired);
   };
 
+  const brutto = bruttoOverride ?? computeBrutto(values);
+
   const customsOptions = useMemo(() => {
     if (!contract) return [];
     const paired = contract.cities.find((c) => c.text === values.city)?.pairedCustoms;
@@ -406,11 +445,11 @@ export default function TgCargo() {
   const previewRows = useMemo(
     () =>
       PREVIEW_ORDER.flatMap(({ key, label }) => {
-        const raw = key === 'buyer' ? (contract?.buyerName ?? '') : values[key];
+        const raw = key === 'buyer' ? (contract?.buyerName ?? '') : key === 'brutto' ? brutto : values[key];
         const value = previewValue(key, raw, contract?.currency ?? null);
         return value ? [{ label, value }] : [];
       }),
-    [values, contract]
+    [values, brutto, contract]
   );
 
   const submit = async () => {
@@ -418,7 +457,7 @@ export default function TgCargo() {
     setFieldErrors({});
     setPhase('sending');
     try {
-      await tgFetch<{ ok: true }>('/submit', initData, { ...values, contractId });
+      await tgFetch<{ ok: true }>('/submit', initData, { ...values, brutto, contractId });
       window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success');
       setSentRows(previewRows);
       setPhase('done');
@@ -435,13 +474,33 @@ export default function TgCargo() {
     setValues(EMPTY_VALUES);
     setManual(NO_MANUAL);
     setContractId(null);
+    setBruttoOverride(null);
     setFieldErrors({});
     setFormError('');
     setPhase('ready');
   };
 
+  const isEditable = (el: EventTarget) => el instanceof HTMLElement && el.matches('input, select, textarea');
   const shell = (children: ReactNode) => (
-    <div className="tgc" data-theme={scheme}>{children}</div>
+    <div
+      ref={rootRef}
+      className="tgc"
+      data-theme={scheme}
+      onFocusCapture={(e) => {
+        if (!isEditable(e.target)) return;
+        // Klaviatura ochilganda pastdagi tugma yozilayotgan maydonni yopib qo'ymasin
+        setKeyboardOpen(true);
+        const el = e.target as HTMLElement;
+        window.setTimeout(() => el.scrollIntoView({ block: 'center', behavior: 'smooth' }), 320);
+      }}
+      onBlurCapture={() => {
+        window.setTimeout(() => {
+          if (!isEditable(document.activeElement ?? document.body)) setKeyboardOpen(false);
+        }, 150);
+      }}
+    >
+      {children}
+    </div>
   );
 
   if (phase === 'loading') {
@@ -479,146 +538,175 @@ export default function TgCargo() {
   const sending = phase === 'sending';
   const c = context!;
   const currencySuffix = contract?.currency ?? null;
+  // Sotib oluvchi tanlanmaguncha qolgan maydonlar ko'rinmaydi. Mijozda shartnoma bo'lmasa tanlash imkoni yo'q, forma ochiq.
+  const buyerChosen = contractId !== null || c.contracts.length === 0;
 
   return shell(
     <>
       <div className="tgc-wrap">
         <h1 className="tgc-title">Yuk ma'lumoti</h1>
-        <p className="tgc-client">{c.clientName}. Hamma maydon ixtiyoriy.</p>
+        <p className="tgc-client">{c.clientName}</p>
 
-        <Section title="Mashina va xaridor">
-          <Field label="Avto nomer" htmlFor="tgc-plate" error={fieldErrors.vehicleNumber}>
-            <input
-              id="tgc-plate"
-              className="tgc-input tgc-plate"
-              type="text"
-              autoCapitalize="characters"
-              autoComplete="off"
-              maxLength={40}
-              value={values.vehicleNumber}
-              placeholder="40232BAA/402332BA"
-              aria-invalid={!!fieldErrors.vehicleNumber}
-              onChange={(e) => setValue('vehicleNumber', e.target.value)}
-            />
-          </Field>
-
+        <Section title="Sotib oluvchi">
           {c.contracts.length > MAX_BUYER_CHIPS ? (
-            <Field label="Sotib oluvchi" htmlFor="tgc-buyer">
-              <select
-                id="tgc-buyer"
-                className="tgc-input tgc-select"
-                value={contractId ?? ''}
-                onChange={(e) => changeBuyer(e.target.value ? Number(e.target.value) : null)}
-              >
-                <option value="">Tanlanmagan</option>
-                {c.contracts.map((x) => (
-                  <option key={x.id} value={x.id}>{buyerLabel(x)}</option>
-                ))}
-              </select>
-            </Field>
+            <select
+              className="tgc-input tgc-select"
+              aria-label="Sotib oluvchi"
+              value={contractId ?? ''}
+              onChange={(e) => changeBuyer(e.target.value ? Number(e.target.value) : null)}
+            >
+              <option value="">Sotib oluvchini tanlang</option>
+              {c.contracts.map((x) => (
+                <option key={x.id} value={x.id}>{buyerLabel(x)}</option>
+              ))}
+            </select>
           ) : (
-            <div role="group" aria-labelledby="tgc-buyer-label">
-              <span className="tgc-label" id="tgc-buyer-label">Sotib oluvchi</span>
-              <div className="tgc-chips">
-                {c.contracts.length === 0 && <span className="tgc-bubble-empty">Mijozda shartnoma yo'q</span>}
-                {c.contracts.map((x) => (
-                  <button
-                    key={x.id}
-                    type="button"
-                    className="tgc-chip"
-                    aria-pressed={contractId === x.id}
-                    onClick={() => changeBuyer(contractId === x.id ? null : x.id)}
-                  >
-                    {buyerLabel(x)}
-                  </button>
-                ))}
-              </div>
+            <div className="tgc-chips" role="group" aria-label="Sotib oluvchi">
+              {c.contracts.length === 0 && <span className="tgc-bubble-empty">Mijozda shartnoma yo'q</span>}
+              {c.contracts.map((x) => (
+                <button
+                  key={x.id}
+                  type="button"
+                  className="tgc-chip"
+                  aria-pressed={contractId === x.id}
+                  onClick={() => changeBuyer(x.id)}
+                >
+                  {buyerLabel(x)}
+                </button>
+              ))}
             </div>
           )}
-
-          <ChoiceField
-            id="tgc-city"
-            label="Qaysi shahar"
-            options={contract?.cities.map((x) => x.text) ?? []}
-            value={values.city}
-            manual={manual.city}
-            placeholder="Shahar nomini yozing"
-            error={fieldErrors.city}
-            onPick={pickCity}
-            onType={(v) => setValue('city', v)}
-            onManual={(flag) => setManualFlag('city', flag)}
-          />
+          {!buyerChosen && <p className="tgc-hint">Qolgan maydonlar sotib oluvchini tanlagandan keyin ochiladi.</p>}
         </Section>
 
-        <Section title="Mahsulot">
-          <ChoiceField
-            id="tgc-product"
-            label="Mahsulot nomi"
-            options={c.products}
-            value={values.product}
-            manual={manual.product}
-            alwaysInput
-            placeholder="Masalan: Xurmo"
-            error={fieldErrors.product}
-            onPick={(v) => pick('product', v)}
-            onType={(v) => setValue('product', v)}
-            onManual={(flag) => setManualFlag('product', flag)}
-          />
-        </Section>
+        {buyerChosen && (
+          <>
+            <Section title="Mashina va yo'nalish">
+              <Field label="Avto nomer" htmlFor="tgc-plate" error={fieldErrors.vehicleNumber}>
+                <input
+                  id="tgc-plate"
+                  className="tgc-input tgc-plate"
+                  type="text"
+                  autoCapitalize="characters"
+                  autoComplete="off"
+                  maxLength={40}
+                  value={values.vehicleNumber}
+                  placeholder="40232BAA/402332BA"
+                  aria-invalid={!!fieldErrors.vehicleNumber}
+                  onChange={(e) => setValue('vehicleNumber', e.target.value)}
+                />
+              </Field>
 
-        <Section title="Yuk hajmi">
-          <div className="tgc-grid">
-            <NumberField id="tgc-box-count" label="Yashik soni" value={values.boxCount} error={fieldErrors.boxCount} onChange={(v) => setValue('boxCount', v)} />
-            <NumberField id="tgc-box-weight" label="Yashiklar jami og'irligi" decimal value={values.boxWeight} error={fieldErrors.boxWeight} onChange={(v) => setValue('boxWeight', v)} />
-            <NumberField id="tgc-pallet-count" label="Poddon soni" value={values.palletCount} error={fieldErrors.palletCount} onChange={(v) => setValue('palletCount', v)} />
-            <NumberField id="tgc-pallet-weight" label="Poddon jami og'irligi" decimal value={values.palletWeight} error={fieldErrors.palletWeight} onChange={(v) => setValue('palletWeight', v)} />
-            <NumberField id="tgc-netto" label="Netto" decimal value={values.netto} error={fieldErrors.netto} onChange={(v) => setValue('netto', v)} />
-            <NumberField id="tgc-price" label="Narxi" decimal suffix={currencySuffix} value={values.price} error={fieldErrors.price} onChange={(v) => setValue('price', v)} />
+              <ChoiceField
+                id="tgc-city"
+                label="Qaysi shahar"
+                options={contract?.cities.map((x) => x.text) ?? []}
+                value={values.city}
+                manual={manual.city}
+                placeholder="Shahar nomini yozing"
+                error={fieldErrors.city}
+                onPick={pickCity}
+                onType={(v) => setValue('city', v)}
+                onManual={(flag) => setManualFlag('city', flag)}
+              />
+            </Section>
+
+            <Section title="Mahsulot">
+              <ChoiceField
+                id="tgc-product"
+                label="Mahsulot nomi"
+                options={c.products}
+                value={values.product}
+                manual={manual.product}
+                alwaysInput
+                placeholder="Masalan: Xurmo"
+                error={fieldErrors.product}
+                onPick={(v) => pick('product', v)}
+                onType={(v) => setValue('product', v)}
+                onManual={(flag) => setManualFlag('product', flag)}
+              />
+            </Section>
+
+            <Section title="Yuk hajmi">
+              <div className="tgc-grid">
+                <NumberField id="tgc-box-count" label="Yashik soni" value={values.boxCount} error={fieldErrors.boxCount} onChange={(v) => setValue('boxCount', v)} />
+                <NumberField id="tgc-box-weight" label="Yashiklar jami og'irligi" decimal value={values.boxWeight} error={fieldErrors.boxWeight} onChange={(v) => setValue('boxWeight', v)} />
+                <NumberField id="tgc-pallet-count" label="Poddon soni" value={values.palletCount} error={fieldErrors.palletCount} onChange={(v) => setValue('palletCount', v)} />
+                <NumberField id="tgc-pallet-weight" label="Poddon jami og'irligi" decimal value={values.palletWeight} error={fieldErrors.palletWeight} onChange={(v) => setValue('palletWeight', v)} />
+                <NumberField id="tgc-netto" label="Netto" decimal value={values.netto} error={fieldErrors.netto} onChange={(v) => setValue('netto', v)} />
+                <NumberField id="tgc-price" label="Narxi" decimal suffix={currencySuffix} value={values.price} error={fieldErrors.price} onChange={(v) => setValue('price', v)} />
+                <div className="tgc-span2">
+                  <NumberField
+                    id="tgc-brutto"
+                    label="Brutto"
+                    decimal
+                    value={brutto}
+                    error={fieldErrors.brutto}
+                    onChange={(v) => {
+                      setBruttoOverride(v === '' ? null : v);
+                      setFieldErrors((prev) => ({ ...prev, brutto: undefined }));
+                    }}
+                    hint={
+                      <p className="tgc-hint">
+                        {bruttoOverride === null ? "Netto + yashiklar + poddon og'irligi. Kerak bo'lsa o'zgartiring." : "Qo'lda o'zgartirildi. "}
+                        {bruttoOverride !== null && (
+                          <button type="button" className="tgc-link" onClick={() => setBruttoOverride(null)}>
+                            Qayta hisoblash
+                          </button>
+                        )}
+                      </p>
+                    }
+                  />
+                </div>
+              </div>
+            </Section>
+
+            <Section title="Bojxona va tushirish">
+              <ChoiceField
+                id="tgc-customs"
+                label="Таможня"
+                options={customsOptions}
+                value={values.customs}
+                manual={manual.customs}
+                placeholder="Таможня manzilini yozing"
+                error={fieldErrors.customs}
+                onPick={(v) => pick('customs', v)}
+                onType={(v) => setValue('customs', v)}
+                onManual={(flag) => setManualFlag('customs', flag)}
+              />
+              <ChoiceField
+                id="tgc-unloading"
+                label="Выгрузка"
+                options={contract?.destinations ?? []}
+                value={values.unloading}
+                manual={manual.unloading}
+                placeholder="Yuk tushirish joyini yozing"
+                error={fieldErrors.unloading}
+                onPick={(v) => pick('unloading', v)}
+                onType={(v) => setValue('unloading', v)}
+                onManual={(flag) => setManualFlag('unloading', flag)}
+              />
+            </Section>
+
+            <section className="tgc-section" aria-live="polite">
+              <h2 className="tgc-section-title">Guruhga shunday ketadi</h2>
+              <PreviewBubble rows={previewRows} empty="Maydonlarni to'ldirsangiz, xabar shu yerda ko'rinadi." />
+            </section>
+          </>
+        )}
+      </div>
+
+      {buyerChosen && (
+        <div className={keyboardOpen ? 'tgc-bar tgc-bar-hidden' : 'tgc-bar'}>
+          <div className="tgc-bar-inner">
+            {formError && <div className="tgc-banner" role="alert">{formError}</div>}
+            <button type="button" className="tgc-send" disabled={sending || previewRows.length === 0} onClick={submit}>
+              {sending ? 'Yuborilmoqda' : 'Guruhga yuborish'}
+              {!sending && previewRows.length > 0 && <span className="tgc-count">{previewRows.length}</span>}
+            </button>
           </div>
-        </Section>
-
-        <Section title="Bojxona va tushirish">
-          <ChoiceField
-            id="tgc-customs"
-            label="Таможня"
-            options={customsOptions}
-            value={values.customs}
-            manual={manual.customs}
-            placeholder="Таможня manzilini yozing"
-            error={fieldErrors.customs}
-            onPick={(v) => pick('customs', v)}
-            onType={(v) => setValue('customs', v)}
-            onManual={(flag) => setManualFlag('customs', flag)}
-          />
-          <ChoiceField
-            id="tgc-unloading"
-            label="Выгрузка"
-            options={contract?.destinations ?? []}
-            value={values.unloading}
-            manual={manual.unloading}
-            placeholder="Yuk tushirish joyini yozing"
-            error={fieldErrors.unloading}
-            onPick={(v) => pick('unloading', v)}
-            onType={(v) => setValue('unloading', v)}
-            onManual={(flag) => setManualFlag('unloading', flag)}
-          />
-        </Section>
-
-        <section className="tgc-section" aria-live="polite">
-          <h2 className="tgc-section-title">Guruhga shunday ketadi</h2>
-          <PreviewBubble rows={previewRows} empty="Maydonlarni to'ldirsangiz, xabar shu yerda ko'rinadi." />
-        </section>
-      </div>
-
-      <div className="tgc-bar">
-        <div className="tgc-bar-inner">
-          {formError && <div className="tgc-banner" role="alert">{formError}</div>}
-          <button type="button" className="tgc-send" disabled={sending || previewRows.length === 0} onClick={submit}>
-            {sending ? 'Yuborilmoqda' : 'Guruhga yuborish'}
-            {!sending && previewRows.length > 0 && <span className="tgc-count">{previewRows.length}</span>}
-          </button>
         </div>
-      </div>
+      )}
     </>
   );
 }

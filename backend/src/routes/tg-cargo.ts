@@ -1,7 +1,9 @@
 import { NextFunction, Request, Response, Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import { prisma } from '../prisma';
-import { parseLaunchParam } from '../services/client-cargo-draft';
+import { z } from 'zod';
+import { draftPatchSchema, parseLaunchParam } from '../services/client-cargo-draft';
+import { completeDraft, createDraft, getDraft, listOpenDrafts, patchDraft, type DraftResult } from '../services/client-cargo-draft.service';
 import { submitBodySchema, verifyInitData } from '../services/client-cargo-miniapp';
 import { getCargoContext, isGroupMember, submitCargo } from '../services/client-cargo-miniapp.service';
 
@@ -70,6 +72,54 @@ router.post('/submit', async (req: TgRequest, res) => {
   const result = await submitCargo({ botToken, clientId, chatId, body: body.data });
   if (result.ok) return res.json({ ok: true });
   res.status(result.status).json({ error: result.error, errors: 'errors' in result ? result.errors : undefined });
+});
+
+// ---- Yuk arizasi (qoralama): bir nechta xodim navbatma-navbat to'ldiradi ----
+
+const draftIdSchema = z.coerce.number().int().positive();
+
+const scopeOf = (tg: NonNullable<TgRequest['tg']>) => ({ botToken: tg.botToken, clientId: tg.clientId, chatId: tg.chatId });
+/** Muallif ismi faqat imzolangan initData'dan olinadi */
+const actorOf = (tg: NonNullable<TgRequest['tg']>) => ({ tgUserId: tg.userId, name: tg.userName });
+
+const sendDraftResult = (res: Response, result: DraftResult) => {
+  if (result.ok) return res.json(result.draft);
+  return res.status(result.status).json({ error: result.error, errors: result.errors });
+};
+
+router.get('/drafts', async (req: TgRequest, res) => {
+  const { clientId, chatId } = req.tg!;
+  res.set('Cache-Control', 'no-store');
+  res.json({ drafts: await listOpenDrafts({ clientId, chatId }) });
+});
+
+router.get('/drafts/:id', async (req: TgRequest, res) => {
+  const id = draftIdSchema.safeParse(req.params.id);
+  if (!id.success) return res.status(400).json({ error: "Ariza raqami noto'g'ri" });
+  const { clientId, chatId } = req.tg!;
+  const draft = await getDraft({ clientId, chatId }, id.data);
+  if (!draft) return res.status(404).json({ error: 'Ariza topilmadi' });
+  res.set('Cache-Control', 'no-store');
+  res.json(draft);
+});
+
+router.post('/drafts', async (req: TgRequest, res) => {
+  const body = draftPatchSchema.safeParse(req.body);
+  if (!body.success) return res.status(400).json({ error: "So'rov noto'g'ri" });
+  sendDraftResult(res, await createDraft(scopeOf(req.tg!), actorOf(req.tg!), body.data));
+});
+
+router.patch('/drafts/:id', async (req: TgRequest, res) => {
+  const id = draftIdSchema.safeParse(req.params.id);
+  const body = draftPatchSchema.safeParse(req.body);
+  if (!id.success || !body.success) return res.status(400).json({ error: "So'rov noto'g'ri" });
+  sendDraftResult(res, await patchDraft(scopeOf(req.tg!), id.data, actorOf(req.tg!), body.data));
+});
+
+router.post('/drafts/:id/complete', async (req: TgRequest, res) => {
+  const id = draftIdSchema.safeParse(req.params.id);
+  if (!id.success) return res.status(400).json({ error: "Ariza raqami noto'g'ri" });
+  sendDraftResult(res, await completeDraft(scopeOf(req.tg!), id.data, actorOf(req.tg!)));
 });
 
 export default router;

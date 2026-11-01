@@ -118,3 +118,11 @@ describe('formatCargoMessage', () => {
     expect(formatCargoMessage({ header: {}, items: [{}, {}] }, 'USD')).toBeNull();
   });
 });
+
+describe("ITEM_FIELDS tartibi — Вид упаковки 'Общий вес ящиков' dan keyin", () => {
+  it('maydonlar tartibi', async () => {
+    const { ITEM_FIELDS } = await import('../services/client-cargo-form');
+    expect(ITEM_FIELDS.map((f) => f.key)).toEqual(['product', 'boxCount', 'boxWeight', 'packagingType', 'palletCount', 'palletWeight', 'netto', 'brutto', 'price']);
+    expect(ITEM_FIELDS.find((f) => f.key === 'packagingType')?.label).toBe('Вид упаковки');
+  });
+});

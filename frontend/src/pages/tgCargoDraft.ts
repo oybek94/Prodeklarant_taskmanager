@@ -2,11 +2,11 @@
 // Turlar backend `client-cargo-draft.ts` / `client-cargo-draft.service.ts` bilan mos.
 
 export type HeaderField = 'invoiceNumber' | 'deliveryTerms' | 'customsPlace' | 'destination' | 'vehicleNumber' | 'orderNumber' | 'temperature' | 'sensorSerial';
-export type ItemField = 'product' | 'boxCount' | 'boxWeight' | 'palletCount' | 'palletWeight' | 'netto' | 'brutto' | 'price';
+export type ItemField = 'product' | 'boxCount' | 'boxWeight' | 'packagingType' | 'palletCount' | 'palletWeight' | 'netto' | 'brutto' | 'price';
 export type ManualKey = 'deliveryTerms' | 'customsPlace' | 'destination';
 
 export const HEADER_FIELDS: readonly HeaderField[] = ['invoiceNumber', 'deliveryTerms', 'customsPlace', 'destination', 'vehicleNumber', 'orderNumber', 'temperature', 'sensorSerial'];
-export const ITEM_FIELDS: readonly ItemField[] = ['product', 'boxCount', 'boxWeight', 'palletCount', 'palletWeight', 'netto', 'brutto', 'price'];
+export const ITEM_FIELDS: readonly ItemField[] = ['product', 'boxCount', 'boxWeight', 'packagingType', 'palletCount', 'palletWeight', 'netto', 'brutto', 'price'];
 
 export interface FieldAuthor {
   tgUserId: number;
@@ -67,7 +67,7 @@ export function makeUid(): string {
   return `u${Array.from(bytes, (b) => b.toString(36).padStart(2, '0')).join('')}`;
 }
 
-const blankItemFields = (): Record<ItemField, string> => ({ product: '', boxCount: '', boxWeight: '', palletCount: '', palletWeight: '', netto: '', brutto: '', price: '' });
+const blankItemFields = (): Record<ItemField, string> => ({ product: '', boxCount: '', boxWeight: '', packagingType: '', palletCount: '', palletWeight: '', netto: '', brutto: '', price: '' });
 const blankHeader = (): Record<HeaderField, string> => ({ invoiceNumber: '', deliveryTerms: '', customsPlace: '', destination: '', vehicleNumber: '', orderNumber: '', temperature: '', sensorSerial: '' });
 
 export function snapshotFromDraft(view: DraftView | null): FormSnapshot {

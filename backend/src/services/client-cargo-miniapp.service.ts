@@ -48,6 +48,8 @@ export interface CargoContext {
   /** Место отгрузки груза uchun faol filiallar */
   branches: Array<{ id: number; name: string; /** Guruh xabariga yoziladigan matn */ place: string }>;
   products: string[];
+  /** "Вид упаковки" variantlari: Sozlamalar → Spetsifikatsiyalar → Qadoq turlari (tartib bo'yicha) */
+  packagingTypes: string[];
 }
 
 /** Filialning "Место отгрузки груза" matni: invoys hujjatlaridagi kabi viloyat matni, bo'lmasa filial nomi */
@@ -73,7 +75,7 @@ export async function getCargoContext(clientId: number): Promise<CargoContext | 
   const client = await prisma.client.findUnique({ where: { id: clientId }, select: { name: true } });
   if (!client) return null;
 
-  const [contracts, products, branches] = await Promise.all([
+  const [contracts, products, branches, packagingTypes] = await Promise.all([
     prisma.contract.findMany({
       where: { clientId },
       orderBy: { contractDate: 'desc' },
@@ -90,6 +92,7 @@ export async function getCargoContext(clientId: number): Promise<CargoContext | 
     }),
     prisma.clientBotProduct.findMany({ where: { clientId }, orderBy: { name: 'asc' }, take: MAX_PRODUCTS, select: { name: true } }),
     prisma.branch.findMany({ where: { isActive: true }, orderBy: { name: 'asc' }, select: { id: true, name: true, regionText: true } }),
+    prisma.packagingType.findMany({ orderBy: [{ orderIndex: 'asc' }, { id: 'asc' }], select: { name: true } }),
   ]);
 
   const lastInvoices = await lastInvoicesByContract(contracts.map((c) => c.id));
@@ -112,6 +115,7 @@ export async function getCargoContext(clientId: number): Promise<CargoContext | 
     }),
     branches: branches.map((b) => ({ id: b.id, name: b.name, place: shipmentPlaceOf(b) })),
     products: products.map((p) => p.name),
+    packagingTypes: packagingTypes.map((p) => p.name),
   };
 }
 

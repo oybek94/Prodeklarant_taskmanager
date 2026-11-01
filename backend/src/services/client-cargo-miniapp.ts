@@ -81,6 +81,7 @@ const itemSchema = z.object({
   product: optionalText,
   boxCount: optionalText,
   boxWeight: optionalText,
+  packagingType: optionalText,
   palletCount: optionalText,
   palletWeight: optionalText,
   netto: optionalText,

@@ -12,6 +12,7 @@ const m = vi.hoisted(() => ({
   contractFindUnique: vi.fn(),
   branchFindFirst: vi.fn(),
   branchFindUnique: vi.fn(),
+  packagingFindMany: vi.fn(),
   callTelegram: vi.fn(),
   rememberProduct: vi.fn(),
 }));
@@ -29,6 +30,7 @@ vi.mock('../prisma', () => ({
     },
     contract: { findFirst: m.contractFindFirst, findUnique: m.contractFindUnique },
     branch: { findFirst: m.branchFindFirst, findUnique: m.branchFindUnique },
+    packagingType: { findMany: m.packagingFindMany },
   },
 }));
 vi.mock('../services/telegram-bot-api', () => ({ callTelegram: m.callTelegram }));
@@ -375,5 +377,38 @@ describe('xavfsizlik tuzatishlari (review)', () => {
     expect(result).toMatchObject({ ok: false, status: 502 });
     expect(m.draftDelete).toHaveBeenCalledWith({ where: { id: 71 } });
     spy.mockRestore();
+  });
+});
+
+describe('Вид упаковки — Sozlamalardagi Qadoq turlaridan tanlanadi', () => {
+  it("ro'yxatda bo'lmagan qiymat 400 va maydon xatosi bilan rad etiladi, hech narsa yozilmaydi", async () => {
+    m.draftFindFirst.mockResolvedValue(row({ id: 80 }));
+    m.packagingFindMany.mockResolvedValue([{ name: 'Картонные ящики' }, { name: 'Пластиковые ящики' }]);
+    const result = await patchDraft(scope, 80, actor, { items: { u1: { fields: { packagingType: 'Выдуманная тара' } } } });
+    expect(result).toMatchObject({ ok: false, status: 400 });
+    if (!result.ok) expect(result.errors?.['items.u1.packagingType']).toBeTruthy();
+    expect(m.draftUpdateMany).not.toHaveBeenCalled();
+  });
+
+  it("ro'yxatdagi qiymat qabul qilinadi (katta-kichik harf farqisiz, bazadagi yozuv saqlanadi)", async () => {
+    m.draftFindFirst.mockResolvedValue(row({ id: 81 }));
+    m.packagingFindMany.mockResolvedValue([{ name: 'Картонные ящики' }]);
+    const result = await patchDraft(scope, 81, actor, { items: { u1: { fields: { packagingType: 'картонные ЯЩИКИ' } } } });
+    expect(result.ok).toBe(true);
+    expect(m.draftUpdateMany.mock.calls[0][0].data.data.items[0].fields.packagingType).toBe('Картонные ящики');
+  });
+
+  it("qiymat tozalansa (null) ro'yxat tekshirilmaydi", async () => {
+    m.draftFindFirst.mockResolvedValue(row({ id: 82, data: { ...emptyData(), items: [{ uid: 'u1', fields: { packagingType: 'Картонные ящики' }, bruttoManual: false }] } }));
+    const result = await patchDraft(scope, 82, actor, { items: { u1: { fields: { packagingType: null } } } });
+    expect(result.ok).toBe(true);
+    expect(m.packagingFindMany).not.toHaveBeenCalled();
+  });
+
+  it("createDraft ham ro'yxatdan tashqari qiymatni rad etadi", async () => {
+    m.packagingFindMany.mockResolvedValue([{ name: 'Картонные ящики' }]);
+    const result = await createDraft(scope, actor, { items: { u1: { fields: { packagingType: 'Бочка' } } } });
+    expect(result).toMatchObject({ ok: false, status: 400 });
+    expect(m.draftCreate).not.toHaveBeenCalled();
   });
 });

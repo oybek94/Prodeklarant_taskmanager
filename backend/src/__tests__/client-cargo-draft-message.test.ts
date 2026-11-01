@@ -225,3 +225,16 @@ describe('uzun xabarda oxirgi blok saqlanadi (I3)', () => {
     expect(text).not.toContain('Завершил');
   });
 });
+
+describe('Вид упаковки xabarda', () => {
+  it("'Общий вес ящиков' dan keyin, 'Количество поддонов' dan oldin; birliksiz", () => {
+    const data: DraftData = {
+      ...completeData(),
+      items: [{ uid: 'u1', fields: { product: 'Яблоки', boxCount: '10', boxWeight: '5', packagingType: 'Картонные ящики', palletCount: '2', netto: '100', brutto: '110' }, bruttoManual: false }],
+    };
+    const text = formatDraftMessage({ data, authors: {}, context, status: 'OPEN' });
+    expect(text).toContain('🗃 Вид упаковки: <b>Картонные ящики</b>');
+    expect(text.indexOf('Общий вес ящиков')).toBeLessThan(text.indexOf('Вид упаковки'));
+    expect(text.indexOf('Вид упаковки')).toBeLessThan(text.indexOf('Количество поддонов'));
+  });
+});

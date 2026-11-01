@@ -121,6 +121,35 @@ async function validateRefs(clientId: number, patch: DraftPatch): Promise<DraftF
   return null;
 }
 
+/**
+ * "Вид упаковки" faqat Sozlamalar → Spetsifikatsiyalar → Qadoq turlari (PackagingType) ro'yxatidan.
+ * Katta-kichik harf farqsiz moslanadi va bazadagi yozuv (nomi) bilan almashtiriladi. Ro'yxatda yo'q qiymat — maydon xatosi.
+ */
+async function resolvePackagingTypes(patch: DraftPatch): Promise<{ ok: true; patch: DraftPatch } | DraftFailure> {
+  const wanted: Array<{ uid: string; value: string }> = [];
+  for (const [uid, entry] of Object.entries(patch.items ?? {})) {
+    const value = entry?.fields?.packagingType;
+    if (typeof value === 'string' && value.trim() !== '') wanted.push({ uid, value: value.trim() });
+  }
+  if (wanted.length === 0) return { ok: true, patch };
+
+  const types = await prisma.packagingType.findMany({ orderBy: [{ orderIndex: 'asc' }, { id: 'asc' }], select: { name: true } });
+  const byLower = new Map(types.map((t) => [t.name.trim().toLowerCase(), t.name]));
+  const errors: FieldErrors = {};
+  const items: NonNullable<DraftPatch['items']> = { ...patch.items };
+  for (const { uid, value } of wanted) {
+    const canonical = byLower.get(value.toLowerCase());
+    if (!canonical) {
+      errors[`items.${uid}.packagingType`] = "Qadoq turini ro'yxatdan tanlang";
+      continue;
+    }
+    const entry = items[uid];
+    if (entry) items[uid] = { ...entry, fields: { ...entry.fields, packagingType: canonical } };
+  }
+  if (Object.keys(errors).length > 0) return failure(400, "Ba'zi maydonlar noto'g'ri", errors);
+  return { ok: true, patch: { ...patch, items } };
+}
+
 export async function getDraft(scope: ReadScope, id: number): Promise<DraftView | null> {
   const row = await findScoped(scope, id);
   if (!row) return null;
@@ -289,9 +318,12 @@ async function mutateDraft(
 
 const CLOSED_ERROR = failure(409, 'Ariza yopilgan, uni o\'zgartirib bo\'lmaydi');
 
-export async function patchDraft(scope: DraftScope, id: number, actor: DraftActor, patch: DraftPatch): Promise<DraftResult> {
-  const refError = await validateRefs(scope.clientId, patch);
+export async function patchDraft(scope: DraftScope, id: number, actor: DraftActor, rawPatch: DraftPatch): Promise<DraftResult> {
+  const refError = await validateRefs(scope.clientId, rawPatch);
   if (refError) return refError;
+  const resolved = await resolvePackagingTypes(rawPatch);
+  if (!resolved.ok) return resolved;
+  const patch = resolved.patch;
   return mutateDraft(
     scope,
     id,
@@ -306,9 +338,12 @@ export async function patchDraft(scope: DraftScope, id: number, actor: DraftActo
   );
 }
 
-export async function createDraft(scope: DraftScope, actor: DraftActor, patch: DraftPatch): Promise<DraftResult> {
-  const refError = await validateRefs(scope.clientId, patch);
+export async function createDraft(scope: DraftScope, actor: DraftActor, rawPatch: DraftPatch): Promise<DraftResult> {
+  const refError = await validateRefs(scope.clientId, rawPatch);
   if (refError) return refError;
+  const resolved = await resolvePackagingTypes(rawPatch);
+  if (!resolved.ok) return resolved;
+  const patch = resolved.patch;
   const applied = applyDraftPatch(EMPTY_DRAFT_DATA, {}, patch, { ...actor, at: new Date().toISOString() });
   if (!applied.ok) return failure(400, "Ba'zi maydonlar noto'g'ri", applied.errors);
   if (Object.keys(applied.authors).length === 0) return failure(400, "Hech narsa kiritilmadi. Kamida bitta maydonni to'ldiring");

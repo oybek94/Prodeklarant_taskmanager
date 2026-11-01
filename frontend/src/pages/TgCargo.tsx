@@ -45,13 +45,15 @@ interface CargoContext {
   contracts: ContractInfo[];
   branches: Array<{ id: number; name: string; place?: string }>;
   products: string[];
+  /** "Вид упаковки" variantlari (Sozlamalar → Qadoq turlari); eski backend bermaydi */
+  packagingTypes?: string[];
 }
 
 type HeaderField = 'invoiceNumber' | 'deliveryTerms' | 'customsPlace' | 'destination' | 'vehicleNumber' | 'orderNumber' | 'temperature' | 'sensorSerial';
 type HeaderValues = Record<HeaderField, string>;
 type ManualKey = 'deliveryTerms' | 'customsPlace' | 'destination';
 type ManualFlags = Record<ManualKey, boolean>;
-type ItemField = 'product' | 'boxCount' | 'boxWeight' | 'palletCount' | 'palletWeight' | 'netto' | 'price';
+type ItemField = 'product' | 'boxCount' | 'boxWeight' | 'packagingType' | 'palletCount' | 'palletWeight' | 'netto' | 'price';
 type Scheme = 'light' | 'dark';
 
 interface ItemState extends Record<ItemField, string> {
@@ -78,6 +80,7 @@ const itemStateOf = (item: SnapshotItem): ItemState => ({
   product: item.fields.product,
   boxCount: item.fields.boxCount,
   boxWeight: item.fields.boxWeight,
+  packagingType: item.fields.packagingType,
   palletCount: item.fields.palletCount,
   palletWeight: item.fields.palletWeight,
   netto: item.fields.netto,
@@ -90,6 +93,7 @@ const newItem = (uid: string): ItemState => ({
   product: '',
   boxCount: '',
   boxWeight: '',
+  packagingType: '',
   palletCount: '',
   palletWeight: '',
   netto: '',
@@ -122,6 +126,7 @@ const ITEM_LABELS = {
   product: 'Наименование',
   boxCount: 'Количество ящиков',
   boxWeight: 'Общий вес ящиков',
+  packagingType: 'Вид упаковки',
   palletCount: 'Количество поддонов',
   palletWeight: 'Общий вес поддонов',
   netto: 'Нетто',
@@ -130,7 +135,7 @@ const ITEM_LABELS = {
 } as const;
 
 const HEADER_ORDER = ['contract', 'invoiceNumber', 'deliveryTerms', 'customsPlace', 'destination', 'vehicleNumber', 'shipmentPlace', 'orderNumber', 'temperature', 'sensorSerial'] as const;
-const ITEM_ORDER = ['product', 'boxCount', 'boxWeight', 'palletCount', 'palletWeight', 'netto', 'brutto', 'price'] as const;
+const ITEM_ORDER = ['product', 'boxCount', 'boxWeight', 'packagingType', 'palletCount', 'palletWeight', 'netto', 'brutto', 'price'] as const;
 
 const sanitizeCount = (v: string) => v.replace(/\D/g, '');
 /** Faqat raqam va bitta ajratuvchi (nuqta yoki vergul) */
@@ -201,6 +206,7 @@ function buildPreview(header: HeaderValues, contract: ContractInfo | null, shipm
         product: normalizeText(item.product),
         boxCount: withUnit(item.boxCount.trim(), 'шт.'),
         boxWeight: withUnit(normalizeDecimal(item.boxWeight), 'кг.'),
+        packagingType: normalizeText(item.packagingType),
         palletCount: withUnit(item.palletCount.trim(), 'шт.'),
         palletWeight: withUnit(normalizeDecimal(item.palletWeight), 'кг.'),
         netto: withUnit(normalizeDecimal(item.netto), 'кг.'),
@@ -536,7 +542,7 @@ export default function TgCargo() {
       try {
         const ctx = await tgFetch<CargoContext>('/context', data);
         if (cancelled) return;
-        setContext({ ...ctx, branches: ctx.branches ?? [], products: ctx.products ?? [] });
+        setContext({ ...ctx, branches: ctx.branches ?? [], products: ctx.products ?? [], packagingTypes: ctx.packagingTypes ?? [] });
         const draftId = ctx.launch?.draft;
         if (typeof draftId === 'number') {
           const view = await tgFetch<DraftView>(`/drafts/${draftId}`, data);
@@ -679,6 +685,7 @@ export default function TgCargo() {
         product: it.product,
         boxCount: it.boxCount,
         boxWeight: it.boxWeight,
+        packagingType: it.packagingType,
         palletCount: it.palletCount,
         palletWeight: it.palletWeight,
         netto: it.netto,
@@ -854,6 +861,9 @@ export default function TgCargo() {
   const sending = phase === 'sending';
   const c = context!;
   const currencySuffix = contract?.currency ?? null;
+  const packagingTypes = c.packagingTypes ?? [];
+  /** Sozlamalardagi Qadoq turlari; arizada saqlangan qiymat ro'yxatdan o'chirilgan bo'lsa ham ko'rinib tursin */
+  const packagingOptionsFor = (current: string): string[] => (current && !packagingTypes.includes(current) ? [...packagingTypes, current] : packagingTypes);
   // Shartnoma tanlanmaguncha qolgan maydonlar ko'rinmaydi. Mijozda shartnoma bo'lmasa tanlash imkoni yo'q, forma ochiq.
   const contractChosen = contractId !== null || c.contracts.length === 0;
 
@@ -1045,6 +1055,33 @@ export default function TgCargo() {
                   <div className="tgc-grid">
                     <NumberField id={`tgc-i${item.uid}-box-count`} label={ITEM_LABELS.boxCount} value={item.boxCount} error={fieldErrors[errorKey('boxCount')]} onChange={(v) => updateItem(item.uid, { boxCount: v }, errorKey('boxCount'))} />
                     <NumberField id={`tgc-i${item.uid}-box-weight`} label={ITEM_LABELS.boxWeight} decimal value={item.boxWeight} error={fieldErrors[errorKey('boxWeight')]} onChange={(v) => updateItem(item.uid, { boxWeight: v }, errorKey('boxWeight'))} />
+                    {packagingTypes.length > 0 && (
+                      <div className="tgc-span2">
+                        {packagingOptionsFor(item.packagingType).length > MAX_CONTRACT_CHIPS ? (
+                          <Field label={ITEM_LABELS.packagingType} htmlFor={`tgc-i${item.uid}-packaging`} error={fieldErrors[errorKey('packagingType')]}>
+                            <select
+                              id={`tgc-i${item.uid}-packaging`}
+                              className="tgc-input tgc-select"
+                              value={item.packagingType}
+                              onChange={(e) => updateItem(item.uid, { packagingType: e.target.value }, errorKey('packagingType'))}
+                            >
+                              <option value="">Tanlang</option>
+                              {packagingOptionsFor(item.packagingType).map((name) => (
+                                <option key={name} value={name}>{name}</option>
+                              ))}
+                            </select>
+                          </Field>
+                        ) : (
+                          <ChipGroup
+                            id={`tgc-i${item.uid}-packaging`}
+                            label={ITEM_LABELS.packagingType}
+                            options={packagingOptionsFor(item.packagingType).map((name) => ({ value: name, text: name }))}
+                            selected={item.packagingType || null}
+                            onSelect={(v) => updateItem(item.uid, { packagingType: v ?? '' }, errorKey('packagingType'))}
+                          />
+                        )}
+                      </div>
+                    )}
                     <NumberField id={`tgc-i${item.uid}-pallet-count`} label={ITEM_LABELS.palletCount} value={item.palletCount} error={fieldErrors[errorKey('palletCount')]} onChange={(v) => updateItem(item.uid, { palletCount: v }, errorKey('palletCount'))} />
                     <NumberField id={`tgc-i${item.uid}-pallet-weight`} label={ITEM_LABELS.palletWeight} decimal value={item.palletWeight} error={fieldErrors[errorKey('palletWeight')]} onChange={(v) => updateItem(item.uid, { palletWeight: v }, errorKey('palletWeight'))} />
                     <NumberField id={`tgc-i${item.uid}-netto`} label={ITEM_LABELS.netto} decimal value={item.netto} error={fieldErrors[errorKey('netto')]} onChange={(v) => updateItem(item.uid, { netto: v }, errorKey('netto'))} />

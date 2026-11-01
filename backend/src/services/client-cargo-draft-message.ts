@@ -36,6 +36,7 @@ const ITEM_ICONS: Record<string, string> = {
   product: '🏷',
   boxCount: '📦',
   boxWeight: '⚖️',
+  packagingType: '🗃',
   palletCount: '🧱',
   palletWeight: '⚖️',
   netto: '⚖️',

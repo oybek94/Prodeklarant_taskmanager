@@ -14,7 +14,7 @@ export type HeaderKey =
   | 'temperature'
   | 'sensorSerial';
 
-export type ItemKey = 'product' | 'boxCount' | 'boxWeight' | 'palletCount' | 'palletWeight' | 'netto' | 'brutto' | 'price';
+export type ItemKey = 'product' | 'boxCount' | 'boxWeight' | 'packagingType' | 'palletCount' | 'palletWeight' | 'netto' | 'brutto' | 'price';
 
 /** text — erkin matn, count — butun son, decimal — o'nli son */
 export type FieldKind = 'text' | 'count' | 'decimal';
@@ -45,6 +45,8 @@ export const ITEM_FIELDS: readonly FieldSpec<ItemKey>[] = [
   { key: 'product', kind: 'text', label: 'Наименование' },
   { key: 'boxCount', kind: 'count', label: 'Количество ящиков' },
   { key: 'boxWeight', kind: 'decimal', label: 'Общий вес ящиков' },
+  // Qiymat Sozlamalar → Spetsifikatsiyalar → Qadoq turlari (PackagingType) ro'yxatidan tanlanadi; ro'yxatga qarshi tekshiruv servisda
+  { key: 'packagingType', kind: 'text', label: 'Вид упаковки' },
   { key: 'palletCount', kind: 'count', label: 'Количество поддонов' },
   { key: 'palletWeight', kind: 'decimal', label: 'Общий вес поддонов' },
   { key: 'netto', kind: 'decimal', label: 'Нетто' },

@@ -247,3 +247,14 @@ describe('draftPatchSchema — tovar kalitlari chegarasi (C2)', () => {
     expect(draftPatchSchema.safeParse({ items: keys(41) }).success).toBe(false);
   });
 });
+
+describe('packagingType patchda', () => {
+  it("schema qabul qiladi, qiymat muallif bilan saqlanadi va Brutto hisobiga ta'sir qilmaydi", () => {
+    expect(draftPatchSchema.safeParse({ items: { u1: { fields: { packagingType: 'Картонные ящики' } } } }).success).toBe(true);
+    const r = applyDraftPatch(EMPTY_DRAFT_DATA, {}, { items: { u1: { fields: { packagingType: 'Картонные ящики', netto: '100' } } } }, aziz);
+    if (!r.ok) throw new Error('patch failed');
+    expect(r.data.items[0].fields.packagingType).toBe('Картонные ящики');
+    expect(r.authors['items.u1.packagingType']).toEqual(aziz);
+    expect(r.data.items[0].fields.brutto).toBe('100');
+  });
+});

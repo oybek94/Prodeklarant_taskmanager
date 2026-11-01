@@ -41,7 +41,7 @@ export interface MissingField {
 }
 
 const HEADER_KEYS: readonly DraftHeaderKey[] = ['invoiceNumber', 'deliveryTerms', 'customsPlace', 'destination', 'vehicleNumber', 'orderNumber', 'temperature', 'sensorSerial'];
-const ITEM_KEYS: readonly ItemKey[] = ['product', 'boxCount', 'boxWeight', 'palletCount', 'palletWeight', 'netto', 'brutto', 'price'];
+const ITEM_KEYS: readonly ItemKey[] = ['product', 'boxCount', 'boxWeight', 'packagingType', 'palletCount', 'palletWeight', 'netto', 'brutto', 'price'];
 
 const REQUIRED_HEADER_KEYS: readonly DraftHeaderKey[] = ['deliveryTerms', 'customsPlace'];
 const REQUIRED_ITEM_KEYS: readonly ItemKey[] = ['product', 'boxCount', 'netto', 'brutto'];
@@ -98,6 +98,7 @@ const itemFieldsPatchSchema = z
     product: textValue,
     boxCount: textValue,
     boxWeight: textValue,
+    packagingType: textValue,
     palletCount: textValue,
     palletWeight: textValue,
     netto: textValue,

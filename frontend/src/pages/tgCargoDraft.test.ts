@@ -9,7 +9,7 @@ import {
   type FormSnapshot,
 } from './tgCargoDraft';
 
-const blankFields = { product: '', boxCount: '', boxWeight: '', palletCount: '', palletWeight: '', netto: '', brutto: '', price: '' };
+const blankFields = { product: '', boxCount: '', boxWeight: '', packagingType: '', palletCount: '', palletWeight: '', netto: '', brutto: '', price: '' };
 const blankHeader = { invoiceNumber: '', deliveryTerms: '', customsPlace: '', destination: '', vehicleNumber: '', orderNumber: '', temperature: '', sensorSerial: '' };
 
 const snap = (over: Partial<FormSnapshot> = {}): FormSnapshot => ({
@@ -175,5 +175,21 @@ describe('stripCyrillic — avto raqami faqat lotin alifbosida (dasturdagidek)',
   });
   it("bo'sh qator", () => {
     expect(stripCyrillic('')).toEqual({ value: '', stripped: false });
+  });
+});
+
+describe('Вид упаковки (packagingType)', () => {
+  it("saqlangan arizadan to'ldiriladi", () => {
+    const s = snapshotFromDraft(view({ data: { contractId: null, branchId: null, header: {}, items: [{ uid: 'a1', fields: { packagingType: 'Картонные ящики' }, bruttoManual: false }] } }));
+    expect(s.items[0].fields.packagingType).toBe('Картонные ящики');
+  });
+  it("tanlov o'zgarsa patchga tushadi, tozalansa null", () => {
+    const base = snap({ items: [{ uid: 'u1', fields: { ...blankFields, packagingType: 'Картонные ящики' }, bruttoManual: false }] });
+    const changed = structuredClone(base);
+    changed.items[0].fields.packagingType = 'Пластиковые ящики';
+    expect(buildPatch(base, changed)).toEqual({ items: { u1: { fields: { packagingType: 'Пластиковые ящики' } } } });
+    const cleared = structuredClone(base);
+    cleared.items[0].fields.packagingType = '';
+    expect(buildPatch(base, cleared)).toEqual({ items: { u1: { fields: { packagingType: null } } } });
   });
 });

@@ -1,5 +1,8 @@
 import TelegramBot from 'node-telegram-bot-api';
 import { linkGroupByCode, migrateBotGroupChatId } from './client-cargo-bot-link.service';
+import { actorFromTelegramUser, buildNewCargoReply, parseDraftCallback, type DraftCallbackAction } from './client-cargo-draft-bot';
+import { buildDraftKeyboard } from './client-cargo-draft-message';
+import { cancelDraft, completeDraft, getDraft, listOpenDrafts } from './client-cargo-draft.service';
 import {
   type ArchivePage,
   chunkForAlbums,
@@ -37,11 +40,6 @@ function isLinkRateLimited(chatId: number): boolean {
   return entry.count > LINK_ATTEMPT_LIMIT;
 }
 
-/** Mini App to'g'ridan-to'g'ri havolasi: guruh chat ID si start_param sifatida ketadi (API uni imzo bilan tekshiradi) */
-export function buildMiniAppLink(baseLink: string, chatId: number): string {
-  return `${baseLink}?startapp=${chatId}`;
-}
-
 async function handleLink(instance: TelegramBot, chatId: number, code: string | undefined): Promise<void> {
   if (!code) {
     await instance.sendMessage(chatId, "Kodni ham yozing: /ulash KOD. Kodni Prodeklarant'dagi mijoz kartasidan oling.");
@@ -61,7 +59,7 @@ async function handleLink(instance: TelegramBot, chatId: number, code: string | 
   }
 }
 
-function registerHandlers(instance: TelegramBot, miniAppLink: string | undefined): void {
+function registerHandlers(instance: TelegramBot, miniAppLink: string | undefined, botToken: string): void {
   const reportError = (where: string, chatId: number, e: unknown) => {
     console.error(`[ClientCargoBot] ${where} xatosi:`, e instanceof Error ? e.message : e);
     instance.sendMessage(chatId, "Xatolik yuz berdi. Qaytadan urinib ko'ring.").catch(() => undefined);
@@ -97,9 +95,12 @@ function registerHandlers(instance: TelegramBot, miniAppLink: string | undefined
         await instance.sendMessage(msg.chat.id, "Forma hali sozlanmagan. Administratorga murojaat qiling.");
         return;
       }
-      await instance.sendMessage(msg.chat.id, "📋 Yuk ma'lumotini kiritish uchun formani oching:", {
-        reply_markup: { inline_keyboard: [[{ text: '📝 Formani ochish', url: buildMiniAppLink(miniAppLink, msg.chat.id) }]] },
-      });
+      const chatId = String(msg.chat.id);
+      // Guruh hali ulanmagan bo'lsa ro'yxat bo'sh: avvalgidek bitta "Formani ochish" tugmasi (forma o'zi xato ko'rsatadi)
+      const clientId = await getClientIdByGroup(chatId);
+      const drafts = clientId ? await listOpenDrafts({ clientId, chatId }) : [];
+      const reply = buildNewCargoReply({ chatId, miniAppLink, drafts });
+      await instance.sendMessage(msg.chat.id, reply.text, { reply_markup: { inline_keyboard: reply.keyboard } });
     } catch (e) {
       reportError('/yangi', msg.chat.id, e);
     }
@@ -189,10 +190,62 @@ function registerHandlers(instance: TelegramBot, miniAppLink: string | undefined
     }
   };
 
+  /** Jonli xabardagi Yakunlash / Bekor qilish tugmalari. Egalik (guruh+mijoz) servisda tekshiriladi. */
+  const handleDraftCallback = async (query: TelegramBot.CallbackQuery, chatId: number, messageId: number, action: DraftCallbackAction, draftId: number): Promise<void> => {
+    const clientId = await getClientIdByGroup(String(chatId));
+    if (!clientId) {
+      await instance.answerCallbackQuery(query.id, { text: 'Guruh mijozga ulanmagan.' });
+      return;
+    }
+    const scope = { botToken, clientId, chatId: String(chatId) };
+    const actor = actorFromTelegramUser(query.from);
+    const reject = (text: string) => instance.answerCallbackQuery(query.id, { text: text.slice(0, 200), show_alert: true });
+
+    if (action === 'done' || action === 'cancel-yes') {
+      const result = action === 'done' ? await completeDraft(scope, draftId, actor) : await cancelDraft(scope, draftId, actor);
+      if (!result.ok) {
+        await reject(result.error);
+        return;
+      }
+      await instance.answerCallbackQuery(query.id, { text: action === 'done' ? '✅ Yakunlandi' : '❌ Bekor qilindi' });
+      return;
+    }
+
+    // cancel / cancel-no: faqat tugmalar almashadi (tasdiq so'rash yoki oddiy holatga qaytish)
+    const draft = await getDraft({ clientId, chatId: String(chatId) }, draftId);
+    if (!draft || draft.status !== 'OPEN') {
+      await reject('Ariza topilmadi yoki yopilgan.');
+      return;
+    }
+    const keyboard = buildDraftKeyboard({
+      draftId,
+      chatId: String(chatId),
+      status: draft.status,
+      complete: draft.complete,
+      miniAppLink: miniAppLink ?? null,
+      confirmCancel: action === 'cancel',
+    });
+    await instance.answerCallbackQuery(query.id);
+    await instance.editMessageReplyMarkup({ inline_keyboard: keyboard }, { chat_id: chatId, message_id: messageId }).catch((e: unknown) => {
+      if (!(e instanceof Error && e.message.includes('message is not modified'))) throw e;
+    });
+  };
+
   instance.on('callback_query', async (query) => {
     const data = query.data ?? '';
     const chatId = query.message?.chat.id;
     const messageId = query.message?.message_id;
+    const draftCallback = parseDraftCallback(data);
+    if (draftCallback && chatId !== undefined && messageId !== undefined) {
+      try {
+        await handleDraftCallback(query, chatId, messageId, draftCallback.action, draftCallback.draftId);
+      } catch (e) {
+        console.error('[ClientCargoBot] ariza callback xatosi:', e instanceof Error ? e.message : e);
+        instance.answerCallbackQuery(query.id).catch(() => undefined);
+        instance.sendMessage(chatId, "Xatolik yuz berdi. Qaytadan urinib ko'ring.").catch(() => undefined);
+      }
+      return;
+    }
     if (chatId === undefined || messageId === undefined || (!data.startsWith(ARCHIVE_CB_PAGE) && !data.startsWith(ARCHIVE_CB_TASK))) {
       return;
     }
@@ -260,7 +313,7 @@ export const initClientCargoBot = () => {
   bot.on('polling_error', (error) => {
     console.error('[ClientCargoBot] Polling error:', error.message);
   });
-  registerHandlers(bot, miniAppLink);
+  registerHandlers(bot, miniAppLink, token);
 
   bot
     .setMyCommands([

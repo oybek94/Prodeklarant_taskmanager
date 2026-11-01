@@ -26,7 +26,7 @@ const telegramUserSchema = z.object({
 const MAX_USER_NAME_LENGTH = 64;
 
 /** "Ism Familiya", bo'lmasa "@username", bo'lmasa "ID <id>" */
-function displayName(user: z.infer<typeof telegramUserSchema>): string {
+export function telegramDisplayName(user: z.infer<typeof telegramUserSchema>): string {
   const fullName = [user.first_name, user.last_name]
     .map((part) => part?.trim() ?? '')
     .filter((part) => part !== '')
@@ -67,7 +67,7 @@ export function verifyInitData(initData: string, botToken: string, nowSec: numbe
   const user = telegramUserSchema.safeParse(userJson);
   if (!user.success) return null;
 
-  return { userId: user.data.id, userName: displayName(user.data), startParam: params.get('start_param') };
+  return { userId: user.data.id, userName: telegramDisplayName(user.data), startParam: params.get('start_param') };
 }
 
 /** Guruh chat ID si: manfiy butun son (`-1001234567890`). start_param shu ko'rinishda keladi. */

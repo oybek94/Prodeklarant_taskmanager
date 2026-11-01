@@ -102,7 +102,7 @@ describe('buildPatch', () => {
   });
 
   it("o'chirilgan tovar null, yangi to'ldirilgan tovar to'liq fields bilan", () => {
-    const base = snap();
+    const base = snap({ items: [{ uid: 'u1', fields: { ...blankFields, product: 'Яблоки' }, bruttoManual: false }] });
     const current: FormSnapshot = {
       ...structuredClone(base),
       items: [{ uid: 'u9', fields: { ...blankFields, product: 'Груши', boxCount: '5' }, bruttoManual: false }],
@@ -110,6 +110,30 @@ describe('buildPatch', () => {
     expect(buildPatch(base, current)).toEqual({
       items: { u1: null, u9: { fields: { product: 'Груши', boxCount: '5' } } },
     });
+  });
+
+  it("C2: birinchi saqlashda bo'sh boshlang'ich tovar o'chirish sifatida yuborilmaydi (21 kalit xatosi bo'lmasin)", () => {
+    const base = snap(); // bo'sh boshlang'ich tovar u1
+    const current: FormSnapshot = {
+      ...structuredClone(base),
+      items: [{ uid: 'u9', fields: { ...blankFields, product: 'Груши' }, bruttoManual: false }],
+    };
+    expect(buildPatch(base, current)).toEqual({ items: { u9: { fields: { product: 'Груши' } } } });
+  });
+
+  it("C1: qo'lda emas Brutto yuborilmaydi — serverda hisoblanadi", () => {
+    const base = snap();
+    const current = structuredClone(base);
+    current.items[0].fields.netto = '100';
+    current.items[0].fields.brutto = '100';
+    expect(buildPatch(base, current)).toEqual({ items: { u1: { fields: { netto: '100' } } } });
+  });
+
+  it("C1: qo'lda Brutto o'zgarsa har safar bruttoManual:true bilan birga yuboriladi", () => {
+    const base = snap({ items: [{ uid: 'u1', fields: { ...blankFields, netto: '100', brutto: '120' }, bruttoManual: true }] });
+    const current = structuredClone(base);
+    current.items[0].fields.brutto = '130';
+    expect(buildPatch(base, current)).toEqual({ items: { u1: { fields: { brutto: '130' }, bruttoManual: true } } });
   });
 
   it("yangi, butunlay bo'sh tovar bloki yuborilmaydi", () => {

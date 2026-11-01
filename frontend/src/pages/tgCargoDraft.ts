@@ -102,21 +102,26 @@ export function buildPatch(base: FormSnapshot, current: FormSnapshot): DraftPatc
   const baseByUid = new Map(base.items.map((item) => [item.uid, item]));
   const currentUids = new Set(current.items.map((item) => item.uid));
   for (const item of base.items) {
-    if (!currentUids.has(item.uid)) items[item.uid] = null;
+    // Bo'sh tovar serverda saqlanmagan (yoki zararsiz) — o'chirish so'rovi kalitlar chegarasini ortiqcha band qilmasin
+    if (!currentUids.has(item.uid) && !isBlankItem(item)) items[item.uid] = null;
   }
   for (const item of current.items) {
     const before = baseByUid.get(item.uid);
     if (!before && isBlankItem(item)) continue;
     const fields: Partial<Record<ItemField, string | null>> = {};
     for (const key of ITEM_FIELDS) {
+      // Qo'lda emas Brutto serverda hisoblanadi: eskirgan brauzer o'z hisobini yuborib boshqa odam qiymatini buzmasin
+      if (key === 'brutto' && !item.bruttoManual) continue;
       const previous = before?.fields[key] ?? '';
       if (previous !== item.fields[key]) fields[key] = valueOrNull(item.fields[key]);
     }
     const manualChanged = (before?.bruttoManual ?? false) !== item.bruttoManual;
     if (Object.keys(fields).length === 0 && !manualChanged) continue;
+    // Qo'lda Brutto serverda faqat bruttoManual:true bilan birga qabul qilinadi
+    const sendManual = manualChanged || (item.bruttoManual && 'brutto' in fields);
     items[item.uid] = {
       ...(Object.keys(fields).length > 0 ? { fields } : {}),
-      ...(manualChanged ? { bruttoManual: item.bruttoManual } : {}),
+      ...(sendManual ? { bruttoManual: item.bruttoManual } : {}),
     };
   }
   if (Object.keys(items).length > 0) patch.items = items;

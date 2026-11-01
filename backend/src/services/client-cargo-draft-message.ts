@@ -26,7 +26,14 @@ function row(label: string, value: string, author: string | null): string {
 
 const isItemFilled = (item: DraftItem): boolean => ITEM_FIELDS.some((f) => (item.fields[f.key] ?? '').trim() !== '');
 
-function buildBody(input: { data: DraftData; authors: AuthorMap; context: DraftMessageContext; status: DraftStatus; actorName?: string | null }, withAuthors: boolean): string {
+interface MessageParts {
+  /** Sarlavha, sarlavha maydonlari va tovar bloklari (juda uzun bo'lsa qirqiladi) */
+  main: string;
+  /** Yetishmayotganlar ro'yxati yoki yakunlagan odam (qirqilmaydi) */
+  footer: string;
+}
+
+function buildBody(input: { data: DraftData; authors: AuthorMap; context: DraftMessageContext; status: DraftStatus; actorName?: string | null }, withAuthors: boolean): MessageParts {
   const { data, authors, context, status, actorName } = input;
   const authorOf = (path: string): string | null => (withAuthors ? (authors[path]?.name ?? null) : null);
 
@@ -62,21 +69,24 @@ function buildBody(input: { data: DraftData; authors: AuthorMap; context: DraftM
   if (headerLines.length > 0) parts.push(headerLines.join('\n'));
   parts.push(...itemBlocks);
 
+  let footer = '';
   if (status === 'OPEN') {
     const missing = getMissingRequired(data);
     if (missing.length > 0) {
       const lines = missing.map((m) => `• ${m.itemNumber === null ? '' : `Товар ${m.itemNumber}: `}${escapeHtml(m.label)}`);
-      parts.push(['⏳ <b>Не заполнено:</b>', ...lines].join('\n'));
+      footer = ['⏳ <b>Не заполнено:</b>', ...lines].join('\n');
     }
   }
-  if (status === 'COMPLETED' && actorName) parts.push(`Завершил(а): <b>${escapeHtml(actorName)}</b>`);
-  return parts.join('\n\n');
+  if (status === 'COMPLETED' && actorName) footer = `Завершил(а): <b>${escapeHtml(actorName)}</b>`;
+  return { main: parts.join('\n\n'), footer };
 }
 
+const joinParts = (p: MessageParts): string => (p.footer ? `${p.main}\n\n${p.footer}` : p.main);
+
 /** Satr chegarasida qirqadi: har satrdagi <b> teglari o'sha satrning ichida yopiladi, shuning uchun HTML buzilmaydi */
-function truncateAtLine(text: string): string {
-  const cut = text.lastIndexOf('\n', TELEGRAM_MESSAGE_LIMIT - ELLIPSIS.length);
-  return `${text.slice(0, cut > 0 ? cut : TELEGRAM_MESSAGE_LIMIT - ELLIPSIS.length)}${ELLIPSIS}`;
+function truncateAtLine(text: string, maxLength: number): string {
+  const cut = text.lastIndexOf('\n', maxLength - ELLIPSIS.length);
+  return `${text.slice(0, cut > 0 ? cut : maxLength - ELLIPSIS.length)}${ELLIPSIS}`;
 }
 
 /**
@@ -90,10 +100,13 @@ export function formatDraftMessage(input: {
   actorName?: string | null;
 }): string {
   if (input.status === 'CANCELLED') return '❌ <b>Отменено</b>';
-  const full = buildBody(input, true);
+  const full = joinParts(buildBody(input, true));
   if (full.length <= TELEGRAM_MESSAGE_LIMIT) return full;
   const compact = buildBody(input, false);
-  return compact.length <= TELEGRAM_MESSAGE_LIMIT ? compact : truncateAtLine(compact);
+  if (joinParts(compact).length <= TELEGRAM_MESSAGE_LIMIT) return joinParts(compact);
+  // Tovarlar qirqiladi, lekin "Не заполнено" / "Завершил(а)" bloki saqlanadi: foydalanuvchi nima yetishmayotganini ko'rsin
+  const room = TELEGRAM_MESSAGE_LIMIT - (compact.footer ? compact.footer.length + 2 : 0);
+  return joinParts({ main: truncateAtLine(compact.main, room), footer: compact.footer });
 }
 
 export function buildDraftLaunchLink(baseLink: string, chatId: string, draft: number | 'new'): string {

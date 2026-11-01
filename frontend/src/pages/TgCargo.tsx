@@ -380,6 +380,28 @@ export default function TgCargo() {
     }
   }, [scheme]);
 
+  // Sahifa yorug'/tungi rejimni o'zi boshqarishini e'lon qilamiz: aks holda Telegram Android'ning avtomatik
+  // "force dark"i ranglarni qisman almashtiradi (fokus olgan maydonda matn oqarib, yorliqlar yo'qolib qoladi).
+  useEffect(() => {
+    const root = document.documentElement;
+    const previous = root.style.colorScheme;
+    let meta = document.querySelector<HTMLMetaElement>('meta[name="color-scheme"]');
+    const created = !meta;
+    if (!meta) {
+      meta = document.createElement('meta');
+      meta.name = 'color-scheme';
+      document.head.appendChild(meta);
+    }
+    const previousContent = meta.content;
+    meta.content = 'light dark';
+    root.style.colorScheme = scheme;
+    return () => {
+      root.style.colorScheme = previous;
+      if (created) meta.remove();
+      else meta.content = previousContent;
+    };
+  }, [scheme]);
+
   // Ekran klaviaturasi ochilganda sahifa ko'rinadigan maydonga moslashsin (Telegram ba'zan oynani o'zi qisqartiradi,
   // ba'zan faqat visualViewport o'zgaradi)
   useEffect(() => {

@@ -78,8 +78,8 @@ describe('formatDraftMessage', () => {
     const text = formatDraftMessage({ data, authors: {}, context, status: 'OPEN' });
     expect(text).toContain('Количество ящиков: <b>2000 шт.</b>');
     expect(text).toContain('Общий вес ящиков: <b>500 кг.</b>');
-    expect(text).toContain('Количество поддонов: <b>33 шт.</b>');
-    expect(text).toContain('Общий вес поддонов: <b>429 кг.</b>');
+    expect(text).toContain('Количество поддонов: <b>33 шт. (429 кг)</b>'); // поддонlar soni va vazni birlashtirilgan
+    expect(text).not.toContain('Общий вес поддонов');
     expect(text).toContain('Нетто: <b>21000 кг.</b>');
     expect(text).toContain('Брутто: <b>21929 кг.</b>');
     expect(text).toContain('Цена: <b>100 USD</b>');
@@ -226,15 +226,68 @@ describe('uzun xabarda oxirgi blok saqlanadi (I3)', () => {
   });
 });
 
-describe('Вид упаковки xabarda', () => {
-  it("'Общий вес ящиков' dan keyin, 'Количество поддонов' dan oldin; birliksiz", () => {
-    const data: DraftData = {
-      ...completeData(),
-      items: [{ uid: 'u1', fields: { product: 'Яблоки', boxCount: '10', boxWeight: '5', packagingType: 'Картонные ящики', palletCount: '2', netto: '100', brutto: '110' }, bruttoManual: false }],
-    };
-    const text = formatDraftMessage({ data, authors: {}, context, status: 'OPEN' });
-    expect(text).toContain('🗃 Вид упаковки: <b>Картонные ящики</b>');
-    expect(text.indexOf('Общий вес ящиков')).toBeLessThan(text.indexOf('Вид упаковки'));
-    expect(text.indexOf('Вид упаковки')).toBeLessThan(text.indexOf('Количество поддонов'));
+describe('Вид упаковки xabarda — Количество ящиков bilan birlashtiriladi', () => {
+  const withItem = (fields: Record<string, string>): DraftData => ({ ...completeData(), items: [{ uid: 'u1', fields, bruttoManual: false }] });
+
+  it("qadoq turi bor bo'lsa 'Количество ящиков' qiymati shu nom bilan, 'шт.' va alohida 'Вид упаковки' qatori yo'q", () => {
+    const text = formatDraftMessage({
+      data: withItem({ product: 'Виноград', boxCount: '2500', boxWeight: '5', packagingType: 'дер.ящик', palletCount: '2', netto: '100', brutto: '110' }),
+      authors: {},
+      context,
+      status: 'OPEN',
+    });
+    expect(text).toContain('📦 Количество ящиков: <b>2500 дер.ящик</b>');
+    expect(text).not.toContain('Вид упаковки');
+    expect(text).not.toContain('2500 шт.');
+    expect(text).toContain('Количество поддонов: <b>2 шт.</b>'); // поддонlar birligi o'zgarmaydi
+  });
+
+  it("qadoq turi yo'q bo'lsa avvalgidek 'шт.'", () => {
+    const text = formatDraftMessage({ data: withItem({ product: 'Виноград', boxCount: '2500', netto: '100', brutto: '110' }), authors: {}, context, status: 'OPEN' });
+    expect(text).toContain('Количество ящиков: <b>2500 шт.</b>');
+  });
+
+  it("qadoq turi bor-u ящиклар soni yo'q bo'lsa ma'lumot yo'qolmaydi: 'Вид упаковки' qatori qoladi", () => {
+    const text = formatDraftMessage({ data: withItem({ product: 'Виноград', packagingType: 'дер.ящик', netto: '100', brutto: '110' }), authors: {}, context, status: 'OPEN' });
+    expect(text).toContain('🗃 Вид упаковки: <b>дер.ящик</b>');
+    expect(text).not.toContain('Количество ящиков: <b>');
+  });
+
+  it("qadoq nomidagi HTML belgilari escape qilinadi", () => {
+    const text = formatDraftMessage({ data: withItem({ product: 'Виноград', boxCount: '10', packagingType: 'A&B<x>' }), authors: {}, context, status: 'OPEN' });
+    expect(text).toContain('Количество ящиков: <b>10 A&amp;B&lt;x&gt;</b>');
+  });
+});
+
+describe('Поддоны: Количество va Общий вес birlashtiriladi', () => {
+  const withItem = (fields: Record<string, string>): DraftData => ({ ...completeData(), items: [{ uid: 'u1', fields, bruttoManual: false }] });
+  const render = (fields: Record<string, string>) => formatDraftMessage({ data: withItem(fields), authors: {}, context, status: 'OPEN' });
+
+  it("ikkalasi ham kiritilgan: 'Количество поддонов: 33 шт. (430 кг)', alohida vazn qatori yo'q", () => {
+    const text = render({ product: 'Виноград', palletCount: '33', palletWeight: '430', netto: '100', brutto: '110' });
+    expect(text).toContain('🧱 Количество поддонов: <b>33 шт. (430 кг)</b>');
+    expect(text).not.toContain('Общий вес поддонов');
+  });
+
+  it("o'nli vazn o'zgarishsiz yoziladi", () => {
+    expect(render({ product: 'Виноград', palletCount: '33', palletWeight: '429.5' })).toContain('<b>33 шт. (429.5 кг)</b>');
+  });
+
+  it("faqat soni bo'lsa 'шт.' bilan, vazn qatori yo'q", () => {
+    const text = render({ product: 'Виноград', palletCount: '33' });
+    expect(text).toContain('Количество поддонов: <b>33 шт.</b>');
+    expect(text).not.toContain('Общий вес поддонов');
+  });
+
+  it("faqat vazni bo'lsa ma'lumot yo'qolmaydi: o'z qatorida 'кг.' bilan", () => {
+    const text = render({ product: 'Виноград', palletWeight: '430' });
+    expect(text).toContain('⚖️ Общий вес поддонов: <b>430 кг.</b>');
+    expect(text).not.toContain('Количество поддонов');
+  });
+
+  it("ящиклар (Количество ящиков + Общий вес ящиков) o'zgarishsiz alohida qoladi", () => {
+    const text = render({ product: 'Виноград', boxCount: '2500', boxWeight: '500', packagingType: 'дер.ящик', palletCount: '33', palletWeight: '430' });
+    expect(text).toContain('Количество ящиков: <b>2500 дер.ящик</b>');
+    expect(text).toContain('Общий вес ящиков: <b>500 кг.</b>');
   });
 });

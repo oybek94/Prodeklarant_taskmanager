@@ -103,7 +103,15 @@ function buildBody(input: { data: DraftData; authors: AuthorMap; context: DraftM
       const lines = ITEM_FIELDS.flatMap((f) => {
         const value = item.fields[f.key];
         if (!value) return [];
-        const unit = f.key === 'price' ? context.currency : ITEM_UNITS[f.key];
+        const packaging = item.fields.packagingType;
+        // Qadoq turi ящиклар soniga birlashtiriladi: "2500 дер.ящик" (alohida "Вид упаковки" qatori yo'q).
+        // Ящиклар soni bo'lmasa qadoq turi yo'qolmasligi uchun o'z qatorida qoladi.
+        if (f.key === 'packagingType' && item.fields.boxCount) return [];
+        // Поддоны: soni va vazni ikkalasi ham kiritilgan bo'lsa bitta qatorda: "33 шт. (430 кг)". Bittasi bo'lsa o'z qatorida qoladi.
+        const palletWeight = item.fields.palletWeight;
+        if (f.key === 'palletWeight' && item.fields.palletCount) return [];
+        if (f.key === 'palletCount' && palletWeight) return [row(ITEM_ICONS[f.key], f.label, `${value} ${ITEM_UNITS.palletCount} (${palletWeight} кг)`)];
+        const unit = f.key === 'price' ? context.currency : f.key === 'boxCount' && packaging ? packaging : ITEM_UNITS[f.key];
         const shown = unit ? `${value} ${unit}` : value;
         return [row(ITEM_ICONS[f.key], f.label, shown)];
       });

@@ -12,12 +12,12 @@ import { authenticateApi, isPublicApiPath } from '../middleware/auth';
 import { signAccessToken } from '../utils/jwt';
 
 describe('isPublicApiPath', () => {
-  it.each(['/auth/login', '/portal/auth/login', '/portal/auth/refresh', '/auth/refresh', '/auth/login/', '/health/db', '/public/site-stats', '/q/abc123', '/v1/media/stream/5', '/v1/media/stream/5/segments/a.ts'])(
+  it.each(['/auth/login', '/portal/auth/login', '/portal/auth/refresh', '/auth/refresh', '/auth/login/', '/health/db', '/public/site-stats', '/q/abc123', '/v1/media/stream/5', '/v1/media/stream/5/segments/a.ts', '/tg-cargo/context', '/tg-cargo/submit'])(
     'ochiq: %s',
     (path) => expect(isPublicApiPath(path)).toBe(true),
   );
 
-  it.each(['/portal/auth/me', '/portal/shipments', '/auth/me', '/auth/register', '/auth/client/login', '/auth/client/me', '/auth/loginx', '/tasks', '/system/restore', '/q', '/v1/lessons/1/stream-token', '/leads', '/'])(
+  it.each(['/portal/auth/me', '/portal/shipments', '/auth/me', '/auth/register', '/auth/client/login', '/auth/client/me', '/auth/loginx', '/tasks', '/system/restore', '/q', '/v1/lessons/1/stream-token', '/leads', '/', '/tg-cargo'])(
     'yopiq: %s',
     (path) => expect(isPublicApiPath(path)).toBe(false),
   );

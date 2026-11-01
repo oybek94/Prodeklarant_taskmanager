@@ -25,23 +25,22 @@ export interface CargoStep {
   kind: CargoStepKind;
   /** Guruh xabaridagi qator nomi */
   label: string;
-  /** Botning savoli */
-  question: string;
 }
 
+/** Maydonlar guruh xabaridagi tartibda */
 export const CARGO_STEPS: readonly CargoStep[] = [
-  { key: 'vehicleNumber', kind: 'text', label: 'Avto nomer', question: '🚛 Avto nomerini yozing (masalan: 40232BAA/402332BA)' },
-  { key: 'buyer', kind: 'choice', label: 'Sotib oluvchi', question: '👤 Sotib oluvchini tanlang' },
-  { key: 'city', kind: 'choice', label: 'Shahar', question: "📍 Qaysi shaharga? Ro'yxatdan tanlang yoki o'zingiz yozing" },
-  { key: 'product', kind: 'choice', label: 'Mahsulot', question: '🍎 Mahsulot nomini tanlang yoki yangisini yozing' },
-  { key: 'boxCount', kind: 'count', label: 'Yashik soni', question: '📦 Yashik sonini yozing (faqat son)' },
-  { key: 'boxWeight', kind: 'decimal', label: "Yashiklar jami og'irligi", question: "⚖️ Yashiklar jami og'irligini yozing (faqat son)" },
-  { key: 'palletCount', kind: 'count', label: 'Poddon soni', question: '🟫 Poddon sonini yozing (faqat son)' },
-  { key: 'palletWeight', kind: 'decimal', label: "Poddon jami og'irligi", question: "⚖️ Poddon jami og'irligini yozing (faqat son)" },
-  { key: 'netto', kind: 'decimal', label: 'Netto', question: '⚖️ Netto og\'irlikni yozing (faqat son)' },
-  { key: 'price', kind: 'decimal', label: 'Narxi', question: '💰 Narxini yozing (faqat son)' },
-  { key: 'customs', kind: 'choice', label: 'Таможня', question: "🛃 Таможня (место там. очистки): ro'yxatdan tanlang yoki o'zingiz yozing" },
-  { key: 'unloading', kind: 'choice', label: 'Выгрузка', question: "📥 Выгрузка (место назначения): ro'yxatdan tanlang yoki o'zingiz yozing" },
+  { key: 'vehicleNumber', kind: 'text', label: 'Avto nomer' },
+  { key: 'buyer', kind: 'choice', label: 'Sotib oluvchi' },
+  { key: 'city', kind: 'choice', label: 'Shahar' },
+  { key: 'product', kind: 'choice', label: 'Mahsulot' },
+  { key: 'boxCount', kind: 'count', label: 'Yashik soni' },
+  { key: 'boxWeight', kind: 'decimal', label: "Yashiklar jami og'irligi" },
+  { key: 'palletCount', kind: 'count', label: 'Poddon soni' },
+  { key: 'palletWeight', kind: 'decimal', label: "Poddon jami og'irligi" },
+  { key: 'netto', kind: 'decimal', label: 'Netto' },
+  { key: 'price', kind: 'decimal', label: 'Narxi' },
+  { key: 'customs', kind: 'choice', label: 'Таможня' },
+  { key: 'unloading', kind: 'choice', label: 'Выгрузка' },
 ];
 
 export const NUMERIC_HINT = 'Faqat son kiriting, masalan: 12 yoki 12,5';
@@ -98,14 +97,6 @@ export function splitContractLines(value: string | null | undefined): ChoiceOpti
     .split('\n')
     .map((text, rawIndex) => ({ text: text.trim(), rawIndex }))
     .filter((o) => o.text.length > 0);
-}
-
-/** Tanlangan shaharning (deliveryTerms) juftidagi bojxona qatori birinchi turadi */
-export function orderCustomsOptions(options: ChoiceOption[], cityRawIndex: number | undefined): ChoiceOption[] {
-  if (cityRawIndex === undefined) return options;
-  const paired = options.find((o) => o.rawIndex === cityRawIndex);
-  if (!paired) return options;
-  return [paired, ...options.filter((o) => o !== paired)];
 }
 
 const escapeHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');

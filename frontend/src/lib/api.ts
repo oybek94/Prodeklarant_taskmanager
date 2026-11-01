@@ -1,7 +1,7 @@
 import axios, { AxiosError } from 'axios';
 
 // Production'da faqat environment variable yoki /api, development'da localhost
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api');
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:3001/api');
 
 // Timeout 60s — sekin backend yoki tarmoqda so'rovlar tugashiga vaqt beradi; token faqat 401/refresh muvaffaqiyatsiz bo'lganda tozalanadi
 const apiClient = axios.create({

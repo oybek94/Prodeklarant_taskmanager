@@ -43,6 +43,16 @@ const ITEM_ICONS: Record<string, string> = {
   price: '💰',
 };
 
+/** Tovar maydonlari qiymatidan keyingi o'lchov birligi (narxga shartnoma valyutasi alohida qo'shiladi) */
+const ITEM_UNITS: Record<string, string> = {
+  boxCount: 'шт.',
+  palletCount: 'шт.',
+  boxWeight: 'кг.',
+  palletWeight: 'кг.',
+  netto: 'кг.',
+  brutto: 'кг.',
+};
+
 /** Shundan uzun qiymat (masalan bojxona manzili) alohida qatorda <blockquote> ichida: qatorlar bir-biriga yopishib ketmasin */
 const LONG_VALUE_LENGTH = 40;
 
@@ -92,7 +102,8 @@ function buildBody(input: { data: DraftData; authors: AuthorMap; context: DraftM
       const lines = ITEM_FIELDS.flatMap((f) => {
         const value = item.fields[f.key];
         if (!value) return [];
-        const shown = f.key === 'price' && context.currency ? `${value} ${context.currency}` : value;
+        const unit = f.key === 'price' ? context.currency : ITEM_UNITS[f.key];
+        const shown = unit ? `${value} ${unit}` : value;
         return [row(ITEM_ICONS[f.key], f.label, shown)];
       });
       return [`<b>Товар ${index + 1}</b>`, ...lines].join('\n');

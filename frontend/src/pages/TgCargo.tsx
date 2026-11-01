@@ -176,6 +176,8 @@ interface PreviewModel {
 
 const normalizeText = (v: string) => v.replace(/\s+/g, ' ').trim();
 const normalizeDecimal = (v: string) => v.trim().replace(',', '.');
+/** Guruh xabaridagi kabi o'lchov birligi (шт. / кг.); qiymat bo'sh bo'lsa bo'sh qoladi */
+const withUnit = (value: string, unit: string) => (value ? `${value} ${unit}` : '');
 
 /** Backend xabarga qanday yozsa, shunday ko'rsatamiz (avto nomer katta harfda, vergul nuqta bo'ladi, bo'sh tovar tushadi) */
 function buildPreview(header: HeaderValues, contract: ContractInfo | null, shipmentBranch: string, items: ItemState[]): PreviewModel {
@@ -197,12 +199,12 @@ function buildPreview(header: HeaderValues, contract: ContractInfo | null, shipm
     .map((item) => {
       const values: Record<(typeof ITEM_ORDER)[number], string> = {
         product: normalizeText(item.product),
-        boxCount: item.boxCount.trim(),
-        boxWeight: normalizeDecimal(item.boxWeight),
-        palletCount: item.palletCount.trim(),
-        palletWeight: normalizeDecimal(item.palletWeight),
-        netto: normalizeDecimal(item.netto),
-        brutto: normalizeDecimal(bruttoOf(item)),
+        boxCount: withUnit(item.boxCount.trim(), 'шт.'),
+        boxWeight: withUnit(normalizeDecimal(item.boxWeight), 'кг.'),
+        palletCount: withUnit(item.palletCount.trim(), 'шт.'),
+        palletWeight: withUnit(normalizeDecimal(item.palletWeight), 'кг.'),
+        netto: withUnit(normalizeDecimal(item.netto), 'кг.'),
+        brutto: withUnit(normalizeDecimal(bruttoOf(item)), 'кг.'),
         price: normalizeDecimal(item.price) ? `${normalizeDecimal(item.price)}${contract?.currency ? ` ${contract.currency}` : ''}` : '',
       };
       return ITEM_ORDER.flatMap((key) => (values[key] ? [{ label: ITEM_LABELS[key], value: values[key] }] : []));

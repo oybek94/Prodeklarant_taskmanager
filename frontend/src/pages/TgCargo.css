@@ -6,6 +6,7 @@
   --surface: #ffffff;
   --field: #f0f5fb;
   --ink: #1f2937;
+  --input-ink: #000000;
   --muted: #5b6b7f;
   --line: #c8dceb;
   --chip: #e1eaf6;
@@ -30,6 +31,7 @@
   --surface: #1e1e1e;
   --field: #2a2a2a;
   --ink: #e0e0e0;
+  --input-ink: #e0e0e0;
   --muted: #a0a0a0;
   --line: #444444;
   --chip: #333333;
@@ -417,7 +419,7 @@
    bu sahifadagi maydonlarni bo'yab yubormasligi uchun: specificity yuqori + !important. */
 .tgc .tgc-input {
   background-color: var(--field) !important;
-  color: var(--ink) !important;
+  color: var(--input-ink) !important;
   border-color: transparent !important;
 }
 
@@ -472,7 +474,7 @@
 .tgc .tgc-input {
   -webkit-appearance: none;
   appearance: none;
-  -webkit-text-fill-color: var(--ink);
+  -webkit-text-fill-color: var(--input-ink);
   caret-color: var(--accent);
   opacity: 1;
 }

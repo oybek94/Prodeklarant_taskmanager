@@ -15,6 +15,7 @@ import EmptyValue from '../components/common/EmptyValue';
 import ContractWorkspaceModal, { type ContractFileItem, type ContractFormState, type ContractImageField, type SpecRow } from '../components/clients/ContractWorkspaceModal';
 import ClientOverview, { type ClientDetail } from '../components/clients/ClientOverview';
 import PortalAccessCard from '../components/clients/PortalAccessCard';
+import BotLinkCard from '../components/clients/BotLinkCard';
 import ClientContractsTab, { type ClientContractRow } from '../components/clients/ClientContractsTab';
 import ClientTasksTab, { type MonthlyTaskCount } from '../components/clients/ClientTasksTab';
 import ClientTransactionsTab from '../components/clients/ClientTransactionsTab';
@@ -247,6 +248,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
     buyerDetails: '',
     deliveryTerms: [''],
     customsAddress: [''],
+    destinationPlaces: '',
     shipperName: '',
     shipperInn: '',
     shipperAddress: '',
@@ -423,6 +425,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
       buyerDetails: '',
       deliveryTerms: [''],
       customsAddress: [''],
+    destinationPlaces: '',
       shipperName: '',
       shipperInn: '',
       shipperAddress: '',
@@ -669,6 +672,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
         buyerDetails: form.buyerDetails ?? '',
         deliveryTerms: hasAnyValue(form.deliveryTerms) ? deliveryTermsValue : undefined,
         customsAddress: hasAnyValue(form.customsAddress) ? customsAddressValue : undefined,
+        destinationPlaces: form.destinationPlaces.split('\n').map((s) => s.trim()).filter(Boolean).join('\n'),
         supplierDirector: form.supplierDirector?.trim() || '',
         buyerDirector: form.buyerDirector?.trim() || '',
         consigneeDirector: form.consigneeDirector?.trim() || '',
@@ -779,6 +783,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
         buyerDetails: c.buyerDetails || '',
         deliveryTerms: parseListPreservingEmpty(c.deliveryTerms),
         customsAddress: parseListPreservingEmpty(c.customsAddress),
+        destinationPlaces: c.destinationPlaces || '',
         shipperName: c.shipperName || '',
         shipperInn: c.shipperInn || '',
         shipperAddress: c.shipperAddress || '',
@@ -831,6 +836,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
         buyerDetails: contract.buyerDetails || '',
         deliveryTerms: parseListPreservingEmpty(contract.deliveryTerms),
         customsAddress: parseListPreservingEmpty(contract.customsAddress),
+        destinationPlaces: (contract as any).destinationPlaces || '',
         shipperName: contract.shipperName || '',
         shipperInn: contract.shipperInn || '',
         shipperAddress: contract.shipperAddress || '',
@@ -894,6 +900,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
         buyerDetails: c.buyerDetails || '',
         deliveryTerms: parseListPreservingEmpty(c.deliveryTerms),
         customsAddress: parseListPreservingEmpty(c.customsAddress),
+        destinationPlaces: c.destinationPlaces || '',
         shipperName: c.shipperName || '',
         shipperInn: c.shipperInn || '',
         shipperAddress: c.shipperAddress || '',
@@ -2042,6 +2049,7 @@ const Clients: React.FC<ClientsProps> = ({ isModalMode = false, modalClientId, m
               <>
                 <ClientOverview client={selectedClient} hideMoney={isNonAdmin} />
                 {!isNonAdmin && <PortalAccessCard clientId={selectedClient.id} className="mt-4" />}
+                {!isNonAdmin && <BotLinkCard clientId={selectedClient.id} className="mt-4" />}
               </>
             )}
 

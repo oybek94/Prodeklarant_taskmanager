@@ -5,6 +5,7 @@ import apiClient from '../lib/api';
 import { useAuth } from '../contexts/AuthContext';
 import EmptyValue from '../components/common/EmptyValue';
 import PortalAccessCard from '../components/clients/PortalAccessCard';
+import BotLinkCard from '../components/clients/BotLinkCard';
 import ContractFieldHint from '../components/contracts/ContractFieldHint';
 import CurrencyDisplay from '../components/CurrencyDisplay';
 import DateInput from '../components/DateInput';
@@ -701,6 +702,7 @@ const ClientDetail = () => {
       </div>
 
       {user?.role === 'ADMIN' && client.id ? <PortalAccessCard clientId={client.id} /> : null}
+      {user?.role === 'ADMIN' && client.id ? <BotLinkCard clientId={client.id} /> : null}
 
       {/* Client Info - faqat ADMIN uchun (Telefon, Kelishuv, Jami tushgan, Balans) */}
       {user?.role === 'ADMIN' && client.stats && (

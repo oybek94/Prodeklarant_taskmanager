@@ -40,6 +40,8 @@ export type ContractFormState = {
   buyerDetails: string;
   deliveryTerms: string[];
   customsAddress: string[];
+  /** «Место назначения» variantlari, har qatorga bittadan */
+  destinationPlaces: string;
   shipperName: string;
   shipperInn: string;
   shipperAddress: string;
@@ -1162,6 +1164,23 @@ export default function ContractWorkspaceModal({
                         Har bir qatorda chap tomon — shartnoma bo'yicha yetkazib berish sharti, o'ng tomon — shu shartga bog'langan rastamojka
                         manzili. Ikkalasi ham shartnoma PDF'ida birga chiqadi.
                       </span>
+                    </div>
+                    <div className={`${CARD} space-y-3.5`}>
+                      <label
+                        htmlFor="cw-destination-places"
+                        className={`${MONO_LABEL} inline-flex items-center gap-1.5 !tracking-[0.1em] text-gray-600 dark:text-gray-400`}
+                      >
+                        Место назначения · yuk tushirish joylari
+                        <ContractFieldHint field="destinationPlaces" />
+                      </label>
+                      <textarea
+                        id="cw-destination-places"
+                        rows={3}
+                        value={form.destinationPlaces}
+                        onChange={(e) => patch({ destinationPlaces: e.target.value })}
+                        className={AREA}
+                        placeholder="Har qatorga bitta joy (Telegram botda «Выгрузка» tugmalari)"
+                      />
                     </div>
                   </>
                 )}

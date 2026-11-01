@@ -8,6 +8,7 @@ import { deepNormalizeStrings } from '../utils/text-normalize';
 import { getLatestExchangeRate } from '../services/exchange-rate';
 import { validateMonetaryFields, calculateAmountUzs, validateDealAmountPlausibility } from '../services/monetary-validation';
 import { getPortalAccess, resetPortalPassword, revokePortalAccess } from '../services/portal.service';
+import { getBotLinkStatus, createBotLinkCode, disconnectBotGroup } from '../services/client-cargo-bot-link.service';
 import { ClientService } from '../services/client.service';
 import { ClientRepository } from '../repositories/client.repository';
 
@@ -341,6 +342,32 @@ router.delete('/:id/portal-access', requireAuth('ADMIN'), async (req: AuthReques
   const id = Number(req.params.id);
   if (!Number.isInteger(id) || id <= 0) return res.status(404).json({ error: 'Not found' });
   if (!(await revokePortalAccess(id))) return res.status(404).json({ error: 'Not found' });
+  res.json({ ok: true });
+});
+
+// Yuk ma'lumotlari boti: mijoz guruhini bir martalik kod bilan ulash — faqat ADMIN.
+router.get('/:id/bot-link', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(404).json({ error: 'Not found' });
+  const status = await getBotLinkStatus(id);
+  if (!status) return res.status(404).json({ error: 'Not found' });
+  res.set('Cache-Control', 'no-store');
+  res.json(status);
+});
+
+router.post('/:id/bot-link', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(404).json({ error: 'Not found' });
+  const result = await createBotLinkCode(id);
+  if (!result) return res.status(404).json({ error: 'Not found' });
+  res.set('Cache-Control', 'no-store');
+  res.json({ code: result.code, expiresAt: result.expiresAt });
+});
+
+router.delete('/:id/bot-link', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id) || id <= 0) return res.status(404).json({ error: 'Not found' });
+  if (!(await disconnectBotGroup(id))) return res.status(404).json({ error: 'Not found' });
   res.json({ ok: true });
 });
 

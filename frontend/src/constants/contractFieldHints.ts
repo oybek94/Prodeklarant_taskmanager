@@ -175,6 +175,11 @@ export const contractFieldHints = {
     text: 'Yuk bojxonada rasmiylashtiriladigan joy — shahar va bojxona posti manzili.\nHar bir yetkazib berish sharti uchun o\'ziga mos manzil yoziladi: chap ustundagi shart bilan o\'ng ustundagi manzil juft bo\'lib turadi.',
     example: 'г. Москва, Каширское шоссе, 19к2',
   },
+  destinationPlaces: {
+    title: 'Yuk tushirish joyi (Место назначения)',
+    text: 'Yuk tushiriladigan joy variantlari — har qatorga bittadan. Mijozning Telegram botida «Выгрузка» savoli uchun tugma bo\'lib chiqadi.\nBo\'sh qoldirsangiz, mijoz joyni botda o\'zi yozadi.',
+    example: 'г. Москва, склад Садовод',
+  },
   companyLogoUrl: {
     title: 'Kompaniya logotipi',
     text: 'Mijoz kompaniyasining logotipi (PNG yoki JPG, oq yoki shaffof fonda).\nInvoys va boshqa blankalarning yuqori qismiga chiqadi. Mijozdan sifatli fayl so\'rang — internetdan olingan past sifatli rasm chop etilganda xunuk chiqadi.',

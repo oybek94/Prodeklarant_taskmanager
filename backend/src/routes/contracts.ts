@@ -61,6 +61,7 @@ const contractSchema = z.object({
   consigneeBankSwift: z.string().optional(),
   deliveryTerms: z.string().optional(),
   customsAddress: z.string().optional(),
+  destinationPlaces: z.string().optional(), // «Место назначения» variantlari (har qatorga bittadan)
   paymentMethod: z.string().optional(),
   contractCurrency: z.string().optional(), // Shartnoma valyutasi (USD, RUB va boshqalar)
   emails: z.string().optional(), // Email manzillar (vergul bilan ajratilgan)
@@ -301,6 +302,7 @@ router.post('/', requireAuth(), async (req: AuthRequest, res: Response) => {
     // Add optional additional fields
     if (data.deliveryTerms !== undefined) contractData.deliveryTerms = data.deliveryTerms;
     if (data.customsAddress !== undefined) contractData.customsAddress = data.customsAddress;
+    if (data.destinationPlaces !== undefined) contractData.destinationPlaces = data.destinationPlaces || null;
     if (data.paymentMethod !== undefined) contractData.paymentMethod = data.paymentMethod;
     // Shartnoma valyutasi — yaratishda har doim saqlash
     contractData.contractCurrency = (data.contractCurrency && String(data.contractCurrency).trim()) ? String(data.contractCurrency).trim() : 'USD';
@@ -495,6 +497,7 @@ router.put('/:id', requireAuth(), async (req: AuthRequest, res: Response) => {
     // Add optional additional fields
     if (data.deliveryTerms !== undefined) contractData.deliveryTerms = data.deliveryTerms;
     if (data.customsAddress !== undefined) contractData.customsAddress = data.customsAddress;
+    if (data.destinationPlaces !== undefined) contractData.destinationPlaces = data.destinationPlaces || null;
     if (data.paymentMethod !== undefined) contractData.paymentMethod = data.paymentMethod;
     contractData.contractCurrency = (data.contractCurrency != null && String(data.contractCurrency).trim()) ? String(data.contractCurrency).trim() : 'USD';
     if (data.emails !== undefined) contractData.emails = data.emails && String(data.emails).trim() ? String(data.emails).trim() : null;

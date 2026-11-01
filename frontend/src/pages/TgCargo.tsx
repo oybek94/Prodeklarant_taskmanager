@@ -33,6 +33,8 @@ interface ContractInfo {
   cities: Array<{ text: string; pairedCustoms: string | null }>;
   customs: string[];
   destinations: string[];
+  /** Eski backend bu maydonni bermaydi */
+  lastInvoice?: { number: string; date: string } | null;
 }
 
 interface CargoContext {
@@ -136,6 +138,13 @@ const computeBrutto = (v: Pick<ItemState, 'netto' | 'boxWeight' | 'palletWeight'
 };
 
 const bruttoOf = (item: ItemState) => item.bruttoOverride ?? computeBrutto(item);
+
+/** 2026-10-12T... → 12.10.2026 */
+const formatDate = (iso: string): string => {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
+};
 
 const contractLabel = (c: ContractInfo) => `${c.contractNumber} · ${c.buyerName}`;
 
@@ -269,10 +278,11 @@ interface TextFieldProps {
   error?: string;
   maxLength?: number;
   plate?: boolean;
+  hint?: ReactNode;
   onChange: (value: string) => void;
 }
 
-function TextField({ id, label, value, placeholder, error, maxLength = 200, plate, onChange }: TextFieldProps) {
+function TextField({ id, label, value, placeholder, error, maxLength = 200, plate, hint, onChange }: TextFieldProps) {
   return (
     <Field label={label} htmlFor={id} error={error}>
       <input
@@ -287,6 +297,7 @@ function TextField({ id, label, value, placeholder, error, maxLength = 200, plat
         aria-invalid={!!error}
         onChange={(e) => onChange(e.target.value)}
       />
+      {hint}
     </Field>
   );
 }
@@ -756,6 +767,20 @@ export default function TgCargo() {
                 maxLength={50}
                 error={fieldErrors.invoiceNumber}
                 onChange={(v) => setHeaderValue('invoiceNumber', v)}
+                hint={
+                  contract && (
+                    <p className="tgc-hint">
+                      {contract.lastInvoice ? (
+                        <>
+                          Oxirgi invoys: <b>№ {contract.lastInvoice.number}</b>
+                          {formatDate(contract.lastInvoice.date) && ` (${formatDate(contract.lastInvoice.date)})`}
+                        </>
+                      ) : (
+                        "Bu shartnoma bo'yicha hali invoys yo'q"
+                      )}
+                    </p>
+                  )
+                }
               />
               <ChoiceField
                 id="tgc-terms"

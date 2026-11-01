@@ -127,6 +127,7 @@ model Client {
   botLinkCode                String?
   botLinkCodeExpiresAt       DateTime?
   botProducts                ClientBotProduct[]
+  cargoDrafts                ClientCargoDraft[]
   serviceAgreements          ServiceAgreement[]
   contracts                  Contract[]
   invoices                   Invoice[]
@@ -1029,6 +1030,32 @@ model ClientBotProduct {
 
   @@unique([clientId, name])
   @@index([clientId])
+}
+
+enum ClientCargoDraftStatus {
+  OPEN
+  COMPLETED
+  CANCELLED
+}
+
+// Yuk botida bir nechta xodim bilan to'ldiriladigan yuk arizasi (qoralama). data/authors tuzilishi: services/client-cargo-draft.ts
+model ClientCargoDraft {
+  id              Int                    @id @default(autoincrement())
+  clientId        Int
+  chatId          String
+  status          ClientCargoDraftStatus @default(OPEN)
+  data            Json
+  authors         Json
+  messageId       Int?
+  version         Int                    @default(1)
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+  completedAt     DateTime?
+  completedByName String?
+  client          Client                 @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId, status, updatedAt])
+  @@index([chatId, status])
 }
 
 model Contract {

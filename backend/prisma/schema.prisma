@@ -122,6 +122,11 @@ model Client {
   director                   String?
   mfo                        String?
   oked                       String?
+  // Yuk ma'lumotlari boti: mijozning Telegram guruhi va bir martalik ulash kodi
+  botGroupChatId             String?            @unique
+  botLinkCode                String?
+  botLinkCodeExpiresAt       DateTime?
+  botProducts                ClientBotProduct[]
   serviceAgreements          ServiceAgreement[]
   contracts                  Contract[]
   invoices                   Invoice[]
@@ -1014,6 +1019,18 @@ model InvoiceItem {
   @@index([invoiceId, orderIndex])
 }
 
+// Yuk ma'lumotlari botida mijoz yozgan mahsulot nomlari (keyingi safar tugma bo'lib chiqadi)
+model ClientBotProduct {
+  id        Int      @id @default(autoincrement())
+  clientId  Int
+  name      String
+  createdAt DateTime @default(now())
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@unique([clientId, name])
+  @@index([clientId])
+}
+
 model Contract {
   id                             Int       @id @default(autoincrement())
   clientId                       Int
@@ -1071,6 +1088,8 @@ model Contract {
   destinationCountry             String?
   specification                  Json?
   customsAddress                 String?
+  // «Место назначения» variantlari (har qatorga bittadan) — yuk ma'lumotlari boti tugma qiladi
+  destinationPlaces              String?
   signatureUrl                   String?
   sealUrl                        String?
   sellerSignatureUrl             String?

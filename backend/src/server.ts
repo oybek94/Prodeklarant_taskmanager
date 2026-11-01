@@ -67,6 +67,7 @@ import sellerKpiRouter from './routes/seller-kpi';
 import publicSiteStatsRouter from './routes/public-site-stats';
 import { initFinanceBot } from './services/finance-bot.service';
 import { initLeadReminderBot } from './services/lead-reminder-bot.service';
+import { initClientCargoBot } from './services/client-cargo-bot.service';
 import { stripSecretsReplacer } from './utils/json-secrets';
 
 const app = express();
@@ -316,6 +317,7 @@ if (isStandby) {
   initCronJobs();
   initFinanceBot();
   initLeadReminderBot();
+  initClientCargoBot();
 } else {
   console.log(`Worker instance ${process.env.NODE_APP_INSTANCE} started. Background jobs skipped.`);
 }

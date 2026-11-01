@@ -42,6 +42,8 @@ export interface CargoContext {
     cities: Array<{ text: string; pairedCustoms: string | null }>;
     customs: string[];
     destinations: string[];
+    /** Shu shartnoma bo'yicha eng oxirgi yaratilgan invoys (ilovadagi /invoices/next-number bilan bir xil qoida) */
+    lastInvoice: { number: string; date: string } | null;
   }>;
   /** Место отгрузки груза uchun faol filiallar */
   branches: Array<{ id: number; name: string; /** Guruh xabariga yoziladigan matn */ place: string }>;
@@ -50,6 +52,22 @@ export interface CargoContext {
 
 /** Filialning "Место отгрузки груза" matni: invoys hujjatlaridagi kabi viloyat matni, bo'lmasa filial nomi */
 export const shipmentPlaceOf = (branch: { name: string; regionText: string | null }): string => branch.regionText?.trim() || branch.name;
+
+/** Har bir shartnoma uchun eng oxirgi invoys (createdAt bo'yicha) */
+async function lastInvoicesByContract(contractIds: number[]): Promise<Map<number, { number: string; date: string }>> {
+  const result = new Map<number, { number: string; date: string }>();
+  if (contractIds.length === 0) return result;
+  const rows = await prisma.invoice.findMany({
+    where: { contractId: { in: contractIds } },
+    orderBy: { createdAt: 'desc' },
+    distinct: ['contractId'],
+    select: { contractId: true, invoiceNumber: true, date: true },
+  });
+  for (const row of rows) {
+    if (row.contractId !== null) result.set(row.contractId, { number: row.invoiceNumber, date: row.date.toISOString() });
+  }
+  return result;
+}
 
 export async function getCargoContext(clientId: number): Promise<CargoContext | null> {
   const client = await prisma.client.findUnique({ where: { id: clientId }, select: { name: true } });
@@ -74,6 +92,8 @@ export async function getCargoContext(clientId: number): Promise<CargoContext | 
     prisma.branch.findMany({ where: { isActive: true }, orderBy: { name: 'asc' }, select: { id: true, name: true, regionText: true } }),
   ]);
 
+  const lastInvoices = await lastInvoicesByContract(contracts.map((c) => c.id));
+
   return {
     clientName: client.name,
     contracts: contracts.map((c) => {
@@ -87,6 +107,7 @@ export async function getCargoContext(clientId: number): Promise<CargoContext | 
         cities: splitContractLines(c.deliveryTerms).map((o) => ({ text: o.text, pairedCustoms: customsByIndex.get(o.rawIndex) ?? null })),
         customs: customsLines.map((o) => o.text),
         destinations: splitContractLines(c.destinationPlaces).map((o) => o.text),
+        lastInvoice: lastInvoices.get(c.id) ?? null,
       };
     }),
     branches: branches.map((b) => ({ id: b.id, name: b.name, place: shipmentPlaceOf(b) })),

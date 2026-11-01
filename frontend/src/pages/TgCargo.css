@@ -495,3 +495,54 @@
 .tgc * {
   forced-color-adjust: none;
 }
+
+/* Ko'p tovarli forma */
+.tgc-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 10px;
+}
+
+.tgc-section-head .tgc-section-title {
+  margin: 0 0 0 4px;
+}
+
+.tgc-remove {
+  padding: 4px 8px;
+  border: 0;
+  background: none;
+  color: var(--danger);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tgc-add {
+  display: block;
+  width: 100%;
+  height: 52px;
+  margin-top: 14px;
+  border: 1.5px dashed var(--accent);
+  border-radius: 16px;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tgc-add:active {
+  transform: scale(0.99);
+}
+
+.tgc-bubble-item {
+  margin-top: 12px;
+}
+
+.tgc-bubble-item-title {
+  font-weight: 700;
+}

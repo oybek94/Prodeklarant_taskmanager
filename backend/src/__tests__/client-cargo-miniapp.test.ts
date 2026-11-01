@@ -67,21 +67,42 @@ describe('parseGroupChatId', () => {
 describe('validateFormFields', () => {
   const parse = (body: unknown) => validateFormFields(submitBodySchema.parse(body));
 
-  it("bo'sh va tushirib qoldirilgan maydonlarni o'tkazib yuboradi", () => {
-    const r = parse({ vehicleNumber: ' 40232baa / 402332ba ', boxCount: '', netto: '  ', product: 'Xurmo' });
-    expect(r).toEqual({ ok: true, data: { vehicleNumber: '40232BAA/402332BA', product: 'Xurmo' } });
+  it("sarlavhadagi bo'sh maydonlarni o'tkazib yuboradi, avto nomerni normallashtiradi", () => {
+    const r = parse({ vehicleNumber: ' 40232baa / 402332ba ', invoiceNumber: '', orderNumber: '  ', temperature: '+2 C' });
+    expect(r).toEqual({ ok: true, header: { vehicleNumber: '40232BAA/402332BA', temperature: '+2 C' }, items: [] });
   });
-  it("sonlarni tekshiradi va vergulni nuqtaga o'tkazadi", () => {
-    const r = parse({ boxCount: '120', boxWeight: '1234,5', palletCount: '8', palletWeight: '400', netto: '18000', brutto: '19634,5', price: '1.25' });
-    expect(r).toEqual({ ok: true, data: { boxCount: '120', boxWeight: '1234.5', palletCount: '8', palletWeight: '400', netto: '18000', brutto: '19634.5', price: '1.25' } });
+
+  it("tovarlardagi sonlarni tekshiradi va vergulni nuqtaga o'tkazadi", () => {
+    const r = parse({
+      items: [{ product: 'Xurmo', boxCount: '120', boxWeight: '1234,5', palletCount: '8', palletWeight: '400', netto: '18000', brutto: '19634,5', price: '1.25' }],
+    });
+    expect(r).toEqual({
+      ok: true,
+      header: {},
+      items: [{ product: 'Xurmo', boxCount: '120', boxWeight: '1234.5', palletCount: '8', palletWeight: '400', netto: '18000', brutto: '19634.5', price: '1.25' }],
+    });
   });
-  it("noto'g'ri maydonlar bo'yicha xato qaytaradi", () => {
-    const r = parse({ boxCount: '12a', netto: 'ko\'p', product: 'Xurmo' });
+
+  it("xatolar tovar indeksi bilan qaytadi (items.<indeks>.<maydon>)", () => {
+    const r = parse({ items: [{ product: 'Xurmo', netto: '100' }, { boxCount: '12a', netto: "ko'p" }] });
     expect(r.ok).toBe(false);
-    if (!r.ok) expect(Object.keys(r.errors).sort()).toEqual(['boxCount', 'netto']);
+    if (!r.ok) expect(Object.keys(r.errors).sort()).toEqual(['items.1.boxCount', 'items.1.netto']);
   });
-  it("mijoz yuborgan 'buyer' ni e'tiborsiz qoldiradi (sotib oluvchi faqat shartnomadan)", () => {
-    const r = parse({ buyer: 'Soxta MChJ', product: 'Xurmo' });
-    expect(r).toEqual({ ok: true, data: { product: 'Xurmo' } });
+
+  it("sarlavhadagi xato maydon nomi bilan qaytadi", () => {
+    // 200 belgidan uzun matn rad etiladi
+    const r = parse({ invoiceNumber: 'x'.repeat(250) });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(Object.keys(r.errors)).toEqual(['invoiceNumber']);
+  });
+
+  it("kontrakt va jo'natish joyini mijoz matnidan olmaydi (faqat contractId/branchId orqali)", () => {
+    const r = parse({ contract: 'Soxta MChJ', shipmentPlace: 'Soxta joy', invoiceNumber: '15' });
+    expect(r).toEqual({ ok: true, header: { invoiceNumber: '15' }, items: [] });
+  });
+
+  it("tovarlar sonini cheklaydi", () => {
+    expect(submitBodySchema.safeParse({ items: Array.from({ length: 21 }, () => ({})) }).success).toBe(false);
+    expect(submitBodySchema.safeParse({ items: Array.from({ length: 20 }, () => ({})) }).success).toBe(true);
   });
 });

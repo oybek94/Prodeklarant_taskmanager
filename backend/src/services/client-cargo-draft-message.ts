@@ -19,7 +19,38 @@ const ELLIPSIS = '…';
 
 const escapeHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-const row = (label: string, value: string): string => `${escapeHtml(label)}: <b>${escapeHtml(value)}</b>`;
+/** Qator boshidagi belgi: ko'z maydonni tez topishi uchun. Yorliq matni o'zgarmaydi (xodimlar o'rganib qolgan). */
+const HEADER_ICONS: Record<string, string> = {
+  contract: '📄',
+  invoiceNumber: '🧾',
+  deliveryTerms: '🌍',
+  customsPlace: '🛃',
+  destination: '🎯',
+  vehicleNumber: '🚛',
+  shipmentPlace: '🏭',
+  orderNumber: '🔢',
+  temperature: '🌡',
+  sensorSerial: '📟',
+};
+const ITEM_ICONS: Record<string, string> = {
+  product: '🏷',
+  boxCount: '📦',
+  boxWeight: '⚖️',
+  palletCount: '🧱',
+  palletWeight: '⚖️',
+  netto: '⚖️',
+  brutto: '⚖️',
+  price: '💰',
+};
+
+/** Shundan uzun qiymat (masalan bojxona manzili) alohida qatorda <blockquote> ichida: qatorlar bir-biriga yopishib ketmasin */
+const LONG_VALUE_LENGTH = 40;
+
+function row(icon: string | undefined, label: string, value: string): string {
+  const head = `${icon ? `${icon} ` : ''}${escapeHtml(label)}:`;
+  // Qiymat bitta satrda: xabar satr chegarasida qirqilganda teglar buzilmaydi
+  return value.length > LONG_VALUE_LENGTH ? `${head}\n<blockquote>${escapeHtml(value)}</blockquote>` : `${head} <b>${escapeHtml(value)}</b>`;
+}
 
 /** Xabarda ko'rsatiladigan ishtirokchilar soni; qolganlari "и ещё N" */
 const MAX_LISTED_CONTRIBUTORS = 10;
@@ -52,7 +83,7 @@ function buildBody(input: { data: DraftData; authors: AuthorMap; context: DraftM
 
   const headerLines = HEADER_FIELDS.flatMap((f) => {
     const value = f.key === 'contract' ? context.contractText : f.key === 'shipmentPlace' ? context.shipmentPlace : data.header[f.key];
-    return value ? [row(f.label, value)] : [];
+    return value ? [row(HEADER_ICONS[f.key], f.label, value)] : [];
   });
 
   const itemBlocks = data.items
@@ -62,7 +93,7 @@ function buildBody(input: { data: DraftData; authors: AuthorMap; context: DraftM
         const value = item.fields[f.key];
         if (!value) return [];
         const shown = f.key === 'price' && context.currency ? `${value} ${context.currency}` : value;
-        return [row(f.label, shown)];
+        return [row(ITEM_ICONS[f.key], f.label, shown)];
       });
       return [`<b>Товар ${index + 1}</b>`, ...lines].join('\n');
     });

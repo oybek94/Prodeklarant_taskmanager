@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { API_BASE_URL } from '../lib/api';
-import { authorOf, buildPatch, deriveManualFlags, makeUid, snapshotFromDraft, type DraftView, type FormSnapshot, type SnapshotItem } from './tgCargoDraft';
+import { buildPatch, deriveManualFlags, makeUid, snapshotFromDraft, stripCyrillic, type DraftView, type FormSnapshot, type SnapshotItem } from './tgCargoDraft';
 import './TgCargo.css';
 
 // Telegram Mini App: yuk ma'lumotlari formasi. Guruhdagi "Formani ochish" tugmasi orqali ochiladi.
@@ -267,11 +267,6 @@ async function tgFetch<T>(path: string, initData: string, body?: unknown, method
   return json;
 }
 
-/** Maydonni oxirgi marta kim kiritgani (saqlangan holat bo'yicha) */
-function AuthorTag({ name }: { name: string | null }) {
-  return name ? <p className="tgc-author">👤 {name}</p> : null;
-}
-
 function Section({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
   return (
     <section className="tgc-section">
@@ -303,11 +298,11 @@ interface TextFieldProps {
   maxLength?: number;
   plate?: boolean;
   hint?: ReactNode;
-  author?: string | null;
   onChange: (value: string) => void;
+  onBlur?: () => void;
 }
 
-function TextField({ id, label, value, placeholder, error, maxLength = 200, plate, hint, author = null, onChange }: TextFieldProps) {
+function TextField({ id, label, value, placeholder, error, maxLength = 200, plate, hint, onChange, onBlur }: TextFieldProps) {
   return (
     <Field label={label} htmlFor={id} error={error}>
       <input
@@ -321,9 +316,9 @@ function TextField({ id, label, value, placeholder, error, maxLength = 200, plat
         placeholder={placeholder}
         aria-invalid={!!error}
         onChange={(e) => onChange(e.target.value)}
+        onBlur={onBlur}
       />
       {hint}
-      <AuthorTag name={author} />
     </Field>
   );
 }
@@ -336,11 +331,10 @@ interface NumberFieldProps {
   decimal?: boolean;
   suffix?: string | null;
   hint?: ReactNode;
-  author?: string | null;
   onChange: (value: string) => void;
 }
 
-function NumberField({ id, label, value, error, decimal, suffix, hint, author = null, onChange }: NumberFieldProps) {
+function NumberField({ id, label, value, error, decimal, suffix, hint, onChange }: NumberFieldProps) {
   const input = (
     <input
       id={id}
@@ -363,7 +357,6 @@ function NumberField({ id, label, value, error, decimal, suffix, hint, author = 
         input
       )}
       {hint}
-      <AuthorTag name={author} />
     </Field>
   );
 }
@@ -500,6 +493,7 @@ export default function TgCargo() {
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState('');
   const [keyboardOpen, setKeyboardOpen] = useState(false);
+  const [plateCyrillicWarning, setPlateCyrillicWarning] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
   /** Saqlangan holatni (server javobini) formaga to'ldiradi va solishtirish bazasini yangilaydi */
@@ -619,6 +613,12 @@ export default function TgCargo() {
   const setHeaderValue = (key: HeaderField, value: string) => {
     setHeader((prev) => ({ ...prev, [key]: value }));
     clearError(key);
+  };
+  /** Avto raqami faqat lotin alifbosida (dasturdagidek): kirill harflari o'chiriladi va ogohlantirish chiqadi */
+  const setVehicleNumber = (raw: string) => {
+    const { value, stripped } = stripCyrillic(raw);
+    setPlateCyrillicWarning(stripped);
+    setHeaderValue('vehicleNumber', value);
   };
   /** Qo'lda yozish rejimini almashtirganda eski tanlov/matn tozalanadi */
   const setManualFlag = (key: ManualKey, flag: boolean) => {
@@ -753,7 +753,6 @@ export default function TgCargo() {
     }
   };
 
-  const authorName = (path: string): string | null => authorOf(draft, path)?.name ?? null;
 
   const isEditable = (el: EventTarget) => el instanceof HTMLElement && el.matches('input, select, textarea');
   const shell = (children: ReactNode) => (
@@ -892,7 +891,6 @@ export default function TgCargo() {
           ) : (
             <p className="tgc-hint">Mijozda shartnoma yo'q</p>
           )}
-          <AuthorTag name={authorName('contractId')} />
           {!contractChosen && <p className="tgc-hint">Qolgan maydonlar shartnomani tanlagandan keyin ochiladi.</p>}
         </Section>
 
@@ -905,7 +903,6 @@ export default function TgCargo() {
                 value={header.invoiceNumber}
                 maxLength={50}
                 error={fieldErrors.invoiceNumber}
-                author={authorName('header.invoiceNumber')}
                 onChange={(v) => setHeaderValue('invoiceNumber', v)}
                 hint={
                   contract && (
@@ -934,7 +931,6 @@ export default function TgCargo() {
                 onType={(v) => setHeaderValue('deliveryTerms', v)}
                 onManual={(flag) => setManualFlag('deliveryTerms', flag)}
               />
-              <AuthorTag name={authorName('header.deliveryTerms')} />
               <ChoiceField
                 id="tgc-customs"
                 label={HEADER_LABELS.customsPlace}
@@ -947,7 +943,6 @@ export default function TgCargo() {
                 onType={(v) => setHeaderValue('customsPlace', v)}
                 onManual={(flag) => setManualFlag('customsPlace', flag)}
               />
-              <AuthorTag name={authorName('header.customsPlace')} />
               <ChoiceField
                 id="tgc-destination"
                 label={HEADER_LABELS.destination}
@@ -960,7 +955,6 @@ export default function TgCargo() {
                 onType={(v) => setHeaderValue('destination', v)}
                 onManual={(flag) => setManualFlag('destination', flag)}
               />
-              <AuthorTag name={authorName('header.destination')} />
             </Section>
 
             <Section title="Transport va jo'natish">
@@ -972,8 +966,15 @@ export default function TgCargo() {
                 maxLength={40}
                 plate
                 error={fieldErrors.vehicleNumber}
-                author={authorName('header.vehicleNumber')}
-                onChange={(v) => setHeaderValue('vehicleNumber', v)}
+                onChange={setVehicleNumber}
+                onBlur={() => setPlateCyrillicWarning(false)}
+                hint={
+                  plateCyrillicWarning ? (
+                    <p className="tgc-hint tgc-hint-warn" role="alert">Faqat lotin alifbosida yozing — kirill harflari qabul qilinmaydi</p>
+                  ) : (
+                    <p className="tgc-hint">Faqat lotin harflarida</p>
+                  )
+                }
               />
               {c.branches.length > 0 && (
                 <ChipGroup
@@ -984,14 +985,12 @@ export default function TgCargo() {
                   onSelect={(v) => setBranchId(v === null ? null : Number(v))}
                 />
               )}
-              <AuthorTag name={authorName('branchId')} />
               <TextField
                 id="tgc-order"
                 label={HEADER_LABELS.orderNumber}
                 value={header.orderNumber}
                 maxLength={50}
                 error={fieldErrors.orderNumber}
-                author={authorName('header.orderNumber')}
                 onChange={(v) => setHeaderValue('orderNumber', v)}
               />
               <TextField
@@ -1001,7 +1000,6 @@ export default function TgCargo() {
                 placeholder="+2 C"
                 maxLength={20}
                 error={fieldErrors.temperature}
-                author={authorName('header.temperature')}
                 onChange={(v) => setHeaderValue('temperature', v)}
               />
               <TextField
@@ -1010,14 +1008,12 @@ export default function TgCargo() {
                 value={header.sensorSerial}
                 maxLength={60}
                 error={fieldErrors.sensorSerial}
-                author={authorName('header.sensorSerial')}
                 onChange={(v) => setHeaderValue('sensorSerial', v)}
               />
             </Section>
 
             {items.map((item, index) => {
               const errorKey = (field: string) => `items.${item.uid}.${field}`;
-              const itemAuthor = (field: string) => authorName(`items.${item.uid}.${field}`);
               const brutto = bruttoOf(item);
               return (
                 <Section
@@ -1044,14 +1040,13 @@ export default function TgCargo() {
                     onType={(v) => updateItem(item.uid, { product: v }, errorKey('product'))}
                     onManual={() => undefined}
                   />
-                  <AuthorTag name={itemAuthor('product')} />
                   <div className="tgc-grid">
-                    <NumberField id={`tgc-i${item.uid}-box-count`} label={ITEM_LABELS.boxCount} value={item.boxCount} error={fieldErrors[errorKey('boxCount')]} author={itemAuthor('boxCount')} onChange={(v) => updateItem(item.uid, { boxCount: v }, errorKey('boxCount'))} />
-                    <NumberField id={`tgc-i${item.uid}-box-weight`} label={ITEM_LABELS.boxWeight} decimal value={item.boxWeight} error={fieldErrors[errorKey('boxWeight')]} author={itemAuthor('boxWeight')} onChange={(v) => updateItem(item.uid, { boxWeight: v }, errorKey('boxWeight'))} />
-                    <NumberField id={`tgc-i${item.uid}-pallet-count`} label={ITEM_LABELS.palletCount} value={item.palletCount} error={fieldErrors[errorKey('palletCount')]} author={itemAuthor('palletCount')} onChange={(v) => updateItem(item.uid, { palletCount: v }, errorKey('palletCount'))} />
-                    <NumberField id={`tgc-i${item.uid}-pallet-weight`} label={ITEM_LABELS.palletWeight} decimal value={item.palletWeight} error={fieldErrors[errorKey('palletWeight')]} author={itemAuthor('palletWeight')} onChange={(v) => updateItem(item.uid, { palletWeight: v }, errorKey('palletWeight'))} />
-                    <NumberField id={`tgc-i${item.uid}-netto`} label={ITEM_LABELS.netto} decimal value={item.netto} error={fieldErrors[errorKey('netto')]} author={itemAuthor('netto')} onChange={(v) => updateItem(item.uid, { netto: v }, errorKey('netto'))} />
-                    <NumberField id={`tgc-i${item.uid}-price`} label={ITEM_LABELS.price} decimal suffix={currencySuffix} value={item.price} error={fieldErrors[errorKey('price')]} author={itemAuthor('price')} onChange={(v) => updateItem(item.uid, { price: v }, errorKey('price'))} />
+                    <NumberField id={`tgc-i${item.uid}-box-count`} label={ITEM_LABELS.boxCount} value={item.boxCount} error={fieldErrors[errorKey('boxCount')]} onChange={(v) => updateItem(item.uid, { boxCount: v }, errorKey('boxCount'))} />
+                    <NumberField id={`tgc-i${item.uid}-box-weight`} label={ITEM_LABELS.boxWeight} decimal value={item.boxWeight} error={fieldErrors[errorKey('boxWeight')]} onChange={(v) => updateItem(item.uid, { boxWeight: v }, errorKey('boxWeight'))} />
+                    <NumberField id={`tgc-i${item.uid}-pallet-count`} label={ITEM_LABELS.palletCount} value={item.palletCount} error={fieldErrors[errorKey('palletCount')]} onChange={(v) => updateItem(item.uid, { palletCount: v }, errorKey('palletCount'))} />
+                    <NumberField id={`tgc-i${item.uid}-pallet-weight`} label={ITEM_LABELS.palletWeight} decimal value={item.palletWeight} error={fieldErrors[errorKey('palletWeight')]} onChange={(v) => updateItem(item.uid, { palletWeight: v }, errorKey('palletWeight'))} />
+                    <NumberField id={`tgc-i${item.uid}-netto`} label={ITEM_LABELS.netto} decimal value={item.netto} error={fieldErrors[errorKey('netto')]} onChange={(v) => updateItem(item.uid, { netto: v }, errorKey('netto'))} />
+                    <NumberField id={`tgc-i${item.uid}-price`} label={ITEM_LABELS.price} decimal suffix={currencySuffix} value={item.price} error={fieldErrors[errorKey('price')]} onChange={(v) => updateItem(item.uid, { price: v }, errorKey('price'))} />
                     <div className="tgc-span2">
                       <NumberField
                         id={`tgc-i${item.uid}-brutto`}
@@ -1059,7 +1054,6 @@ export default function TgCargo() {
                         decimal
                         value={brutto}
                         error={fieldErrors[errorKey('brutto')]}
-                        author={itemAuthor('brutto')}
                         onChange={(v) => updateItem(item.uid, { bruttoOverride: v }, errorKey('brutto'))}
                         hint={
                           <p className="tgc-hint">

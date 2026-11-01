@@ -69,6 +69,8 @@ export type ParseResult = { ok: true; value: string } | { ok: false; error: stri
 
 /** Avto nomer: bo'shliqlarsiz, katta harfda ("40232baa / 402332ba" → "40232BAA/402332BA") */
 export function parseVehicleNumber(input: string): ParseResult {
+  // Dasturdagi (invoys) qoida bilan bir xil: kirill harflari (lotinga o'xshash А, В, С ham) qabul qilinmaydi — CMR/TIR dagi raqam lotinda
+  if (/[Ѐ-ӿ]/.test(input)) return { ok: false, error: 'Faqat lotin alifbosida yozing — kirill harflari qabul qilinmaydi' };
   const value = input.replace(/\s+/g, '').toUpperCase();
   if (!value) return { ok: false, error: 'Avto nomerini yozing' };
   if (value.length > 40) return { ok: false, error: 'Avto nomer juda uzun' };

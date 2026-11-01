@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import {
-  authorOf,
   buildPatch,
   deriveManualFlags,
   makeUid,
   snapshotFromDraft,
+  stripCyrillic,
   type DraftView,
   type FormSnapshot,
 } from './tgCargoDraft';
@@ -166,10 +166,14 @@ describe('deriveManualFlags', () => {
   });
 });
 
-describe('authorOf', () => {
-  it("yo'l bo'yicha muallifni qaytaradi, yo'q bo'lsa yoki ariza null bo'lsa null", () => {
-    expect(authorOf(view(), 'header.invoiceNumber')?.name).toBe('Aziz');
-    expect(authorOf(view(), 'header.orderNumber')).toBeNull();
-    expect(authorOf(null, 'header.invoiceNumber')).toBeNull();
+describe('stripCyrillic — avto raqami faqat lotin alifbosida (dasturdagidek)', () => {
+  it("kirill harflarini (lotinga o'xshash А, В, С ham) o'chiradi va o'chirilganini bildiradi", () => {
+    expect(stripCyrillic('01А123ВС')).toEqual({ value: '01123', stripped: true });
+  });
+  it("lotin harflari, raqamlar va / ni o'zgartirmaydi", () => {
+    expect(stripCyrillic('40232BAA/402332BA')).toEqual({ value: '40232BAA/402332BA', stripped: false });
+  });
+  it("bo'sh qator", () => {
+    expect(stripCyrillic('')).toEqual({ value: '', stripped: false });
   });
 });

@@ -1,8 +1,8 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '../prisma';
 import { callTelegram } from './telegram-bot-api';
-import { CargoData, CargoFieldKey, formatCargoMessage, splitContractLines } from './client-cargo-form';
-import { SubmitBody, validateFormFields } from './client-cargo-miniapp';
+import { CargoHeader, formatCargoMessage, splitContractLines } from './client-cargo-form';
+import { FieldErrors, SubmitBody, validateFormFields } from './client-cargo-miniapp';
 
 // Yuk ma'lumotlari Mini App: forma uchun ma'lumot berish, guruh a'zoligini tekshirish va natijani guruhga yuborish.
 
@@ -38,19 +38,24 @@ export interface CargoContext {
     contractNumber: string;
     buyerName: string;
     currency: string | null;
-    /** Shahar (Условия поставки) va uning juftidagi bojxona (shartnomada indeks bo'yicha juft) */
+    /** Условия поставки va uning juftidagi Место там. очистки (shartnomada indeks bo'yicha juft) */
     cities: Array<{ text: string; pairedCustoms: string | null }>;
     customs: string[];
     destinations: string[];
   }>;
+  /** Место отгрузки груза uchun faol filiallar */
+  branches: Array<{ id: number; name: string; /** Guruh xabariga yoziladigan matn */ place: string }>;
   products: string[];
 }
+
+/** Filialning "Место отгрузки груза" matni: invoys hujjatlaridagi kabi viloyat matni, bo'lmasa filial nomi */
+export const shipmentPlaceOf = (branch: { name: string; regionText: string | null }): string => branch.regionText?.trim() || branch.name;
 
 export async function getCargoContext(clientId: number): Promise<CargoContext | null> {
   const client = await prisma.client.findUnique({ where: { id: clientId }, select: { name: true } });
   if (!client) return null;
 
-  const [contracts, products] = await Promise.all([
+  const [contracts, products, branches] = await Promise.all([
     prisma.contract.findMany({
       where: { clientId },
       orderBy: { contractDate: 'desc' },
@@ -66,6 +71,7 @@ export async function getCargoContext(clientId: number): Promise<CargoContext | 
       },
     }),
     prisma.clientBotProduct.findMany({ where: { clientId }, orderBy: { name: 'asc' }, take: MAX_PRODUCTS, select: { name: true } }),
+    prisma.branch.findMany({ where: { isActive: true }, orderBy: { name: 'asc' }, select: { id: true, name: true, regionText: true } }),
   ]);
 
   return {
@@ -83,6 +89,7 @@ export async function getCargoContext(clientId: number): Promise<CargoContext | 
         destinations: splitContractLines(c.destinationPlaces).map((o) => o.text),
       };
     }),
+    branches: branches.map((b) => ({ id: b.id, name: b.name, place: shipmentPlaceOf(b) })),
     products: products.map((p) => p.name),
   };
 }
@@ -103,40 +110,47 @@ async function rememberProduct(clientId: number, name: string): Promise<void> {
 
 export type SubmitResult =
   | { ok: true }
-  | { ok: false; status: 400; error: string; errors?: Partial<Record<CargoFieldKey, string>> }
+  | { ok: false; status: 400; error: string; errors?: FieldErrors }
   | { ok: false; status: 502; error: string };
 
-/** Formani tekshiradi, tartiblangan xabarni guruhga yuboradi va yangi mahsulot nomini eslab qoladi */
+/** Formani tekshiradi, tartiblangan xabarni guruhga yuboradi va yangi mahsulot nomlarini eslab qoladi */
 export async function submitCargo(params: { botToken: string; clientId: number; chatId: string; body: SubmitBody }): Promise<SubmitResult> {
   const { botToken, clientId, chatId, body } = params;
 
   const validation = validateFormFields(body);
   if (!validation.ok) return { ok: false, status: 400, error: "Ba'zi maydonlar noto'g'ri", errors: validation.errors };
-  const data: CargoData = validation.data;
+  const header: CargoHeader = validation.header;
 
   let currency: string | null = null;
   if (body.contractId) {
     const contract = await prisma.contract.findFirst({
       where: { id: body.contractId, clientId },
-      select: { buyerName: true, contractCurrency: true },
+      select: { contractNumber: true, buyerName: true, contractCurrency: true },
     });
     if (!contract) return { ok: false, status: 400, error: 'Shartnoma topilmadi' };
-    data.buyer = contract.buyerName;
+    header.contract = `${contract.contractNumber}, ${contract.buyerName}`;
     currency = contract.contractCurrency;
   }
 
-  const message = formatCargoMessage(data, currency);
+  if (body.branchId) {
+    const branch = await prisma.branch.findFirst({ where: { id: body.branchId, isActive: true }, select: { name: true, regionText: true } });
+    if (!branch) return { ok: false, status: 400, error: 'Filial topilmadi' };
+    header.shipmentPlace = shipmentPlaceOf(branch);
+  }
+
+  const message = formatCargoMessage({ header, items: validation.items }, currency);
   if (!message) return { ok: false, status: 400, error: "Hech narsa kiritilmadi. Kamida bitta maydonni to'ldiring" };
 
   const sent = await callTelegram<unknown>(botToken, 'sendMessage', { chat_id: chatId, text: message, parse_mode: 'HTML' });
   if (!sent.ok) {
-    console.error('[ClientCargoMiniApp] Guruhga yuborib bo\'lmadi:', sent.description);
+    console.error("[ClientCargoMiniApp] Guruhga yuborib bo'lmadi:", sent.description);
     return { ok: false, status: 502, error: "Xabarni guruhga yuborib bo'lmadi. Bot guruhda ekanini tekshiring" };
   }
 
-  if (data.product) {
+  const products = [...new Set(validation.items.map((i) => i.product).filter((p): p is string => !!p))];
+  for (const name of products) {
     try {
-      await rememberProduct(clientId, data.product);
+      await rememberProduct(clientId, name);
     } catch (e) {
       console.error('[ClientCargoMiniApp] Mahsulot nomini saqlashda xatolik:', e instanceof Error ? e.message : e);
     }

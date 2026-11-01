@@ -3,7 +3,7 @@
 
 import { createHmac, timingSafeEqual } from 'crypto';
 import { z } from 'zod';
-import { CARGO_STEPS, CargoData, CargoFieldKey, parseStepInput } from './client-cargo-form';
+import { CargoHeader, CargoItem, HEADER_FIELDS, ITEM_FIELDS, parseFieldInput } from './client-cargo-form';
 
 export interface TelegramLaunch {
   userId: number;
@@ -12,6 +12,7 @@ export interface TelegramLaunch {
 
 const MAX_INIT_DATA_AGE_SEC = 24 * 60 * 60;
 const CLOCK_SKEW_SEC = 60;
+export const MAX_ITEMS = 20;
 
 const telegramUserSchema = z.object({ id: z.number().int().positive() });
 
@@ -57,10 +58,7 @@ export function parseGroupChatId(startParam: string | null): string | null {
 
 const optionalText = z.string().max(300).optional();
 
-export const submitBodySchema = z.object({
-  contractId: z.number().int().positive().nullable().optional(),
-  vehicleNumber: optionalText,
-  city: optionalText,
+const itemSchema = z.object({
   product: optionalText,
   boxCount: optionalText,
   boxWeight: optionalText,
@@ -69,30 +67,57 @@ export const submitBodySchema = z.object({
   netto: optionalText,
   brutto: optionalText,
   price: optionalText,
-  customs: optionalText,
-  unloading: optionalText,
+});
+
+export const submitBodySchema = z.object({
+  contractId: z.number().int().positive().nullable().optional(),
+  branchId: z.number().int().positive().nullable().optional(),
+  invoiceNumber: optionalText,
+  deliveryTerms: optionalText,
+  customsPlace: optionalText,
+  destination: optionalText,
+  vehicleNumber: optionalText,
+  orderNumber: optionalText,
+  temperature: optionalText,
+  sensorSerial: optionalText,
+  items: z.array(itemSchema).max(MAX_ITEMS).default([]),
 });
 
 export type SubmitBody = z.infer<typeof submitBodySchema>;
 
-/** `buyer` sotib oluvchi shartnomadan olinadi (contractId), mijoz yuborgan matndan emas */
-const FORM_FIELDS: readonly CargoFieldKey[] = CARGO_STEPS.map((s) => s.key).filter((k) => k !== 'buyer');
+/** Kontrakt va jo'natish joyi mijoz matnidan emas, shartnoma/filial yozuvidan olinadi (contractId, branchId) */
+const SERVER_DERIVED: ReadonlySet<string> = new Set(['contract', 'shipmentPlace']);
 
-export type FormValidation = { ok: true; data: CargoData } | { ok: false; errors: Partial<Record<CargoFieldKey, string>> };
+/** Xato kaliti: sarlavha maydoni uchun maydon nomi, tovar maydoni uchun `items.<indeks>.<maydon>` */
+export type FieldErrors = Record<string, string>;
+
+export type FormValidation = { ok: true; header: CargoHeader; items: CargoItem[] } | { ok: false; errors: FieldErrors };
 
 /** Bo'sh maydonlar o'tkazib yuboriladi; to'ldirilganlari maydon turiga qarab tekshiriladi va normallashtiriladi */
 export function validateFormFields(body: SubmitBody): FormValidation {
-  const data: CargoData = {};
-  const errors: Partial<Record<CargoFieldKey, string>> = {};
-  for (const key of FORM_FIELDS) {
-    const raw = body[key as keyof SubmitBody];
+  const errors: FieldErrors = {};
+  const header: CargoHeader = {};
+  for (const spec of HEADER_FIELDS) {
+    if (SERVER_DERIVED.has(spec.key)) continue;
+    const raw = body[spec.key as keyof SubmitBody];
     if (typeof raw !== 'string' || raw.trim() === '') continue;
-    const step = CARGO_STEPS.find((s) => s.key === key);
-    if (!step) continue;
-    const parsed = parseStepInput(step.kind, key, raw);
-    if (parsed.ok) data[key] = parsed.value;
-    else errors[key] = parsed.error;
+    const parsed = parseFieldInput(spec.kind, spec.key, raw);
+    if (parsed.ok) header[spec.key] = parsed.value;
+    else errors[spec.key] = parsed.error;
   }
+
+  const items: CargoItem[] = body.items.map((rawItem, index) => {
+    const item: CargoItem = {};
+    for (const spec of ITEM_FIELDS) {
+      const raw = rawItem[spec.key];
+      if (typeof raw !== 'string' || raw.trim() === '') continue;
+      const parsed = parseFieldInput(spec.kind, spec.key, raw);
+      if (parsed.ok) item[spec.key] = parsed.value;
+      else errors[`items.${index}.${spec.key}`] = parsed.error;
+    }
+    return item;
+  });
+
   if (Object.keys(errors).length > 0) return { ok: false, errors };
-  return { ok: true, data };
+  return { ok: true, header, items };
 }

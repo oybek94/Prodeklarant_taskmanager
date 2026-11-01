@@ -1,49 +1,64 @@
-// Yuk ma'lumotlari boti: forma qadamlari, kiritishni tekshirish va guruhga yuboriladigan xabar.
+// Yuk ma'lumotlari: maydonlar tuzilmasi, kiritishni tekshirish va guruhga yuboriladigan xabar.
 // Bu modul Telegram va bazaga bog'liq emas — shuning uchun alohida test qilinadi.
+// Forma ikki qismdan iborat: umumiy sarlavha maydonlari va bir yoki bir nechta tovar bloki.
 
-export type CargoFieldKey =
+export type HeaderKey =
+  | 'contract'
+  | 'invoiceNumber'
+  | 'deliveryTerms'
+  | 'customsPlace'
+  | 'destination'
   | 'vehicleNumber'
-  | 'buyer'
-  | 'city'
-  | 'product'
-  | 'boxCount'
-  | 'boxWeight'
-  | 'palletCount'
-  | 'palletWeight'
-  | 'netto'
-  | 'brutto'
-  | 'price'
-  | 'customs'
-  | 'unloading';
+  | 'shipmentPlace'
+  | 'orderNumber'
+  | 'temperature'
+  | 'sensorSerial';
 
-export type CargoData = Partial<Record<CargoFieldKey, string>>;
+export type ItemKey = 'product' | 'boxCount' | 'boxWeight' | 'palletCount' | 'palletWeight' | 'netto' | 'brutto' | 'price';
 
-/** text — erkin matn, count — butun son, decimal — o'nli son, choice — ro'yxatdan tanlash yoki yozish */
-export type CargoStepKind = 'text' | 'count' | 'decimal' | 'choice';
+/** text — erkin matn, count — butun son, decimal — o'nli son */
+export type FieldKind = 'text' | 'count' | 'decimal';
 
-export interface CargoStep {
-  key: CargoFieldKey;
-  kind: CargoStepKind;
+export interface FieldSpec<K extends string> {
+  key: K;
+  kind: FieldKind;
   /** Guruh xabaridagi qator nomi */
   label: string;
 }
 
-/** Maydonlar guruh xabaridagi tartibda */
-export const CARGO_STEPS: readonly CargoStep[] = [
-  { key: 'vehicleNumber', kind: 'text', label: 'Avto nomer' },
-  { key: 'buyer', kind: 'choice', label: 'Sotib oluvchi' },
-  { key: 'city', kind: 'choice', label: 'Shahar' },
-  { key: 'product', kind: 'choice', label: 'Mahsulot' },
-  { key: 'boxCount', kind: 'count', label: 'Yashik soni' },
-  { key: 'boxWeight', kind: 'decimal', label: "Yashiklar jami og'irligi" },
-  { key: 'palletCount', kind: 'count', label: 'Poddon soni' },
-  { key: 'palletWeight', kind: 'decimal', label: "Poddon jami og'irligi" },
-  { key: 'netto', kind: 'decimal', label: 'Netto' },
-  { key: 'brutto', kind: 'decimal', label: 'Brutto' },
-  { key: 'price', kind: 'decimal', label: 'Narxi' },
-  { key: 'customs', kind: 'choice', label: 'Таможня' },
-  { key: 'unloading', kind: 'choice', label: 'Выгрузка' },
+/** Sarlavha maydonlari guruh xabaridagi tartibda */
+export const HEADER_FIELDS: readonly FieldSpec<HeaderKey>[] = [
+  { key: 'contract', kind: 'text', label: 'Контракт' },
+  { key: 'invoiceNumber', kind: 'text', label: 'Инвойс №' },
+  { key: 'deliveryTerms', kind: 'text', label: 'Условия поставки' },
+  { key: 'customsPlace', kind: 'text', label: 'Место там. очистки' },
+  { key: 'destination', kind: 'text', label: 'Место назначения' },
+  { key: 'vehicleNumber', kind: 'text', label: 'Номер автотранспорта' },
+  { key: 'shipmentPlace', kind: 'text', label: 'Место отгрузки груза' },
+  { key: 'orderNumber', kind: 'text', label: 'Номер заказа' },
+  { key: 'temperature', kind: 'text', label: 'Температура' },
+  { key: 'sensorSerial', kind: 'text', label: 'Серийный номер датчика' },
 ];
+
+/** Har bir tovar bloki maydonlari */
+export const ITEM_FIELDS: readonly FieldSpec<ItemKey>[] = [
+  { key: 'product', kind: 'text', label: 'Наименование' },
+  { key: 'boxCount', kind: 'count', label: 'Количество ящиков' },
+  { key: 'boxWeight', kind: 'decimal', label: 'Общий вес ящиков' },
+  { key: 'palletCount', kind: 'count', label: 'Количество поддонов' },
+  { key: 'palletWeight', kind: 'decimal', label: 'Общий вес поддонов' },
+  { key: 'netto', kind: 'decimal', label: 'Нетто' },
+  { key: 'brutto', kind: 'decimal', label: 'Брутто' },
+  { key: 'price', kind: 'decimal', label: 'Цена' },
+];
+
+export type CargoHeader = Partial<Record<HeaderKey, string>>;
+export type CargoItem = Partial<Record<ItemKey, string>>;
+
+export interface CargoData {
+  header: CargoHeader;
+  items: CargoItem[];
+}
 
 export const NUMERIC_HINT = 'Faqat son kiriting, masalan: 12 yoki 12,5';
 export const COUNT_HINT = 'Faqat butun son kiriting, masalan: 120';
@@ -75,12 +90,12 @@ export function parseDecimal(input: string): ParseResult {
 
 export function parseFreeText(input: string): ParseResult {
   const value = input.replace(/\s+/g, ' ').trim();
-  if (!value) return { ok: false, error: 'Bo\'sh qiymat bo\'lmaydi' };
+  if (!value) return { ok: false, error: "Bo'sh qiymat bo'lmaydi" };
   if (value.length > MAX_TEXT_LENGTH) return { ok: false, error: `Juda uzun (${MAX_TEXT_LENGTH} belgigacha)` };
   return { ok: true, value };
 }
 
-export function parseStepInput(kind: CargoStepKind, key: CargoFieldKey, input: string): ParseResult {
+export function parseFieldInput(kind: FieldKind, key: HeaderKey | ItemKey, input: string): ParseResult {
   if (key === 'vehicleNumber') return parseVehicleNumber(input);
   if (kind === 'count') return parseCount(input);
   if (kind === 'decimal') return parseDecimal(input);
@@ -89,7 +104,7 @@ export function parseStepInput(kind: CargoStepKind, key: CargoFieldKey, input: s
 
 export interface ChoiceOption {
   text: string;
-  /** Shartnomadagi qatorning asl indeksi (shahar ↔ bojxona juftligi uchun) */
+  /** Shartnomadagi qatorning asl indeksi (Условия поставки ↔ Место там. очистки juftligi uchun) */
   rawIndex: number;
 }
 
@@ -103,15 +118,33 @@ export function splitContractLines(value: string | null | undefined): ChoiceOpti
 
 const escapeHtml = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-/** Guruhga yuboriladigan xabar (HTML). Faqat to'ldirilgan maydonlar, 1→12 tartibida. Hech narsa bo'lmasa null. */
+const row = (label: string, value: string) => `${escapeHtml(label)}: <b>${escapeHtml(value)}</b>`;
+
+/**
+ * Guruhga yuboriladigan xabar (HTML). Faqat to'ldirilgan maydonlar, belgilangan tartibda.
+ * Bo'sh tovar bloklari tushib qoladi, qolganlari 1 dan boshlab raqamlanadi. Hech narsa bo'lmasa null.
+ */
 export function formatCargoMessage(data: CargoData, currency: string | null): string | null {
-  const lines: string[] = [];
-  for (const step of CARGO_STEPS) {
-    const raw = data[step.key];
-    if (!raw) continue;
-    const shown = step.key === 'price' && currency ? `${raw} ${currency}` : raw;
-    lines.push(`${escapeHtml(step.label)}: <b>${escapeHtml(shown)}</b>`);
-  }
-  if (lines.length === 0) return null;
-  return ['🚛 <b>Yuk ma\'lumoti</b>', '', ...lines].join('\n');
+  const headerLines = HEADER_FIELDS.flatMap((f) => {
+    const value = data.header[f.key];
+    return value ? [row(f.label, value)] : [];
+  });
+
+  const itemBlocks = data.items
+    .map((item) =>
+      ITEM_FIELDS.flatMap((f) => {
+        const value = item[f.key];
+        if (!value) return [];
+        return [row(f.label, f.key === 'price' && currency ? `${value} ${currency}` : value)];
+      })
+    )
+    .filter((lines) => lines.length > 0)
+    .map((lines, i) => [`<b>Товар ${i + 1}</b>`, ...lines].join('\n'));
+
+  if (headerLines.length === 0 && itemBlocks.length === 0) return null;
+
+  const parts = ['🚛 <b>Данные о грузе</b>'];
+  if (headerLines.length > 0) parts.push(headerLines.join('\n'));
+  parts.push(...itemBlocks);
+  return parts.join('\n\n');
 }

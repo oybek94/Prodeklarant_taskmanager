@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { API_BASE_URL } from '../lib/api';
-import { buildPatch, deriveManualFlags, makeUid, snapshotFromDraft, stripCyrillic, type DraftView, type FormSnapshot, type SnapshotItem } from './tgCargoDraft';
+import { buildPatch, deriveManualFlags, makeUid, snapshotFromDraft, stripCyrillic, totalsLine, type DraftView, type FormSnapshot, type SnapshotItem } from './tgCargoDraft';
 import './TgCargo.css';
 
 // Telegram Mini App: yuk ma'lumotlari formasi. Guruhdagi "Formani ochish" tugmasi orqali ochiladi.
@@ -177,6 +177,8 @@ interface PreviewRow {
 interface PreviewModel {
   header: PreviewRow[];
   items: Array<{ title: string; rows: PreviewRow[] }>;
+  /** 2 va undan ortiq tovar bo'lsa "Итого: … нетто / … брутто" (guruh xabaridagi kabi) */
+  total: string | null;
 }
 
 const normalizeText = (v: string) => v.replace(/\s+/g, ' ').trim();
@@ -221,12 +223,16 @@ function buildPreview(header: HeaderValues, contract: ContractInfo | null, shipm
         brutto: withUnit(normalizeDecimal(bruttoOf(item)), 'кг.'),
         price: normalizeDecimal(item.price) ? `${normalizeDecimal(item.price)}${contract?.currency ? ` ${contract.currency}` : ''}` : '',
       };
-      return ITEM_ORDER.flatMap((key) => (values[key] ? [{ label: ITEM_LABELS[key], value: values[key] }] : []));
+      const rows = ITEM_ORDER.flatMap((key) => (values[key] ? [{ label: ITEM_LABELS[key], value: values[key] }] : []));
+      return { rows, netto: values.netto ? normalizeDecimal(item.netto) : '', brutto: values.brutto ? normalizeDecimal(bruttoOf(item)) : '' };
     })
-    .filter((rows) => rows.length > 0)
-    .map((rows, i) => ({ title: `Товар ${i + 1}`, rows }));
+    .filter((item) => item.rows.length > 0);
 
-  return { header: headerRows, items: itemRows };
+  return {
+    header: headerRows,
+    items: itemRows.map((item, i) => ({ title: `Товар ${i + 1}`, rows: item.rows })),
+    total: totalsLine(itemRows.map((item) => ({ netto: item.netto, brutto: item.brutto }))),
+  };
 }
 
 const previewCount = (model: PreviewModel) => model.header.length + model.items.reduce((sum, item) => sum + item.rows.length, 0);
@@ -481,6 +487,7 @@ function PreviewBubble({ model, empty }: { model: PreviewModel; empty: string })
           ))}
         </div>
       ))}
+      {model.total && <div className="tgc-bubble-item">📊 <b>{model.total}</b></div>}
     </div>
   );
 }

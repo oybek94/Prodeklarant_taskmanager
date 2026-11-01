@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { API_BASE_URL } from '../lib/api';
+import { authorOf, buildPatch, deriveManualFlags, makeUid, snapshotFromDraft, type DraftView, type FormSnapshot } from './tgCargoDraft';
 import './TgCargo.css';
 
 // Telegram Mini App: yuk ma'lumotlari formasi. Guruhdagi "Formani ochish" tugmasi orqali ochiladi.
@@ -38,6 +39,8 @@ interface ContractInfo {
 }
 
 interface CargoContext {
+  /** Mini App qaysi ariza bilan ochilgan: raqam — mavjud ariza, 'new'/null — yangi */
+  launch?: { draft: number | 'new' | null };
   clientName: string;
   contracts: ContractInfo[];
   branches: Array<{ id: number; name: string; place?: string }>;
@@ -52,7 +55,8 @@ type ItemField = 'product' | 'boxCount' | 'boxWeight' | 'palletCount' | 'palletW
 type Scheme = 'light' | 'dark';
 
 interface ItemState extends Record<ItemField, string> {
-  uid: number;
+  /** Barqaror id (serverdagi qoralama tovarini aniqlaydi); bir nechta xodim bir vaqtda tovar qo'shsa to'qnashmasligi uchun tasodifiy */
+  uid: string;
   /** null — Brutto avtomatik hisoblanadi; qiymat bo'lsa foydalanuvchi qo'lda o'zgartirgan */
   bruttoOverride: string | null;
 }
@@ -68,7 +72,7 @@ const EMPTY_HEADER: HeaderValues = {
   sensorSerial: '',
 };
 const NO_MANUAL: ManualFlags = { deliveryTerms: false, customsPlace: false, destination: false };
-const newItem = (uid: number): ItemState => ({
+const newItem = (uid: string): ItemState => ({
   uid,
   product: '',
   boxCount: '',
@@ -231,21 +235,28 @@ type FieldErrors = Partial<Record<string, string>>;
 
 class ApiError extends Error {
   fieldErrors?: FieldErrors;
-  constructor(message: string, fieldErrors?: FieldErrors) {
+  status?: number;
+  constructor(message: string, fieldErrors?: FieldErrors, status?: number) {
     super(message);
     this.fieldErrors = fieldErrors;
+    this.status = status;
   }
 }
 
-async function tgFetch<T>(path: string, initData: string, body?: unknown): Promise<T> {
+async function tgFetch<T>(path: string, initData: string, body?: unknown, method?: 'POST' | 'PATCH'): Promise<T> {
   const response = await fetch(`${API_BASE_URL}/tg-cargo${path}`, {
-    method: body === undefined ? 'GET' : 'POST',
+    method: method ?? (body === undefined ? 'GET' : 'POST'),
     headers: { Authorization: `tma ${initData}`, 'Content-Type': 'application/json' },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   const json = (await response.json().catch(() => ({}))) as { error?: string; errors?: FieldErrors } & T;
-  if (!response.ok) throw new ApiError(json.error ?? 'Xatolik yuz berdi', json.errors);
+  if (!response.ok) throw new ApiError(json.error ?? 'Xatolik yuz berdi', json.errors, response.status);
   return json;
+}
+
+/** Maydonni oxirgi marta kim kiritgani (saqlangan holat bo'yicha) */
+function AuthorTag({ name }: { name: string | null }) {
+  return name ? <p className="tgc-author">👤 {name}</p> : null;
 }
 
 function Section({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
@@ -279,10 +290,11 @@ interface TextFieldProps {
   maxLength?: number;
   plate?: boolean;
   hint?: ReactNode;
+  author?: string | null;
   onChange: (value: string) => void;
 }
 
-function TextField({ id, label, value, placeholder, error, maxLength = 200, plate, hint, onChange }: TextFieldProps) {
+function TextField({ id, label, value, placeholder, error, maxLength = 200, plate, hint, author = null, onChange }: TextFieldProps) {
   return (
     <Field label={label} htmlFor={id} error={error}>
       <input
@@ -298,6 +310,7 @@ function TextField({ id, label, value, placeholder, error, maxLength = 200, plat
         onChange={(e) => onChange(e.target.value)}
       />
       {hint}
+      <AuthorTag name={author} />
     </Field>
   );
 }
@@ -310,10 +323,11 @@ interface NumberFieldProps {
   decimal?: boolean;
   suffix?: string | null;
   hint?: ReactNode;
+  author?: string | null;
   onChange: (value: string) => void;
 }
 
-function NumberField({ id, label, value, error, decimal, suffix, hint, onChange }: NumberFieldProps) {
+function NumberField({ id, label, value, error, decimal, suffix, hint, author = null, onChange }: NumberFieldProps) {
   const input = (
     <input
       id={id}
@@ -336,6 +350,7 @@ function NumberField({ id, label, value, error, decimal, suffix, hint, onChange 
         input
       )}
       {hint}
+      <AuthorTag name={author} />
     </Field>
   );
 }
@@ -448,7 +463,10 @@ function PreviewBubble({ model, empty }: { model: PreviewModel; empty: string })
   );
 }
 
-type Phase = 'loading' | 'ready' | 'sending' | 'done' | 'fatal';
+/** saved — saqlandi (yetishmayotganlar yoki Yakunlash), completed — yakunlandi, closed — ariza yopilgan */
+type Phase = 'loading' | 'ready' | 'sending' | 'saved' | 'completed' | 'closed' | 'fatal';
+
+const CLOSED_STATUSES: ReadonlySet<string> = new Set(['COMPLETED', 'CANCELLED']);
 
 export default function TgCargo() {
   const [phase, setPhase] = useState<Phase>('loading');
@@ -460,13 +478,38 @@ export default function TgCargo() {
   const [manual, setManual] = useState<ManualFlags>(NO_MANUAL);
   const [contractId, setContractId] = useState<number | null>(null);
   const [branchId, setBranchId] = useState<number | null>(null);
-  const nextUid = useRef(2);
-  const [items, setItems] = useState<ItemState[]>(() => [newItem(1)]);
+  const [items, setItems] = useState<ItemState[]>(() => [newItem(makeUid())]);
+  /** Serverdagi saqlangan ariza (yangi bo'lsa null) va uning formadagi ko'rinishi — o'zgarishni solishtirish uchun */
+  const [draft, setDraft] = useState<DraftView | null>(null);
+  const baseRef = useRef<FormSnapshot>(snapshotFromDraft(null));
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState('');
   const [keyboardOpen, setKeyboardOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
-  const [sentModel, setSentModel] = useState<PreviewModel>({ header: [], items: [] });
+
+  /** Saqlangan holatni (server javobini) formaga to'ldiradi va solishtirish bazasini yangilaydi */
+  const adoptDraft = useCallback((view: DraftView, contracts: ContractInfo[]) => {
+    const snapshot = snapshotFromDraft(view);
+    baseRef.current = snapshot;
+    setDraft(view);
+    setHeader(snapshot.header);
+    setContractId(snapshot.contractId);
+    setBranchId(snapshot.branchId);
+    setManual(deriveManualFlags(snapshot.header, contracts.find((c) => c.id === snapshot.contractId) ?? null));
+    setItems(
+      snapshot.items.map((item) => ({
+        uid: item.uid,
+        product: item.fields.product,
+        boxCount: item.fields.boxCount,
+        boxWeight: item.fields.boxWeight,
+        palletCount: item.fields.palletCount,
+        palletWeight: item.fields.palletWeight,
+        netto: item.fields.netto,
+        price: item.fields.price,
+        bruttoOverride: item.bruttoManual ? item.fields.brutto : null,
+      }))
+    );
+  }, []);
 
   useEffect(() => {
     loadFont();
@@ -495,7 +538,15 @@ export default function TgCargo() {
         const ctx = await tgFetch<CargoContext>('/context', data);
         if (cancelled) return;
         setContext({ ...ctx, branches: ctx.branches ?? [], products: ctx.products ?? [] });
-        setPhase('ready');
+        const draftId = ctx.launch?.draft;
+        if (typeof draftId === 'number') {
+          const view = await tgFetch<DraftView>(`/drafts/${draftId}`, data);
+          if (cancelled) return;
+          adoptDraft(view, ctx.contracts);
+          setPhase(CLOSED_STATUSES.has(view.status) ? 'closed' : 'ready');
+        } else {
+          setPhase('ready');
+        }
       } catch (e) {
         if (cancelled) return;
         setFatalError(e instanceof Error ? e.message : "Yuklab bo'lmadi");
@@ -506,7 +557,7 @@ export default function TgCargo() {
       cancelled = true;
       detach?.();
     };
-  }, []);
+  }, [adoptDraft]);
 
   // Telegram'ning yuqori paneli va overscroll foni sahifa rangiga mos bo'lsin
   useEffect(() => {
@@ -596,67 +647,110 @@ export default function TgCargo() {
     return paired ? [paired, ...contract.customs.filter((c) => c !== paired)] : contract.customs;
   }, [contract, header.deliveryTerms]);
 
-  const updateItem = (uid: number, patch: Partial<ItemState>, errorKey?: string) => {
+  const updateItem = (uid: string, patch: Partial<ItemState>, errorKey?: string) => {
     setItems((prev) => prev.map((it) => (it.uid === uid ? { ...it, ...patch } : it)));
     if (errorKey) clearError(errorKey);
   };
   const addItem = () => {
-    setItems((prev) => (prev.length >= MAX_ITEMS ? prev : [...prev, newItem(nextUid.current++)]));
+    setItems((prev) => (prev.length >= MAX_ITEMS ? prev : [...prev, newItem(makeUid())]));
   };
-  const removeItem = (uid: number) => {
+  const removeItem = (uid: string) => {
     setItems((prev) => (prev.length > 1 ? prev.filter((it) => it.uid !== uid) : prev));
-    // Indekslar siljiydi, shuning uchun eski tovar xatolari tozalanadi
-    setFieldErrors((prev) => Object.fromEntries(Object.entries(prev).filter(([k]) => !k.startsWith('items.'))));
+    // Xato kaliti tovar uid'iga bog'langan: o'chirilgan tovarning xatolari tushib qoladi
+    setFieldErrors((prev) => Object.fromEntries(Object.entries(prev).filter(([k]) => !k.startsWith(`items.${uid}.`))));
   };
 
   const preview = useMemo(() => buildPreview(header, contract, branch ? (branch.place ?? branch.name) : '', items), [header, contract, branch, items]);
   const filledCount = previewCount(preview);
 
-  const submit = async () => {
+  /** Formadagi hozirgi qiymatlar serverdagi ko'rinishda (Brutto — hisoblangan yoki qo'lda yozilgani) */
+  const currentSnapshot = (): FormSnapshot => ({
+    contractId,
+    branchId,
+    header,
+    items: items.map((it) => ({
+      uid: it.uid,
+      fields: {
+        product: it.product,
+        boxCount: it.boxCount,
+        boxWeight: it.boxWeight,
+        palletCount: it.palletCount,
+        palletWeight: it.palletWeight,
+        netto: it.netto,
+        brutto: bruttoOf(it),
+        price: it.price,
+      },
+      bruttoManual: it.bruttoOverride !== null,
+    })),
+  });
+
+  const showError = (e: unknown, fallback: string) => {
+    window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('error');
+    if (e instanceof ApiError) setFieldErrors(e.fieldErrors ?? {});
+    setFormError(e instanceof Error ? e.message : fallback);
+    setPhase('ready');
+    // Birinchi xatoli maydonga o'tamiz
+    window.setTimeout(() => document.querySelector<HTMLElement>('[aria-invalid="true"]')?.scrollIntoView({ block: 'center' }), 100);
+  };
+
+  /** 409: ariza boshqa joyda yopilgan bo'lishi mumkin — shunda forma o'rniga "yopilgan" ekrani; aks holda kiritilganlar saqlanib qoladi */
+  const handleConflict = async (e: unknown, fallback: string) => {
+    if (draft) {
+      try {
+        const latest = await tgFetch<DraftView>(`/drafts/${draft.id}`, initData);
+        if (CLOSED_STATUSES.has(latest.status)) {
+          adoptDraft(latest, context?.contracts ?? []);
+          setPhase('closed');
+          return;
+        }
+      } catch {
+        // yuklab bo'lmadi — oddiy xato sifatida ko'rsatiladi
+      }
+    }
+    showError(e, fallback);
+  };
+
+  const save = async () => {
     setFormError('');
     setFieldErrors({});
     setPhase('sending');
     try {
-      await tgFetch<{ ok: true }>('/submit', initData, {
-        ...header,
-        contractId,
-        branchId,
-        items: items.map((it) => ({
-          product: it.product,
-          boxCount: it.boxCount,
-          boxWeight: it.boxWeight,
-          palletCount: it.palletCount,
-          palletWeight: it.palletWeight,
-          netto: it.netto,
-          brutto: bruttoOf(it),
-          price: it.price,
-        })),
-      });
+      const patch = buildPatch(baseRef.current, currentSnapshot());
+      let view: DraftView;
+      if (draft === null) {
+        if (!patch) throw new Error("Hech narsa kiritilmadi. Kamida bitta maydonni to'ldiring");
+        view = await tgFetch<DraftView>('/drafts', initData, patch);
+      } else if (patch) {
+        view = await tgFetch<DraftView>(`/drafts/${draft.id}`, initData, patch, 'PATCH');
+      } else {
+        view = draft; // o'zgarish yo'q — so'rov kerak emas, holatni (yetishmayotganlar/Yakunlash) ko'rsatamiz
+      }
+      adoptDraft(view, context?.contracts ?? []);
       window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success');
-      setSentModel(preview);
-      setPhase('done');
-      window.setTimeout(() => window.Telegram?.WebApp?.close(), CLOSE_DELAY_MS);
+      setPhase('saved');
     } catch (e) {
-      window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('error');
-      if (e instanceof ApiError) setFieldErrors(e.fieldErrors ?? {});
-      setFormError(e instanceof Error ? e.message : "Yuborib bo'lmadi");
-      setPhase('ready');
-      // Birinchi xatoli maydonga o'tamiz
-      window.setTimeout(() => document.querySelector<HTMLElement>('[aria-invalid="true"]')?.scrollIntoView({ block: 'center' }), 100);
+      if (e instanceof ApiError && e.status === 409) await handleConflict(e, 'Saqlab bo\'lmadi');
+      else showError(e, "Saqlab bo'lmadi");
     }
   };
 
-  const reset = () => {
-    setHeader(EMPTY_HEADER);
-    setManual(NO_MANUAL);
-    setContractId(null);
-    setBranchId(null);
-    nextUid.current = 2;
-    setItems([newItem(1)]);
-    setFieldErrors({});
+  const complete = async () => {
+    if (!draft) return;
     setFormError('');
-    setPhase('ready');
+    setPhase('sending');
+    try {
+      const view = await tgFetch<DraftView>(`/drafts/${draft.id}/complete`, initData, {});
+      adoptDraft(view, context?.contracts ?? []);
+      window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('success');
+      setPhase('completed');
+      window.setTimeout(() => window.Telegram?.WebApp?.close(), CLOSE_DELAY_MS);
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 409) await handleConflict(e, "Yakunlab bo'lmadi");
+      else showError(e, "Yakunlab bo'lmadi");
+    }
   };
+
+  const authorName = (path: string): string | null => authorOf(draft, path)?.name ?? null;
 
   const isEditable = (el: EventTarget) => el instanceof HTMLElement && el.matches('input, select, textarea');
   const shell = (children: ReactNode) => (
@@ -702,18 +796,53 @@ export default function TgCargo() {
       </div>
     );
   }
-  if (phase === 'done') {
+  if (phase === 'closed') {
+    return shell(
+      <div className="tgc-center">
+        <h2>Ariza yopilgan</h2>
+        <p>Bu ariza yakunlangan yoki bekor qilingan, uni o'zgartirib bo'lmaydi. Yangi yuk uchun guruhda /yangi yozing.</p>
+        <button type="button" className="tgc-ghost" onClick={() => window.Telegram?.WebApp?.close()}>Yopish</button>
+      </div>
+    );
+  }
+  if (phase === 'completed') {
     return shell(
       <div className="tgc-center">
         <svg className="tgc-check" viewBox="0 0 84 84" aria-hidden="true">
           <circle cx="42" cy="42" r="42" />
           <path d="M26 43l11 11 21-23" />
         </svg>
-        <h2>Guruhga yuborildi</h2>
-        <div className="tgc-sent">
-          <PreviewBubble model={sentModel} empty="" />
-        </div>
-        <button type="button" className="tgc-ghost" onClick={reset}>Yana bitta kiritish</button>
+        <h2>Yakunlandi</h2>
+        <p>Yuk ma'lumotlari to'liq, guruhdagi xabar yangilandi.</p>
+      </div>
+    );
+  }
+  if (phase === 'saved' && draft) {
+    return shell(
+      <div className="tgc-center">
+        <svg className="tgc-check" viewBox="0 0 84 84" aria-hidden="true">
+          <circle cx="42" cy="42" r="42" />
+          <path d="M26 43l11 11 21-23" />
+        </svg>
+        <h2>Saqlandi</h2>
+        {draft.complete ? (
+          <p>Hamma majburiy maydonlar to'ldirilgan. Yakunlaysizmi?</p>
+        ) : (
+          <>
+            <p>Guruhdagi xabar yangilandi. Majburiy maydonlardan hali to'ldirilmaganlari:</p>
+            <ul className="tgc-missing">
+              {draft.missing.map((m) => (
+                <li key={m.path}>{m.itemNumber === null ? m.label : `Товар ${m.itemNumber}: ${m.label}`}</li>
+              ))}
+            </ul>
+          </>
+        )}
+        {formError && <div className="tgc-banner" role="alert">{formError}</div>}
+        {draft.complete && (
+          <button type="button" className="tgc-send" onClick={complete}>✅ Yakunlash</button>
+        )}
+        <button type="button" className="tgc-ghost" onClick={() => setPhase('ready')}>Formaga qaytish</button>
+        <button type="button" className="tgc-link" onClick={() => window.Telegram?.WebApp?.close()}>Yopish</button>
       </div>
     );
   }
@@ -730,6 +859,11 @@ export default function TgCargo() {
         <img className="tgc-logo" src="/logo.png" alt="Prodeklarant" />
         <h1 className="tgc-title">Yuk ma'lumoti</h1>
         <p className="tgc-client">{c.clientName}</p>
+        {draft && draft.missing.length > 0 && (
+          <p className="tgc-hint" role="status">
+            Ariza № {draft.id}: majburiy maydonlardan {draft.missing.length} tasi hali to'ldirilmagan.
+          </p>
+        )}
 
         <Section title="Shartnoma">
           {c.contracts.length > MAX_CONTRACT_CHIPS ? (
@@ -755,6 +889,7 @@ export default function TgCargo() {
           ) : (
             <p className="tgc-hint">Mijozda shartnoma yo'q</p>
           )}
+          <AuthorTag name={authorName('contractId')} />
           {!contractChosen && <p className="tgc-hint">Qolgan maydonlar shartnomani tanlagandan keyin ochiladi.</p>}
         </Section>
 
@@ -767,6 +902,7 @@ export default function TgCargo() {
                 value={header.invoiceNumber}
                 maxLength={50}
                 error={fieldErrors.invoiceNumber}
+                author={authorName('header.invoiceNumber')}
                 onChange={(v) => setHeaderValue('invoiceNumber', v)}
                 hint={
                   contract && (
@@ -795,6 +931,7 @@ export default function TgCargo() {
                 onType={(v) => setHeaderValue('deliveryTerms', v)}
                 onManual={(flag) => setManualFlag('deliveryTerms', flag)}
               />
+              <AuthorTag name={authorName('header.deliveryTerms')} />
               <ChoiceField
                 id="tgc-customs"
                 label={HEADER_LABELS.customsPlace}
@@ -807,6 +944,7 @@ export default function TgCargo() {
                 onType={(v) => setHeaderValue('customsPlace', v)}
                 onManual={(flag) => setManualFlag('customsPlace', flag)}
               />
+              <AuthorTag name={authorName('header.customsPlace')} />
               <ChoiceField
                 id="tgc-destination"
                 label={HEADER_LABELS.destination}
@@ -819,6 +957,7 @@ export default function TgCargo() {
                 onType={(v) => setHeaderValue('destination', v)}
                 onManual={(flag) => setManualFlag('destination', flag)}
               />
+              <AuthorTag name={authorName('header.destination')} />
             </Section>
 
             <Section title="Transport va jo'natish">
@@ -830,6 +969,7 @@ export default function TgCargo() {
                 maxLength={40}
                 plate
                 error={fieldErrors.vehicleNumber}
+                author={authorName('header.vehicleNumber')}
                 onChange={(v) => setHeaderValue('vehicleNumber', v)}
               />
               {c.branches.length > 0 && (
@@ -841,12 +981,14 @@ export default function TgCargo() {
                   onSelect={(v) => setBranchId(v === null ? null : Number(v))}
                 />
               )}
+              <AuthorTag name={authorName('branchId')} />
               <TextField
                 id="tgc-order"
                 label={HEADER_LABELS.orderNumber}
                 value={header.orderNumber}
                 maxLength={50}
                 error={fieldErrors.orderNumber}
+                author={authorName('header.orderNumber')}
                 onChange={(v) => setHeaderValue('orderNumber', v)}
               />
               <TextField
@@ -856,6 +998,7 @@ export default function TgCargo() {
                 placeholder="+2 C"
                 maxLength={20}
                 error={fieldErrors.temperature}
+                author={authorName('header.temperature')}
                 onChange={(v) => setHeaderValue('temperature', v)}
               />
               <TextField
@@ -864,12 +1007,14 @@ export default function TgCargo() {
                 value={header.sensorSerial}
                 maxLength={60}
                 error={fieldErrors.sensorSerial}
+                author={authorName('header.sensorSerial')}
                 onChange={(v) => setHeaderValue('sensorSerial', v)}
               />
             </Section>
 
             {items.map((item, index) => {
-              const errorKey = (field: string) => `items.${index}.${field}`;
+              const errorKey = (field: string) => `items.${item.uid}.${field}`;
+              const itemAuthor = (field: string) => authorName(`items.${item.uid}.${field}`);
               const brutto = bruttoOf(item);
               return (
                 <Section
@@ -896,13 +1041,14 @@ export default function TgCargo() {
                     onType={(v) => updateItem(item.uid, { product: v }, errorKey('product'))}
                     onManual={() => undefined}
                   />
+                  <AuthorTag name={itemAuthor('product')} />
                   <div className="tgc-grid">
-                    <NumberField id={`tgc-i${item.uid}-box-count`} label={ITEM_LABELS.boxCount} value={item.boxCount} error={fieldErrors[errorKey('boxCount')]} onChange={(v) => updateItem(item.uid, { boxCount: v }, errorKey('boxCount'))} />
-                    <NumberField id={`tgc-i${item.uid}-box-weight`} label={ITEM_LABELS.boxWeight} decimal value={item.boxWeight} error={fieldErrors[errorKey('boxWeight')]} onChange={(v) => updateItem(item.uid, { boxWeight: v }, errorKey('boxWeight'))} />
-                    <NumberField id={`tgc-i${item.uid}-pallet-count`} label={ITEM_LABELS.palletCount} value={item.palletCount} error={fieldErrors[errorKey('palletCount')]} onChange={(v) => updateItem(item.uid, { palletCount: v }, errorKey('palletCount'))} />
-                    <NumberField id={`tgc-i${item.uid}-pallet-weight`} label={ITEM_LABELS.palletWeight} decimal value={item.palletWeight} error={fieldErrors[errorKey('palletWeight')]} onChange={(v) => updateItem(item.uid, { palletWeight: v }, errorKey('palletWeight'))} />
-                    <NumberField id={`tgc-i${item.uid}-netto`} label={ITEM_LABELS.netto} decimal value={item.netto} error={fieldErrors[errorKey('netto')]} onChange={(v) => updateItem(item.uid, { netto: v }, errorKey('netto'))} />
-                    <NumberField id={`tgc-i${item.uid}-price`} label={ITEM_LABELS.price} decimal suffix={currencySuffix} value={item.price} error={fieldErrors[errorKey('price')]} onChange={(v) => updateItem(item.uid, { price: v }, errorKey('price'))} />
+                    <NumberField id={`tgc-i${item.uid}-box-count`} label={ITEM_LABELS.boxCount} value={item.boxCount} error={fieldErrors[errorKey('boxCount')]} author={itemAuthor('boxCount')} onChange={(v) => updateItem(item.uid, { boxCount: v }, errorKey('boxCount'))} />
+                    <NumberField id={`tgc-i${item.uid}-box-weight`} label={ITEM_LABELS.boxWeight} decimal value={item.boxWeight} error={fieldErrors[errorKey('boxWeight')]} author={itemAuthor('boxWeight')} onChange={(v) => updateItem(item.uid, { boxWeight: v }, errorKey('boxWeight'))} />
+                    <NumberField id={`tgc-i${item.uid}-pallet-count`} label={ITEM_LABELS.palletCount} value={item.palletCount} error={fieldErrors[errorKey('palletCount')]} author={itemAuthor('palletCount')} onChange={(v) => updateItem(item.uid, { palletCount: v }, errorKey('palletCount'))} />
+                    <NumberField id={`tgc-i${item.uid}-pallet-weight`} label={ITEM_LABELS.palletWeight} decimal value={item.palletWeight} error={fieldErrors[errorKey('palletWeight')]} author={itemAuthor('palletWeight')} onChange={(v) => updateItem(item.uid, { palletWeight: v }, errorKey('palletWeight'))} />
+                    <NumberField id={`tgc-i${item.uid}-netto`} label={ITEM_LABELS.netto} decimal value={item.netto} error={fieldErrors[errorKey('netto')]} author={itemAuthor('netto')} onChange={(v) => updateItem(item.uid, { netto: v }, errorKey('netto'))} />
+                    <NumberField id={`tgc-i${item.uid}-price`} label={ITEM_LABELS.price} decimal suffix={currencySuffix} value={item.price} error={fieldErrors[errorKey('price')]} author={itemAuthor('price')} onChange={(v) => updateItem(item.uid, { price: v }, errorKey('price'))} />
                     <div className="tgc-span2">
                       <NumberField
                         id={`tgc-i${item.uid}-brutto`}
@@ -910,6 +1056,7 @@ export default function TgCargo() {
                         decimal
                         value={brutto}
                         error={fieldErrors[errorKey('brutto')]}
+                        author={itemAuthor('brutto')}
                         onChange={(v) => updateItem(item.uid, { bruttoOverride: v }, errorKey('brutto'))}
                         hint={
                           <p className="tgc-hint">
@@ -946,8 +1093,8 @@ export default function TgCargo() {
         <div className={keyboardOpen ? 'tgc-bar tgc-bar-hidden' : 'tgc-bar'}>
           <div className="tgc-bar-inner">
             {formError && <div className="tgc-banner" role="alert">{formError}</div>}
-            <button type="button" className="tgc-send" disabled={sending || filledCount === 0} onClick={submit}>
-              {sending ? 'Yuborilmoqda' : 'Guruhga yuborish'}
+            <button type="button" className="tgc-send" disabled={sending || filledCount === 0} onClick={save}>
+              {sending ? 'Saqlanmoqda' : 'Saqlash'}
               {!sending && filledCount > 0 && <span className="tgc-count">{filledCount}</span>}
             </button>
           </div>

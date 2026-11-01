@@ -553,3 +553,24 @@
 .tgc-bubble-item-title {
   font-weight: 700;
 }
+
+/* Hamkorlikda to'ldirish: maydonni kim kiritgani va yetishmayotganlar ro'yxati */
+.tgc-author {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.3;
+}
+
+.tgc-missing {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  text-align: left;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.tgc-missing li::before {
+  content: '⏳ ';
+}

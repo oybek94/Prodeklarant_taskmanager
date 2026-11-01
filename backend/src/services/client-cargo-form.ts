@@ -11,6 +11,7 @@ export type CargoFieldKey =
   | 'palletCount'
   | 'palletWeight'
   | 'netto'
+  | 'brutto'
   | 'price'
   | 'customs'
   | 'unloading';
@@ -38,6 +39,7 @@ export const CARGO_STEPS: readonly CargoStep[] = [
   { key: 'palletCount', kind: 'count', label: 'Poddon soni' },
   { key: 'palletWeight', kind: 'decimal', label: "Poddon jami og'irligi" },
   { key: 'netto', kind: 'decimal', label: 'Netto' },
+  { key: 'brutto', kind: 'decimal', label: 'Brutto' },
   { key: 'price', kind: 'decimal', label: 'Narxi' },
   { key: 'customs', kind: 'choice', label: 'Таможня' },
   { key: 'unloading', kind: 'choice', label: 'Выгрузка' },

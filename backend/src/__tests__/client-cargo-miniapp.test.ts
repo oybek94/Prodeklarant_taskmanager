@@ -72,8 +72,8 @@ describe('validateFormFields', () => {
     expect(r).toEqual({ ok: true, data: { vehicleNumber: '40232BAA/402332BA', product: 'Xurmo' } });
   });
   it("sonlarni tekshiradi va vergulni nuqtaga o'tkazadi", () => {
-    const r = parse({ boxCount: '120', boxWeight: '1234,5', palletCount: '8', palletWeight: '400', netto: '18000', price: '1.25' });
-    expect(r).toEqual({ ok: true, data: { boxCount: '120', boxWeight: '1234.5', palletCount: '8', palletWeight: '400', netto: '18000', price: '1.25' } });
+    const r = parse({ boxCount: '120', boxWeight: '1234,5', palletCount: '8', palletWeight: '400', netto: '18000', brutto: '19634,5', price: '1.25' });
+    expect(r).toEqual({ ok: true, data: { boxCount: '120', boxWeight: '1234.5', palletCount: '8', palletWeight: '400', netto: '18000', brutto: '19634.5', price: '1.25' } });
   });
   it("noto'g'ri maydonlar bo'yicha xato qaytaradi", () => {
     const r = parse({ boxCount: '12a', netto: 'ko\'p', product: 'Xurmo' });

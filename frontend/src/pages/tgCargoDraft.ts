@@ -144,6 +144,8 @@ export function deriveManualFlags(
   };
 }
 
-export function authorOf(view: DraftView | null, path: string): FieldAuthor | null {
-  return view?.authors[path] ?? null;
+/** Avto raqami faqat lotin alifbosida (invoys dasturidagi qoida bilan bir xil): kirill belgilari (U+0400–U+04FF) o'chiriladi */
+export function stripCyrillic(raw: string): { value: string; stripped: boolean } {
+  const value = raw.replace(/[Ѐ-ӿ]/g, '');
+  return { value, stripped: value !== raw };
 }

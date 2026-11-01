@@ -55,6 +55,38 @@ describe('formatDraftMessage', () => {
     expect(text.endsWith('👤 Заполнили: Vali, Aziz')).toBe(true);
   });
 
+  it("har qator o'z belgisi (emoji) bilan boshlanadi va yorliq matni o'zgarmaydi", () => {
+    const text = formatDraftMessage({ data: completeData(), authors: {}, context, status: 'OPEN' });
+    expect(text).toContain('📄 Контракт: <b>K-1, Buyer LLC</b>');
+    expect(text).toContain('🧾 Инвойс №: <b>INV-1</b>');
+    expect(text).toContain('🌍 Условия поставки: <b>Москва</b>');
+    expect(text).toContain('🛃 Место там. очистки: <b>Ташкент</b>');
+    expect(text).toContain('🚛 Номер автотранспорта: <b>01A123BC</b>');
+    expect(text).toContain('🏭 Место отгрузки груза: <b>Ташкентская обл.</b>');
+    expect(text).toContain('🏷 Наименование: <b>Яблоки</b>');
+    expect(text).toContain('📦 Количество ящиков: <b>10</b>');
+    expect(text).toContain('⚖️ Нетто: <b>100</b>');
+    expect(text).toContain('⚖️ Брутто: <b>110</b>');
+    expect(text).toContain('💰 Цена: <b>2.5 USD</b>');
+  });
+
+  it("uzun qiymat (40 belgidan ortiq) alohida qatorda <blockquote> ichida, qisqasi shu qatorda qoladi", () => {
+    const customs = '10504080 Челябинский таможенный пост г. Челябинск, ул. Игуменка 7А СВХ ООО «ЮУВК»';
+    const data: DraftData = { ...completeData(), header: { ...completeData().header, customsPlace: customs } };
+    const text = formatDraftMessage({ data, authors: {}, context, status: 'OPEN' });
+    expect(text).toContain('🛃 Место там. очистки:\n<blockquote>' + customs +'</blockquote>');
+    expect(text).toContain('🌍 Условия поставки: <b>Москва</b>');
+    expect((text.match(/<blockquote>/g) ?? []).length).toBe(1);
+  });
+
+  it("blockquote ichidagi qiymat ham HTML-escape qilinadi", () => {
+    const evil = 'A&B <script> ' + 'x'.repeat(50);
+    const data: DraftData = { ...EMPTY_DRAFT_DATA, header: { customsPlace: evil } };
+    const text = formatDraftMessage({ data, authors: {}, context, status: 'OPEN' });
+    expect(text).toContain('<blockquote>A&amp;B &lt;script&gt; ');
+    expect(text).not.toContain('<script>');
+  });
+
   it("hech kim to'ldirmagan bo'lsa 'Заполнили' qatori yo'q", () => {
     expect(formatDraftMessage({ data: completeData(), authors: {}, context, status: 'OPEN' })).not.toContain('Заполнили');
   });

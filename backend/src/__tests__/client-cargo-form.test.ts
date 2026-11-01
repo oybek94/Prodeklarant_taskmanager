@@ -1,6 +1,21 @@
 import { describe, it, expect } from 'vitest';
 import { formatCargoMessage, parseCount, parseDecimal, parseFieldInput, parseVehicleNumber, splitContractLines } from '../services/client-cargo-form';
 
+describe('parseVehicleNumber — faqat lotin alifbosi (dasturdagidek)', () => {
+  it("kirill harfi bor raqam rad etiladi (lotinga o'xshash А, В, С ham)", () => {
+    const cyrillic = '01А123ВС'; // 01А123ВС — kirill А, В, С
+    const result = parseVehicleNumber(cyrillic);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toBe('Faqat lotin alifbosida yozing — kirill harflari qabul qilinmaydi');
+  });
+  it("lotin harflari va raqamlar, / va bo'shliq bilan qabul qilinadi", () => {
+    expect(parseVehicleNumber('01 A 123 BC / 01 1234 AB')).toEqual({ ok: true, value: '01A123BC/011234AB' });
+  });
+  it("parseFieldInput orqali ham rad etiladi", () => {
+    expect(parseFieldInput('text', 'vehicleNumber', '40232ВAA').ok).toBe(false);
+  });
+});
+
 describe('parseVehicleNumber', () => {
   it("bo'shliqlarni olib tashlaydi va katta harfga o'tkazadi", () => {
     expect(parseVehicleNumber('40232baa / 402332ba')).toEqual({ ok: true, value: '40232BAA/402332BA' });

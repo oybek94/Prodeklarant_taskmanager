@@ -7,6 +7,8 @@ import { CargoHeader, CargoItem, HEADER_FIELDS, ITEM_FIELDS, parseFieldInput } f
 
 export interface TelegramLaunch {
   userId: number;
+  /** Imzolangan initData'dagi ko'rsatiladigan ism (mijozdan kelgan ixtiyoriy matnga ishonilmaydi) */
+  userName: string;
   startParam: string | null;
 }
 
@@ -14,7 +16,24 @@ const MAX_INIT_DATA_AGE_SEC = 24 * 60 * 60;
 const CLOCK_SKEW_SEC = 60;
 export const MAX_ITEMS = 20;
 
-const telegramUserSchema = z.object({ id: z.number().int().positive() });
+const telegramUserSchema = z.object({
+  id: z.number().int().positive(),
+  first_name: z.string().optional(),
+  last_name: z.string().optional(),
+  username: z.string().optional(),
+});
+
+const MAX_USER_NAME_LENGTH = 64;
+
+/** "Ism Familiya", bo'lmasa "@username", bo'lmasa "ID <id>" */
+function displayName(user: z.infer<typeof telegramUserSchema>): string {
+  const fullName = [user.first_name, user.last_name]
+    .map((part) => part?.trim() ?? '')
+    .filter((part) => part !== '')
+    .join(' ');
+  const name = fullName || (user.username?.trim() ? `@${user.username.trim()}` : `ID ${user.id}`);
+  return name.slice(0, MAX_USER_NAME_LENGTH);
+}
 
 /**
  * Mini App `initData` imzosini bot tokeni bilan tekshiradi (https://core.telegram.org/bots/webapps#validating-data-received-via-the-mini-app).
@@ -48,7 +67,7 @@ export function verifyInitData(initData: string, botToken: string, nowSec: numbe
   const user = telegramUserSchema.safeParse(userJson);
   if (!user.success) return null;
 
-  return { userId: user.data.id, startParam: params.get('start_param') };
+  return { userId: user.data.id, userName: displayName(user.data), startParam: params.get('start_param') };
 }
 
 /** Guruh chat ID si: manfiy butun son (`-1001234567890`). start_param shu ko'rinishda keladi. */

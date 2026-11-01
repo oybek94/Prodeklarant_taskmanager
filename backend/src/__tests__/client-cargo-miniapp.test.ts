@@ -26,7 +26,14 @@ const baseFields = (over: Record<string, string> = {}) => ({
 
 describe('verifyInitData', () => {
   it("to'g'ri imzolangan initData'dan foydalanuvchi va start_param ni oladi", () => {
-    expect(verifyInitData(signInitData(baseFields()), BOT_TOKEN, NOW)).toEqual({ userId: 777, startParam: '-1001234567890' });
+    expect(verifyInitData(signInitData(baseFields()), BOT_TOKEN, NOW)).toEqual({ userId: 777, userName: 'Test', startParam: '-1001234567890' });
+  });
+  it("foydalanuvchi ismi: first_name + last_name, bo'lmasa @username, bo'lmasa ID", () => {
+    const name = (user: Record<string, unknown>) => verifyInitData(signInitData(baseFields({ user: JSON.stringify({ id: 777, ...user }) })), BOT_TOKEN, NOW)?.userName;
+    expect(name({ first_name: 'Test', last_name: 'User' })).toBe('Test User');
+    expect(name({ username: 'abc' })).toBe('@abc');
+    expect(name({ first_name: '  ', username: 'abc' })).toBe('@abc');
+    expect(name({})).toBe('ID 777');
   });
   it("boshqa token bilan imzolangan bo'lsa rad etadi", () => {
     expect(verifyInitData(signInitData(baseFields(), '999:other'), BOT_TOKEN, NOW)).toBeNull();

@@ -121,8 +121,10 @@ describe('bindDriverByCode', () => {
     const before = Date.now();
     await bindDriverByCode({ code: 'K7M2QX', telegramUserId: 10, chatId: 10 });
     const limit = m.trackingFindFirst.mock.calls[0][0].where.createdAt.gt as Date;
-    expect(before - limit.getTime()).toBeGreaterThanOrEqual(14 * 24 * 3600 * 1000);
-    expect(before - limit.getTime()).toBeLessThan(14 * 24 * 3600 * 1000 + 5000);
+    const after = Date.now();
+    const fourteenDays = 14 * 24 * 3600 * 1000;
+    expect(limit.getTime()).toBeGreaterThanOrEqual(before - fourteenDays);
+    expect(limit.getTime()).toBeLessThanOrEqual(after - fourteenDays);
   });
 
   it("boshqa Telegram hisobi allaqachon ulangan kodni ishlata olmaydi", async () => {
@@ -191,7 +193,7 @@ describe('buildWhereReply', () => {
     m.trackingFindFirst.mockResolvedValue(tracking());
     const reply = await buildWhereReply({ clientId: 2, trackingId: 4, botToken: 't', now: NOW });
     expect(reply.ok && reply.text).toContain('Aktobe');
-    expect(reply.ok && reply.text).toContain('12 daq oldin');
+    expect(reply.ok && reply.text).toContain('12 мин назад');
     expect(reply.ok && reply.location).toEqual({ lat: 50.28, lng: 57.2 });
     expect(m.callTelegram).not.toHaveBeenCalled();
     expect(m.reverseGeocode).not.toHaveBeenCalled();
@@ -207,7 +209,7 @@ describe('buildWhereReply', () => {
   it("signal eskirgan bo'lsa haydovchidan qayta so'raydi", async () => {
     m.trackingFindFirst.mockResolvedValue(tracking({ lastLocationAt: minutesAgo(200) }));
     const reply = await buildWhereReply({ clientId: 2, trackingId: 4, botToken: 'tok', now: NOW });
-    expect(reply.ok && reply.text).toContain('eskirgan');
+    expect(reply.ok && reply.text).toContain('устарели');
     expect(m.callTelegram).toHaveBeenCalledTimes(1);
     expect(m.callTelegram.mock.calls[0][1]).toBe('sendMessage');
     expect(m.callTelegram.mock.calls[0][2].chat_id).toBe(10);
@@ -216,7 +218,7 @@ describe('buildWhereReply', () => {
   it("joylashuv hali kelmagan bo'lsa shuni aytadi, xarita yo'q", async () => {
     m.trackingFindFirst.mockResolvedValue(tracking({ lastLat: null, lastLng: null, lastLocationAt: null, lastAddress: null }));
     const reply = await buildWhereReply({ clientId: 2, trackingId: 4, botToken: 't', now: NOW });
-    expect(reply.ok && reply.text).toContain('hali joylashuv yubormagan');
+    expect(reply.ok && reply.text).toContain('ещё не отправил местоположение');
     expect(reply.ok && reply.location).toBeNull();
   });
 });

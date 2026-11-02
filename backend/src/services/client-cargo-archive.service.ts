@@ -1,6 +1,5 @@
 import fs from 'fs';
 import path from 'path';
-import type { DocumentType } from '@prisma/client';
 import { prisma } from '../prisma';
 
 // Yuk botidagi /arxiv: mijozning yakunlangan yuklari ro'yxati va tanlangan yukning hujjatlari.
@@ -140,24 +139,22 @@ function resolveUploadPath(fileUrl: string): string | null {
 }
 
 /** Yuk hujjatlarini o'qiydi. Yakunlangan yukda hujjatlar ArchiveDocument'da; bo'sh bo'lsa TaskDocument'dan olinadi. */
-export async function loadTaskFiles(item: ArchiveTaskItem, options: { documentTypes?: readonly DocumentType[] } = {}): Promise<TaskFiles> {
-  // Hujjat turi filtri berilsa (haydovchi) — faqat shu turlar; ArchiveDocument'da tur bo'lmasa ham TaskDocument'dan olinadi
-  const typeFilter = options.documentTypes ? { documentType: { in: [...options.documentTypes] } } : {};
-  const archived = options.documentTypes
-    ? []
-    : await prisma.archiveDocument.findMany({
-        where: { taskId: item.taskId },
-        orderBy: { id: 'asc' },
-        select: { name: true, fileUrl: true },
-      });
-  const docs =
-    archived.length > 0
-      ? archived
-      : await prisma.taskDocument.findMany({
-          where: { taskId: item.taskId, ...typeFilter },
-          orderBy: { id: 'asc' },
-          select: { name: true, fileUrl: true },
-        });
+export async function loadTaskFiles(item: ArchiveTaskItem, options: { preferTaskDocuments?: boolean } = {}): Promise<TaskFiles> {
+  const findArchived = () =>
+    prisma.archiveDocument.findMany({ where: { taskId: item.taskId }, orderBy: { id: 'asc' }, select: { name: true, fileUrl: true } });
+  const findTaskDocs = () =>
+    prisma.taskDocument.findMany({ where: { taskId: item.taskId }, orderBy: { id: 'asc' }, select: { name: true, fileUrl: true } });
+
+  let docs: { name: string; fileUrl: string }[];
+  if (options.preferTaskDocuments) {
+    // Haydovchi: yukka yuklangan BARCHA hujjatlar (turidan qat'i nazar, OTHER ham); TaskDocument bo'sh bo'lsa arxivdan
+    docs = await findTaskDocs();
+    if (docs.length === 0) docs = await findArchived();
+  } else {
+    // Arxiv (mijoz guruhi): yakunlangan yukda hujjatlar ArchiveDocument'da; bo'sh bo'lsa TaskDocument'dan
+    const archived = await findArchived();
+    docs = archived.length > 0 ? archived : await findTaskDocs();
+  }
 
   const files: ArchiveFile[] = [];
   const skipped: string[] = [];

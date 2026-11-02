@@ -15,7 +15,6 @@ import {
   truncateButtonText,
 } from './client-cargo-archive.service';
 import {
-  DRIVER_DOCUMENT_TYPES,
   createAttemptLimiter,
   formatTaskPickLabel,
   isDriverCodeShape,
@@ -304,9 +303,9 @@ function registerHandlers(instance: TelegramBot, miniAppLink: string | undefined
     if (sendingTasks.has(key)) return;
     sendingTasks.add(key);
     try {
-      const loaded = await loadTaskFiles(await getDriverArchiveItem(tracking.taskId), { documentTypes: DRIVER_DOCUMENT_TYPES });
+      const loaded = await loadTaskFiles(await getDriverArchiveItem(tracking.taskId), { preferTaskDocuments: true });
       if (loaded.documentCount === 0) {
-        await instance.sendMessage(chatId, `${loaded.label}\nBu yukda hujjat hali yuklanmagan (ST, CMR, TIR, FITO, Invoys). Deklarantga murojaat qiling.`);
+        await instance.sendMessage(chatId, `${loaded.label}\nBu yukda hujjat hali yuklanmagan. Deklarantga murojaat qiling.`);
         return;
       }
       if (loaded.files.length === 0) {
@@ -355,39 +354,39 @@ function registerHandlers(instance: TelegramBot, miniAppLink: string | undefined
   const requireLinkedGroup = async (msg: TelegramBot.Message): Promise<number | null> => {
     if (!(await requireGroup(msg))) return null;
     const clientId = await getClientIdByGroup(String(msg.chat.id));
-    if (!clientId) await instance.sendMessage(msg.chat.id, 'Bu guruh hali mijozga ulanmagan. Avval /ulash KOD yozing.');
+    if (!clientId) await instance.sendMessage(msg.chat.id, 'Эта группа ещё не привязана к клиенту. Сначала отправьте /ulash КОД.');
     return clientId;
   };
 
   const sendCodeToGroup = async (chatId: number, clientId: number, taskId: number): Promise<void> => {
     const result = await issueDriverCode({ taskId, clientId, createdVia: 'CLIENT_GROUP', regenerate: false });
     if (!result.ok) {
-      await instance.sendMessage(chatId, result.reason === 'TASK_TOO_OLD' ? "Bu yuk 72 soatdan oldin yaratilgan. Kodni deklarantdan oling." : 'Yuk topilmadi.');
+      await instance.sendMessage(chatId, result.reason === 'TASK_TOO_OLD' ? 'Этот груз создан более 72 часов назад. Получите код у декларанта.' : 'Груз не найден.');
       return;
     }
     const username = await botUsername();
     await instance.sendMessage(
       chatId,
-      `🔑 Haydovchi kodi: ${result.code}\n\nHaydovchi @${username} botiga kirib shu kodni yozsin yoki havolani ochsin:\nhttps://t.me/${username}?start=${result.code}${result.reused ? '\n\n(Bu yuk uchun kod avval berilgan.)' : ''}`
+      `🔑 Код водителя: ${result.code}\n\nВодителю нужно открыть бота @${username} и отправить этот код, либо открыть ссылку:\nhttps://t.me/${username}?start=${result.code}${result.reused ? '\n\n(Код для этого груза уже был выдан.)' : ''}`
     );
   };
 
   const sendTaskPicker = async (chatId: number, clientId: number): Promise<void> => {
     const tasks = await listClientRecentTasks(clientId);
     if (tasks.length === 0) {
-      await instance.sendMessage(chatId, "Oxirgi 72 soatda yaratilgan yuk topilmadi. Eskiroq yuk uchun kodni deklarantdan oling.");
+      await instance.sendMessage(chatId, 'За последние 72 часа грузов не создано. Для более старого груза получите код у декларанта.');
       return;
     }
     const keyboard = tasks.map((task) => [
       { text: truncateButtonText(`${task.hasCode ? '✅ ' : '🔑 '}${formatTaskPickLabel(task)}`), callback_data: `trk:k:${task.taskId}` },
     ]);
-    await instance.sendMessage(chatId, 'Oxirgi 72 soatda yaratilgan yuklar. Qaysi yuk uchun haydovchi kodi kerak? (✅ — kod avval berilgan)', { reply_markup: { inline_keyboard: keyboard } });
+    await instance.sendMessage(chatId, 'Грузы, созданные за последние 72 часа. Для какого груза нужен код водителя? (✅ — код уже выдан)', { reply_markup: { inline_keyboard: keyboard } });
   };
 
   const sendWhere = async (chatId: number, clientId: number, trackingId: number): Promise<void> => {
     const reply = await buildWhereReply({ clientId, trackingId, botToken });
     if (!reply.ok) {
-      await instance.sendMessage(chatId, 'Fura topilmadi yoki kuzatuv tugagan.');
+      await instance.sendMessage(chatId, 'Фура не найдена или отслеживание завершено.');
       return;
     }
     await instance.sendMessage(chatId, reply.text);
@@ -397,7 +396,7 @@ function registerHandlers(instance: TelegramBot, miniAppLink: string | undefined
   const sendFuraList = async (chatId: number, clientId: number): Promise<void> => {
     const furas = await listActiveFuras(clientId);
     if (furas.length === 0) {
-      await instance.sendMessage(chatId, "Hozir kuzatuvdagi fura yo'q. Haydovchi kodini olish: /kod");
+      await instance.sendMessage(chatId, 'Сейчас нет фур на отслеживании. Получить код водителя: /kod');
       return;
     }
     if (furas.length === 1) {
@@ -407,7 +406,7 @@ function registerHandlers(instance: TelegramBot, miniAppLink: string | undefined
     const keyboard = furas.map((fura) => [
       { text: truncateButtonText(`🚚 ${formatArchiveLabel({ invoiceNumber: fura.invoiceNumber, vehicleNumber: fura.vehicleNumber })}`), callback_data: `trk:w:${fura.trackingId}` },
     ]);
-    await instance.sendMessage(chatId, 'Qaysi fura?', { reply_markup: { inline_keyboard: keyboard } });
+    await instance.sendMessage(chatId, 'Какая фура?', { reply_markup: { inline_keyboard: keyboard } });
   };
 
   instance.onText(/^\/kod(?:@\w+)?\s*$/, async (msg) => {
@@ -464,7 +463,7 @@ function registerHandlers(instance: TelegramBot, miniAppLink: string | undefined
     }
     const clientId = await getClientIdByGroup(String(chat.id));
     if (!clientId) {
-      await instance.answerCallbackQuery(query.id, { text: 'Guruh mijozga ulanmagan.' });
+      await instance.answerCallbackQuery(query.id, { text: 'Группа не привязана к клиенту.' });
       return;
     }
     await instance.answerCallbackQuery(query.id);

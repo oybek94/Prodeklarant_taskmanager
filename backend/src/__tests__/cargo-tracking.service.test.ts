@@ -35,6 +35,7 @@ vi.mock('../services/telegram-bot-api', () => ({ callTelegram: m.callTelegram })
 vi.mock('../services/geocode', () => ({ reverseGeocode: m.reverseGeocode }));
 
 import {
+  announceDriverConnected,
   answerDriverFinish,
   bindDriverByCode,
   buildWhereReply,
@@ -155,17 +156,61 @@ describe('recordDriverLocation', () => {
   it("birinchi signalni yozadi va ACTIVE qiladi; jonli muddatni xabar vaqtidan hisoblaydi", async () => {
     m.trackingFindFirst.mockResolvedValue({ id: 4, taskId: 8, lastLocationAt: null });
     const messageDate = Math.floor(NOW.getTime() / 1000);
+    m.trackingUpdateMany.mockResolvedValue({ count: 1 });
     const result = await recordDriverLocation({ telegramUserId: 10, lat: 50.28, lng: 57.2, messageDate, livePeriod: 28800, now: NOW });
-    expect(result).toEqual({ ok: true, firstFix: true, persisted: true });
-    const data = m.trackingUpdate.mock.calls[0][0].data;
+    expect(result).toEqual({ ok: true, trackingId: 4, firstFix: true, persisted: true });
+    // birinchi signal faqat lastLocationAt hali bo'sh bo'lsagina yoziladi (poyga himoyasi)
+    expect(m.trackingUpdateMany.mock.calls[0][0].where).toEqual({ id: 4, lastLocationAt: null });
+    const data = m.trackingUpdateMany.mock.calls[0][0].data;
     expect(data).toMatchObject({ status: 'ACTIVE', lastLat: 50.28, lastLng: 57.2 });
     expect(data.livePeriodEndsAt).toEqual(new Date(NOW.getTime() + 28800 * 1000));
   });
 
   it("30 soniyadan tez yangilanishni bazaga yozmaydi", async () => {
     m.trackingFindFirst.mockResolvedValue({ id: 4, taskId: 8, lastLocationAt: new Date(NOW.getTime() - 10_000) });
-    expect(await recordDriverLocation({ telegramUserId: 10, lat: 1, lng: 2, messageDate: 1, now: NOW })).toEqual({ ok: true, firstFix: false, persisted: false });
+    expect(await recordDriverLocation({ telegramUserId: 10, lat: 1, lng: 2, messageDate: 1, now: NOW })).toEqual({ ok: true, trackingId: 4, firstFix: false, persisted: false });
     expect(m.trackingUpdate).not.toHaveBeenCalled();
+  });
+
+  it("birinchi signal poygasida yutqazgan yangilanish 'birinchi' hisoblanmaydi (guruhga ikki marta yozilmaydi)", async () => {
+    m.trackingFindFirst.mockResolvedValue({ id: 4, taskId: 8, lastLocationAt: null });
+    m.trackingUpdateMany.mockResolvedValue({ count: 0 });
+    expect(await recordDriverLocation({ telegramUserId: 10, lat: 1, lng: 2, messageDate: 1, now: NOW })).toEqual({ ok: true, trackingId: 4, firstFix: false, persisted: false });
+  });
+
+  it("keyingi signal oddiy yangilanadi va 'birinchi' emas", async () => {
+    m.trackingFindFirst.mockResolvedValue({ id: 4, taskId: 8, lastLocationAt: new Date(NOW.getTime() - 120_000) });
+    expect(await recordDriverLocation({ telegramUserId: 10, lat: 1, lng: 2, messageDate: 1, now: NOW })).toEqual({ ok: true, trackingId: 4, firstFix: false, persisted: true });
+    expect(m.trackingUpdate).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('announceDriverConnected', () => {
+  it("mijoz guruhiga ruscha xabar yuboradi (avto raqami, invoys, 'Где фура?' tugmasi)", async () => {
+    m.trackingFindUnique.mockResolvedValue({ taskId: 8, client: { botGroupChatId: '-100123' } });
+    await announceDriverConnected('tok', 4);
+    expect(m.callTelegram).toHaveBeenCalledTimes(1);
+    const [token, method, body] = m.callTelegram.mock.calls[0];
+    expect(token).toBe('tok');
+    expect(method).toBe('sendMessage');
+    expect(body.chat_id).toBe('-100123');
+    expect(body.text).toContain('Водитель подключился к боту');
+    expect(body.text).toContain('01A123BC');
+    expect(body.text).toContain('INV-1');
+    expect(body.reply_markup.inline_keyboard[0][0]).toEqual({ text: '📍 Где фура?', callback_data: 'trk:f' });
+  });
+
+  it("guruh ulanmagan bo'lsa hech narsa yubormaydi", async () => {
+    m.trackingFindUnique.mockResolvedValue({ taskId: 8, client: { botGroupChatId: null } });
+    await announceDriverConnected('tok', 4);
+    expect(m.callTelegram).not.toHaveBeenCalled();
+  });
+
+  it("Telegram xatosi istisno otmaydi", async () => {
+    m.trackingFindUnique.mockResolvedValue({ taskId: 8, client: { botGroupChatId: '-100123' } });
+    m.callTelegram.mockResolvedValue({ ok: false, description: 'Forbidden' });
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    await expect(announceDriverConnected('tok', 4)).resolves.toBeUndefined();
   });
 });
 

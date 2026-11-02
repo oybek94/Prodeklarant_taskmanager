@@ -165,6 +165,12 @@ export function formatWhereMessage(input: {
   return lines.join('\n');
 }
 
+/** Haydovchi birinchi joylashuvini yuborgach mijoz guruhiga boradigan xabar (faqat rus tilida) */
+export function formatDriverConnectedMessage(input: { vehicleNumber: string | null; invoiceNumber: string | null }): string {
+  const head = `🚚 ${orDash(input.vehicleNumber)}${input.invoiceNumber?.trim() ? ` · ${input.invoiceNumber.trim()}` : ''}`;
+  return `✅ Водитель подключился к боту и отправил местоположение.\n${head}`;
+}
+
 /** Haydovchi kodni kiritgandan keyin ko'radigan yuk kartasi */
 export function formatDriverCard(input: {
   vehicleNumber: string | null;

@@ -23,6 +23,7 @@ import {
   type CargoTrackingCallback,
 } from './cargo-tracking';
 import {
+  announceDriverConnected,
   answerDriverFinish,
   bindDriverByCode,
   buildWhereReply,
@@ -281,6 +282,8 @@ function registerHandlers(instance: TelegramBot, miniAppLink: string | undefined
         // @types/node-telegram-bot-api Location'da live_period yo'q, Telegram API'da bor
         livePeriod: (msg.location as TelegramBot.Location & { live_period?: number }).live_period,
       });
+      // Birinchi joylashuv: mijoz guruhiga "haydovchi ulandi" (kutib o'tirmaymiz, xato haydovchiga ta'sir qilmaydi)
+      if (result.ok && result.firstFix) void announceDriverConnected(botToken, result.trackingId);
       // Jonli joylashuv yangilanishlari (edited_message) har bir necha soniyada keladi — javob yozilmaydi
       if (edited) return;
       await instance.sendMessage(

@@ -1,4 +1,5 @@
 import TelegramBot from 'node-telegram-bot-api';
+import cron from 'node-cron';
 import { linkGroupByCode, migrateBotGroupChatId } from './client-cargo-bot-link.service';
 import { actorFromTelegramUser, buildNewCargoReply, parseDraftCallback, type DraftCallbackAction } from './client-cargo-draft-bot';
 import { buildDraftKeyboard } from './client-cargo-draft-message';
@@ -13,6 +14,28 @@ import {
   loadTaskFiles,
   truncateButtonText,
 } from './client-cargo-archive.service';
+import {
+  DRIVER_DOCUMENT_TYPES,
+  createAttemptLimiter,
+  isDriverCodeShape,
+  parseCargoTrackingCallback,
+  parseStartPayload,
+  type CargoTrackingCallback,
+} from './cargo-tracking';
+import {
+  bindDriverByCode,
+  buildWhereReply,
+  getDriverArchiveItem,
+  getDriverCardText,
+  getDriverTracking,
+  issueDriverCode,
+  listActiveFuras,
+  listClientOpenTasks,
+  matchDraftToOpenTask,
+  recordDriverLocation,
+  runHourlyTrackingJob,
+  stopDriverTracking,
+} from './cargo-tracking.service';
 
 // Mijozlar uchun yuk ma'lumotlari boti. Forma Telegram Mini App'da to'ldiriladi (frontend: pages/TgCargo.tsx,
 // API: routes/tg-cargo.ts). Bu servis faqat guruhni mijozga ulaydi (/ulash) va /yangi da Mini App tugmasini yuboradi.
@@ -26,6 +49,15 @@ interface DocumentAlbumItem {
 
 const LINK_ATTEMPT_LIMIT = 10;
 const LINK_ATTEMPT_WINDOW_MS = 60 * 60 * 1000;
+
+// Haydovchi kodini topish: Telegram hisobi bo'yicha soatiga 5 ta noto'g'ri urinish
+const driverCodeLimiter = createAttemptLimiter({ limit: 5, windowMs: 60 * 60 * 1000 });
+
+const DRIVER_HELP =
+  "Bu bot haydovchilar uchun.\n\nYuk kodini yozing (6 ta harf/raqam, masalan K7M2QX). Kodni deklarant yoki mijoz beradi.\n\n/yuk — yuk ma'lumoti (bojxona, manzil)\n/hujjat — yuk hujjatlarini yuklab olish\n/stop — joylashuvni kuzatishni to'xtatish";
+
+const DRIVER_INSTRUCTIONS =
+  "📍 Joylashuvingizni ulashing: 📎 (qisqich) → Joylashuv → «Jonli joylashuvni ulashish» → «Doimiy». Pastdagi tugma bilan bir martalik joyingizni ham yuborishingiz mumkin.\n\nℹ️ Joylashuvingiz faqat shu yukning mijoz guruhida va Prodeklarant xodimlarida ko'rinadi. Bot kamida soatiga bir marta joylashuv so'raydi. To'xtatish: /stop";
 
 const linkAttempts = new Map<number, { count: number; resetAt: number }>();
 
@@ -73,9 +105,13 @@ function registerHandlers(instance: TelegramBot, miniAppLink: string | undefined
   };
 
   instance.onText(/^\/(?:start|help)(?:@\w+)?\s*$/, async (msg) => {
+    if (msg.chat.type === 'private') {
+      await instance.sendMessage(msg.chat.id, DRIVER_HELP);
+      return;
+    }
     await instance.sendMessage(
       msg.chat.id,
-      "Yuk ma'lumotlarini yig'uvchi bot.\n\n/yangi — yuk ma'lumotini kiritish formasini ochish\n/arxiv — yakunlangan yuklar hujjatlarini olish\n/ulash KOD — guruhni mijozga ulash (bir marta)"
+      "Yuk ma'lumotlarini yig'uvchi bot.\n\n/yangi — yuk ma'lumotini kiritish formasini ochish\n/arxiv — yakunlangan yuklar hujjatlarini olish\n/kod — haydovchi uchun kod olish\n/fura — fura qayerdaligini bilish\n/ulash KOD — guruhni mijozga ulash (bir marta)"
     );
   });
 
@@ -146,6 +182,30 @@ function registerHandlers(instance: TelegramBot, miniAppLink: string | undefined
   // Bir yukning hujjatlarini bir vaqtda ikki marta yubormaslik uchun (tugma qayta-qayta bosilsa)
   const sendingTasks = new Set<string>();
 
+  /** Fayllarni 10 tadan albomlarda (bittasi bo'lsa oddiy hujjat sifatida) yuboradi; yuborilmaganlarni ogohlantiradi */
+  const deliverFiles = async (chatId: number, label: string, files: { name: string; buffer: Buffer }[], skipped: string[]): Promise<void> => {
+    const albums = chunkForAlbums(files);
+    for (let i = 0; i < albums.length; i++) {
+      const album = albums[i];
+      const caption = i === 0 ? label : undefined;
+      if (album.length === 1) {
+        await instance.sendDocument(chatId, album[0].buffer, { caption }, { filename: album[0].name, contentType: 'application/octet-stream' });
+        continue;
+      }
+      const items: DocumentAlbumItem[] = album.map((file, index) => ({
+        type: 'document',
+        media: file.buffer,
+        fileOptions: { filename: file.name, contentType: 'application/octet-stream' },
+        ...(index === 0 && caption ? { caption } : {}),
+      }));
+      // @types/node-telegram-bot-api albomda faqat photo/video biladi; Telegram API va kutubxona ish vaqtida 'document' ni qo'llaydi
+      await instance.sendMediaGroup(chatId, items as unknown as readonly TelegramBot.InputMedia[]);
+    }
+    if (skipped.length > 0) {
+      await instance.sendMessage(chatId, `⚠️ Yuborib bo'lmadi (fayl topilmadi yoki 50 MB dan katta): ${skipped.join(', ')}`);
+    }
+  };
+
   const sendTaskFiles = async (chatId: number, clientId: number, taskId: number): Promise<void> => {
     const key = `${chatId}:${taskId}`;
     if (sendingTasks.has(key)) return;
@@ -165,28 +225,246 @@ function registerHandlers(instance: TelegramBot, miniAppLink: string | undefined
         await instance.sendMessage(chatId, `${label}\nHujjatlarni yuborib bo'lmadi. Administratorga murojaat qiling.`);
         return;
       }
-      const albums = chunkForAlbums(files);
-      for (let i = 0; i < albums.length; i++) {
-        const album = albums[i];
-        const caption = i === 0 ? label : undefined;
-        if (album.length === 1) {
-          await instance.sendDocument(chatId, album[0].buffer, { caption }, { filename: album[0].name, contentType: 'application/octet-stream' });
-          continue;
-        }
-        const items: DocumentAlbumItem[] = album.map((file, index) => ({
-          type: 'document',
-          media: file.buffer,
-          fileOptions: { filename: file.name, contentType: 'application/octet-stream' },
-          ...(index === 0 && caption ? { caption } : {}),
-        }));
-        // @types/node-telegram-bot-api albomda faqat photo/video biladi; Telegram API va kutubxona ish vaqtida 'document' ni qo'llaydi
-        await instance.sendMediaGroup(chatId, items as unknown as readonly TelegramBot.InputMedia[]);
-      }
-      if (skipped.length > 0) {
-        await instance.sendMessage(chatId, `⚠️ Yuborib bo'lmadi (fayl topilmadi yoki 50 MB dan katta): ${skipped.join(', ')}`);
-      }
+      await deliverFiles(chatId, label, files, skipped);
     } finally {
       sendingTasks.delete(key);
+    }
+  };
+
+  // ---------- Haydovchi boti va fura joylashuvi ----------
+
+  let cachedUsername: string | null = null;
+  const botUsername = async (): Promise<string> => {
+    if (!cachedUsername) cachedUsername = (await instance.getMe()).username ?? 'pd_client_bot';
+    return cachedUsername;
+  };
+
+  const driverKeyboard: TelegramBot.InlineKeyboardMarkup = {
+    inline_keyboard: [[{ text: '📄 Hujjatlar', callback_data: 'drv:docs' }, { text: "ℹ️ Yuk ma'lumoti", callback_data: 'drv:info' }]],
+  };
+
+  const sendDriverCard = async (chatId: number, taskId: number, title: string): Promise<void> => {
+    await instance.sendMessage(chatId, `${title}\n\n${await getDriverCardText(taskId)}`, { reply_markup: driverKeyboard });
+  };
+
+  const handleDriverCode = async (msg: TelegramBot.Message, rawCode: string): Promise<void> => {
+    if (!msg.from) return;
+    const key = String(msg.from.id);
+    if (driverCodeLimiter.isBlocked(key)) {
+      await instance.sendMessage(msg.chat.id, "Juda ko'p noto'g'ri urinish. Bir soatdan keyin qayta urinib ko'ring yoki deklarantga murojaat qiling.");
+      return;
+    }
+    const result = await bindDriverByCode({ code: rawCode, telegramUserId: msg.from.id, chatId: msg.chat.id });
+    if (!result.ok) {
+      driverCodeLimiter.recordFailure(key);
+      await instance.sendMessage(
+        msg.chat.id,
+        result.reason === 'TAKEN' ? 'Bu kod boshqa haydovchiga ulangan. Deklarantga murojaat qiling.' : "Kod noto'g'ri yoki muddati o'tgan. Kodni deklarant yoki mijozdan qayta oling."
+      );
+      return;
+    }
+    driverCodeLimiter.reset(key);
+    await sendDriverCard(msg.chat.id, result.taskId, '✅ Kod qabul qilindi.');
+    await instance.sendMessage(msg.chat.id, DRIVER_INSTRUCTIONS, {
+      reply_markup: { keyboard: [[{ text: '📍 Joylashuvni yuborish', request_location: true }]], resize_keyboard: true, one_time_keyboard: true },
+    });
+  };
+
+  const handleDriverLocation = async (msg: TelegramBot.Message, edited: boolean): Promise<void> => {
+    if (msg.chat.type !== 'private' || !msg.from || !msg.location) return;
+    try {
+      const result = await recordDriverLocation({
+        telegramUserId: msg.from.id,
+        lat: msg.location.latitude,
+        lng: msg.location.longitude,
+        messageDate: msg.date,
+        // @types/node-telegram-bot-api Location'da live_period yo'q, Telegram API'da bor
+        livePeriod: (msg.location as TelegramBot.Location & { live_period?: number }).live_period,
+      });
+      // Jonli joylashuv yangilanishlari (edited_message) har bir necha soniyada keladi — javob yozilmaydi
+      if (edited) return;
+      await instance.sendMessage(
+        msg.chat.id,
+        result.ok ? '✅ Joylashuv qabul qilindi. Rahmat!' : 'Avval yuk kodini kiriting (6 ta harf/raqam).',
+        { reply_markup: { remove_keyboard: true } }
+      );
+    } catch (e) {
+      console.error('[ClientCargoBot] joylashuv xatosi:', e instanceof Error ? e.message : e);
+    }
+  };
+
+  const sendDriverDocuments = async (chatId: number, telegramUserId: number): Promise<void> => {
+    const tracking = await getDriverTracking(telegramUserId);
+    if (!tracking) {
+      await instance.sendMessage(chatId, 'Avval yuk kodini kiriting (6 ta harf/raqam).');
+      return;
+    }
+    const key = `drv:${chatId}:${tracking.taskId}`;
+    if (sendingTasks.has(key)) return;
+    sendingTasks.add(key);
+    try {
+      const loaded = await loadTaskFiles(await getDriverArchiveItem(tracking.taskId), { documentTypes: DRIVER_DOCUMENT_TYPES });
+      if (loaded.documentCount === 0) {
+        await instance.sendMessage(chatId, `${loaded.label}\nBu yukda hujjat hali yuklanmagan (ST, CMR, TIR, FITO, Invoys). Deklarantga murojaat qiling.`);
+        return;
+      }
+      if (loaded.files.length === 0) {
+        await instance.sendMessage(chatId, `${loaded.label}\nHujjatlarni yuborib bo'lmadi. Deklarantga murojaat qiling.`);
+        return;
+      }
+      await deliverFiles(chatId, loaded.label, loaded.files, loaded.skipped);
+    } finally {
+      sendingTasks.delete(key);
+    }
+  };
+
+  const sendDriverInfo = async (chatId: number, telegramUserId: number): Promise<void> => {
+    const tracking = await getDriverTracking(telegramUserId);
+    if (!tracking) {
+      await instance.sendMessage(chatId, 'Avval yuk kodini kiriting (6 ta harf/raqam).');
+      return;
+    }
+    await sendDriverCard(chatId, tracking.taskId, "Yuk ma'lumoti");
+  };
+
+  const runPrivate = (name: string, handler: (msg: TelegramBot.Message, from: TelegramBot.User) => Promise<void>) => async (msg: TelegramBot.Message) => {
+    if (msg.chat.type !== 'private' || !msg.from) return;
+    try {
+      await handler(msg, msg.from);
+    } catch (e) {
+      reportError(name, msg.chat.id, e);
+    }
+  };
+
+  instance.onText(
+    /^\/start(?:@\w+)?\s+(\S+)\s*$/,
+    runPrivate('/start', async (msg) => {
+      const code = parseStartPayload(msg.text ?? '');
+      if (code) await handleDriverCode(msg, code);
+      else await instance.sendMessage(msg.chat.id, DRIVER_HELP);
+    })
+  );
+  instance.onText(/^\/yuk(?:@\w+)?\s*$/, runPrivate('/yuk', (msg, from) => sendDriverInfo(msg.chat.id, from.id)));
+  instance.onText(/^\/hujjat(?:@\w+)?\s*$/, runPrivate('/hujjat', (msg, from) => sendDriverDocuments(msg.chat.id, from.id)));
+  instance.onText(
+    /^\/stop(?:@\w+)?\s*$/,
+    runPrivate('/stop', async (msg, from) => {
+      const stopped = await stopDriverTracking(from.id);
+      await instance.sendMessage(
+        msg.chat.id,
+        stopped ? "Kuzatuv to'xtatildi. Jonli joylashuvni Telegram'da ham o'chirib qo'ying. Yangi yuk uchun yangi kod kerak bo'ladi." : 'Faol yuk topilmadi.',
+        { reply_markup: { remove_keyboard: true } }
+      );
+    })
+  );
+
+  instance.on('location', (msg) => void handleDriverLocation(msg, false));
+  instance.on('edited_message', (msg) => void handleDriverLocation(msg, true));
+
+  // Guruh: mijoz uchun yuklar ro'yxati va "fura qayerda?"
+  const requireLinkedGroup = async (msg: TelegramBot.Message): Promise<number | null> => {
+    if (!(await requireGroup(msg))) return null;
+    const clientId = await getClientIdByGroup(String(msg.chat.id));
+    if (!clientId) await instance.sendMessage(msg.chat.id, 'Bu guruh hali mijozga ulanmagan. Avval /ulash KOD yozing.');
+    return clientId;
+  };
+
+  const sendCodeToGroup = async (chatId: number, clientId: number, taskId: number): Promise<void> => {
+    const result = await issueDriverCode({ taskId, clientId, createdVia: 'CLIENT_GROUP', regenerate: false });
+    if (!result.ok) {
+      await instance.sendMessage(chatId, result.reason === 'TASK_FINISHED' ? 'Bu yuk yakunlangan.' : 'Yuk topilmadi.');
+      return;
+    }
+    const username = await botUsername();
+    await instance.sendMessage(
+      chatId,
+      `🔑 Haydovchi kodi: ${result.code}\n\nHaydovchi @${username} botiga kirib shu kodni yozsin yoki havolani ochsin:\nhttps://t.me/${username}?start=${result.code}${result.reused ? '\n\n(Bu yuk uchun kod avval berilgan.)' : ''}`
+    );
+  };
+
+  const sendTaskPicker = async (chatId: number, clientId: number): Promise<void> => {
+    const tasks = await listClientOpenTasks(clientId);
+    if (tasks.length === 0) {
+      await instance.sendMessage(chatId, "Ochiq yuk topilmadi. Yuk Prodeklarant'da ochilgach, kodni shu yerdan olasiz.");
+      return;
+    }
+    const keyboard = tasks.map((task) => [
+      { text: truncateButtonText(`${task.hasCode ? '✅ ' : '🔑 '}${formatArchiveLabel(task)}`), callback_data: `trk:k:${task.taskId}` },
+    ]);
+    await instance.sendMessage(chatId, 'Qaysi yuk uchun haydovchi kodi kerak? (✅ — kod avval berilgan)', { reply_markup: { inline_keyboard: keyboard } });
+  };
+
+  const sendWhere = async (chatId: number, clientId: number, trackingId: number): Promise<void> => {
+    const reply = await buildWhereReply({ clientId, trackingId, botToken });
+    if (!reply.ok) {
+      await instance.sendMessage(chatId, 'Fura topilmadi yoki kuzatuv tugagan.');
+      return;
+    }
+    await instance.sendMessage(chatId, reply.text);
+    if (reply.location) await instance.sendLocation(chatId, reply.location.lat, reply.location.lng);
+  };
+
+  const sendFuraList = async (chatId: number, clientId: number): Promise<void> => {
+    const furas = await listActiveFuras(clientId);
+    if (furas.length === 0) {
+      await instance.sendMessage(chatId, "Hozir kuzatuvdagi fura yo'q. Haydovchi kodini olish: /kod");
+      return;
+    }
+    if (furas.length === 1) {
+      await sendWhere(chatId, clientId, furas[0].trackingId);
+      return;
+    }
+    const keyboard = furas.map((fura) => [
+      { text: truncateButtonText(`🚚 ${formatArchiveLabel({ invoiceNumber: fura.invoiceNumber, vehicleNumber: fura.vehicleNumber })}`), callback_data: `trk:w:${fura.trackingId}` },
+    ]);
+    await instance.sendMessage(chatId, 'Qaysi fura?', { reply_markup: { inline_keyboard: keyboard } });
+  };
+
+  instance.onText(/^\/kod(?:@\w+)?\s*$/, async (msg) => {
+    try {
+      const clientId = await requireLinkedGroup(msg);
+      if (clientId) await sendTaskPicker(msg.chat.id, clientId);
+    } catch (e) {
+      reportError('/kod', msg.chat.id, e);
+    }
+  });
+
+  instance.onText(/^\/fura(?:@\w+)?\s*$/, async (msg) => {
+    try {
+      const clientId = await requireLinkedGroup(msg);
+      if (clientId) await sendFuraList(msg.chat.id, clientId);
+    } catch (e) {
+      reportError('/fura', msg.chat.id, e);
+    }
+  });
+
+  const handleTrackingCallback = async (query: TelegramBot.CallbackQuery, action: CargoTrackingCallback): Promise<void> => {
+    const chat = query.message?.chat;
+    if (!chat) {
+      await instance.answerCallbackQuery(query.id);
+      return;
+    }
+    if (action.kind === 'driver-info' || action.kind === 'driver-docs') {
+      await instance.answerCallbackQuery(query.id, action.kind === 'driver-docs' ? { text: 'Hujjatlar yuborilmoqda…' } : undefined);
+      if (chat.type !== 'private') return;
+      if (action.kind === 'driver-docs') await sendDriverDocuments(chat.id, query.from.id);
+      else await sendDriverInfo(chat.id, query.from.id);
+      return;
+    }
+    const clientId = await getClientIdByGroup(String(chat.id));
+    if (!clientId) {
+      await instance.answerCallbackQuery(query.id, { text: 'Guruh mijozga ulanmagan.' });
+      return;
+    }
+    await instance.answerCallbackQuery(query.id);
+    if (action.kind === 'where') await sendWhere(chat.id, clientId, action.trackingId);
+    else if (action.kind === 'where-all') await sendFuraList(chat.id, clientId);
+    else if (action.kind === 'issue-code') await sendCodeToGroup(chat.id, clientId, action.taskId);
+    else {
+      const draft = await getDraft({ clientId, chatId: String(chat.id) }, action.draftId);
+      const taskId = draft ? await matchDraftToOpenTask(clientId, draft.data.header) : null;
+      if (taskId) await sendCodeToGroup(chat.id, clientId, taskId);
+      else await sendTaskPicker(chat.id, clientId);
     }
   };
 
@@ -235,6 +513,17 @@ function registerHandlers(instance: TelegramBot, miniAppLink: string | undefined
     const data = query.data ?? '';
     const chatId = query.message?.chat.id;
     const messageId = query.message?.message_id;
+    const trackingCallback = parseCargoTrackingCallback(data);
+    if (trackingCallback) {
+      try {
+        await handleTrackingCallback(query, trackingCallback);
+      } catch (e) {
+        console.error('[ClientCargoBot] kuzatuv callback xatosi:', e instanceof Error ? e.message : e);
+        instance.answerCallbackQuery(query.id).catch(() => undefined);
+        if (chatId !== undefined) instance.sendMessage(chatId, "Xatolik yuz berdi. Qaytadan urinib ko'ring.").catch(() => undefined);
+      }
+      return;
+    }
     const draftCallback = parseDraftCallback(data);
     if (draftCallback && chatId !== undefined && messageId !== undefined) {
       try {
@@ -283,6 +572,11 @@ function registerHandlers(instance: TelegramBot, miniAppLink: string | undefined
   instance.on('message', async (msg) => {
     try {
       if (msg.migrate_to_chat_id) await migrateBotGroupChatId(String(msg.chat.id), String(msg.migrate_to_chat_id));
+      // Shaxsiy chatdagi oddiy matn: haydovchi kodi yoki yo'riqnoma (buyruqlar onText'da)
+      if (msg.chat.type === 'private' && msg.from && msg.text && !msg.text.startsWith('/')) {
+        if (isDriverCodeShape(msg.text)) await handleDriverCode(msg, msg.text);
+        else await instance.sendMessage(msg.chat.id, DRIVER_HELP);
+      }
     } catch (e) {
       console.error('[ClientCargoBot] migrate xatosi:', e instanceof Error ? e.message : e);
     }
@@ -309,19 +603,39 @@ export const initClientCargoBot = () => {
     console.warn("[ClientCargoBot] CLIENT_BOT_MINIAPP_LINK aniqlanmagan (masalan https://t.me/pd_client_bot/cargo) — /yangi forma ochmaydi.");
   }
 
-  const bot = new TelegramBot(token, { polling: true });
+  // allowed_updates aniq beriladi: jonli joylashuv yangilanishlari edited_message bilan keladi (Telegram eski qiymatni eslab qolishi mumkin)
+  const bot = new TelegramBot(token, { polling: { params: { allowed_updates: ['message', 'edited_message', 'callback_query'] } } });
   bot.on('polling_error', (error) => {
     console.error('[ClientCargoBot] Polling error:', error.message);
   });
   registerHandlers(bot, miniAppLink, token);
 
+  const commandsError = (e: unknown) => console.error('[ClientCargoBot] setMyCommands xatosi:', e instanceof Error ? e.message : e);
   bot
     .setMyCommands([
       { command: 'yangi', description: "Yuk ma'lumotini kiritish formasini ochish" },
       { command: 'arxiv', description: "Yakunlangan yuklar hujjatlarini olish" },
+      { command: 'kod', description: 'Haydovchi uchun kod olish' },
+      { command: 'fura', description: 'Fura qayerdaligini bilish' },
       { command: 'ulash', description: 'Guruhni mijozga ulash (KOD bilan)' },
     ])
-    .catch((e: unknown) => console.error('[ClientCargoBot] setMyCommands xatosi:', e instanceof Error ? e.message : e));
+    .catch(commandsError);
+  // Haydovchilar shaxsiy chatda faqat o'z buyruqlarini ko'radi
+  bot
+    .setMyCommands(
+      [
+        { command: 'yuk', description: "Yuk ma'lumoti (bojxona, manzil)" },
+        { command: 'hujjat', description: 'Yuk hujjatlarini yuklab olish' },
+        { command: 'stop', description: "Joylashuvni kuzatishni to'xtatish" },
+      ],
+      { scope: { type: 'all_private_chats' } }
+    )
+    .catch(commandsError);
+
+  // Soatlik ish: faqat bot yoqilgan instansiyada (aks holda lokal server haydovchilarga ikki marta yozardi)
+  cron.schedule('0 * * * *', () => {
+    runHourlyTrackingJob(token).catch((e: unknown) => console.error('[CargoTracking] Soatlik ish xatosi:', e instanceof Error ? e.message : e));
+  });
 
   console.log("[ClientCargoBot] Yuk ma'lumotlari boti ishga tushdi.");
 };

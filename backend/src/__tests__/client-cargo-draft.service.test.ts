@@ -250,7 +250,15 @@ describe('completeDraft va cancelDraft', () => {
     expect(m.callTelegram.mock.calls[0][1]).toBe('editMessageText');
     expect(editBody.text).toContain('✅ <b>Данные о грузе — полные</b>');
     expect(editBody.text).not.toContain('Завершил'); // yakunlagan odam xabarda ko'rsatilmaydi (completedByName faqat bazada)
-    expect(editBody.reply_markup).toEqual({ inline_keyboard: [] });
+    // Yakunlangan xabarda haydovchi kodi va fura joylashuvi tugmalari
+    expect(editBody.reply_markup).toEqual({
+      inline_keyboard: [
+        [
+          { text: '🔑 Haydovchi kodi', callback_data: 'trk:d:41' },
+          { text: '📍 Fura qayerda?', callback_data: 'trk:f' },
+        ],
+      ],
+    });
 
     const telegramCalls = m.callTelegram.mock.calls.length;
     const second = await completeDraft(scope, 41, vali);

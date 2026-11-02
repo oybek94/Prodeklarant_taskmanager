@@ -12,6 +12,7 @@ import {
 import type { TaskDetail, TaskStage, TaskDocument, AiCheck, AiCheckDetails, AiCheckError, AiCheckFinding } from './types';
 import { DocumentVerificationReport } from './DocumentVerificationReport';
 import TaskCommentBlock from './TaskCommentBlock';
+import DriverCodeCard from './DriverCodeCard';
 import { getPsrAmount, getDealAmountDisplay, getDealAmountBaseDisplay, getBranchPaymentsDisplay } from './taskBusinessHelpers';
 
 /** Moliyaviy hisobotda USD summalar `$` belgisisiz ko'rsatiladi */
@@ -540,6 +541,10 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                 </button>
               </div>
             </div>
+
+            {selectedTask.status !== 'YAKUNLANDI' && user && ['ADMIN', 'DEKLARANT', 'MANAGER', 'SELLER'].includes(user.role) && (
+              <DriverCodeCard taskId={selectedTask.id} />
+            )}
           </div>
         </div>
 

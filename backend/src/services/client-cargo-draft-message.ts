@@ -217,6 +217,10 @@ export function buildDraftKeyboard(input: {
   confirmCancel?: boolean;
 }): InlineButton[][] {
   const { draftId, chatId, status, complete, miniAppLink, confirmCancel } = input;
+  // Yakunlangan yukda haydovchi kodi va fura joylashuvi tugmalari (handler: cargo-tracking callback'lari)
+  if (status === 'COMPLETED') {
+    return [[{ text: '🔑 Haydovchi kodi', callback_data: `trk:d:${draftId}` }, { text: '📍 Fura qayerda?', callback_data: 'trk:f' }]];
+  }
   if (status !== 'OPEN') return [];
   if (confirmCancel) {
     return [

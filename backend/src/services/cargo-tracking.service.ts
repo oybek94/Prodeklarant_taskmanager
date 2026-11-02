@@ -1,0 +1,412 @@
+import { Prisma } from '@prisma/client';
+import { prisma } from '../prisma';
+import { callTelegram } from './telegram-bot-api';
+import { readVehicleNumber, type ArchiveTaskItem } from './client-cargo-archive.service';
+import {
+  STALE_AFTER_MINUTES,
+  findSingleMatchingTask,
+  formatDriverCard,
+  formatWhereMessage,
+  generateDriverCode,
+  minutesBetween,
+  needsDriverPrompt,
+  normalizeDriverCode,
+  shouldPersistLocation,
+  type TaskMatchCandidate,
+} from './cargo-tracking';
+import { reverseGeocode } from './geocode';
+
+// Haydovchi boti: Prisma + Telegram bilan ishlaydigan qism. Sof mantiq: cargo-tracking.ts
+
+const TRACKING_LIFETIME_DAYS = 15;
+const POINT_RETENTION_DAYS = 30;
+/** Soatlik nuqta uchun oxirgi signal shu daqiqadan eski bo'lmasligi kerak */
+const SNAPSHOT_MAX_AGE_MINUTES = 90;
+const MAX_LIVE_PERIOD_SECONDS = 30 * 24 * 3600;
+const CODE_RETRIES = 5;
+const OPEN_TASKS_LIMIT = 10;
+const DAY_MS = 24 * 3600 * 1000;
+
+const OPEN_STATUSES = ['WAITING', 'ACTIVE'] as const;
+
+type TrackingCreatedVia = 'STAFF' | 'CLIENT_GROUP';
+
+// ---------- Yuk ma'lumoti (invoys / shartnoma) ----------
+
+function readInfoString(additionalInfo: unknown, key: string): string | null {
+  if (typeof additionalInfo !== 'object' || additionalInfo === null || Array.isArray(additionalInfo)) return null;
+  const value = (additionalInfo as Record<string, unknown>)[key];
+  return typeof value === 'string' && value.trim() !== '' ? value.trim() : null;
+}
+
+export interface CargoInfo {
+  invoiceNumber: string | null;
+  vehicleNumber: string | null;
+  customsAddress: string | null;
+  destination: string | null;
+}
+
+async function loadCargoInfo(taskId: number): Promise<CargoInfo> {
+  const invoice = await prisma.invoice.findUnique({
+    where: { taskId },
+    select: { invoiceNumber: true, additionalInfo: true, contract: { select: { customsAddress: true } } },
+  });
+  const contractCustoms = invoice?.contract?.customsAddress?.trim() || null;
+  return {
+    invoiceNumber: invoice?.invoiceNumber?.trim() || null,
+    vehicleNumber: readVehicleNumber(invoice?.additionalInfo),
+    customsAddress: readInfoString(invoice?.additionalInfo, 'customsAddress') ?? contractCustoms,
+    destination: readInfoString(invoice?.additionalInfo, 'destination'),
+  };
+}
+
+// ---------- Kod berish (xodim yoki mijoz guruhi) ----------
+
+export type IssueCodeResult = { ok: true; code: string; reused: boolean } | { ok: false; reason: 'TASK_NOT_FOUND' | 'TASK_FINISHED' };
+
+/**
+ * Yukka haydovchi kodi beradi. `regenerate: true` (xodim "Yangi kod") kodni almashtiradi va haydovchi ulanishini
+ * tozalaydi; false (mijoz guruhi) faol kod bo'lsa uni o'zgartirmay qaytaradi — guruh a'zosi tasodifan kuzatuvni buzmasligi uchun.
+ * `clientId` berilsa yuk shu mijozga tegishli bo'lishi shart.
+ */
+export async function issueDriverCode(input: {
+  taskId: number;
+  clientId?: number;
+  createdById?: number | null;
+  createdVia: TrackingCreatedVia;
+  regenerate: boolean;
+}): Promise<IssueCodeResult> {
+  const task = await prisma.task.findFirst({
+    where: { id: input.taskId, ...(input.clientId !== undefined ? { clientId: input.clientId } : {}) },
+    select: { id: true, clientId: true, status: true },
+  });
+  if (!task) return { ok: false, reason: 'TASK_NOT_FOUND' };
+  if (task.status === 'YAKUNLANDI') return { ok: false, reason: 'TASK_FINISHED' };
+
+  if (!input.regenerate) {
+    const existing = await prisma.cargoTracking.findUnique({ where: { taskId: task.id }, select: { code: true, status: true } });
+    if (existing && existing.status !== 'FINISHED') return { ok: true, code: existing.code, reused: true };
+  }
+
+  for (let attempt = 0; attempt < CODE_RETRIES; attempt++) {
+    const code = generateDriverCode();
+    try {
+      const tracking = await prisma.cargoTracking.upsert({
+        where: { taskId: task.id },
+        create: { taskId: task.id, clientId: task.clientId, code, createdVia: input.createdVia, createdById: input.createdById ?? null },
+        update: {
+          code,
+          status: 'WAITING',
+          createdVia: input.createdVia,
+          createdById: input.createdById ?? null,
+          createdAt: new Date(),
+          driverTelegramId: null,
+          driverChatId: null,
+          boundAt: null,
+          lastLat: null,
+          lastLng: null,
+          lastLocationAt: null,
+          livePeriodEndsAt: null,
+          lastPromptAt: null,
+          lastAddress: null,
+          finishedAt: null,
+        },
+        select: { id: true },
+      });
+      await prisma.cargoTrackingPoint.deleteMany({ where: { trackingId: tracking.id } });
+      return { ok: true, code, reused: false };
+    } catch (e) {
+      // Kod to'qnashuvi (@unique) — yangi kod bilan qayta urinamiz
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') continue;
+      throw e;
+    }
+  }
+  throw new Error('Haydovchi kodini yaratib bo\'lmadi (to\'qnashuvlar)');
+}
+
+export interface DriverCodeStatus {
+  code: string;
+  status: 'WAITING' | 'ACTIVE' | 'FINISHED';
+  driverBound: boolean;
+  boundAt: Date | null;
+  lastLat: number | null;
+  lastLng: number | null;
+  lastLocationAt: Date | null;
+}
+
+export async function getDriverCodeStatus(taskId: number): Promise<DriverCodeStatus | null> {
+  const tracking = await prisma.cargoTracking.findUnique({
+    where: { taskId },
+    select: { code: true, status: true, driverTelegramId: true, boundAt: true, lastLat: true, lastLng: true, lastLocationAt: true },
+  });
+  if (!tracking) return null;
+  return {
+    code: tracking.code,
+    status: tracking.status,
+    driverBound: tracking.driverTelegramId !== null,
+    boundAt: tracking.boundAt,
+    lastLat: tracking.lastLat,
+    lastLng: tracking.lastLng,
+    lastLocationAt: tracking.lastLocationAt,
+  };
+}
+
+export async function revokeDriverCode(taskId: number): Promise<boolean> {
+  const result = await prisma.cargoTracking.deleteMany({ where: { taskId } });
+  return result.count > 0;
+}
+
+// ---------- Mijoz guruhi: kod olish uchun yuklar ro'yxati ----------
+
+export interface OpenTaskItem extends TaskMatchCandidate {
+  hasCode: boolean;
+}
+
+export async function listClientOpenTasks(clientId: number, limit = OPEN_TASKS_LIMIT): Promise<OpenTaskItem[]> {
+  const tasks = await prisma.task.findMany({
+    where: { clientId, status: { not: 'YAKUNLANDI' } },
+    orderBy: { id: 'desc' },
+    take: limit,
+    select: {
+      id: true,
+      invoice: { select: { invoiceNumber: true, additionalInfo: true } },
+      cargoTracking: { select: { status: true } },
+    },
+  });
+  return tasks.map((t) => ({
+    taskId: t.id,
+    invoiceNumber: t.invoice?.invoiceNumber ?? null,
+    vehicleNumber: readVehicleNumber(t.invoice?.additionalInfo),
+    hasCode: !!t.cargoTracking && t.cargoTracking.status !== 'FINISHED',
+  }));
+}
+
+/** Qoralamadagi invoys va avto raqami aynan bitta ochiq yukka mos kelsa uning ID'si */
+export async function matchDraftToOpenTask(clientId: number, header: { invoiceNumber?: string; vehicleNumber?: string }): Promise<number | null> {
+  const tasks = await listClientOpenTasks(clientId, 50);
+  return findSingleMatchingTask({ invoiceNumber: header.invoiceNumber, vehicleNumber: header.vehicleNumber }, tasks);
+}
+
+// ---------- Haydovchi: kod bilan ulanish ----------
+
+export type BindResult =
+  | { ok: true; trackingId: number; taskId: number; alreadyBound: boolean }
+  | { ok: false; reason: 'INVALID' | 'TAKEN' };
+
+export async function bindDriverByCode(input: { code: string; telegramUserId: number; chatId: number }): Promise<BindResult> {
+  const code = normalizeDriverCode(input.code);
+  const expiresBefore = new Date(Date.now() - TRACKING_LIFETIME_DAYS * DAY_MS);
+  const tracking = await prisma.cargoTracking.findFirst({
+    where: { code, status: { in: [...OPEN_STATUSES] }, createdAt: { gt: expiresBefore }, task: { status: { not: 'YAKUNLANDI' } } },
+    select: { id: true, taskId: true, driverTelegramId: true },
+  });
+  if (!tracking) return { ok: false, reason: 'INVALID' };
+
+  const telegramId = BigInt(input.telegramUserId);
+  const chatId = BigInt(input.chatId);
+  if (tracking.driverTelegramId === null) {
+    // Poyga: ikki kishi bir vaqtda kiritsa faqat birinchisi yozadi
+    const claimed = await prisma.cargoTracking.updateMany({
+      where: { id: tracking.id, driverTelegramId: null },
+      data: { driverTelegramId: telegramId, driverChatId: chatId, boundAt: new Date() },
+    });
+    if (claimed.count === 1) return { ok: true, trackingId: tracking.id, taskId: tracking.taskId, alreadyBound: false };
+    const winner = await prisma.cargoTracking.findUnique({ where: { id: tracking.id }, select: { driverTelegramId: true } });
+    if (winner?.driverTelegramId !== telegramId) return { ok: false, reason: 'TAKEN' };
+    return { ok: true, trackingId: tracking.id, taskId: tracking.taskId, alreadyBound: true };
+  }
+  if (tracking.driverTelegramId !== telegramId) return { ok: false, reason: 'TAKEN' };
+  await prisma.cargoTracking.update({ where: { id: tracking.id }, data: { driverChatId: chatId } });
+  return { ok: true, trackingId: tracking.id, taskId: tracking.taskId, alreadyBound: true };
+}
+
+const driverTrackingSelect = {
+  id: true,
+  taskId: true,
+  clientId: true,
+  status: true,
+  driverChatId: true,
+  lastLocationAt: true,
+  livePeriodEndsAt: true,
+} satisfies Prisma.CargoTrackingSelect;
+
+export type DriverTracking = Prisma.CargoTrackingGetPayload<{ select: typeof driverTrackingSelect }>;
+
+/** Haydovchining hozirgi (tugamagan) yuki; bir nechta bo'lsa eng oxirgi ulangani */
+export async function getDriverTracking(telegramUserId: number): Promise<DriverTracking | null> {
+  return prisma.cargoTracking.findFirst({
+    where: { driverTelegramId: BigInt(telegramUserId), status: { in: [...OPEN_STATUSES] }, task: { status: { not: 'YAKUNLANDI' } } },
+    orderBy: { boundAt: 'desc' },
+    select: driverTrackingSelect,
+  });
+}
+
+export async function getDriverCardText(taskId: number): Promise<string> {
+  return formatDriverCard(await loadCargoInfo(taskId));
+}
+
+/** Haydovchi hujjatlari uchun yuk (ArchiveTaskItem) — loadTaskFiles ga beriladi */
+export async function getDriverArchiveItem(taskId: number): Promise<ArchiveTaskItem> {
+  const info = await loadCargoInfo(taskId);
+  return { taskId, invoiceNumber: info.invoiceNumber, vehicleNumber: info.vehicleNumber };
+}
+
+export async function stopDriverTracking(telegramUserId: number): Promise<boolean> {
+  const result = await prisma.cargoTracking.updateMany({
+    where: { driverTelegramId: BigInt(telegramUserId), status: { in: [...OPEN_STATUSES] } },
+    data: { status: 'FINISHED', finishedAt: new Date() },
+  });
+  return result.count > 0;
+}
+
+// ---------- Joylashuv ----------
+
+export interface LocationUpdate {
+  telegramUserId: number;
+  lat: number;
+  lng: number;
+  /** Telegram xabarining asl yuborilgan vaqti (unix sekund) — jonli muddat shundan hisoblanadi */
+  messageDate: number;
+  livePeriod?: number;
+  now?: Date;
+}
+
+export type LocationResult = { ok: false } | { ok: true; firstFix: boolean; persisted: boolean };
+
+export async function recordDriverLocation(update: LocationUpdate): Promise<LocationResult> {
+  const now = update.now ?? new Date();
+  const tracking = await getDriverTracking(update.telegramUserId);
+  if (!tracking) return { ok: false };
+  const firstFix = tracking.lastLocationAt === null;
+  if (!firstFix && !shouldPersistLocation(tracking.lastLocationAt, now)) return { ok: true, firstFix: false, persisted: false };
+
+  const livePeriodEndsAt =
+    update.livePeriod && update.livePeriod > 0
+      ? new Date(update.messageDate * 1000 + Math.min(update.livePeriod, MAX_LIVE_PERIOD_SECONDS) * 1000)
+      : undefined;
+  await prisma.cargoTracking.update({
+    where: { id: tracking.id },
+    data: {
+      status: 'ACTIVE',
+      lastLat: update.lat,
+      lastLng: update.lng,
+      lastLocationAt: now,
+      lastAddress: null,
+      ...(livePeriodEndsAt ? { livePeriodEndsAt } : {}),
+    },
+  });
+  return { ok: true, firstFix, persisted: true };
+}
+
+// ---------- Guruh: "fura qayerda?" ----------
+
+export interface ActiveFura {
+  trackingId: number;
+  vehicleNumber: string | null;
+  invoiceNumber: string | null;
+}
+
+export async function listActiveFuras(clientId: number): Promise<ActiveFura[]> {
+  const rows = await prisma.cargoTracking.findMany({
+    where: { clientId, status: { in: [...OPEN_STATUSES] }, driverTelegramId: { not: null }, task: { status: { not: 'YAKUNLANDI' } } },
+    orderBy: { boundAt: 'desc' },
+    select: { id: true, taskId: true },
+  });
+  const furas: ActiveFura[] = [];
+  for (const row of rows) {
+    const info = await loadCargoInfo(row.taskId);
+    furas.push({ trackingId: row.id, vehicleNumber: info.vehicleNumber, invoiceNumber: info.invoiceNumber });
+  }
+  return furas;
+}
+
+export type WhereReply =
+  | { ok: false }
+  | { ok: true; text: string; location: { lat: number; lng: number } | null };
+
+/** Guruhga javob matni. Kuzatuv shu mijozga tegishli bo'lishi shart (boshqa guruh ko'ra olmaydi). Eskirgan bo'lsa haydovchidan qayta so'raydi. */
+export async function buildWhereReply(input: { clientId: number; trackingId: number; botToken: string; now?: Date }): Promise<WhereReply> {
+  const now = input.now ?? new Date();
+  const tracking = await prisma.cargoTracking.findFirst({
+    where: { id: input.trackingId, clientId: input.clientId, status: { in: [...OPEN_STATUSES] }, driverTelegramId: { not: null } },
+    select: { id: true, taskId: true, lastLat: true, lastLng: true, lastLocationAt: true, lastAddress: true, livePeriodEndsAt: true, lastPromptAt: true, driverChatId: true },
+  });
+  if (!tracking) return { ok: false };
+
+  const info = await loadCargoInfo(tracking.taskId);
+  let address = tracking.lastAddress;
+  const hasLocation = tracking.lastLat !== null && tracking.lastLng !== null && tracking.lastLocationAt !== null;
+  if (hasLocation && !address) {
+    address = await reverseGeocode(tracking.lastLat as number, tracking.lastLng as number);
+    if (address) await prisma.cargoTracking.update({ where: { id: tracking.id }, data: { lastAddress: address } });
+  }
+
+  const stale = !hasLocation || minutesBetween(tracking.lastLocationAt as Date, now) > STALE_AFTER_MINUTES;
+  if (stale && tracking.driverChatId !== null && needsDriverPrompt({ ...tracking, now })) {
+    await promptDriver(input.botToken, { id: tracking.id, driverChatId: tracking.driverChatId, lastLocationAt: tracking.lastLocationAt }, now);
+  }
+
+  const text = formatWhereMessage({
+    vehicleNumber: info.vehicleNumber,
+    invoiceNumber: info.invoiceNumber,
+    address,
+    lat: tracking.lastLat,
+    lng: tracking.lastLng,
+    lastLocationAt: tracking.lastLocationAt,
+    now,
+  });
+  return { ok: true, text, location: hasLocation ? { lat: tracking.lastLat as number, lng: tracking.lastLng as number } : null };
+}
+
+// ---------- Haydovchiga so'rov va soatlik ish ----------
+
+const PROMPT_STALE = "📍 Iltimos, joylashuvingizni yuboring: pastdagi tugmani bosing.\nJonli joylashuvni qayta yoqish uchun: 📎 → Joylashuv → «Jonli joylashuvni ulashish» → «Doimiy».";
+const PROMPT_ENDING = "⏳ Jonli joylashuvingiz tugayapti. Uni qayta yoqing: 📎 → Joylashuv → «Jonli joylashuvni ulashish» → «Doimiy».\nYoki pastdagi tugma bilan hozirgi joyingizni yuboring.";
+
+async function promptDriver(
+  botToken: string,
+  tracking: { id: number; driverChatId: bigint; lastLocationAt: Date | null },
+  now: Date
+): Promise<void> {
+  const stale = !tracking.lastLocationAt || minutesBetween(tracking.lastLocationAt, now) > STALE_AFTER_MINUTES;
+  const sent = await callTelegram<unknown>(botToken, 'sendMessage', {
+    chat_id: Number(tracking.driverChatId),
+    text: stale ? PROMPT_STALE : PROMPT_ENDING,
+    reply_markup: { keyboard: [[{ text: '📍 Joylashuvni yuborish', request_location: true }]], resize_keyboard: true, one_time_keyboard: true },
+  });
+  if (!sent.ok) console.error(`[CargoTracking] Haydovchiga so'rov yuborilmadi (kuzatuv ${tracking.id}):`, sent.description);
+  await prisma.cargoTracking.update({ where: { id: tracking.id }, data: { lastPromptAt: now } });
+}
+
+/**
+ * Soatlik ish: muddati o'tgan yoki yakunlangan yuk kuzatuvlarini yopadi, har bir faol kuzatuv uchun soatlik nuqta yozadi,
+ * eskirgan signalda haydovchidan joylashuv so'raydi va eski nuqtalarni tozalaydi.
+ */
+export async function runHourlyTrackingJob(botToken: string, now: Date = new Date()): Promise<void> {
+  await prisma.cargoTracking.updateMany({
+    where: {
+      status: { in: [...OPEN_STATUSES] },
+      OR: [{ createdAt: { lt: new Date(now.getTime() - TRACKING_LIFETIME_DAYS * DAY_MS) } }, { task: { status: 'YAKUNLANDI' } }],
+    },
+    data: { status: 'FINISHED', finishedAt: now },
+  });
+
+  const active = await prisma.cargoTracking.findMany({
+    where: { status: { in: [...OPEN_STATUSES] }, driverTelegramId: { not: null }, driverChatId: { not: null } },
+    select: { id: true, driverChatId: true, lastLat: true, lastLng: true, lastLocationAt: true, lastPromptAt: true, livePeriodEndsAt: true },
+  });
+  for (const tracking of active) {
+    try {
+      if (tracking.lastLat !== null && tracking.lastLng !== null && tracking.lastLocationAt && minutesBetween(tracking.lastLocationAt, now) <= SNAPSHOT_MAX_AGE_MINUTES) {
+        await prisma.cargoTrackingPoint.create({ data: { trackingId: tracking.id, lat: tracking.lastLat, lng: tracking.lastLng, recordedAt: now } });
+      }
+      if (tracking.driverChatId !== null && needsDriverPrompt({ ...tracking, now })) {
+        await promptDriver(botToken, { id: tracking.id, driverChatId: tracking.driverChatId, lastLocationAt: tracking.lastLocationAt }, now);
+      }
+    } catch (e) {
+      console.error(`[CargoTracking] Soatlik ish xatosi (kuzatuv ${tracking.id}):`, e instanceof Error ? e.message : e);
+    }
+  }
+
+  await prisma.cargoTrackingPoint.deleteMany({ where: { recordedAt: { lt: new Date(now.getTime() - POINT_RETENTION_DAYS * DAY_MS) } } });
+}

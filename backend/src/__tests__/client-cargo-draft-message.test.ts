@@ -181,11 +181,21 @@ describe('buildDraftKeyboard', () => {
     ]);
   });
 
-  it("COMPLETED va CANCELLED da tugma yo'q; callback_data 64 baytdan oshmaydi", () => {
-    expect(buildDraftKeyboard({ ...base, status: 'COMPLETED', complete: true })).toEqual([]);
+  it("COMPLETED da haydovchi kodi va fura tugmalari, CANCELLED da tugma yo'q", () => {
+    expect(buildDraftKeyboard({ ...base, status: 'COMPLETED', complete: true })).toEqual([
+      [
+        { text: '🔑 Haydovchi kodi', callback_data: 'trk:d:7' },
+        { text: '📍 Fura qayerda?', callback_data: 'trk:f' },
+      ],
+    ]);
     expect(buildDraftKeyboard({ ...base, status: 'CANCELLED', complete: true })).toEqual([]);
-    const all = buildDraftKeyboard({ ...base, draftId: 2147483647, status: 'OPEN', complete: true, confirmCancel: false }).flat();
-    for (const button of all) if ('callback_data' in button) expect(Buffer.byteLength(button.callback_data)).toBeLessThanOrEqual(64);
+  });
+
+  it('callback_data 64 baytdan oshmaydi', () => {
+    for (const status of ['OPEN', 'COMPLETED'] as const) {
+      const all = buildDraftKeyboard({ ...base, draftId: 2147483647, status, complete: true, confirmCancel: false }).flat();
+      for (const button of all) if ('callback_data' in button) expect(Buffer.byteLength(button.callback_data)).toBeLessThanOrEqual(64);
+    }
   });
 });
 

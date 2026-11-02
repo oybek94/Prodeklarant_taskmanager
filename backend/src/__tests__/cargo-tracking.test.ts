@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest';
 import {
   DRIVER_CODE_ALPHABET,
   DRIVER_CODE_LENGTH,
-  DRIVER_DOCUMENT_TYPES,
   createAttemptLimiter,
   findSingleMatchingTask,
   formatAge,
@@ -90,20 +89,13 @@ describe('parseCargoTrackingCallback', () => {
   });
 });
 
-describe('hujjat whitelist', () => {
-  it("OTHER yuborilmaydi", () => {
-    expect(DRIVER_DOCUMENT_TYPES).toEqual(expect.arrayContaining(['ST', 'CMR', 'TIR', 'FITO', 'INVOICE']));
-    expect(DRIVER_DOCUMENT_TYPES).not.toContain('OTHER');
-  });
-});
-
 describe('formatAge', () => {
   it('daqiqa, soat va kunni ifodalaydi', () => {
-    expect(formatAge(0)).toBe('hozirgina');
-    expect(formatAge(12)).toBe('12 daq oldin');
-    expect(formatAge(60)).toBe('1 soat oldin');
-    expect(formatAge(185)).toBe('3 soat 5 daq oldin');
-    expect(formatAge(60 * 49)).toBe('2 kun oldin');
+    expect(formatAge(0)).toBe('только что');
+    expect(formatAge(12)).toBe('12 мин назад');
+    expect(formatAge(60)).toBe('1 ч назад');
+    expect(formatAge(185)).toBe('3 ч 5 мин назад');
+    expect(formatAge(60 * 49)).toBe('2 дн. назад');
   });
 });
 
@@ -151,8 +143,8 @@ describe('formatWhereMessage', () => {
     expect(text).toContain('01A123BC');
     expect(text).toContain('INV-1');
     expect(text).toContain('Aktobe viloyati');
-    expect(text).toContain('12 daq oldin');
-    expect(text).not.toContain('eskirgan');
+    expect(text).toContain('12 мин назад');
+    expect(text).not.toContain('устарели');
   });
   it("signal 50 daqiqadan eski bo'lsa ogohlantiradi", () => {
     const text = formatWhereMessage({
@@ -164,13 +156,13 @@ describe('formatWhereMessage', () => {
       lastLocationAt: minutesAgo(200),
       now: NOW,
     });
-    expect(text).toContain('3 soat 20 daq oldin');
-    expect(text).toContain('eskirgan');
+    expect(text).toContain('3 ч 20 мин назад');
+    expect(text).toContain('устарели');
     expect(text).toContain('50.2800, 57.2000');
   });
   it("joylashuv hali kelmagan bo'lsa shuni aytadi", () => {
     const text = formatWhereMessage({ vehicleNumber: '01A123BC', invoiceNumber: null, address: null, lat: null, lng: null, lastLocationAt: null, now: NOW });
-    expect(text).toContain('hali joylashuv yubormagan');
+    expect(text).toContain('ещё не отправил местоположение');
   });
 });
 

@@ -254,8 +254,8 @@ describe('completeDraft va cancelDraft', () => {
     expect(editBody.reply_markup).toEqual({
       inline_keyboard: [
         [
-          { text: '🔑 Haydovchi kodi', callback_data: 'trk:d:41' },
-          { text: '📍 Fura qayerda?', callback_data: 'trk:f' },
+          { text: '🔑 Код водителя', callback_data: 'trk:d:41' },
+          { text: '📍 Где фура?', callback_data: 'trk:f' },
         ],
       ],
     });

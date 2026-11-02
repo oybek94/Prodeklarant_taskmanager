@@ -184,8 +184,8 @@ describe('buildDraftKeyboard', () => {
   it("COMPLETED da haydovchi kodi va fura tugmalari, CANCELLED da tugma yo'q", () => {
     expect(buildDraftKeyboard({ ...base, status: 'COMPLETED', complete: true })).toEqual([
       [
-        { text: '🔑 Haydovchi kodi', callback_data: 'trk:d:7' },
-        { text: '📍 Fura qayerda?', callback_data: 'trk:f' },
+        { text: '🔑 Код водителя', callback_data: 'trk:d:7' },
+        { text: '📍 Где фура?', callback_data: 'trk:f' },
       ],
     ]);
     expect(buildDraftKeyboard({ ...base, status: 'CANCELLED', complete: true })).toEqual([]);

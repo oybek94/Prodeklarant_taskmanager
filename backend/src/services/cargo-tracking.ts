@@ -6,9 +6,6 @@ import { randomBytes } from 'crypto';
 export const DRIVER_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 export const DRIVER_CODE_LENGTH = 6;
 
-/** Haydovchiga yuboriladigan hujjat turlari. OTHER/turi yo'q hujjatlar noaniq bo'lgani uchun yuborilmaydi. */
-export const DRIVER_DOCUMENT_TYPES = ['ST', 'CMR', 'TIR', 'FITO', 'INVOICE'] as const;
-
 /** Oxirgi signal shu daqiqadan eski bo'lsa "eskirgan" hisoblanadi va haydovchidan qayta so'raladi */
 export const STALE_AFTER_MINUTES = 50;
 /** Haydovchiga so'rov xabarlari orasidagi minimal masofa */
@@ -92,14 +89,14 @@ export function parseCargoTrackingCallback(data: string): CargoTrackingCallback 
 
 export function formatAge(minutes: number): string {
   const total = Math.max(0, Math.floor(minutes));
-  if (total < 1) return 'hozirgina';
-  if (total < 60) return `${total} daq oldin`;
+  if (total < 1) return 'только что';
+  if (total < 60) return `${total} мин назад`;
   if (total < 60 * 24) {
     const hours = Math.floor(total / 60);
     const rest = total % 60;
-    return rest === 0 ? `${hours} soat oldin` : `${hours} soat ${rest} daq oldin`;
+    return rest === 0 ? `${hours} ч назад` : `${hours} ч ${rest} мин назад`;
   }
-  return `${Math.floor(total / (60 * 24))} kun oldin`;
+  return `${Math.floor(total / (60 * 24))} дн. назад`;
 }
 
 export function minutesBetween(from: Date, to: Date): number {
@@ -144,7 +141,7 @@ function orDash(value: string | null | undefined): string {
   return trimmed ? trimmed : EMPTY_VALUE;
 }
 
-/** Guruhga "fura qayerda?" javobi (oddiy matn, parse_mode yo'q) */
+/** Guruhga "fura qayerda?" javobi: faqat rus tilida (oddiy matn, parse_mode yo'q) */
 export function formatWhereMessage(input: {
   vehicleNumber: string | null;
   invoiceNumber: string | null;
@@ -156,14 +153,14 @@ export function formatWhereMessage(input: {
 }): string {
   const head = `🚚 ${orDash(input.vehicleNumber)}${input.invoiceNumber?.trim() ? ` · ${input.invoiceNumber.trim()}` : ''}`;
   if (input.lat === null || input.lng === null || !input.lastLocationAt) {
-    return `${head}\nHaydovchi hali joylashuv yubormagan.`;
+    return `${head}\nВодитель ещё не отправил местоположение.`;
   }
   const age = minutesBetween(input.lastLocationAt, input.now);
   const lines = [head, `📍 ${input.address?.trim() || formatCoordinates(input.lat, input.lng)}`];
-  if (input.address?.trim()) lines.push(`Koordinata: ${formatCoordinates(input.lat, input.lng)}`);
-  lines.push(`Oxirgi yangilanish: ${formatAge(age)}`);
+  if (input.address?.trim()) lines.push(`Координаты: ${formatCoordinates(input.lat, input.lng)}`);
+  lines.push(`Последнее обновление: ${formatAge(age)}`);
   if (age > STALE_AFTER_MINUTES) {
-    lines.push("⚠️ Ma'lumot eskirgan. Haydovchidan joylashuv qayta so'raldi.");
+    lines.push('⚠️ Данные устарели. Местоположение у водителя запрошено повторно.');
   }
   return lines.join('\n');
 }

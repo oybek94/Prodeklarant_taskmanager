@@ -6,6 +6,7 @@ import {
   findSingleMatchingTask,
   formatAge,
   formatDriverCard,
+  formatDriverConnectedMessage,
   formatTaskPickLabel,
   formatWhereMessage,
   generateDriverCode,
@@ -176,6 +177,17 @@ describe('formatDriverCard', () => {
   it("bir nechta bojxona qatorini saqlaydi", () => {
     const text = formatDriverCard({ vehicleNumber: null, invoiceNumber: null, customsAddress: 'A\nB', destination: 'Moskva' });
     expect(text).toContain('A\nB');
+  });
+});
+
+describe('formatDriverConnectedMessage', () => {
+  it("rus tilida, avto raqami va invoys bilan", () => {
+    expect(formatDriverConnectedMessage({ vehicleNumber: '01A123BC', invoiceNumber: 'INV-1' })).toBe(
+      '✅ Водитель подключился к боту и отправил местоположение.\n🚚 01A123BC · INV-1'
+    );
+  });
+  it("invoys yo'q bo'lsa faqat avto, avto yo'q bo'lsa —", () => {
+    expect(formatDriverConnectedMessage({ vehicleNumber: null, invoiceNumber: null })).toContain('🚚 —');
   });
 });
 

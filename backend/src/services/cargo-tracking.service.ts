@@ -6,6 +6,7 @@ import {
   STALE_AFTER_MINUTES,
   findSingleMatchingTask,
   formatDriverCard,
+  formatDriverConnectedMessage,
   formatWhereMessage,
   generateDriverCode,
   isRecentTask,
@@ -274,31 +275,56 @@ export interface LocationUpdate {
   now?: Date;
 }
 
-export type LocationResult = { ok: false } | { ok: true; firstFix: boolean; persisted: boolean };
+export type LocationResult = { ok: false } | { ok: true; trackingId: number; firstFix: boolean; persisted: boolean };
 
 export async function recordDriverLocation(update: LocationUpdate): Promise<LocationResult> {
   const now = update.now ?? new Date();
   const tracking = await getDriverTracking(update.telegramUserId);
   if (!tracking) return { ok: false };
   const firstFix = tracking.lastLocationAt === null;
-  if (!firstFix && !shouldPersistLocation(tracking.lastLocationAt, now)) return { ok: true, firstFix: false, persisted: false };
+  if (!firstFix && !shouldPersistLocation(tracking.lastLocationAt, now)) return { ok: true, trackingId: tracking.id, firstFix: false, persisted: false };
 
   const livePeriodEndsAt =
     update.livePeriod && update.livePeriod > 0
       ? new Date(update.messageDate * 1000 + Math.min(update.livePeriod, MAX_LIVE_PERIOD_SECONDS) * 1000)
       : undefined;
-  await prisma.cargoTracking.update({
-    where: { id: tracking.id },
-    data: {
-      status: 'ACTIVE',
-      lastLat: update.lat,
-      lastLng: update.lng,
-      lastLocationAt: now,
-      lastAddress: null,
-      ...(livePeriodEndsAt ? { livePeriodEndsAt } : {}),
-    },
-  });
-  return { ok: true, firstFix, persisted: true };
+  const data = {
+    status: 'ACTIVE' as const,
+    lastLat: update.lat,
+    lastLng: update.lng,
+    lastLocationAt: now,
+    lastAddress: null,
+    ...(livePeriodEndsAt ? { livePeriodEndsAt } : {}),
+  };
+  if (firstFix) {
+    // Birinchi signalni faqat bitta yangilanish "yutadi" (boshlang'ich va tahrirlangan xabar bir vaqtda kelsa guruhga ikki marta yozilmasin)
+    const won = await prisma.cargoTracking.updateMany({ where: { id: tracking.id, lastLocationAt: null }, data });
+    if (won.count === 0) return { ok: true, trackingId: tracking.id, firstFix: false, persisted: false };
+    return { ok: true, trackingId: tracking.id, firstFix: true, persisted: true };
+  }
+  await prisma.cargoTracking.update({ where: { id: tracking.id }, data });
+  return { ok: true, trackingId: tracking.id, firstFix: false, persisted: true };
+}
+
+/** Haydovchi birinchi joylashuvini yuborganda mijoz guruhiga "haydovchi botga ulandi" deb yozadi. Xato bo'lsa kuzatuvga ta'sir qilmaydi. */
+export async function announceDriverConnected(botToken: string, trackingId: number): Promise<void> {
+  try {
+    const tracking = await prisma.cargoTracking.findUnique({
+      where: { id: trackingId },
+      select: { taskId: true, client: { select: { botGroupChatId: true } } },
+    });
+    const groupChatId = tracking?.client.botGroupChatId;
+    if (!tracking || !groupChatId) return;
+    const info = await loadCargoInfo(tracking.taskId);
+    const sent = await callTelegram<unknown>(botToken, 'sendMessage', {
+      chat_id: groupChatId,
+      text: formatDriverConnectedMessage({ vehicleNumber: info.vehicleNumber, invoiceNumber: info.invoiceNumber }),
+      reply_markup: { inline_keyboard: [[{ text: '📍 Где фура?', callback_data: 'trk:f' }]] },
+    });
+    if (!sent.ok) console.error(`[CargoTracking] Guruhga xabar yuborilmadi (kuzatuv ${trackingId}):`, sent.description);
+  } catch (e) {
+    console.error(`[CargoTracking] Guruhga xabar xatosi (kuzatuv ${trackingId}):`, e instanceof Error ? e.message : e);
+  }
 }
 
 // ---------- Guruh: "fura qayerda?" ----------

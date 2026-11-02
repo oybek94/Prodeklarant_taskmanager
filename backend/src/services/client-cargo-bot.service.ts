@@ -24,6 +24,7 @@ import {
   type CargoTrackingCallback,
 } from './cargo-tracking';
 import {
+  answerDriverFinish,
   bindDriverByCode,
   buildWhereReply,
   getDriverArchiveItem,
@@ -57,7 +58,7 @@ const DRIVER_HELP =
   "Bu bot haydovchilar uchun.\n\nYuk kodini yozing (6 ta harf/raqam, masalan K7M2QX). Kodni deklarant yoki mijoz beradi.\n\n/yuk — yuk ma'lumoti (bojxona, manzil)\n/hujjat — yuk hujjatlarini yuklab olish";
 
 const DRIVER_INSTRUCTIONS =
-  "📍 Joylashuvingizni ulashing: 📎 (qisqich) → Joylashuv → «Jonli joylashuvni ulashish» → «Doimiy». Pastdagi tugma bilan bir martalik joyingizni ham yuborishingiz mumkin.\n\nℹ️ Joylashuvingiz faqat shu yukning mijoz guruhida va Prodeklarant xodimlarida ko'rinadi. Bot kamida soatiga bir marta joylashuv so'raydi. Kuzatuv 14 kundan keyin o'zi to'xtaydi.";
+  "📍 Joylashuvingizni ulashing: 📎 (qisqich) → Joylashuv → «Jonli joylashuvni ulashish» → «Doimiy». Pastdagi tugma bilan bir martalik joyingizni ham yuborishingiz mumkin.\n\nℹ️ Joylashuvingiz faqat shu yukning mijoz guruhida va Prodeklarant xodimlarida ko'rinadi. Bot kamida soatiga bir marta joylashuv so'raydi. Ulanganingizdan 7 kun o'tgach bot yukni yakunlaganingizni so'raydi: «Ha» desangiz kuzatuv to'xtaydi. Aks holda kuzatuv 14 kundan keyin o'zi to'xtaydi.";
 
 const linkAttempts = new Map<number, { count: number; resetAt: number }>();
 
@@ -431,6 +432,27 @@ function registerHandlers(instance: TelegramBot, miniAppLink: string | undefined
     const chat = query.message?.chat;
     if (!chat) {
       await instance.answerCallbackQuery(query.id);
+      return;
+    }
+    if (action.kind === 'driver-finish') {
+      // Faqat shu kuzatuvga ulangan haydovchi, shaxsiy chatda javob bera oladi (answerDriverFinish tekshiradi)
+      const result = chat.type === 'private' ? await answerDriverFinish({ trackingId: action.trackingId, telegramUserId: query.from.id, finished: action.finished }) : { ok: false as const };
+      if (!result.ok) {
+        await instance.answerCallbackQuery(query.id, { text: 'Kuzatuv topilmadi yoki allaqachon tugagan.', show_alert: true });
+        return;
+      }
+      await instance.answerCallbackQuery(query.id);
+      const messageId = query.message?.message_id;
+      if (messageId !== undefined) {
+        await instance.editMessageReplyMarkup({ inline_keyboard: [] }, { chat_id: chat.id, message_id: messageId }).catch(() => undefined);
+      }
+      await instance.sendMessage(
+        chat.id,
+        result.finished
+          ? "Rahmat! Yuk yakunlandi, joylashuvni kuzatish to'xtatildi. Jonli joylashuvni Telegram'da ham o'chirib qo'ying."
+          : "Tushunarli, kuzatuv davom etadi. Yo'lingiz bexatar bo'lsin!",
+        { reply_markup: { remove_keyboard: true } }
+      );
       return;
     }
     if (action.kind === 'driver-info' || action.kind === 'driver-docs') {

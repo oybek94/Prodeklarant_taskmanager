@@ -15,6 +15,8 @@ export const STALE_AFTER_MINUTES = 50;
 export const PROMPT_MIN_GAP_MINUTES = 55;
 /** Jonli joylashuv shu daqiqa ichida tugasa haydovchiga eslatiladi */
 export const LIVE_ENDING_SOON_MINUTES = 60;
+/** Haydovchi ulanganidan shuncha kun o'tgach undan bir marta "yukni yakunladingizmi?" deb so'raladi */
+export const FINISH_ASK_AFTER_DAYS = 7;
 /** Joylashuv yangilanishlarini bazaga yozish oralig'i (Telegram har bir necha soniyada yuboradi) */
 export const LOCATION_WRITE_GAP_MS = 30_000;
 
@@ -64,6 +66,7 @@ export function parseStartPayload(text: string): string | null {
 
 export type CargoTrackingCallback =
   | { kind: 'where'; trackingId: number }
+  | { kind: 'driver-finish'; trackingId: number; finished: boolean }
   | { kind: 'where-all' }
   | { kind: 'issue-code'; taskId: number }
   | { kind: 'draft-code'; draftId: number }
@@ -72,11 +75,13 @@ export type CargoTrackingCallback =
 
 const POSITIVE_INT = /^[1-9]\d{0,9}$/;
 
-/** callback_data: `trk:w:<kuzatuv>` fura qayerda, `trk:f` guruhdagi barcha furalar, `trk:k:<yuk>` kod olish, `trk:d:<qoralama>` qoralama bo'yicha kod, `drv:*` haydovchi tugmalari */
+/** callback_data: `drv:fy|fn:<kuzatuv>` haydovchining "yuk yakunlandimi?" javobi, `trk:w:<kuzatuv>` fura qayerda, `trk:f` guruhdagi barcha furalar, `trk:k:<yuk>` kod olish, `trk:d:<qoralama>` qoralama bo'yicha kod, `drv:*` haydovchi tugmalari */
 export function parseCargoTrackingCallback(data: string): CargoTrackingCallback | null {
   if (data === 'drv:info') return { kind: 'driver-info' };
   if (data === 'drv:docs') return { kind: 'driver-docs' };
   if (data === 'trk:f') return { kind: 'where-all' };
+  const finish = /^drv:f([yn]):(.+)$/.exec(data);
+  if (finish) return POSITIVE_INT.test(finish[2]) ? { kind: 'driver-finish', trackingId: Number(finish[2]), finished: finish[1] === 'y' } : null;
   const match = /^trk:([wkd]):(.+)$/.exec(data);
   if (!match || !POSITIVE_INT.test(match[2])) return null;
   const id = Number(match[2]);
@@ -118,6 +123,12 @@ export function needsDriverPrompt(input: {
   const stale = !lastLocationAt || minutesBetween(lastLocationAt, now) > STALE_AFTER_MINUTES;
   const liveEndingSoon = !!livePeriodEndsAt && minutesBetween(now, livePeriodEndsAt) < LIVE_ENDING_SOON_MINUTES;
   return stale || liveEndingSoon;
+}
+
+/** Soatlik ish: haydovchidan "yukni yakunladingizmi?" deb so'rash vaqti keldimi (ulanganidan 7 kun o'tgan, hali so'ralmagan) */
+export function needsFinishQuestion(input: { boundAt: Date | null; finishAskedAt: Date | null; now: Date }): boolean {
+  if (!input.boundAt || input.finishAskedAt) return false;
+  return input.now.getTime() - input.boundAt.getTime() >= FINISH_ASK_AFTER_DAYS * 24 * 3600_000;
 }
 
 export function formatCoordinates(lat: number, lng: number): string {

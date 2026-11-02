@@ -11,6 +11,7 @@ import {
   isRecentTask,
   minutesBetween,
   needsDriverPrompt,
+  needsFinishQuestion,
   normalizeDriverCode,
   recentTaskCutoff,
   shouldPersistLocation,
@@ -113,6 +114,7 @@ export async function issueDriverCode(input: {
           lastLocationAt: null,
           livePeriodEndsAt: null,
           lastPromptAt: null,
+          finishAskedAt: null,
           lastAddress: null,
           finishedAt: null,
         },
@@ -359,6 +361,26 @@ export async function buildWhereReply(input: { clientId: number; trackingId: num
   return { ok: true, text, location: hasLocation ? { lat: tracking.lastLat as number, lng: tracking.lastLng as number } : null };
 }
 
+// ---------- Kuzatuvni yopish ----------
+
+/** Yopilgan kuzatuv: holat FINISHED va oxirgi joylashuv bazadan o'chiriladi (maxfiylik); soatlik nuqtalar POINT_RETENTION_DAYS gacha qoladi */
+function closedTrackingData(now: Date) {
+  return { status: 'FINISHED' as const, finishedAt: now, lastLat: null, lastLng: null, lastAddress: null, lastLocationAt: null, livePeriodEndsAt: null };
+}
+
+export type FinishAnswerResult = { ok: false } | { ok: true; finished: boolean };
+
+/** Haydovchining "yukni yakunladingizmi?" javobi: Ha — kuzatuv yopiladi, Yo'q — davom etadi. Faqat shu kuzatuvga ulangan haydovchi javob bera oladi. */
+export async function answerDriverFinish(input: { trackingId: number; telegramUserId: number; finished: boolean; now?: Date }): Promise<FinishAnswerResult> {
+  const where = { id: input.trackingId, driverTelegramId: BigInt(input.telegramUserId), status: { in: [...OPEN_STATUSES] } };
+  if (!input.finished) {
+    const open = await prisma.cargoTracking.findFirst({ where, select: { id: true } });
+    return open ? { ok: true, finished: false } : { ok: false };
+  }
+  const result = await prisma.cargoTracking.updateMany({ where, data: closedTrackingData(input.now ?? new Date()) });
+  return result.count === 1 ? { ok: true, finished: true } : { ok: false };
+}
+
 // ---------- Haydovchiga so'rov va soatlik ish ----------
 
 const PROMPT_STALE = "📍 Iltimos, joylashuvingizni yuboring: pastdagi tugmani bosing.\nJonli joylashuvni qayta yoqish uchun: 📎 → Joylashuv → «Jonli joylashuvni ulashish» → «Doimiy».";
@@ -379,6 +401,26 @@ async function promptDriver(
   await prisma.cargoTracking.update({ where: { id: tracking.id }, data: { lastPromptAt: now } });
 }
 
+const FINISH_QUESTION =
+  "Yukni yakunladingizmi? (Yuk manzilga yetib borib, topshirildimi?)\n\n«Ha» desangiz joylashuvni kuzatish to'xtaydi, «Yo'q» desangiz davom etadi.";
+
+/** Haydovchidan bir marta "yukni yakunladingizmi?" deb so'raydi; yuborilgandagina so'ralgan vaqt yoziladi (xato bo'lsa keyingi soatda qayta urinadi) */
+async function askDriverFinished(botToken: string, tracking: { id: number; driverChatId: bigint }, now: Date): Promise<boolean> {
+  const sent = await callTelegram<unknown>(botToken, 'sendMessage', {
+    chat_id: Number(tracking.driverChatId),
+    text: FINISH_QUESTION,
+    reply_markup: {
+      inline_keyboard: [[{ text: '✅ Ha, yakunladim', callback_data: `drv:fy:${tracking.id}` }, { text: "❌ Yo'q, davom etyapti", callback_data: `drv:fn:${tracking.id}` }]],
+    },
+  });
+  if (!sent.ok) {
+    console.error(`[CargoTracking] Yakunlash savoli yuborilmadi (kuzatuv ${tracking.id}):`, sent.description);
+    return false;
+  }
+  await prisma.cargoTracking.update({ where: { id: tracking.id }, data: { finishAskedAt: now } });
+  return true;
+}
+
 /**
  * Soatlik ish: 14 kundan oshgan kuzatuvlarni yopadi (yuk statusiga qaramasdan), har bir faol kuzatuv uchun soatlik nuqta yozadi,
  * eskirgan signalda haydovchidan joylashuv so'raydi va eski nuqtalarni tozalaydi.
@@ -386,17 +428,21 @@ async function promptDriver(
 export async function runHourlyTrackingJob(botToken: string, now: Date = new Date()): Promise<void> {
   await prisma.cargoTracking.updateMany({
     where: { status: { in: [...OPEN_STATUSES] }, createdAt: { lt: new Date(now.getTime() - TRACKING_LIFETIME_DAYS * DAY_MS) } },
-    data: { status: 'FINISHED', finishedAt: now },
+    data: closedTrackingData(now),
   });
 
   const active = await prisma.cargoTracking.findMany({
     where: { status: { in: [...OPEN_STATUSES] }, driverTelegramId: { not: null }, driverChatId: { not: null } },
-    select: { id: true, driverChatId: true, lastLat: true, lastLng: true, lastLocationAt: true, lastPromptAt: true, livePeriodEndsAt: true },
+    select: { id: true, driverChatId: true, boundAt: true, finishAskedAt: true, lastLat: true, lastLng: true, lastLocationAt: true, lastPromptAt: true, livePeriodEndsAt: true },
   });
   for (const tracking of active) {
     try {
       if (tracking.lastLat !== null && tracking.lastLng !== null && tracking.lastLocationAt && minutesBetween(tracking.lastLocationAt, now) <= SNAPSHOT_MAX_AGE_MINUTES) {
         await prisma.cargoTrackingPoint.create({ data: { trackingId: tracking.id, lat: tracking.lastLat, lng: tracking.lastLng, recordedAt: now } });
+      }
+      // Ulanganidan 7 kun o'tgach bir marta so'raladi; shu soatda savol yuborilsa joylashuv so'rovi qoldiriladi
+      if (tracking.driverChatId !== null && needsFinishQuestion({ boundAt: tracking.boundAt, finishAskedAt: tracking.finishAskedAt, now })) {
+        if (await askDriverFinished(botToken, { id: tracking.id, driverChatId: tracking.driverChatId }, now)) continue;
       }
       if (tracking.driverChatId !== null && needsDriverPrompt({ ...tracking, now })) {
         await promptDriver(botToken, { id: tracking.id, driverChatId: tracking.driverChatId, lastLocationAt: tracking.lastLocationAt }, now);

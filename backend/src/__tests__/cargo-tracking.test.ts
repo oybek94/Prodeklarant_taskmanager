@@ -12,6 +12,7 @@ import {
   generateDriverCode,
   isDriverCodeShape,
   isRecentTask,
+  needsFinishQuestion,
   needsDriverPrompt,
   normalizeDriverCode,
   normalizeInvoiceNumber,
@@ -70,6 +71,12 @@ describe('parseCargoTrackingCallback', () => {
   it('guruhdagi barcha furalar va qoralama bo\'yicha kod', () => {
     expect(parseCargoTrackingCallback('trk:f')).toEqual({ kind: 'where-all' });
     expect(parseCargoTrackingCallback('trk:d:7')).toEqual({ kind: 'draft-code', draftId: 7 });
+  });
+  it('haydovchining "yuk yakunlandimi?" javobi', () => {
+    expect(parseCargoTrackingCallback('drv:fy:12')).toEqual({ kind: 'driver-finish', trackingId: 12, finished: true });
+    expect(parseCargoTrackingCallback('drv:fn:12')).toEqual({ kind: 'driver-finish', trackingId: 12, finished: false });
+    expect(parseCargoTrackingCallback('drv:fy:abc')).toBeNull();
+    expect(parseCargoTrackingCallback('drv:fx:1')).toBeNull();
   });
   it('haydovchi tugmalari', () => {
     expect(parseCargoTrackingCallback('drv:info')).toEqual({ kind: 'driver-info' });
@@ -195,6 +202,21 @@ describe('findSingleMatchingTask', () => {
   });
   it("qoralamada invoys yoki avto bo'sh bo'lsa moslamaydi", () => {
     expect(findSingleMatchingTask({ invoiceNumber: 'INV-10', vehicleNumber: null }, candidates)).toBeNull();
+  });
+});
+
+describe('needsFinishQuestion', () => {
+  const day = 24 * 3600_000;
+  it("ulanganidan 7 kun o'tgach, hali so'ralmagan bo'lsa so'raydi", () => {
+    expect(needsFinishQuestion({ boundAt: new Date(NOW.getTime() - 7 * day), finishAskedAt: null, now: NOW })).toBe(true);
+    expect(needsFinishQuestion({ boundAt: new Date(NOW.getTime() - 10 * day), finishAskedAt: null, now: NOW })).toBe(true);
+  });
+  it("7 kun to'lmagan bo'lsa so'ramaydi", () => {
+    expect(needsFinishQuestion({ boundAt: new Date(NOW.getTime() - 6 * day), finishAskedAt: null, now: NOW })).toBe(false);
+  });
+  it("bir marta so'ralgan bo'lsa yoki haydovchi ulanmagan bo'lsa qayta so'ramaydi", () => {
+    expect(needsFinishQuestion({ boundAt: new Date(NOW.getTime() - 8 * day), finishAskedAt: NOW, now: NOW })).toBe(false);
+    expect(needsFinishQuestion({ boundAt: null, finishAskedAt: null, now: NOW })).toBe(false);
   });
 });
 

@@ -542,7 +542,7 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
               </div>
             </div>
 
-            {selectedTask.status !== 'YAKUNLANDI' && user && ['ADMIN', 'DEKLARANT', 'MANAGER', 'SELLER'].includes(user.role) && (
+            {user && ['ADMIN', 'DEKLARANT', 'MANAGER', 'SELLER'].includes(user.role) && (
               <DriverCodeCard taskId={selectedTask.id} />
             )}
           </div>

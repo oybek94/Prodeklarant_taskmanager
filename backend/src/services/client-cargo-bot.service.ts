@@ -17,6 +17,7 @@ import {
 import {
   DRIVER_DOCUMENT_TYPES,
   createAttemptLimiter,
+  formatTaskPickLabel,
   isDriverCodeShape,
   parseCargoTrackingCallback,
   parseStartPayload,
@@ -30,11 +31,10 @@ import {
   getDriverTracking,
   issueDriverCode,
   listActiveFuras,
-  listClientOpenTasks,
-  matchDraftToOpenTask,
+  listClientRecentTasks,
+  matchDraftToRecentTask,
   recordDriverLocation,
   runHourlyTrackingJob,
-  stopDriverTracking,
 } from './cargo-tracking.service';
 
 // Mijozlar uchun yuk ma'lumotlari boti. Forma Telegram Mini App'da to'ldiriladi (frontend: pages/TgCargo.tsx,
@@ -54,10 +54,10 @@ const LINK_ATTEMPT_WINDOW_MS = 60 * 60 * 1000;
 const driverCodeLimiter = createAttemptLimiter({ limit: 5, windowMs: 60 * 60 * 1000 });
 
 const DRIVER_HELP =
-  "Bu bot haydovchilar uchun.\n\nYuk kodini yozing (6 ta harf/raqam, masalan K7M2QX). Kodni deklarant yoki mijoz beradi.\n\n/yuk — yuk ma'lumoti (bojxona, manzil)\n/hujjat — yuk hujjatlarini yuklab olish\n/stop — joylashuvni kuzatishni to'xtatish";
+  "Bu bot haydovchilar uchun.\n\nYuk kodini yozing (6 ta harf/raqam, masalan K7M2QX). Kodni deklarant yoki mijoz beradi.\n\n/yuk — yuk ma'lumoti (bojxona, manzil)\n/hujjat — yuk hujjatlarini yuklab olish";
 
 const DRIVER_INSTRUCTIONS =
-  "📍 Joylashuvingizni ulashing: 📎 (qisqich) → Joylashuv → «Jonli joylashuvni ulashish» → «Doimiy». Pastdagi tugma bilan bir martalik joyingizni ham yuborishingiz mumkin.\n\nℹ️ Joylashuvingiz faqat shu yukning mijoz guruhida va Prodeklarant xodimlarida ko'rinadi. Bot kamida soatiga bir marta joylashuv so'raydi. To'xtatish: /stop";
+  "📍 Joylashuvingizni ulashing: 📎 (qisqich) → Joylashuv → «Jonli joylashuvni ulashish» → «Doimiy». Pastdagi tugma bilan bir martalik joyingizni ham yuborishingiz mumkin.\n\nℹ️ Joylashuvingiz faqat shu yukning mijoz guruhida va Prodeklarant xodimlarida ko'rinadi. Bot kamida soatiga bir marta joylashuv so'raydi. Kuzatuv 14 kundan keyin o'zi to'xtaydi.";
 
 const linkAttempts = new Map<number, { count: number; resetAt: number }>();
 
@@ -346,17 +346,6 @@ function registerHandlers(instance: TelegramBot, miniAppLink: string | undefined
   );
   instance.onText(/^\/yuk(?:@\w+)?\s*$/, runPrivate('/yuk', (msg, from) => sendDriverInfo(msg.chat.id, from.id)));
   instance.onText(/^\/hujjat(?:@\w+)?\s*$/, runPrivate('/hujjat', (msg, from) => sendDriverDocuments(msg.chat.id, from.id)));
-  instance.onText(
-    /^\/stop(?:@\w+)?\s*$/,
-    runPrivate('/stop', async (msg, from) => {
-      const stopped = await stopDriverTracking(from.id);
-      await instance.sendMessage(
-        msg.chat.id,
-        stopped ? "Kuzatuv to'xtatildi. Jonli joylashuvni Telegram'da ham o'chirib qo'ying. Yangi yuk uchun yangi kod kerak bo'ladi." : 'Faol yuk topilmadi.',
-        { reply_markup: { remove_keyboard: true } }
-      );
-    })
-  );
 
   instance.on('location', (msg) => void handleDriverLocation(msg, false));
   instance.on('edited_message', (msg) => void handleDriverLocation(msg, true));
@@ -372,7 +361,7 @@ function registerHandlers(instance: TelegramBot, miniAppLink: string | undefined
   const sendCodeToGroup = async (chatId: number, clientId: number, taskId: number): Promise<void> => {
     const result = await issueDriverCode({ taskId, clientId, createdVia: 'CLIENT_GROUP', regenerate: false });
     if (!result.ok) {
-      await instance.sendMessage(chatId, result.reason === 'TASK_FINISHED' ? 'Bu yuk yakunlangan.' : 'Yuk topilmadi.');
+      await instance.sendMessage(chatId, result.reason === 'TASK_TOO_OLD' ? "Bu yuk 72 soatdan oldin yaratilgan. Kodni deklarantdan oling." : 'Yuk topilmadi.');
       return;
     }
     const username = await botUsername();
@@ -383,15 +372,15 @@ function registerHandlers(instance: TelegramBot, miniAppLink: string | undefined
   };
 
   const sendTaskPicker = async (chatId: number, clientId: number): Promise<void> => {
-    const tasks = await listClientOpenTasks(clientId);
+    const tasks = await listClientRecentTasks(clientId);
     if (tasks.length === 0) {
-      await instance.sendMessage(chatId, "Ochiq yuk topilmadi. Yuk Prodeklarant'da ochilgach, kodni shu yerdan olasiz.");
+      await instance.sendMessage(chatId, "Oxirgi 72 soatda yaratilgan yuk topilmadi. Eskiroq yuk uchun kodni deklarantdan oling.");
       return;
     }
     const keyboard = tasks.map((task) => [
-      { text: truncateButtonText(`${task.hasCode ? '✅ ' : '🔑 '}${formatArchiveLabel(task)}`), callback_data: `trk:k:${task.taskId}` },
+      { text: truncateButtonText(`${task.hasCode ? '✅ ' : '🔑 '}${formatTaskPickLabel(task)}`), callback_data: `trk:k:${task.taskId}` },
     ]);
-    await instance.sendMessage(chatId, 'Qaysi yuk uchun haydovchi kodi kerak? (✅ — kod avval berilgan)', { reply_markup: { inline_keyboard: keyboard } });
+    await instance.sendMessage(chatId, 'Oxirgi 72 soatda yaratilgan yuklar. Qaysi yuk uchun haydovchi kodi kerak? (✅ — kod avval berilgan)', { reply_markup: { inline_keyboard: keyboard } });
   };
 
   const sendWhere = async (chatId: number, clientId: number, trackingId: number): Promise<void> => {
@@ -462,7 +451,7 @@ function registerHandlers(instance: TelegramBot, miniAppLink: string | undefined
     else if (action.kind === 'issue-code') await sendCodeToGroup(chat.id, clientId, action.taskId);
     else {
       const draft = await getDraft({ clientId, chatId: String(chat.id) }, action.draftId);
-      const taskId = draft ? await matchDraftToOpenTask(clientId, draft.data.header) : null;
+      const taskId = draft ? await matchDraftToRecentTask(clientId, draft.data.header) : null;
       if (taskId) await sendCodeToGroup(chat.id, clientId, taskId);
       else await sendTaskPicker(chat.id, clientId);
     }
@@ -626,7 +615,6 @@ export const initClientCargoBot = () => {
       [
         { command: 'yuk', description: "Yuk ma'lumoti (bojxona, manzil)" },
         { command: 'hujjat', description: 'Yuk hujjatlarini yuklab olish' },
-        { command: 'stop', description: "Joylashuvni kuzatishni to'xtatish" },
       ],
       { scope: { type: 'all_private_chats' } }
     )

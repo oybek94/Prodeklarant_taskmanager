@@ -18,7 +18,24 @@ export const LIVE_ENDING_SOON_MINUTES = 60;
 /** Joylashuv yangilanishlarini bazaga yozish oralig'i (Telegram har bir necha soniyada yuboradi) */
 export const LOCATION_WRITE_GAP_MS = 30_000;
 
+/** Mijoz guruhidan haydovchi kodi faqat shu soat ichida yaratilgan yuklar uchun olinadi (statusi ahamiyatsiz) */
+export const RECENT_TASK_HOURS = 72;
+
 const EMPTY_VALUE = '—';
+
+export function recentTaskCutoff(now: Date): Date {
+  return new Date(now.getTime() - RECENT_TASK_HOURS * 3600_000);
+}
+
+export function isRecentTask(createdAt: Date, now: Date): boolean {
+  return createdAt.getTime() >= recentTaskCutoff(now).getTime();
+}
+
+/** Tugma matni: "INV | AVTO"; invoys ham, avto ham hali yo'q bo'lsa yuk nomi */
+export function formatTaskPickLabel(item: { invoiceNumber: string | null; vehicleNumber: string | null; title: string }): string {
+  if (!item.invoiceNumber?.trim() && !item.vehicleNumber?.trim()) return item.title.trim() || EMPTY_VALUE;
+  return `${orDash(item.invoiceNumber)} | ${orDash(item.vehicleNumber)}`;
+}
 
 export function generateDriverCode(): string {
   const bytes = randomBytes(DRIVER_CODE_LENGTH);

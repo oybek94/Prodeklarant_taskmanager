@@ -1098,6 +1098,7 @@ model CargoTracking {
   lastLocationAt   DateTime?
   livePeriodEndsAt DateTime?
   lastPromptAt     DateTime?
+  finishAskedAt    DateTime?
   lastAddress      String?
   createdById      Int?
   createdVia       CargoTrackingCreatedVia

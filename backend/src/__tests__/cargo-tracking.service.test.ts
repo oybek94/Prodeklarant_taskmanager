@@ -35,6 +35,7 @@ vi.mock('../services/telegram-bot-api', () => ({ callTelegram: m.callTelegram })
 vi.mock('../services/geocode', () => ({ reverseGeocode: m.reverseGeocode }));
 
 import {
+  answerDriverFinish,
   bindDriverByCode,
   buildWhereReply,
   issueDriverCode,
@@ -95,7 +96,7 @@ describe('issueDriverCode', () => {
     const result = await issueDriverCode({ taskId: 5, createdVia: 'STAFF', createdById: 3, regenerate: true });
     expect(result.ok && result.reused).toBe(false);
     const args = m.trackingUpsert.mock.calls[0][0];
-    expect(args.update).toMatchObject({ status: 'WAITING', driverTelegramId: null, lastLat: null });
+    expect(args.update).toMatchObject({ status: 'WAITING', driverTelegramId: null, lastLat: null, finishAskedAt: null });
     expect(args.create).toMatchObject({ taskId: 5, clientId: 2, createdVia: 'STAFF', createdById: 3 });
     expect(m.pointDeleteMany).toHaveBeenCalledWith({ where: { trackingId: 9 } });
   });
@@ -224,6 +225,8 @@ describe('runHourlyTrackingJob', () => {
   const active = (over: Record<string, unknown> = {}) => ({
     id: 4,
     driverChatId: BigInt(10),
+    boundAt: minutesAgo(24 * 60),
+    finishAskedAt: null,
     lastLat: 50.28,
     lastLng: 57.2,
     lastLocationAt: minutesAgo(10),
@@ -240,7 +243,16 @@ describe('runHourlyTrackingJob', () => {
     // faqat 14 kundan keyin avtomatik to'xtaydi; yuk statusi (YAKUNLANDI ham) kuzatuvni yopmaydi
     expect(where.createdAt).toEqual({ lt: new Date(NOW.getTime() - 14 * 24 * 3600 * 1000) });
     expect(JSON.stringify(where)).not.toContain('YAKUNLANDI');
-    expect(m.trackingUpdateMany.mock.calls[0][0].data).toMatchObject({ status: 'FINISHED' });
+    // yopilganda oxirgi joylashuv o'chiriladi
+    expect(m.trackingUpdateMany.mock.calls[0][0].data).toEqual({
+      status: 'FINISHED',
+      finishedAt: NOW,
+      lastLat: null,
+      lastLng: null,
+      lastAddress: null,
+      lastLocationAt: null,
+      livePeriodEndsAt: null,
+    });
     expect(m.pointDeleteMany).toHaveBeenCalledWith({ where: { recordedAt: { lt: new Date(NOW.getTime() - 30 * 24 * 3600 * 1000) } } });
   });
 
@@ -262,6 +274,34 @@ describe('runHourlyTrackingJob', () => {
     expect(m.trackingUpdate).toHaveBeenCalledWith({ where: { id: 4 }, data: { lastPromptAt: NOW } });
   });
 
+  it("ulanganidan 7 kun o'tgach bir marta 'yakunladingizmi?' deb so'raydi va joylashuv so'rovini shu soatga qoldiradi", async () => {
+    m.trackingUpdateMany.mockResolvedValue({ count: 0 });
+    m.trackingFindMany.mockResolvedValue([active({ boundAt: minutesAgo(7 * 24 * 60 + 5), lastLocationAt: minutesAgo(200) })]);
+    await runHourlyTrackingJob('tok', NOW);
+    expect(m.callTelegram).toHaveBeenCalledTimes(1);
+    const body = m.callTelegram.mock.calls[0][2];
+    expect(body.chat_id).toBe(10);
+    expect(body.reply_markup.inline_keyboard[0].map((b: { callback_data: string }) => b.callback_data)).toEqual(['drv:fy:4', 'drv:fn:4']);
+    expect(m.trackingUpdate).toHaveBeenCalledWith({ where: { id: 4 }, data: { finishAskedAt: NOW } });
+    expect(m.trackingUpdate).not.toHaveBeenCalledWith({ where: { id: 4 }, data: { lastPromptAt: NOW } });
+  });
+
+  it("allaqachon so'ralgan bo'lsa qayta so'ramaydi", async () => {
+    m.trackingUpdateMany.mockResolvedValue({ count: 0 });
+    m.trackingFindMany.mockResolvedValue([active({ boundAt: minutesAgo(9 * 24 * 60), finishAskedAt: minutesAgo(60) })]);
+    await runHourlyTrackingJob('tok', NOW);
+    expect(m.callTelegram).not.toHaveBeenCalled();
+  });
+
+  it("savol yuborilmasa so'ralgan vaqt yozilmaydi (keyingi soatda qayta urinadi)", async () => {
+    m.trackingUpdateMany.mockResolvedValue({ count: 0 });
+    m.trackingFindMany.mockResolvedValue([active({ boundAt: minutesAgo(8 * 24 * 60) })]);
+    m.callTelegram.mockResolvedValue({ ok: false, description: 'Forbidden' });
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    await runHourlyTrackingJob('tok', NOW);
+    expect(m.trackingUpdate).not.toHaveBeenCalledWith({ where: { id: 4 }, data: { finishAskedAt: NOW } });
+  });
+
   it("bir kuzatuvdagi xato qolganlarni to'xtatmaydi", async () => {
     m.trackingUpdateMany.mockResolvedValue({ count: 0 });
     m.trackingFindMany.mockResolvedValue([active({ id: 1 }), active({ id: 2 })]);
@@ -269,5 +309,32 @@ describe('runHourlyTrackingJob', () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
     await runHourlyTrackingJob('t', NOW);
     expect(m.pointCreate).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('answerDriverFinish', () => {
+  it("'Ha' — kuzatuvni yopadi va oxirgi joylashuvni o'chiradi; faqat shu haydovchi uchun", async () => {
+    m.trackingUpdateMany.mockResolvedValue({ count: 1 });
+    expect(await answerDriverFinish({ trackingId: 4, telegramUserId: 10, finished: true, now: NOW })).toEqual({ ok: true, finished: true });
+    const args = m.trackingUpdateMany.mock.calls[0][0];
+    expect(args.where).toMatchObject({ id: 4, driverTelegramId: BigInt(10) });
+    expect(args.data).toEqual({ status: 'FINISHED', finishedAt: NOW, lastLat: null, lastLng: null, lastAddress: null, lastLocationAt: null, livePeriodEndsAt: null });
+  });
+
+  it("boshqa haydovchi yoki allaqachon yopilgan kuzatuvga javob bera olmaydi", async () => {
+    m.trackingUpdateMany.mockResolvedValue({ count: 0 });
+    expect(await answerDriverFinish({ trackingId: 4, telegramUserId: 99, finished: true })).toEqual({ ok: false });
+  });
+
+  it("'Yo'q' — hech narsa o'zgarmaydi, kuzatuv davom etadi", async () => {
+    m.trackingFindFirst.mockResolvedValue({ id: 4 });
+    expect(await answerDriverFinish({ trackingId: 4, telegramUserId: 10, finished: false })).toEqual({ ok: true, finished: false });
+    expect(m.trackingUpdateMany).not.toHaveBeenCalled();
+    expect(m.trackingUpdate).not.toHaveBeenCalled();
+  });
+
+  it("'Yo'q' deb boshqa haydovchi javob bersa rad etiladi", async () => {
+    m.trackingFindFirst.mockResolvedValue(null);
+    expect(await answerDriverFinish({ trackingId: 4, telegramUserId: 99, finished: false })).toEqual({ ok: false });
   });
 });

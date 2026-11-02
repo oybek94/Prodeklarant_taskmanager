@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import type { DocumentType } from '@prisma/client';
 import { prisma } from '../prisma';
 
 // Yuk botidagi /arxiv: mijozning yakunlangan yuklari ro'yxati va tanlangan yukning hujjatlari.
@@ -45,7 +46,7 @@ export interface TaskFiles {
   documentCount: number;
 }
 
-function readVehicleNumber(additionalInfo: unknown): string | null {
+export function readVehicleNumber(additionalInfo: unknown): string | null {
   if (typeof additionalInfo !== 'object' || additionalInfo === null || Array.isArray(additionalInfo)) return null;
   const value = (additionalInfo as Record<string, unknown>).vehicleNumber;
   return typeof value === 'string' && value.trim() !== '' ? value.trim() : null;
@@ -139,16 +140,24 @@ function resolveUploadPath(fileUrl: string): string | null {
 }
 
 /** Yuk hujjatlarini o'qiydi. Yakunlangan yukda hujjatlar ArchiveDocument'da; bo'sh bo'lsa TaskDocument'dan olinadi. */
-export async function loadTaskFiles(item: ArchiveTaskItem): Promise<TaskFiles> {
-  const archived = await prisma.archiveDocument.findMany({
-    where: { taskId: item.taskId },
-    orderBy: { id: 'asc' },
-    select: { name: true, fileUrl: true },
-  });
+export async function loadTaskFiles(item: ArchiveTaskItem, options: { documentTypes?: readonly DocumentType[] } = {}): Promise<TaskFiles> {
+  // Hujjat turi filtri berilsa (haydovchi) — faqat shu turlar; ArchiveDocument'da tur bo'lmasa ham TaskDocument'dan olinadi
+  const typeFilter = options.documentTypes ? { documentType: { in: [...options.documentTypes] } } : {};
+  const archived = options.documentTypes
+    ? []
+    : await prisma.archiveDocument.findMany({
+        where: { taskId: item.taskId },
+        orderBy: { id: 'asc' },
+        select: { name: true, fileUrl: true },
+      });
   const docs =
     archived.length > 0
       ? archived
-      : await prisma.taskDocument.findMany({ where: { taskId: item.taskId }, orderBy: { id: 'asc' }, select: { name: true, fileUrl: true } });
+      : await prisma.taskDocument.findMany({
+          where: { taskId: item.taskId, ...typeFilter },
+          orderBy: { id: 'asc' },
+          select: { name: true, fileUrl: true },
+        });
 
   const files: ArchiveFile[] = [];
   const skipped: string[] = [];

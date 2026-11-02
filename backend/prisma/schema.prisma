@@ -128,6 +128,7 @@ model Client {
   botLinkCodeExpiresAt       DateTime?
   botProducts                ClientBotProduct[]
   cargoDrafts                ClientCargoDraft[]
+  cargoTrackings             CargoTracking[]
   serviceAgreements          ServiceAgreement[]
   contracts                  Contract[]
   invoices                   Invoice[]
@@ -265,6 +266,7 @@ model Task {
   afterHoursPayer                            AfterHoursPayer      @default(CLIENT)
   aiChecks                                   AiCheck[]
   invoice                                    Invoice?
+  cargoTracking                              CargoTracking?
   kpiLogs                                    KpiLog[]
   clientAssignmentBonus                      ClientAssignmentBonus?
   structuredDocuments                        StructuredDocument[]
@@ -1068,6 +1070,60 @@ model ClientCargoDraft {
 
   @@index([clientId, status, updatedAt])
   @@index([chatId, status])
+}
+
+enum CargoTrackingStatus {
+  WAITING
+  ACTIVE
+  FINISHED
+}
+
+enum CargoTrackingCreatedVia {
+  STAFF
+  CLIENT_GROUP
+}
+
+// Haydovchi boti: yukka (Task) bog'langan qisqa kod, haydovchi Telegram hisobi va oxirgi joylashuv. Mantiq: services/cargo-tracking*.ts
+model CargoTracking {
+  id               Int                     @id @default(autoincrement())
+  taskId           Int                     @unique
+  clientId         Int
+  code             String                  @unique
+  status           CargoTrackingStatus     @default(WAITING)
+  driverTelegramId BigInt?
+  driverChatId     BigInt?
+  boundAt          DateTime?
+  lastLat          Float?
+  lastLng          Float?
+  lastLocationAt   DateTime?
+  livePeriodEndsAt DateTime?
+  lastPromptAt     DateTime?
+  lastAddress      String?
+  createdById      Int?
+  createdVia       CargoTrackingCreatedVia
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+  finishedAt       DateTime?
+  task             Task                    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  client           Client                  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  points           CargoTrackingPoint[]
+
+  @@index([clientId, status])
+  @@index([driverTelegramId, status])
+  @@index([status])
+}
+
+// Soatlik joylashuv nuqtalari (marshrut tarixi); 30 kundan keyin tozalanadi
+model CargoTrackingPoint {
+  id         Int           @id @default(autoincrement())
+  trackingId Int
+  lat        Float
+  lng        Float
+  recordedAt DateTime      @default(now())
+  tracking   CargoTracking @relation(fields: [trackingId], references: [id], onDelete: Cascade)
+
+  @@index([trackingId, recordedAt])
+  @@index([recordedAt])
 }
 
 model Contract {

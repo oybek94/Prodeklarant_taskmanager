@@ -515,7 +515,6 @@ export default function TgCargo() {
   const baseRef = useRef<FormSnapshot>(initialSnapshot);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState('');
-  const [keyboardOpen, setKeyboardOpen] = useState(false);
   const [plateCyrillicWarning, setPlateCyrillicWarning] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -786,15 +785,9 @@ export default function TgCargo() {
       data-theme={scheme}
       onFocusCapture={(e) => {
         if (!isEditable(e.target)) return;
-        // Klaviatura ochilganda pastdagi tugma yozilayotgan maydonni yopib qo'ymasin
-        setKeyboardOpen(true);
+        // Saqlash tugmasi doim ko'rinadi; yozilayotgan maydon uning ostida qolib ketmasin
         const el = e.target as HTMLElement;
         window.setTimeout(() => el.scrollIntoView({ block: 'center', behavior: 'smooth' }), 320);
-      }}
-      onBlurCapture={() => {
-        window.setTimeout(() => {
-          if (!isEditable(document.activeElement ?? document.body)) setKeyboardOpen(false);
-        }, 150);
       }}
     >
       {children}
@@ -1141,7 +1134,7 @@ export default function TgCargo() {
       </div>
 
       {contractChosen && (
-        <div className={keyboardOpen ? 'tgc-bar tgc-bar-hidden' : 'tgc-bar'}>
+        <div className="tgc-bar">
           <div className="tgc-bar-inner">
             {formError && <div className="tgc-banner" role="alert">{formError}</div>}
             <button type="button" className="tgc-send" disabled={sending || filledCount === 0} onClick={save}>

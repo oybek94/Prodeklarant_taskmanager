@@ -1032,6 +1032,18 @@ model ClientBotProduct {
   @@index([clientId])
 }
 
+// Yuk ma'lumotlari botida shartnoma bo'yicha qo'lda yozilgan "Место назначения" (faqat shu shartnomada tanlov bo'lib chiqadi)
+model ClientBotDestination {
+  id         Int      @id @default(autoincrement())
+  contractId Int
+  name       String
+  createdAt  DateTime @default(now())
+  contract   Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+
+  @@unique([contractId, name])
+  @@index([contractId])
+}
+
 enum ClientCargoDraftStatus {
   OPEN
   COMPLETED
@@ -1134,6 +1146,7 @@ model Contract {
   files                          Json?     @default("[]")
   client                         Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
   invoices                       Invoice[]
+  botDestinations                ClientBotDestination[]
 
   @@index([clientId])
   @@index([contractNumber])

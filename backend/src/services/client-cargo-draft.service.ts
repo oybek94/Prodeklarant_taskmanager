@@ -12,7 +12,7 @@ import {
   type MissingField,
 } from './client-cargo-draft';
 import { buildDraftKeyboard, draftLabel, formatDraftMessage, type DraftMessageContext, type DraftStatus } from './client-cargo-draft-message';
-import { rememberProduct, shipmentPlaceOf } from './client-cargo-miniapp.service';
+import { rememberDestination, rememberProduct, shipmentPlaceOf } from './client-cargo-miniapp.service';
 import type { FieldErrors } from './client-cargo-miniapp';
 
 // Yuk arizasi (qoralama) servisi: bazaga yozish (versiya bo'yicha optimistik), guruhdagi jonli xabarni yuborish/tahrirlash.
@@ -386,6 +386,11 @@ export async function completeDraft(scope: DraftScope, id: number, actor: DraftA
           } catch (e) {
             console.error('[ClientCargoDraft] Mahsulot nomini saqlashda xatolik:', e instanceof Error ? e.message : e);
           }
+        }
+        try {
+          await rememberDestination(scope.clientId, parsed.data.contractId, parsed.data.header.destination);
+        } catch (e) {
+          console.error('[ClientCargoDraft] Место назначения saqlashda xatolik:', e instanceof Error ? e.message : e);
         }
       },
     }

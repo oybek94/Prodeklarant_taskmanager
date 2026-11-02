@@ -9,6 +9,7 @@ import { FieldErrors, SubmitBody, validateFormFields } from './client-cargo-mini
 const MEMBERSHIP_CACHE_TTL_MS = 5 * 60 * 1000;
 const MAX_CONTRACTS = 100;
 const MAX_PRODUCTS = 200;
+const MAX_DESTINATIONS = 100;
 
 const membershipCache = new Map<string, number>();
 
@@ -71,11 +72,18 @@ async function lastInvoicesByContract(contractIds: number[]): Promise<Map<number
   return result;
 }
 
+/** Shartnomadagi variantlar birinchi, ularga qo'shimcha ravishda mijoz oldin qo'lda yozganlari (takrorlarsiz) */
+function mergeDestinations(fromContract: string[], saved: string[]): string[] {
+  const seen = new Set(fromContract.map((d) => d.toLowerCase()));
+  const extra = saved.filter((d) => !seen.has(d.toLowerCase()));
+  return [...fromContract, ...extra];
+}
+
 export async function getCargoContext(clientId: number): Promise<CargoContext | null> {
   const client = await prisma.client.findUnique({ where: { id: clientId }, select: { name: true } });
   if (!client) return null;
 
-  const [contracts, products, branches, packagingTypes] = await Promise.all([
+  const [contracts, products, savedDestinations, branches, packagingTypes] = await Promise.all([
     prisma.contract.findMany({
       where: { clientId },
       orderBy: { contractDate: 'desc' },
@@ -91,6 +99,7 @@ export async function getCargoContext(clientId: number): Promise<CargoContext | 
       },
     }),
     prisma.clientBotProduct.findMany({ where: { clientId }, orderBy: { name: 'asc' }, take: MAX_PRODUCTS, select: { name: true } }),
+    prisma.clientBotDestination.findMany({ where: { contract: { clientId } }, orderBy: { name: 'asc' }, take: MAX_DESTINATIONS, select: { contractId: true, name: true } }),
     prisma.branch.findMany({ where: { isActive: true }, orderBy: { name: 'asc' }, select: { id: true, name: true, regionText: true } }),
     prisma.packagingType.findMany({ orderBy: [{ orderIndex: 'asc' }, { id: 'asc' }], select: { name: true } }),
   ]);
@@ -109,7 +118,10 @@ export async function getCargoContext(clientId: number): Promise<CargoContext | 
         currency: c.contractCurrency,
         cities: splitContractLines(c.deliveryTerms).map((o) => ({ text: o.text, pairedCustoms: customsByIndex.get(o.rawIndex) ?? null })),
         customs: customsLines.map((o) => o.text),
-        destinations: splitContractLines(c.destinationPlaces).map((o) => o.text),
+        destinations: mergeDestinations(
+          splitContractLines(c.destinationPlaces).map((o) => o.text),
+          savedDestinations.filter((d) => d.contractId === c.id).map((d) => d.name)
+        ),
         lastInvoice: lastInvoices.get(c.id) ?? null,
       };
     }),
@@ -127,6 +139,25 @@ export async function rememberProduct(clientId: number, name: string): Promise<v
   if (existing) return;
   try {
     await prisma.clientBotProduct.create({ data: { clientId, name } });
+  } catch (e) {
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') return;
+    throw e;
+  }
+}
+
+/** Qo'lda yozilgan "Место назначения" ni faqat shu shartnoma uchun eslab qoladi */
+export async function rememberDestination(clientId: number, contractId: number | null | undefined, rawName: string | null | undefined): Promise<void> {
+  const name = rawName?.trim() ?? '';
+  if (!contractId || !name) return;
+  const contract = await prisma.contract.findFirst({ where: { id: contractId, clientId }, select: { id: true } });
+  if (!contract) return;
+  const existing = await prisma.clientBotDestination.findFirst({
+    where: { contractId, name: { equals: name, mode: 'insensitive' } },
+    select: { id: true },
+  });
+  if (existing) return;
+  try {
+    await prisma.clientBotDestination.create({ data: { contractId, name } });
   } catch (e) {
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') return;
     throw e;
@@ -179,6 +210,11 @@ export async function submitCargo(params: { botToken: string; clientId: number; 
     } catch (e) {
       console.error('[ClientCargoMiniApp] Mahsulot nomini saqlashda xatolik:', e instanceof Error ? e.message : e);
     }
+  }
+  try {
+    await rememberDestination(clientId, body.contractId, header.destination);
+  } catch (e) {
+    console.error('[ClientCargoMiniApp] Место назначения saqlashda xatolik:', e instanceof Error ? e.message : e);
   }
   return { ok: true };
 }

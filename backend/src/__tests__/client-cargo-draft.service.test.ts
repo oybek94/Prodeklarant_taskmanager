@@ -15,6 +15,7 @@ const m = vi.hoisted(() => ({
   packagingFindMany: vi.fn(),
   callTelegram: vi.fn(),
   rememberProduct: vi.fn(),
+  rememberDestination: vi.fn(),
 }));
 
 vi.mock('../prisma', () => ({
@@ -36,6 +37,7 @@ vi.mock('../prisma', () => ({
 vi.mock('../services/telegram-bot-api', () => ({ callTelegram: m.callTelegram }));
 vi.mock('../services/client-cargo-miniapp.service', () => ({
   rememberProduct: m.rememberProduct,
+  rememberDestination: m.rememberDestination,
   shipmentPlaceOf: (b: { name: string; regionText: string | null }) => b.regionText?.trim() || b.name,
 }));
 
@@ -54,9 +56,9 @@ const actor = { tgUserId: 10, name: 'Aziz' };
 const vali = { tgUserId: 11, name: 'Vali' };
 
 const completeData = () => ({
-  contractId: null,
+  contractId: 5,
   branchId: 3,
-  header: { deliveryTerms: 'Москва', customsPlace: 'Ташкент' },
+  header: { deliveryTerms: 'Москва', customsPlace: 'Ташкент', destination: 'Самара' },
   items: [{ uid: 'u1', fields: { product: 'Яблоки', boxCount: '10', netto: '100', brutto: '110' }, bruttoManual: false }],
 });
 const emptyData = () => ({ contractId: null, branchId: null, header: {}, items: [] });
@@ -243,6 +245,7 @@ describe('completeDraft va cancelDraft', () => {
     expect(first.ok).toBe(true);
     expect(m.draftUpdateMany.mock.calls[0][0].data).toMatchObject({ status: 'COMPLETED', completedByName: 'Aziz' });
     expect(m.rememberProduct).toHaveBeenCalledWith(1, 'Яблоки');
+    expect(m.rememberDestination).toHaveBeenCalledWith(1, 5, 'Самара');
     const editBody = m.callTelegram.mock.calls[0][2];
     expect(m.callTelegram.mock.calls[0][1]).toBe('editMessageText');
     expect(editBody.text).toContain('✅ <b>Данные о грузе — полные</b>');

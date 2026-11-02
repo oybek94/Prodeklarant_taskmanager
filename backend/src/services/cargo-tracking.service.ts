@@ -8,9 +8,11 @@ import {
   formatDriverCard,
   formatWhereMessage,
   generateDriverCode,
+  isRecentTask,
   minutesBetween,
   needsDriverPrompt,
   normalizeDriverCode,
+  recentTaskCutoff,
   shouldPersistLocation,
   type TaskMatchCandidate,
 } from './cargo-tracking';
@@ -18,13 +20,14 @@ import { reverseGeocode } from './geocode';
 
 // Haydovchi boti: Prisma + Telegram bilan ishlaydigan qism. Sof mantiq: cargo-tracking.ts
 
-const TRACKING_LIFETIME_DAYS = 15;
+/** Kod berilgandan 14 kun o'tgach kuzatuv avtomatik to'xtaydi (soatlik ish). Qo'lda to'xtatish tugmasi yo'q. */
+const TRACKING_LIFETIME_DAYS = 14;
 const POINT_RETENTION_DAYS = 30;
 /** Soatlik nuqta uchun oxirgi signal shu daqiqadan eski bo'lmasligi kerak */
 const SNAPSHOT_MAX_AGE_MINUTES = 90;
 const MAX_LIVE_PERIOD_SECONDS = 30 * 24 * 3600;
 const CODE_RETRIES = 5;
-const OPEN_TASKS_LIMIT = 10;
+const RECENT_TASKS_LIMIT = 20;
 const DAY_MS = 24 * 3600 * 1000;
 
 const OPEN_STATUSES = ['WAITING', 'ACTIVE'] as const;
@@ -62,12 +65,14 @@ async function loadCargoInfo(taskId: number): Promise<CargoInfo> {
 
 // ---------- Kod berish (xodim yoki mijoz guruhi) ----------
 
-export type IssueCodeResult = { ok: true; code: string; reused: boolean } | { ok: false; reason: 'TASK_NOT_FOUND' | 'TASK_FINISHED' };
+export type IssueCodeResult = { ok: true; code: string; reused: boolean } | { ok: false; reason: 'TASK_NOT_FOUND' | 'TASK_TOO_OLD' };
 
 /**
  * Yukka haydovchi kodi beradi. `regenerate: true` (xodim "Yangi kod") kodni almashtiradi va haydovchi ulanishini
  * tozalaydi; false (mijoz guruhi) faol kod bo'lsa uni o'zgartirmay qaytaradi — guruh a'zosi tasodifan kuzatuvni buzmasligi uchun.
- * `clientId` berilsa yuk shu mijozga tegishli bo'lishi shart.
+ * `clientId` berilsa yuk shu mijozga tegishli bo'lishi shart. Mijoz guruhi (CLIENT_GROUP) faqat oxirgi 72 soatda
+ * yaratilgan yuklar uchun kod oladi; xodim (STAFF) uchun yosh cheklovi yo'q. Yuk statusi hech qachon to'sqinlik qilmaydi
+ * (hujjatlar tugagach ham fura yo'lda bo'ladi).
  */
 export async function issueDriverCode(input: {
   taskId: number;
@@ -78,10 +83,10 @@ export async function issueDriverCode(input: {
 }): Promise<IssueCodeResult> {
   const task = await prisma.task.findFirst({
     where: { id: input.taskId, ...(input.clientId !== undefined ? { clientId: input.clientId } : {}) },
-    select: { id: true, clientId: true, status: true },
+    select: { id: true, clientId: true, createdAt: true },
   });
   if (!task) return { ok: false, reason: 'TASK_NOT_FOUND' };
-  if (task.status === 'YAKUNLANDI') return { ok: false, reason: 'TASK_FINISHED' };
+  if (input.createdVia === 'CLIENT_GROUP' && !isRecentTask(task.createdAt, new Date())) return { ok: false, reason: 'TASK_TOO_OLD' };
 
   if (!input.regenerate) {
     const existing = await prisma.cargoTracking.findUnique({ where: { taskId: task.id }, select: { code: true, status: true } });
@@ -158,32 +163,36 @@ export async function revokeDriverCode(taskId: number): Promise<boolean> {
 
 // ---------- Mijoz guruhi: kod olish uchun yuklar ro'yxati ----------
 
-export interface OpenTaskItem extends TaskMatchCandidate {
+export interface RecentTaskItem extends TaskMatchCandidate {
+  title: string;
   hasCode: boolean;
 }
 
-export async function listClientOpenTasks(clientId: number, limit = OPEN_TASKS_LIMIT): Promise<OpenTaskItem[]> {
+/** Mijozning oxirgi 72 soatda yaratilgan yuklari (statusi ahamiyatsiz), yangisi birinchi */
+export async function listClientRecentTasks(clientId: number, limit = RECENT_TASKS_LIMIT): Promise<RecentTaskItem[]> {
   const tasks = await prisma.task.findMany({
-    where: { clientId, status: { not: 'YAKUNLANDI' } },
+    where: { clientId, createdAt: { gte: recentTaskCutoff(new Date()) } },
     orderBy: { id: 'desc' },
     take: limit,
     select: {
       id: true,
+      title: true,
       invoice: { select: { invoiceNumber: true, additionalInfo: true } },
       cargoTracking: { select: { status: true } },
     },
   });
   return tasks.map((t) => ({
     taskId: t.id,
+    title: t.title,
     invoiceNumber: t.invoice?.invoiceNumber ?? null,
     vehicleNumber: readVehicleNumber(t.invoice?.additionalInfo),
     hasCode: !!t.cargoTracking && t.cargoTracking.status !== 'FINISHED',
   }));
 }
 
-/** Qoralamadagi invoys va avto raqami aynan bitta ochiq yukka mos kelsa uning ID'si */
-export async function matchDraftToOpenTask(clientId: number, header: { invoiceNumber?: string; vehicleNumber?: string }): Promise<number | null> {
-  const tasks = await listClientOpenTasks(clientId, 50);
+/** Qoralamadagi invoys va avto raqami aynan bitta yaqin (72 soat) yukka mos kelsa uning ID'si */
+export async function matchDraftToRecentTask(clientId: number, header: { invoiceNumber?: string; vehicleNumber?: string }): Promise<number | null> {
+  const tasks = await listClientRecentTasks(clientId, 50);
   return findSingleMatchingTask({ invoiceNumber: header.invoiceNumber, vehicleNumber: header.vehicleNumber }, tasks);
 }
 
@@ -197,7 +206,7 @@ export async function bindDriverByCode(input: { code: string; telegramUserId: nu
   const code = normalizeDriverCode(input.code);
   const expiresBefore = new Date(Date.now() - TRACKING_LIFETIME_DAYS * DAY_MS);
   const tracking = await prisma.cargoTracking.findFirst({
-    where: { code, status: { in: [...OPEN_STATUSES] }, createdAt: { gt: expiresBefore }, task: { status: { not: 'YAKUNLANDI' } } },
+    where: { code, status: { in: [...OPEN_STATUSES] }, createdAt: { gt: expiresBefore } },
     select: { id: true, taskId: true, driverTelegramId: true },
   });
   if (!tracking) return { ok: false, reason: 'INVALID' };
@@ -235,7 +244,7 @@ export type DriverTracking = Prisma.CargoTrackingGetPayload<{ select: typeof dri
 /** Haydovchining hozirgi (tugamagan) yuki; bir nechta bo'lsa eng oxirgi ulangani */
 export async function getDriverTracking(telegramUserId: number): Promise<DriverTracking | null> {
   return prisma.cargoTracking.findFirst({
-    where: { driverTelegramId: BigInt(telegramUserId), status: { in: [...OPEN_STATUSES] }, task: { status: { not: 'YAKUNLANDI' } } },
+    where: { driverTelegramId: BigInt(telegramUserId), status: { in: [...OPEN_STATUSES] } },
     orderBy: { boundAt: 'desc' },
     select: driverTrackingSelect,
   });
@@ -249,14 +258,6 @@ export async function getDriverCardText(taskId: number): Promise<string> {
 export async function getDriverArchiveItem(taskId: number): Promise<ArchiveTaskItem> {
   const info = await loadCargoInfo(taskId);
   return { taskId, invoiceNumber: info.invoiceNumber, vehicleNumber: info.vehicleNumber };
-}
-
-export async function stopDriverTracking(telegramUserId: number): Promise<boolean> {
-  const result = await prisma.cargoTracking.updateMany({
-    where: { driverTelegramId: BigInt(telegramUserId), status: { in: [...OPEN_STATUSES] } },
-    data: { status: 'FINISHED', finishedAt: new Date() },
-  });
-  return result.count > 0;
 }
 
 // ---------- Joylashuv ----------
@@ -308,7 +309,7 @@ export interface ActiveFura {
 
 export async function listActiveFuras(clientId: number): Promise<ActiveFura[]> {
   const rows = await prisma.cargoTracking.findMany({
-    where: { clientId, status: { in: [...OPEN_STATUSES] }, driverTelegramId: { not: null }, task: { status: { not: 'YAKUNLANDI' } } },
+    where: { clientId, status: { in: [...OPEN_STATUSES] }, driverTelegramId: { not: null } },
     orderBy: { boundAt: 'desc' },
     select: { id: true, taskId: true },
   });
@@ -379,15 +380,12 @@ async function promptDriver(
 }
 
 /**
- * Soatlik ish: muddati o'tgan yoki yakunlangan yuk kuzatuvlarini yopadi, har bir faol kuzatuv uchun soatlik nuqta yozadi,
+ * Soatlik ish: 14 kundan oshgan kuzatuvlarni yopadi (yuk statusiga qaramasdan), har bir faol kuzatuv uchun soatlik nuqta yozadi,
  * eskirgan signalda haydovchidan joylashuv so'raydi va eski nuqtalarni tozalaydi.
  */
 export async function runHourlyTrackingJob(botToken: string, now: Date = new Date()): Promise<void> {
   await prisma.cargoTracking.updateMany({
-    where: {
-      status: { in: [...OPEN_STATUSES] },
-      OR: [{ createdAt: { lt: new Date(now.getTime() - TRACKING_LIFETIME_DAYS * DAY_MS) } }, { task: { status: 'YAKUNLANDI' } }],
-    },
+    where: { status: { in: [...OPEN_STATUSES] }, createdAt: { lt: new Date(now.getTime() - TRACKING_LIFETIME_DAYS * DAY_MS) } },
     data: { status: 'FINISHED', finishedAt: now },
   });
 

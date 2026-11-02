@@ -7,15 +7,18 @@ import {
   findSingleMatchingTask,
   formatAge,
   formatDriverCard,
+  formatTaskPickLabel,
   formatWhereMessage,
   generateDriverCode,
   isDriverCodeShape,
+  isRecentTask,
   needsDriverPrompt,
   normalizeDriverCode,
   normalizeInvoiceNumber,
   normalizeVehicleNumber,
   parseCargoTrackingCallback,
   parseStartPayload,
+  recentTaskCutoff,
   shouldPersistLocation,
 } from '../services/cargo-tracking';
 
@@ -192,6 +195,24 @@ describe('findSingleMatchingTask', () => {
   });
   it("qoralamada invoys yoki avto bo'sh bo'lsa moslamaydi", () => {
     expect(findSingleMatchingTask({ invoiceNumber: 'INV-10', vehicleNumber: null }, candidates)).toBeNull();
+  });
+});
+
+describe('72 soatlik oyna', () => {
+  it("72 soat ichida yaratilgan yuk yaqin hisoblanadi, statusga qaramasdan", () => {
+    expect(isRecentTask(new Date(NOW.getTime() - 71 * 3600_000), NOW)).toBe(true);
+    expect(isRecentTask(new Date(NOW.getTime() - 72 * 3600_000), NOW)).toBe(true);
+    expect(isRecentTask(new Date(NOW.getTime() - 72 * 3600_000 - 1000), NOW)).toBe(false);
+    expect(recentTaskCutoff(NOW).getTime()).toBe(NOW.getTime() - 72 * 3600_000);
+  });
+});
+
+describe('formatTaskPickLabel', () => {
+  it('invoys va avto bo\'lsa "INV | AVTO"', () => {
+    expect(formatTaskPickLabel({ invoiceNumber: 'INV-1', vehicleNumber: null, title: 'Yuk A' })).toBe('INV-1 | —');
+  });
+  it("hech biri yo'q bo'lsa yuk nomi", () => {
+    expect(formatTaskPickLabel({ invoiceNumber: ' ', vehicleNumber: null, title: 'Olma, Rossiya' })).toBe('Olma, Rossiya');
   });
 });
 

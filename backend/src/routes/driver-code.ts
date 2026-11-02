@@ -22,11 +22,7 @@ router.post('/:id/driver-code', requireAuth(...STAFF), async (req: AuthRequest, 
   const params = paramsSchema.safeParse(req.params);
   if (!params.success) return res.status(404).json({ error: 'Not found' });
   const result = await issueDriverCode({ taskId: params.data.id, createdById: req.user?.id ?? null, createdVia: 'STAFF', regenerate: true });
-  if (!result.ok) {
-    return result.reason === 'TASK_FINISHED'
-      ? res.status(409).json({ error: 'Yuk yakunlangan — haydovchi kodi berilmaydi' })
-      : res.status(404).json({ error: 'Not found' });
-  }
+  if (!result.ok) return res.status(404).json({ error: 'Not found' });
   res.set('Cache-Control', 'no-store');
   res.json({ code: result.code });
 });

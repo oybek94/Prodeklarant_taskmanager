@@ -62,20 +62,35 @@ describe('issueDriverCode', () => {
     expect(m.trackingUpsert).not.toHaveBeenCalled();
   });
 
-  it('yakunlangan yukka kod bermaydi', async () => {
-    m.taskFindFirst.mockResolvedValue({ id: 5, clientId: 2, status: 'YAKUNLANDI' });
-    expect(await issueDriverCode({ taskId: 5, createdVia: 'STAFF', regenerate: true })).toEqual({ ok: false, reason: 'TASK_FINISHED' });
+  it("mijoz guruhi 72 soatdan eski yukka kod bermaydi", async () => {
+    m.taskFindFirst.mockResolvedValue({ id: 5, clientId: 2, createdAt: new Date(Date.now() - 73 * 3600_000) });
+    expect(await issueDriverCode({ taskId: 5, clientId: 2, createdVia: 'CLIENT_GROUP', regenerate: false })).toEqual({ ok: false, reason: 'TASK_TOO_OLD' });
+    expect(m.trackingUpsert).not.toHaveBeenCalled();
+  });
+
+  it("mijoz guruhi 72 soat ichidagi yukka kod beradi (status so'ralmaydi)", async () => {
+    m.taskFindFirst.mockResolvedValue({ id: 5, clientId: 2, createdAt: new Date(Date.now() - 71 * 3600_000) });
+    m.trackingFindUnique.mockResolvedValue(null);
+    m.trackingUpsert.mockResolvedValue({ id: 9 });
+    expect((await issueDriverCode({ taskId: 5, clientId: 2, createdVia: 'CLIENT_GROUP', regenerate: false })).ok).toBe(true);
+    expect(m.taskFindFirst.mock.calls[0][0].select).not.toHaveProperty('status');
+  });
+
+  it("xodim eski yoki yakunlangan yukka ham kod bera oladi", async () => {
+    m.taskFindFirst.mockResolvedValue({ id: 5, clientId: 2, createdAt: new Date('2026-01-01') });
+    m.trackingUpsert.mockResolvedValue({ id: 9 });
+    expect((await issueDriverCode({ taskId: 5, createdVia: 'STAFF', regenerate: true })).ok).toBe(true);
   });
 
   it("guruhdan (regenerate: false) faol kod bo'lsa uni o'zgartirmaydi", async () => {
-    m.taskFindFirst.mockResolvedValue({ id: 5, clientId: 2, status: 'JARAYONDA' });
+    m.taskFindFirst.mockResolvedValue({ id: 5, clientId: 2, createdAt: new Date() });
     m.trackingFindUnique.mockResolvedValue({ code: 'K7M2QX', status: 'ACTIVE' });
     expect(await issueDriverCode({ taskId: 5, clientId: 2, createdVia: 'CLIENT_GROUP', regenerate: false })).toEqual({ ok: true, code: 'K7M2QX', reused: true });
     expect(m.trackingUpsert).not.toHaveBeenCalled();
   });
 
   it("xodim (regenerate: true) yangi kod beradi va haydovchi ulanishini tozalaydi", async () => {
-    m.taskFindFirst.mockResolvedValue({ id: 5, clientId: 2, status: 'JARAYONDA' });
+    m.taskFindFirst.mockResolvedValue({ id: 5, clientId: 2, createdAt: new Date() });
     m.trackingUpsert.mockResolvedValue({ id: 9 });
     const result = await issueDriverCode({ taskId: 5, createdVia: 'STAFF', createdById: 3, regenerate: true });
     expect(result.ok && result.reused).toBe(false);
@@ -98,6 +113,15 @@ describe('bindDriverByCode', () => {
     expect(await bindDriverByCode({ code: 'k7m-2qx', telegramUserId: 10, chatId: 10 })).toEqual({ ok: true, trackingId: 4, taskId: 8, alreadyBound: false });
     expect(m.trackingFindFirst.mock.calls[0][0].where.code).toBe('K7M2QX');
     expect(m.trackingUpdateMany.mock.calls[0][0].where).toEqual({ id: 4, driverTelegramId: null });
+  });
+
+  it("14 kundan eski kodni qabul qilmaydi", async () => {
+    m.trackingFindFirst.mockResolvedValue(null);
+    const before = Date.now();
+    await bindDriverByCode({ code: 'K7M2QX', telegramUserId: 10, chatId: 10 });
+    const limit = m.trackingFindFirst.mock.calls[0][0].where.createdAt.gt as Date;
+    expect(before - limit.getTime()).toBeGreaterThanOrEqual(14 * 24 * 3600 * 1000);
+    expect(before - limit.getTime()).toBeLessThan(14 * 24 * 3600 * 1000 + 5000);
   });
 
   it("boshqa Telegram hisobi allaqachon ulangan kodni ishlata olmaydi", async () => {
@@ -208,12 +232,14 @@ describe('runHourlyTrackingJob', () => {
     ...over,
   });
 
-  it("muddati o'tgan yoki yakunlangan yuk kuzatuvlarini yopadi, eski nuqtalarni tozalaydi", async () => {
+  it("14 kundan oshgan kuzatuvlarni yopadi, eski nuqtalarni tozalaydi", async () => {
     m.trackingFindMany.mockResolvedValue([]);
     m.trackingUpdateMany.mockResolvedValue({ count: 0 });
     await runHourlyTrackingJob('t', NOW);
     const where = m.trackingUpdateMany.mock.calls[0][0].where;
-    expect(where.OR).toEqual(expect.arrayContaining([{ task: { status: 'YAKUNLANDI' } }]));
+    // faqat 14 kundan keyin avtomatik to'xtaydi; yuk statusi (YAKUNLANDI ham) kuzatuvni yopmaydi
+    expect(where.createdAt).toEqual({ lt: new Date(NOW.getTime() - 14 * 24 * 3600 * 1000) });
+    expect(JSON.stringify(where)).not.toContain('YAKUNLANDI');
     expect(m.trackingUpdateMany.mock.calls[0][0].data).toMatchObject({ status: 'FINISHED' });
     expect(m.pointDeleteMany).toHaveBeenCalledWith({ where: { recordedAt: { lt: new Date(NOW.getTime() - 30 * 24 * 3600 * 1000) } } });
   });

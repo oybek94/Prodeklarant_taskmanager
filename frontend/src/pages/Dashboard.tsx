@@ -2,6 +2,7 @@ import { useState, useMemo, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useIsMobile } from '../utils/useIsMobile';
 import DashboardNotes from '../components/dashboard/DashboardNotes';
+import DashboardFumigation from '../components/dashboard/DashboardFumigation';
 import { UnratedErrorsModal } from '../components/dashboard/UnratedErrorsModal';
 import { useDashboardStats } from '../hooks/useDashboardStats';
 
@@ -78,6 +79,8 @@ const Dashboard = () => {
             <DashboardNotes />
           </div>
         </div>
+
+        <DashboardFumigation />
 
         <DashboardUnfinishedTasks />
 

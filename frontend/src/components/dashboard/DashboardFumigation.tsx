@@ -15,6 +15,7 @@ interface FumigationReminder {
 }
 
 const TASHKENT_OFFSET_MS = 5 * 60 * 60 * 1000;
+const SENT_VISIBLE_MS = 24 * 60 * 60 * 1000;
 
 /** Toshkent devor soati `YYYY-MM-DDTHH:mm` ko'rinishida (brauzer TZ'ga bog'liq emas) */
 const tashkentInputValue = (offsetMinutes: number): string =>
@@ -35,7 +36,7 @@ const formatRemaining = (iso: string, nowMs: number): string => {
   if (diffMin <= 0) return 'hozir';
   const h = Math.floor(diffMin / 60);
   const m = diffMin % 60;
-  return h > 0 ? `${h} soat ${m} daq` : `${m} daq`;
+  return h > 0 ? `${h} s ${m} d` : `${m} d`;
 };
 
 const DashboardFumigation: React.FC = () => {
@@ -112,116 +113,108 @@ const DashboardFumigation: React.FC = () => {
     }
   };
 
+  // Yuborilgan eslatma 24 soat ko'rinadi, keyin yo'qoladi (backend ham shunday filtrlaydi)
   const pending = reminders.filter((r) => !r.sentAt);
-  const sent = reminders.filter((r) => r.sentAt);
+  const sent = reminders.filter((r) => r.sentAt && nowMs - new Date(r.sentAt).getTime() < SENT_VISIBLE_MS);
+  const visible = [...pending, ...sent];
 
   return (
-    <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-[24px] shadow-sm border border-white/60 dark:border-gray-700/50 p-5 relative overflow-hidden flex flex-col h-full">
-      <div className="absolute -left-10 -top-10 w-32 h-32 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none"></div>
+    <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-[20px] shadow-sm border border-white/60 dark:border-gray-700/50 p-4 relative overflow-hidden flex flex-col h-full">
+      <div className="absolute -left-10 -top-10 w-28 h-28 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none"></div>
 
-      <div className="flex items-center justify-between mb-4 relative z-10">
-        <h2 className="text-lg font-bold text-gray-900 dark:text-white tracking-tight flex items-center gap-2">
-          <Icon icon="solar:bell-bing-bold-duotone" className="w-5 h-5 text-emerald-500" />
-          Fumigatsiya eslatmalari
-        </h2>
-        <span className="hidden xl:inline text-[11px] font-bold tracking-widest text-gray-400 uppercase">
-          Telegram guruhga xabar
-        </span>
-      </div>
+      <h2 className="text-base font-bold text-gray-900 dark:text-white tracking-tight flex items-center gap-2 mb-3 relative z-10">
+        <Icon icon="solar:bell-bing-bold-duotone" className="w-5 h-5 text-emerald-500" />
+        Fumigatsiya eslatmalari
+      </h2>
 
-      <form onSubmit={handleSubmit} className="flex flex-col gap-2 mb-3 relative z-10">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+      <form onSubmit={handleSubmit} className="flex flex-col gap-1.5 mb-2 relative z-10">
+        <div className="flex gap-1.5">
           <input
             type="text"
             value={truckNumber}
             onChange={(e) => setTruckNumber(e.target.value)}
-            placeholder="Fura raqami (40232BAA)"
+            placeholder="40232BAA"
             maxLength={20}
-            className="w-full min-w-0 text-sm uppercase bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 outline-none focus:border-emerald-400 text-gray-800 dark:text-gray-100"
+            title="Fura raqami"
+            className="w-[7.5rem] shrink-0 text-xs font-semibold uppercase bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-2.5 py-1.5 outline-none focus:border-emerald-400 text-gray-800 dark:text-gray-100"
           />
           <input
             type="datetime-local"
             value={remindAt}
             onChange={(e) => setRemindAt(e.target.value)}
-            className="w-full min-w-0 text-sm bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 outline-none focus:border-emerald-400 text-gray-800 dark:text-gray-100"
+            title="Rasmiylashtirish vaqti (Toshkent)"
+            className="flex-1 min-w-0 text-xs bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg px-2 py-1.5 outline-none focus:border-emerald-400 text-gray-800 dark:text-gray-100"
           />
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-1.5">
           <button
             type="button"
             onClick={() => setRemindAt(tashkentInputValue(210))}
-            className="text-xs font-semibold px-3 py-2 rounded-xl bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-300 transition-colors"
+            className="text-[11px] font-semibold px-2 py-1 rounded-md bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-300 transition-colors"
           >
             +3.5 soat
           </button>
           <button
             type="button"
             onClick={() => setRemindAt(tashkentInputValue(240))}
-            className="text-xs font-semibold px-3 py-2 rounded-xl bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-300 transition-colors"
+            className="text-[11px] font-semibold px-2 py-1 rounded-md bg-emerald-50 text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-900/30 dark:text-emerald-300 transition-colors"
           >
             +4 soat
           </button>
           <button
             type="submit"
             disabled={submitting || truckNumber.trim().length < 3}
-            className="ml-auto text-sm font-semibold px-4 py-2 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="ml-auto text-xs font-semibold px-3 py-1.5 rounded-lg bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {submitting ? 'Saqlanmoqda...' : 'Eslatma qo\'shish'}
+            {submitting ? '...' : 'Qo\'shish'}
           </button>
         </div>
       </form>
-      {error && <p className="text-xs text-red-500 mb-2 relative z-10">{error}</p>}
+      {error && <p className="text-xs text-red-500 mb-1 relative z-10">{error}</p>}
 
-      <div className="space-y-2 relative z-10 flex-1 max-h-[220px] overflow-y-auto custom-scrollbar pr-1">
+      <div className="space-y-1 relative z-10 flex-1 max-h-[150px] overflow-y-auto custom-scrollbar pr-1">
         {loading ? (
-          <div className="flex justify-center p-4">
-            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-emerald-600"></div>
+          <div className="flex justify-center p-2">
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-emerald-600"></div>
           </div>
-        ) : reminders.length === 0 ? (
-          <div className="text-center text-sm text-gray-400 dark:text-gray-500 py-4">
-            Kutayotgan fumigatsiya eslatmalari yo'q
-          </div>
+        ) : visible.length === 0 ? (
+          <div className="text-center text-xs text-gray-400 dark:text-gray-500 py-3">Eslatmalar yo'q</div>
         ) : (
-          <>
-            {[...pending, ...sent].map((r) => {
-              const canDelete = user?.role === 'ADMIN' || user?.id === r.createdBy.id;
-              return (
-                <div
-                  key={r.id}
-                  className={`flex items-center gap-3 p-3 rounded-xl border ${
-                    r.sentAt
-                      ? 'bg-gray-50/50 border-gray-100 dark:bg-gray-900/30 dark:border-gray-800'
-                      : 'bg-white border-gray-100 shadow-sm dark:bg-gray-800 dark:border-gray-700'
-                  }`}
-                >
-                  <Icon
-                    icon={r.sentAt ? 'solar:check-circle-bold-duotone' : 'solar:clock-circle-bold-duotone'}
-                    className={`w-5 h-5 shrink-0 ${r.sentAt ? 'text-emerald-500' : 'text-amber-500'}`}
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p className={`text-sm font-bold tracking-wide ${r.sentAt ? 'text-gray-400 dark:text-gray-500' : 'text-gray-800 dark:text-gray-100'}`}>
-                      {r.truckNumber}
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {formatTime(r.remindAt)} · {r.createdBy.name}
-                    </p>
-                  </div>
-                  <span className={`text-xs font-semibold whitespace-nowrap ${r.sentAt ? 'text-emerald-600' : 'text-amber-600'}`}>
-                    {r.sentAt ? 'Xabar yuborildi' : `${formatRemaining(r.remindAt, nowMs)} qoldi`}
-                  </span>
-                  {canDelete && (
-                    <button
-                      onClick={() => handleDelete(r.id)}
-                      title={r.sentAt ? 'Ro\'yxatdan olib tashlash' : 'Bekor qilish'}
-                      className="text-gray-400 hover:text-red-500 transition-colors"
-                    >
-                      <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
-              );
-            })}
-          </>
+          visible.map((r) => {
+            const canDelete = user?.role === 'ADMIN' || user?.id === r.createdBy.id;
+            return (
+              <div
+                key={r.id}
+                title={`Kiritgan: ${r.createdBy.name}`}
+                className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-xs ${
+                  r.sentAt
+                    ? 'bg-gray-50/50 border-gray-100 dark:bg-gray-900/30 dark:border-gray-800'
+                    : 'bg-white border-gray-100 dark:bg-gray-800 dark:border-gray-700'
+                }`}
+              >
+                <Icon
+                  icon={r.sentAt ? 'solar:check-circle-bold-duotone' : 'solar:clock-circle-bold-duotone'}
+                  className={`w-4 h-4 shrink-0 ${r.sentAt ? 'text-emerald-500' : 'text-amber-500'}`}
+                />
+                <span className={`font-bold tracking-wide ${r.sentAt ? 'text-gray-400 dark:text-gray-500' : 'text-gray-800 dark:text-gray-100'}`}>
+                  {r.truckNumber}
+                </span>
+                <span className="text-gray-500 dark:text-gray-400">{formatTime(r.remindAt)}</span>
+                <span className={`ml-auto font-semibold whitespace-nowrap ${r.sentAt ? 'text-emerald-600' : 'text-amber-600'}`}>
+                  {r.sentAt ? 'Yuborildi' : formatRemaining(r.remindAt, nowMs)}
+                </span>
+                {canDelete && (
+                  <button
+                    onClick={() => handleDelete(r.id)}
+                    title={r.sentAt ? 'Ro\'yxatdan olib tashlash' : 'Bekor qilish'}
+                    className="text-gray-400 hover:text-red-500 transition-colors"
+                  >
+                    <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
+            );
+          })
         )}
       </div>
     </div>

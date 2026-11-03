@@ -75,10 +75,10 @@ const Dashboard = () => {
               setShowUnratedModal={setShowUnratedModal}
             />
           </div>
-          <div className="lg:col-span-5">
+          <div className="lg:col-span-4">
             <DashboardFumigation />
           </div>
-          <div className="lg:col-span-4">
+          <div className="lg:col-span-3">
             <DashboardNotes />
           </div>
         </div>

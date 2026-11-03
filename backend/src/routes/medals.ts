@@ -217,12 +217,17 @@ router.get('/user/:userId/bonus', requireAuth(), async (req, res) => {
     const userId = parseInt(req.params.userId);
     if (!Number.isInteger(userId)) return res.status(400).json({ error: 'Noto\'g\'ri foydalanuvchi ID' });
     const bonus = await getMedalBonusBalance(prisma, userId);
-    res.json({
-      totalBonus: bonus.balanceUzs.toNumber(),
-      earnedUzs: bonus.totalUzs.toNumber(),
-      paidUzs: bonus.paidUzs.toNumber(),
-      balanceUzs: bonus.balanceUzs.toNumber(),
-    });
+    const viewer = (req as any).user as { id: number; role: string } | undefined;
+    // Jami bonus summasi hamma uchun ko'rinadi (profilda); to'lov tafsiloti faqat admin va egasiga
+    if (viewer?.role === 'ADMIN' || viewer?.id === userId) {
+      return res.json({
+        totalBonus: bonus.balanceUzs.toNumber(),
+        earnedUzs: bonus.totalUzs.toNumber(),
+        paidUzs: bonus.paidUzs.toNumber(),
+        balanceUzs: bonus.balanceUzs.toNumber(),
+      });
+    }
+    res.json({ totalBonus: bonus.balanceUzs.toNumber() });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

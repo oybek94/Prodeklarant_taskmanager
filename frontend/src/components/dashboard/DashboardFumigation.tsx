@@ -116,7 +116,7 @@ const DashboardFumigation: React.FC = () => {
   const sent = reminders.filter((r) => r.sentAt);
 
   return (
-    <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-[24px] shadow-sm border border-white/60 dark:border-gray-700/50 p-5 relative overflow-hidden">
+    <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-[24px] shadow-sm border border-white/60 dark:border-gray-700/50 p-5 relative overflow-hidden flex flex-col h-full">
       <div className="absolute -left-10 -top-10 w-32 h-32 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none"></div>
 
       <div className="flex items-center justify-between mb-4 relative z-10">
@@ -124,27 +124,29 @@ const DashboardFumigation: React.FC = () => {
           <Icon icon="solar:bell-bing-bold-duotone" className="w-5 h-5 text-emerald-500" />
           Fumigatsiya eslatmalari
         </h2>
-        <span className="text-[11px] font-bold tracking-widest text-gray-400 uppercase">
-          Telegram guruhga xabar yuboriladi
+        <span className="hidden xl:inline text-[11px] font-bold tracking-widest text-gray-400 uppercase">
+          Telegram guruhga xabar
         </span>
       </div>
 
-      <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-2 mb-2 relative z-10">
-        <input
-          type="text"
-          value={truckNumber}
-          onChange={(e) => setTruckNumber(e.target.value)}
-          placeholder="Fura raqami (40232BAA)"
-          maxLength={20}
-          className="sm:w-56 text-sm uppercase bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 outline-none focus:border-emerald-400 text-gray-800 dark:text-gray-100"
-        />
-        <input
-          type="datetime-local"
-          value={remindAt}
-          onChange={(e) => setRemindAt(e.target.value)}
-          className="sm:w-56 text-sm bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 outline-none focus:border-emerald-400 text-gray-800 dark:text-gray-100"
-        />
-        <div className="flex gap-2">
+      <form onSubmit={handleSubmit} className="flex flex-col gap-2 mb-3 relative z-10">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <input
+            type="text"
+            value={truckNumber}
+            onChange={(e) => setTruckNumber(e.target.value)}
+            placeholder="Fura raqami (40232BAA)"
+            maxLength={20}
+            className="w-full min-w-0 text-sm uppercase bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 outline-none focus:border-emerald-400 text-gray-800 dark:text-gray-100"
+          />
+          <input
+            type="datetime-local"
+            value={remindAt}
+            onChange={(e) => setRemindAt(e.target.value)}
+            className="w-full min-w-0 text-sm bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 outline-none focus:border-emerald-400 text-gray-800 dark:text-gray-100"
+          />
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={() => setRemindAt(tashkentInputValue(210))}
@@ -159,18 +161,18 @@ const DashboardFumigation: React.FC = () => {
           >
             +4 soat
           </button>
+          <button
+            type="submit"
+            disabled={submitting || truckNumber.trim().length < 3}
+            className="ml-auto text-sm font-semibold px-4 py-2 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {submitting ? 'Saqlanmoqda...' : 'Eslatma qo\'shish'}
+          </button>
         </div>
-        <button
-          type="submit"
-          disabled={submitting || truckNumber.trim().length < 3}
-          className="sm:ml-auto text-sm font-semibold px-4 py-2 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        >
-          {submitting ? 'Saqlanmoqda...' : 'Eslatma qo\'shish'}
-        </button>
       </form>
       {error && <p className="text-xs text-red-500 mb-2 relative z-10">{error}</p>}
 
-      <div className="space-y-2 relative z-10 max-h-[240px] overflow-y-auto custom-scrollbar pr-1">
+      <div className="space-y-2 relative z-10 flex-1 max-h-[220px] overflow-y-auto custom-scrollbar pr-1">
         {loading ? (
           <div className="flex justify-center p-4">
             <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-emerald-600"></div>

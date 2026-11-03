@@ -45,7 +45,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   };
 
   return (
-    <div className="relative h-full bg-white/60 dark:bg-gray-900/60 backdrop-blur-2xl rounded-[32px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border-[1.5px] border-white/80 dark:border-white/10 p-6 sm:p-8 flex flex-col justify-center transition-all duration-300">
+    <div className="relative h-full bg-white/60 dark:bg-gray-900/60 backdrop-blur-2xl rounded-[32px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border-[1.5px] border-white/80 dark:border-white/10 p-5 flex flex-col justify-center transition-all duration-300">
       {/* Abstract blobs */}
       <div className="absolute inset-0 overflow-hidden rounded-[32px] pointer-events-none z-0">
         <div className="absolute -top-32 -right-32 w-[32rem] h-[32rem] rounded-full bg-gradient-to-br from-cyan-400/20 to-indigo-500/20 blur-3xl mix-blend-multiply dark:mix-blend-lighten pointer-events-none"></div>
@@ -55,31 +55,31 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
       {/* Thematic watermark — cargo/customs motif, echoes the blobs rather than filling the space with a widget */}
       <Icon
         icon="solar:box-minimalistic-bold-duotone"
-        className="hidden lg:block absolute -right-6 top-1/2 -translate-y-1/2 w-56 h-56 text-indigo-950/[0.04] dark:text-white/[0.04] pointer-events-none z-0"
+        className="hidden lg:block absolute -right-6 top-1/2 -translate-y-1/2 w-32 h-32 text-indigo-950/[0.04] dark:text-white/[0.04] pointer-events-none z-0"
       />
 
-      <div className="relative z-10 flex flex-col items-start gap-5 lg:max-w-xl">
-        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/50 dark:bg-gray-800/50 border border-white/60 dark:border-white/10 shadow-sm text-xs font-bold text-gray-600 dark:text-gray-300 backdrop-blur-md tracking-wide">
+      <div className="relative z-10 flex flex-col items-start gap-3">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/50 dark:bg-gray-800/50 border border-white/60 dark:border-white/10 shadow-sm text-xs font-bold text-gray-600 dark:text-gray-300 backdrop-blur-md tracking-wide">
           <Icon icon="solar:calendar-date-bold-duotone" className="w-4 h-4 text-indigo-500" />
           {dateString}
         </div>
 
         <div>
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-gray-900 dark:text-white leading-[1.1] mb-2">
-            {greeting}, <br className="hidden sm:block lg:hidden" />
+          <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-gray-900 dark:text-white leading-[1.1] mb-1.5">
+            {greeting}, <br className="hidden lg:block" />
             <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 via-purple-600 to-cyan-500 dark:from-indigo-400 dark:via-purple-400 dark:to-cyan-400">
               {user?.name?.split(' ')[0] || 'Foydalanuvchi'}
             </span>
           </h1>
-          <p className="text-sm sm:text-base text-gray-500 dark:text-gray-400 font-medium">
+          <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 font-medium">
             Bugungi ishlaringizda muvaffaqiyat tilaymiz!
           </p>
         </div>
 
         {/* Unrated Errors Alert for Admin */}
         {user?.role === 'ADMIN' && unratedErrors.length > 0 && (
-            <div className="w-full max-w-md flex flex-col sm:flex-row sm:items-center justify-between bg-orange-50/80 dark:bg-orange-900/20 border border-orange-200/60 dark:border-orange-800/40 rounded-2xl p-4 shadow-sm backdrop-blur-md">
-              <div className="flex items-center gap-3 mb-3 sm:mb-0">
+            <div className="w-full max-w-md flex flex-col gap-3 bg-orange-50/80 dark:bg-orange-900/20 border border-orange-200/60 dark:border-orange-800/40 rounded-2xl p-4 shadow-sm backdrop-blur-md">
+              <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-orange-100 dark:bg-orange-800/50 flex flex-shrink-0 items-center justify-center text-orange-600 dark:text-orange-400 shadow-inner">
                   <Icon icon="solar:danger-triangle-bold-duotone" className="w-5 h-5" />
                 </div>

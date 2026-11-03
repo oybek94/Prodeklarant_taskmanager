@@ -331,5 +331,22 @@ export const initCronJobs = () => {
     }
   });
   console.log('[CRON] Lidlar keyingi qo\'ng\'iroq eslatmalari (daqiqalik) ishga tushdi.');
+
+  // ==========================================
+  // FUMIGATSIYA ESLATMALARI (TELEGRAM NOTIFY BOT)
+  // Har 1 daqiqada: remindAt <= now va sentAt = null bo'lganlarni guruhga yuboradi
+  // ==========================================
+  cron.schedule('* * * * *', async () => {
+    try {
+      const { sendDueFumigationReminders } = await import('./services/fumigation-reminder.service');
+      const sent = await sendDueFumigationReminders();
+      if (sent > 0) {
+        console.log(`[CRON] ${sent} ta fumigatsiya eslatmasi Telegram orqali yuborildi.`);
+      }
+    } catch (e) {
+      console.error('[CRON] Fumigatsiya eslatma cron xatolik:', e);
+    }
+  });
+  console.log('[CRON] Fumigatsiya eslatmalari (daqiqalik) ishga tushdi.');
 };
 

@@ -73,6 +73,7 @@ model User {
   createdNotes       DashboardNote[]          @relation("NoteCreatedBy")
   assignedNotes      DashboardNote[]          @relation("NoteAssignedTo")
   completedNotes     DashboardNote[]          @relation("NoteCompletedBy")
+  fumigationReminders FumigationReminder[]    @relation("FumigationReminderCreatedBy")
   userMedals         UserMedal[]
   assignedClients    Client[]                 @relation("ClientAssignedUser")
   clientAssignmentBonuses ClientAssignmentBonus[] @relation("ClientAssignmentBonusUser")
@@ -1639,6 +1640,22 @@ model DashboardNote {
   @@index([completedById])
   @@index([createdAt])
   @@index([completedAt])
+}
+
+/// Fumigatsiya rasmiylashtirilish vaqti eslatmasi: remindAt kelganda Telegram notify bot guruhga xabar beradi
+model FumigationReminder {
+  id          Int       @id @default(autoincrement())
+  truckNumber String
+  remindAt    DateTime
+  sentAt      DateTime?
+  createdById Int
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  createdBy User @relation("FumigationReminderCreatedBy", fields: [createdById], references: [id])
+
+  @@index([sentAt, remindAt])
+  @@index([createdById])
 }
 
 model UserMedal {

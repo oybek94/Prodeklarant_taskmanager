@@ -4,6 +4,7 @@ import { prisma } from '../prisma';
 import { requireAuth } from '../middleware/auth';
 import { socketEmitter } from '../services/socketEmitter';
 import { MedalService } from '../services/medalService';
+import { getMedalBonusBalance } from '../services/medal-bonus';
 import { startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfQuarter, endOfQuarter, startOfYear, endOfYear, subMonths } from 'date-fns';
 
 const router = Router();
@@ -181,25 +182,18 @@ router.get('/my-medals', requireAuth(), async (req, res) => {
   }
 });
 
-// Foydalanuvchining jami (barcha vaqt) bonus summasi
+// Foydalanuvchining medal bonusi: jami berilgan, to'langan va qoldiq (so'm).
+// `totalBonus` — profilda ko'rsatiladigan "Jami bonus summasi" (= qoldiq).
 router.get('/my-bonus', requireAuth(), async (req, res) => {
   try {
-    const medals = await prisma.userMedal.findMany({
-      where: { userId: (req as any).user?.id }
+    const userId = (req as any).user?.id as number;
+    const bonus = await getMedalBonusBalance(prisma, userId);
+    res.json({
+      totalBonus: bonus.balanceUzs.toNumber(),
+      earnedUzs: bonus.totalUzs.toNumber(),
+      paidUzs: bonus.paidUzs.toNumber(),
+      balanceUzs: bonus.balanceUzs.toNumber(),
     });
-    const totalMedalBonus = medals.reduce((acc: number, m: any) => acc + Number(m.cashBonus), 0);
-
-    const notes = await (prisma as any).dashboardNote.findMany({
-      where: {
-        completedById: (req as any).user?.id,
-        isCompleted: true,
-        bountyReward: { not: null }
-      }
-    });
-    const notesBonus = notes.reduce((acc: number, n: any) => acc + Number(n.bountyReward), 0);
-
-    const totalBonus = totalMedalBonus + notesBonus;
-    res.json({ totalBonus });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
@@ -221,22 +215,14 @@ router.get('/user/:userId/medals', requireAuth(), async (req, res) => {
 router.get('/user/:userId/bonus', requireAuth(), async (req, res) => {
   try {
     const userId = parseInt(req.params.userId);
-    const medals = await prisma.userMedal.findMany({
-      where: { userId }
+    if (!Number.isInteger(userId)) return res.status(400).json({ error: 'Noto\'g\'ri foydalanuvchi ID' });
+    const bonus = await getMedalBonusBalance(prisma, userId);
+    res.json({
+      totalBonus: bonus.balanceUzs.toNumber(),
+      earnedUzs: bonus.totalUzs.toNumber(),
+      paidUzs: bonus.paidUzs.toNumber(),
+      balanceUzs: bonus.balanceUzs.toNumber(),
     });
-    const totalMedalBonus = medals.reduce((acc: number, m: any) => acc + Number(m.cashBonus), 0);
-
-    const notes = await (prisma as any).dashboardNote.findMany({
-      where: {
-        completedById: userId,
-        isCompleted: true,
-        bountyReward: { not: null }
-      }
-    });
-    const notesBonus = notes.reduce((acc: number, n: any) => acc + Number(n.bountyReward), 0);
-
-    const totalBonus = totalMedalBonus + notesBonus;
-    res.json({ totalBonus });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

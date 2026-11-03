@@ -7,7 +7,7 @@ export interface SelfSalaryInput {
   type: 'INCOME' | 'EXPENSE' | 'SALARY';
   date: Date;
   workerId?: number;
-  salarySource?: 'SALARY' | 'CLIENT_BONUS';
+  salarySource?: 'SALARY' | 'CLIENT_BONUS' | 'MEDAL_BONUS';
   clientId?: number;
   expenseCategory?: string;
   taskId?: number;

@@ -1,5 +1,5 @@
 export type TransactionType = 'INCOME' | 'EXPENSE' | 'SALARY';
-export type SalarySource = 'SALARY' | 'CLIENT_BONUS';
+export type SalarySource = 'SALARY' | 'CLIENT_BONUS' | 'MEDAL_BONUS';
 export type PaymentMethod = 'CASH' | 'CARD';
 
 export interface Transaction {

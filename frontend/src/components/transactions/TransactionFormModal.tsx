@@ -49,16 +49,23 @@ export function TransactionFormModal({
   const [addingCategory, setAddingCategory] = useState(false);
   const amountRef = useRef<HTMLInputElement>(null);
   const [bonus, setBonus] = useState<{ total: number; balance: number } | null>(null);
+  const [medalBonus, setMedalBonus] = useState<{ earned: number; balance: number } | null>(null);
 
   const bonusWorkerId = open && isAdmin && form.type === 'SALARY' ? form.workerId : '';
   useEffect(() => {
-    if (!bonusWorkerId) { setBonus(null); return; }
+    if (!bonusWorkerId) { setBonus(null); setMedalBonus(null); return; }
     let cancelled = false;
     apiClient.get(`/workers/${bonusWorkerId}/client-bonuses`)
       .then((r) => { if (!cancelled) setBonus({ total: Number(r.data.totalBonusUzs || 0), balance: Number(r.data.balanceBonusUzs || 0) }); })
       .catch(() => { if (!cancelled) setBonus(null); });
+    apiClient.get(`/medals/user/${bonusWorkerId}/bonus`)
+      .then((r) => { if (!cancelled) setMedalBonus({ earned: Number(r.data.earnedUzs || 0), balance: Number(r.data.balanceUzs || 0) }); })
+      .catch(() => { if (!cancelled) setMedalBonus(null); });
     return () => { cancelled = true; };
   }, [bonusWorkerId]);
+
+  const showClientBonus = !!bonus && (bonus.total > 0 || form.salarySource === 'CLIENT_BONUS');
+  const showMedalBonus = !!medalBonus && (medalBonus.earned > 0 || form.salarySource === 'MEDAL_BONUS');
 
   useEffect(() => {
     if (!open) return;
@@ -178,7 +185,7 @@ export function TransactionFormModal({
               </div>
             )}
 
-            {isAdmin && form.type === 'SALARY' && bonus && (bonus.total > 0 || form.salarySource === 'CLIENT_BONUS') && (
+            {isAdmin && form.type === 'SALARY' && (showClientBonus || showMedalBonus) && (
               <div>
                 <span className={labelCls}>To'lov qaysi hisobdan</span>
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -186,11 +193,20 @@ export function TransactionFormModal({
                     className={`rounded-lg border px-3 py-2 text-left text-sm font-medium ${form.salarySource === 'SALARY' ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
                     Ish haqi
                   </button>
-                  <button type="button" onClick={() => onFormChange({ salarySource: 'CLIENT_BONUS' })}
-                    className={`rounded-lg border px-3 py-2 text-left text-sm font-medium ${form.salarySource === 'CLIENT_BONUS' ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
-                    Biriktirilgan mijozdan to'lov
-                    <span className="block text-xs font-normal opacity-80">Qoldiq: {formatSom(bonus.balance)}</span>
-                  </button>
+                  {showClientBonus && bonus && (
+                    <button type="button" onClick={() => onFormChange({ salarySource: 'CLIENT_BONUS' })}
+                      className={`rounded-lg border px-3 py-2 text-left text-sm font-medium ${form.salarySource === 'CLIENT_BONUS' ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+                      Biriktirilgan mijozdan to'lov
+                      <span className="block text-xs font-normal opacity-80">Qoldiq: {formatSom(bonus.balance)}</span>
+                    </button>
+                  )}
+                  {showMedalBonus && medalBonus && (
+                    <button type="button" onClick={() => onFormChange({ salarySource: 'MEDAL_BONUS' })}
+                      className={`rounded-lg border px-3 py-2 text-left text-sm font-medium ${form.salarySource === 'MEDAL_BONUS' ? 'border-amber-500 bg-amber-50 text-amber-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+                      Medal bonusi
+                      <span className="block text-xs font-normal opacity-80">Qoldiq: {formatSom(medalBonus.balance)}</span>
+                    </button>
+                  )}
                 </div>
               </div>
             )}

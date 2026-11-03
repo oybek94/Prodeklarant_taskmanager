@@ -9,6 +9,7 @@ import { validateMonetaryFields, calculateAmountUzs } from '../services/monetary
 import { applySelfSalaryRestrictions, canWorkerDeleteTransaction, uzsOnlyError } from './transactions.guards';
 import { buildTransactionListArgs } from './transactions.query';
 import { getClientBonusBalance } from '../services/client-assignment-bonus';
+import { getMedalBonusBalance } from '../services/medal-bonus';
 import { amountInUzs, toMoneyNumber, warnSkippedUzs, ZERO } from '../utils/money';
 
 const router = Router();
@@ -54,17 +55,28 @@ async function deleteMatchingWorkerPayment(
 
 class BonusBalanceError extends Error {}
 
-/** CLIENT_BONUS to'lovi bonus qoldig'idan oshmasligini tranzaksiya ichida tekshiradi */
+/** Ish haqidan alohida hisoblanadigan bonus manbalari (oylik/WorkerPayment'ga ta'sir qilmaydi) */
+const isBonusSource = (source?: string | null): boolean =>
+  source === 'CLIENT_BONUS' || source === 'MEDAL_BONUS';
+
+/** CLIENT_BONUS / MEDAL_BONUS to'lovi bonus qoldig'idan oshmasligini tranzaksiya ichida tekshiradi */
 async function assertBonusBalance(
   tx: Prisma.TransactionClient,
   data: { type: string; salarySource?: string; workerId?: number },
   amountUzs: Decimal,
   excludeTransactionId?: number
 ) {
-  if (data.type !== 'SALARY' || data.salarySource !== 'CLIENT_BONUS') return;
-  const bonus = await getClientBonusBalance(tx, data.workerId!, excludeTransactionId);
-  if (amountUzs.greaterThan(bonus.balanceUzs)) {
-    throw new BonusBalanceError(`Biriktirilgan mijozdan bonus qoldig'i yetarli emas (qoldiq: ${bonus.balanceUzs.toFixed(2)} so'm)`);
+  if (data.type !== 'SALARY') return;
+  if (data.salarySource === 'CLIENT_BONUS') {
+    const bonus = await getClientBonusBalance(tx, data.workerId!, excludeTransactionId);
+    if (amountUzs.greaterThan(bonus.balanceUzs)) {
+      throw new BonusBalanceError(`Biriktirilgan mijozdan bonus qoldig'i yetarli emas (qoldiq: ${bonus.balanceUzs.toFixed(2)} so'm)`);
+    }
+  } else if (data.salarySource === 'MEDAL_BONUS') {
+    const bonus = await getMedalBonusBalance(tx, data.workerId!, excludeTransactionId);
+    if (amountUzs.greaterThan(bonus.balanceUzs)) {
+      throw new BonusBalanceError(`Medal bonusi qoldig'i yetarli emas (qoldiq: ${bonus.balanceUzs.toFixed(2)} so'm)`);
+    }
   }
 }
 
@@ -82,7 +94,7 @@ function bonusErrorResponse(err: unknown, res: Response): boolean {
 }
 
 const bonusTxOptions = (data: { salarySource?: string }) =>
-  data.salarySource === 'CLIENT_BONUS' ? { isolationLevel: Prisma.TransactionIsolationLevel.Serializable } : undefined;
+  isBonusSource(data.salarySource) ? { isolationLevel: Prisma.TransactionIsolationLevel.Serializable } : undefined;
 
 const baseSchema = z.object({
   type: z.enum(['INCOME', 'EXPENSE', 'SALARY']),
@@ -95,7 +107,7 @@ const baseSchema = z.object({
   date: z.coerce.date(),
   clientId: z.number().optional(),
   workerId: z.number().optional(),
-  salarySource: z.enum(['SALARY', 'CLIENT_BONUS']).optional(),
+  salarySource: z.enum(['SALARY', 'CLIENT_BONUS', 'MEDAL_BONUS']).optional(),
   expenseCategory: z.string().optional(),
   taskId: z.number().optional(),
   branchId: z.number().optional(),
@@ -523,7 +535,7 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
 
   // If this is a SALARY transaction, also create a WorkerPayment record
   let workerPaymentWarning: string | undefined;
-  if (data.type === 'SALARY' && data.workerId && data.salarySource !== 'CLIENT_BONUS') {
+  if (data.type === 'SALARY' && data.workerId && !isBonusSource(data.salarySource)) {
     try {
       const { createWorkerPayment } = await import('../services/worker-payment');
       await createWorkerPayment(
@@ -733,10 +745,10 @@ router.put('/:id', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
   // SALARY to'lovi tahrirlansa, unga mos WorkerPayment ham qayta yaratilishi kerak —
   // aks holda ishchining "Joriy qarz"i eski summa bo'yicha qolib ketadi
   let workerPaymentWarning: string | undefined;
-  // Biriktirilgan mijozdan bonus to'lovi ishchining oylik qarziga (WorkerPayment) ta'sir qilmaydi
+  // Mijoz/medal bonusi to'lovi ishchining oylik qarziga (WorkerPayment) ta'sir qilmaydi
   const wasSalary = oldTransaction.type === 'SALARY' && oldTransaction.workerId !== null
-    && oldTransaction.salarySource !== 'CLIENT_BONUS';
-  const isSalary = data.type === 'SALARY' && data.workerId !== undefined && data.salarySource !== 'CLIENT_BONUS';
+    && !isBonusSource(oldTransaction.salarySource);
+  const isSalary = data.type === 'SALARY' && data.workerId !== undefined && !isBonusSource(data.salarySource);
 
   if (wasSalary || isSalary) {
     try {
@@ -823,7 +835,7 @@ router.delete('/:id', requireAuth(), async (req: AuthRequest, res) => {
     }
 
     // Agar bu ish haqi (SALARY) to'lovi bo'lsa, unga mos WorkerPayment'ni ham o'chiramiz
-    if (transaction.type === 'SALARY' && transaction.workerId && transaction.salarySource !== 'CLIENT_BONUS') {
+    if (transaction.type === 'SALARY' && transaction.workerId && !isBonusSource(transaction.salarySource)) {
       await deleteMatchingWorkerPayment(tx, {
         workerId: transaction.workerId,
         amount: transaction.amount,

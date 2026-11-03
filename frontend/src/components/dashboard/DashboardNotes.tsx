@@ -265,7 +265,7 @@ const DashboardNotes: React.FC = () => {
               <select
                 value={assignedToId}
                 onChange={(e) => setAssignedToId(e.target.value)}
-                className="flex-1 text-xs bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-lg px-2 py-1.5 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-gray-500 dark:text-gray-400"
+                className="flex-1 min-w-0 text-xs bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-lg px-2 py-1.5 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-gray-500 dark:text-gray-400"
               >
                 <option value="">(barchaga)</option>
                 {users.map(u => (
@@ -279,23 +279,23 @@ const DashboardNotes: React.FC = () => {
                 onChange={(e) => setXpReward(e.target.value)}
                 placeholder="XP"
                 title="Vazifani bajargan xodimga beriladigan XP"
-                className="w-16 text-xs bg-amber-50/50 dark:bg-amber-900/10 border border-amber-200/50 dark:border-amber-700/50 rounded-lg px-2 py-1.5 outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all dark:text-amber-100 placeholder:text-amber-600/50 dark:placeholder:text-amber-500/50 font-medium"
+                className="w-12 shrink-0 text-xs bg-amber-50/50 dark:bg-amber-900/10 border border-amber-200/50 dark:border-amber-700/50 rounded-lg px-2 py-1.5 outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all dark:text-amber-100 placeholder:text-amber-600/50 dark:placeholder:text-amber-500/50 font-medium"
               />
               <input
                 type="number"
                 min="0"
                 value={bountyReward}
                 onChange={(e) => setBountyReward(e.target.value)}
-                placeholder="Pul (UZS)"
+                placeholder="UZS"
                 title="Vazifani bajargan xodimga beriladigan pul mukofoti (UZS)"
-                className="w-24 text-xs bg-emerald-50/50 dark:bg-emerald-900/10 border border-emerald-200/50 dark:border-emerald-700/50 rounded-lg px-2 py-1.5 outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all dark:text-emerald-100 placeholder:text-emerald-600/50 dark:placeholder:text-emerald-500/50 font-medium"
+                className="w-16 shrink-0 text-xs bg-emerald-50/50 dark:bg-emerald-900/10 border border-emerald-200/50 dark:border-emerald-700/50 rounded-lg px-2 py-1.5 outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all dark:text-emerald-100 placeholder:text-emerald-600/50 dark:placeholder:text-emerald-500/50 font-medium"
               />
             </div>
           </div>
           <button 
             type="submit" 
             disabled={submitting || !content.trim()}
-            className="h-[68px] px-4 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg flex items-center justify-center transition-colors shrink-0 shadow-sm"
+            className="h-[68px] px-3 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg flex items-center justify-center transition-colors shrink-0 shadow-sm"
           >
             {submitting ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : <Icon icon="solar:add-circle-bold-duotone" className="w-5 h-5" />}
           </button>

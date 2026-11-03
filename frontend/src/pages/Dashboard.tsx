@@ -66,7 +66,7 @@ const Dashboard = () => {
     <div className={`min-h-screen bg-slate-50/90 bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-indigo-50/50 via-slate-50/80 to-white dark:bg-none dark:bg-gray-950 pb-12 pt-4 px-2 sm:px-6 lg:px-8 overflow-x-hidden ${isMobile ? 'pb-32' : ''}`}>
       <div className="max-w-[1600px] mx-auto space-y-4 sm:space-y-6">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          <div className="lg:col-span-3 relative z-30">
+          <div className="lg:col-span-5 relative z-30">
             <DashboardHeader
               user={user}
               unratedErrors={unratedErrors}

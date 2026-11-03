@@ -55,7 +55,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
       {/* Thematic watermark — cargo/customs motif, echoes the blobs rather than filling the space with a widget */}
       <Icon
         icon="solar:box-minimalistic-bold-duotone"
-        className="hidden lg:block absolute -right-6 top-1/2 -translate-y-1/2 w-32 h-32 text-indigo-950/[0.04] dark:text-white/[0.04] pointer-events-none z-0"
+        className="hidden lg:block absolute -right-6 top-1/2 -translate-y-1/2 w-44 h-44 text-indigo-950/[0.04] dark:text-white/[0.04] pointer-events-none z-0"
       />
 
       <div className="relative z-10 flex flex-col items-start gap-3">
@@ -65,13 +65,13 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
         </div>
 
         <div>
-          <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-gray-900 dark:text-white leading-[1.1] mb-1.5">
-            {greeting}, <br className="hidden lg:block" />
+          <h1 className="text-3xl sm:text-4xl xl:text-5xl font-black tracking-tight text-gray-900 dark:text-white leading-[1.1] mb-2">
+            {greeting}, <br className="hidden sm:block xl:hidden" />
             <span className="bg-clip-text text-transparent bg-gradient-to-r from-indigo-600 via-purple-600 to-cyan-500 dark:from-indigo-400 dark:via-purple-400 dark:to-cyan-400">
               {user?.name?.split(' ')[0] || 'Foydalanuvchi'}
             </span>
           </h1>
-          <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 font-medium">
+          <p className="text-sm sm:text-base text-gray-500 dark:text-gray-400 font-medium">
             Bugungi ishlaringizda muvaffaqiyat tilaymiz!
           </p>
         </div>

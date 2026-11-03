@@ -181,15 +181,11 @@ router.get('/my-medals', requireAuth(), async (req, res) => {
   }
 });
 
-// Calculate current month's total bonus for a user
+// Foydalanuvchining jami (barcha vaqt) bonus summasi
 router.get('/my-bonus', requireAuth(), async (req, res) => {
   try {
-    const start = startOfMonth(new Date());
     const medals = await prisma.userMedal.findMany({
-      where: { 
-        userId: (req as any).user?.id,
-        awardedAt: { gte: start }
-      }
+      where: { userId: (req as any).user?.id }
     });
     const totalMedalBonus = medals.reduce((acc: number, m: any) => acc + Number(m.cashBonus), 0);
 
@@ -197,7 +193,6 @@ router.get('/my-bonus', requireAuth(), async (req, res) => {
       where: {
         completedById: (req as any).user?.id,
         isCompleted: true,
-        completedAt: { gte: start },
         bountyReward: { not: null }
       }
     });
@@ -226,12 +221,8 @@ router.get('/user/:userId/medals', requireAuth(), async (req, res) => {
 router.get('/user/:userId/bonus', requireAuth(), async (req, res) => {
   try {
     const userId = parseInt(req.params.userId);
-    const start = startOfMonth(new Date());
     const medals = await prisma.userMedal.findMany({
-      where: { 
-        userId,
-        awardedAt: { gte: start }
-      }
+      where: { userId }
     });
     const totalMedalBonus = medals.reduce((acc: number, m: any) => acc + Number(m.cashBonus), 0);
 
@@ -239,7 +230,6 @@ router.get('/user/:userId/bonus', requireAuth(), async (req, res) => {
       where: {
         completedById: userId,
         isCompleted: true,
-        completedAt: { gte: start },
         bountyReward: { not: null }
       }
     });

@@ -119,7 +119,7 @@ const TrophyRoom: React.FC<TrophyRoomProps> = ({ userId }) => {
       </div>
 
       <div className="flex items-center justify-between gap-3 px-4 py-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800/50">
-        <span className="text-[13px] font-semibold text-gray-600 dark:text-gray-300">Joriy oydagi bonuslar</span>
+        <span className="text-[13px] font-semibold text-gray-600 dark:text-gray-300">Jami bonus summasi</span>
         <span className="text-[15px] font-extrabold tabular-nums text-emerald-800 dark:text-emerald-300 whitespace-nowrap">
           {currentBonus.toLocaleString('ru-RU')} UZS
         </span>

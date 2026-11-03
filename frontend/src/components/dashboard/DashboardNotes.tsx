@@ -21,6 +21,8 @@ interface Note {
   createdAt: string;
 }
 
+const firstName = (name: string): string => name.split(' ')[0];
+
 const DashboardNotes: React.FC = () => {
   const [notes, setNotes] = useState<Note[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -139,166 +141,214 @@ const DashboardNotes: React.FC = () => {
     }
   };
 
+  const activeCount = notes.filter(n => !n.isCompleted).length;
+  const doneCount = notes.length - activeCount;
+
+  const smallFieldClass =
+    'min-h-[36px] rounded-[10px] border px-2 text-xs font-semibold outline-none transition-colors';
+
   return (
-    <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-[24px] shadow-sm border border-white/60 dark:border-gray-700/50 p-5 flex flex-col h-full lg:min-h-[160px] relative overflow-hidden transition-all">
-      <div className="absolute -right-10 -top-10 w-32 h-32 bg-blue-500/10 rounded-full blur-2xl pointer-events-none"></div>
-      
-      <div className="flex items-center justify-between mb-4 relative z-10">
-        <h2 className="text-lg font-bold text-gray-900 dark:text-white tracking-tight flex items-center gap-2">
-          <Icon icon="solar:check-square-bold-duotone" className="w-5 h-5 text-blue-500" />
-          Qilinishi kerak bo'lgan ishlar
-        </h2>
-        <button 
+    <div className="rounded-[28px] bg-white dark:bg-gray-900 border border-slate-200 dark:border-gray-800 shadow-sm p-6 flex flex-col gap-4 h-full min-h-[456px]">
+      <div className="flex items-start gap-3">
+        <div className="w-10 h-10 shrink-0 rounded-xl bg-blue-100 dark:bg-blue-500/15 text-blue-700 dark:text-blue-300 flex items-center justify-center">
+          <Icon icon="solar:check-square-bold-duotone" className="w-[22px] h-[22px]" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <h2 className="text-lg font-extrabold leading-tight tracking-tight text-gray-900 dark:text-white">
+            Qilinishi kerak bo'lgan ishlar
+          </h2>
+          <div className="mt-0.5 text-xs font-semibold text-slate-500 dark:text-gray-400">
+            {showArchive ? `Arxiv · ${notes.length} ta` : `${activeCount} ta faol · ${doneCount} ta bajarildi`}
+          </div>
+        </div>
+        <button
           onClick={() => setShowArchive(!showArchive)}
-          className="text-[11px] font-bold tracking-widest text-gray-500 hover:text-blue-600 uppercase flex items-center gap-1 transition-colors"
+          className="inline-flex min-h-[36px] items-center gap-1.5 rounded-[10px] px-2.5 text-xs font-bold text-slate-500 dark:text-gray-400 hover:bg-slate-100 dark:hover:bg-gray-800 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
         >
-          <Icon icon={showArchive ? 'solar:inbox-bold-duotone' : 'solar:archive-bold-duotone'} className="w-3.5 h-3.5" />
+          <Icon icon={showArchive ? 'solar:inbox-bold-duotone' : 'solar:archive-bold-duotone'} className="w-4 h-4" />
           {showArchive ? 'Faollar' : 'Arxiv'}
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 mb-4 space-y-2 max-h-[220px]">
+      <ul className="flex flex-1 flex-col gap-2.5 overflow-y-auto custom-scrollbar max-h-[300px] pr-0.5">
         {loading ? (
-          <div className="flex justify-center p-4">
+          <li className="flex justify-center p-4">
             <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
-          </div>
+          </li>
         ) : notes.length === 0 ? (
-          <div className="text-center text-sm text-gray-400 dark:text-gray-500 py-6">
+          <li className="py-6 text-center text-sm text-slate-500 dark:text-gray-400">
             {showArchive ? 'Arxiv bo\'sh' : 'Hozircha ishlar yo\'q 🎉'}
-          </div>
+          </li>
         ) : (
           notes.map(note => (
-            <div key={note.id} className={`group flex items-start gap-3 p-3 rounded-xl border ${note.isCompleted ? 'bg-gray-50/50 border-gray-100 dark:bg-gray-900/30 dark:border-gray-800' : 'bg-white border-gray-100 shadow-sm dark:bg-gray-800 dark:border-gray-700'} hover:border-blue-200 dark:hover:border-blue-900 transition-colors relative z-10`}>
-              <button 
+            <li
+              key={note.id}
+              className={`group flex gap-3 rounded-2xl py-3 pl-3.5 pr-3 ${
+                note.isCompleted
+                  ? 'border border-dashed border-slate-200 dark:border-gray-700'
+                  : 'border border-slate-200 dark:border-gray-800 bg-slate-50 dark:bg-gray-800/60'
+              }`}
+            >
+              <button
                 onClick={() => toggleStatus(note.id, note.isCompleted)}
-                className={`mt-0.5 shrink-0 w-5 h-5 rounded-md border flex items-center justify-center transition-colors ${note.isCompleted ? 'bg-blue-500 border-blue-500 text-white' : 'border-gray-300 dark:border-gray-500 text-transparent hover:border-blue-400'}`}
+                aria-label={note.isCompleted ? 'Bajarilmagan deb belgilash' : 'Bajarildi deb belgilash'}
+                className={`mt-px flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border-2 transition-colors ${
+                  note.isCompleted
+                    ? 'border-blue-700 bg-blue-700 text-white dark:border-blue-400 dark:bg-blue-400 dark:text-blue-950'
+                    : 'border-slate-400 dark:border-gray-500 text-transparent hover:border-blue-600'
+                }`}
               >
-                <Icon icon="solar:check-circle-bold-duotone" className="w-3.5 h-3.5" />
+                <Icon icon="solar:check-circle-bold-duotone" className="w-4 h-4" />
               </button>
-              
-              <div className="flex-1 min-w-0">
+
+              <div className="min-w-0 flex-1">
                 {editingNoteId === note.id ? (
                   <div className="flex items-center gap-2">
-                    <input 
+                    <input
                       autoFocus
-                      type="text" 
+                      type="text"
                       value={editingContent}
                       onChange={e => setEditingContent(e.target.value)}
                       onKeyDown={e => e.key === 'Enter' && handleSaveEdit(note.id)}
-                      className="w-full text-sm bg-white dark:bg-gray-900 border border-blue-300 dark:border-blue-700 rounded px-2 py-1 outline-none text-gray-800 dark:text-gray-100"
+                      className="w-full rounded-lg border border-blue-300 dark:border-blue-700 bg-white dark:bg-gray-900 px-2 py-1 text-sm text-gray-800 dark:text-gray-100 outline-none"
                     />
-                    <button onClick={() => handleSaveEdit(note.id)} className="text-blue-600 hover:text-blue-700">
+                    <button onClick={() => handleSaveEdit(note.id)} aria-label="Saqlash" className="text-blue-600 hover:text-blue-700">
                       <Icon icon="solar:check-circle-bold-duotone" className="w-5 h-5" />
                     </button>
-                    <button onClick={() => setEditingNoteId(null)} className="text-gray-400 hover:text-gray-600">
+                    <button onClick={() => setEditingNoteId(null)} aria-label="Bekor qilish" className="text-gray-400 hover:text-gray-600">
                       <Icon icon="solar:close-circle-bold-duotone" className="w-5 h-5" />
                     </button>
                   </div>
                 ) : (
-                  <div className="relative group/text pr-12">
-                    <p className={`text-sm ${note.isCompleted ? 'text-gray-400 dark:text-gray-500 line-through' : 'text-gray-700 dark:text-gray-200 font-medium'} break-words leading-snug`}>
+                  <div className="relative pr-12">
+                    <p
+                      className={`break-words text-sm leading-snug ${
+                        note.isCompleted
+                          ? 'font-semibold text-slate-500 dark:text-gray-400 line-through'
+                          : 'font-bold text-gray-900 dark:text-gray-100'
+                      }`}
+                    >
                       {note.content}
                     </p>
-                    <div className="absolute right-0 top-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-2 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm pl-2">
-                      <button onClick={() => { setEditingNoteId(note.id); setEditingContent(note.content); }} className="text-gray-400 hover:text-blue-500 transition-colors" title="O'zgartirish">
+                    <div className="absolute right-0 top-0 flex items-center gap-2 pl-2 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+                      <button
+                        onClick={() => { setEditingNoteId(note.id); setEditingContent(note.content); }}
+                        className="text-gray-400 hover:text-blue-500 transition-colors"
+                        title="O'zgartirish"
+                        aria-label="O'zgartirish"
+                      >
                         <Icon icon="solar:pen-bold-duotone" className="w-3.5 h-3.5" />
                       </button>
-                      <button onClick={() => handleDeleteNote(note.id)} className="text-gray-400 hover:text-red-500 transition-colors" title="O'chirish">
+                      <button
+                        onClick={() => handleDeleteNote(note.id)}
+                        className="text-gray-400 hover:text-red-500 transition-colors"
+                        title="O'chirish"
+                        aria-label="O'chirish"
+                      >
                         <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   </div>
                 )}
-                
-                <div className="flex flex-wrap items-center gap-2 mt-1.5 text-[10px] text-gray-400 dark:text-gray-500 font-medium">
-                  <span className="flex items-center gap-0.5">
-                    <Icon icon="solar:user-bold-duotone" className="w-3 h-3" /> 
-                    {note.createdBy.name.split(' ')[0]}
+
+                <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs font-semibold text-slate-500 dark:text-gray-400">
+                  <span className="inline-flex items-center gap-1">
+                    <Icon icon="solar:user-bold-duotone" className="w-3.5 h-3.5" />
+                    {firstName(note.createdBy.name)}
                   </span>
-                  
+
                   {note.assignedTo && (
-                    <span className="flex items-center gap-0.5 text-orange-500/80 bg-orange-50/50 dark:bg-orange-900/20 px-1 rounded">
+                    <span className="inline-flex items-center gap-1 rounded-md bg-orange-100 dark:bg-orange-400/15 px-1.5 py-0.5 text-orange-800 dark:text-orange-300">
                       <Icon icon="solar:arrow-right-bold-duotone" className="w-3 h-3" />
-                      {note.assignedTo.name.split(' ')[0]}
+                      {firstName(note.assignedTo.name)}
                     </span>
                   )}
-                  
+
                   {note.xpReward && (
-                    <span className="flex items-center gap-0.5 text-amber-500 bg-amber-50 dark:bg-amber-900/20 px-1.5 py-0.5 rounded font-bold border border-amber-200/50 dark:border-amber-700/50">
+                    <span className="inline-flex items-center gap-1 rounded-lg bg-amber-100 dark:bg-amber-400/15 px-2 py-0.5 font-extrabold text-amber-800 dark:text-amber-300">
                       <Icon icon="solar:star-bold-duotone" className="w-3 h-3" />
-                      {note.xpReward} XP
+                      +{note.xpReward} XP
                     </span>
                   )}
 
                   {note.bountyReward && (
-                    <span className="flex items-center gap-0.5 text-emerald-600 bg-emerald-50 dark:bg-emerald-950/20 px-1.5 py-0.5 rounded font-bold border border-emerald-200/50 dark:border-emerald-900/30">
-                      <Icon icon="solar:banknote-2-bold-duotone" className="w-3.5 h-3.5 text-emerald-600" />
+                    <span className="inline-flex items-center gap-1 rounded-lg bg-emerald-100 dark:bg-emerald-400/15 px-2 py-0.5 font-extrabold text-emerald-800 dark:text-emerald-300">
+                      <Icon icon="solar:banknote-2-bold-duotone" className="w-3.5 h-3.5" />
                       {note.bountyReward.toLocaleString()} UZS
                     </span>
                   )}
 
                   {note.isCompleted && note.completedBy && (
-                    <span className="flex items-center gap-0.5 text-emerald-500/80 bg-emerald-50/50 dark:bg-emerald-900/20 px-1 rounded ml-auto">
-                      <Icon icon="solar:check-circle-bold-duotone" className="w-3 h-3" />
-                      {note.completedBy.name.split(' ')[0]}
+                    <span className="ml-auto inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-300">
+                      <Icon icon="solar:check-circle-bold-duotone" className="w-3.5 h-3.5" />
+                      {firstName(note.completedBy.name)} bajardi
                     </span>
                   )}
                 </div>
               </div>
-            </div>
+            </li>
           ))
         )}
-      </div>
+      </ul>
 
       {!showArchive && (
-        <form onSubmit={handleAddNote} className="relative z-10 flex gap-2 items-end pt-2 border-t border-gray-100 dark:border-gray-700/50 shrink-0">
-          <div className="flex-1 flex flex-col gap-2">
-            <input 
-              type="text" 
+        <form onSubmit={handleAddNote} className="flex flex-col gap-2 border-t border-slate-200 dark:border-gray-800 pt-3.5">
+          <div className="flex gap-2">
+            <input
+              type="text"
               value={content}
               onChange={(e) => setContent(e.target.value)}
-              placeholder="Yangi vazifa qo'shish..." 
+              placeholder="Yangi vazifa qo'shish..."
+              aria-label="Yangi vazifa"
               required
-              className="w-full text-sm bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all dark:text-white"
+              className="min-h-[44px] min-w-0 flex-1 rounded-xl border border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-gray-800 px-3.5 text-sm font-semibold text-gray-900 dark:text-white outline-none transition-colors focus:border-blue-600"
             />
-            <div className="flex gap-2">
-              <select
-                value={assignedToId}
-                onChange={(e) => setAssignedToId(e.target.value)}
-                className="flex-1 min-w-0 text-xs bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-lg px-2 py-1.5 outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-gray-500 dark:text-gray-400"
-              >
-                <option value="">(barchaga)</option>
-                {users.map(u => (
-                  <option key={u.id} value={u.id}>{u.name}</option>
-                ))}
-              </select>
-              <input
-                type="number"
-                min="0"
-                value={xpReward}
-                onChange={(e) => setXpReward(e.target.value)}
-                placeholder="XP"
-                title="Vazifani bajargan xodimga beriladigan XP"
-                className="w-12 shrink-0 text-xs bg-amber-50/50 dark:bg-amber-900/10 border border-amber-200/50 dark:border-amber-700/50 rounded-lg px-2 py-1.5 outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all dark:text-amber-100 placeholder:text-amber-600/50 dark:placeholder:text-amber-500/50 font-medium"
-              />
-              <input
-                type="number"
-                min="0"
-                value={bountyReward}
-                onChange={(e) => setBountyReward(e.target.value)}
-                placeholder="UZS"
-                title="Vazifani bajargan xodimga beriladigan pul mukofoti (UZS)"
-                className="w-16 shrink-0 text-xs bg-emerald-50/50 dark:bg-emerald-900/10 border border-emerald-200/50 dark:border-emerald-700/50 rounded-lg px-2 py-1.5 outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all dark:text-emerald-100 placeholder:text-emerald-600/50 dark:placeholder:text-emerald-500/50 font-medium"
-              />
-            </div>
+            <button
+              type="submit"
+              disabled={submitting || !content.trim()}
+              aria-label="Vazifa qo'shish"
+              className="flex min-h-[44px] w-11 shrink-0 items-center justify-center rounded-xl bg-blue-700 text-white transition-colors hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-blue-400 dark:text-blue-950 dark:hover:bg-blue-300"
+            >
+              {submitting ? (
+                <span className="w-4 h-4 rounded-full border-2 border-current border-t-transparent animate-spin"></span>
+              ) : (
+                <Icon icon="solar:add-circle-bold-duotone" className="w-6 h-6" />
+              )}
+            </button>
           </div>
-          <button 
-            type="submit" 
-            disabled={submitting || !content.trim()}
-            className="h-[68px] px-3 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg flex items-center justify-center transition-colors shrink-0 shadow-sm"
-          >
-            {submitting ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : <Icon icon="solar:add-circle-bold-duotone" className="w-5 h-5" />}
-          </button>
+          <div className="flex gap-2">
+            <select
+              value={assignedToId}
+              onChange={(e) => setAssignedToId(e.target.value)}
+              aria-label="Kimga"
+              className={`${smallFieldClass} min-w-0 flex-1 border-slate-200 dark:border-gray-700 bg-slate-50 dark:bg-gray-800 text-slate-600 dark:text-gray-300`}
+            >
+              <option value="">(barchaga)</option>
+              {users.map(u => (
+                <option key={u.id} value={u.id}>{u.name}</option>
+              ))}
+            </select>
+            <input
+              type="number"
+              min="0"
+              value={xpReward}
+              onChange={(e) => setXpReward(e.target.value)}
+              placeholder="XP"
+              aria-label="XP mukofoti"
+              title="Vazifani bajargan xodimga beriladigan XP"
+              className={`${smallFieldClass} w-14 shrink-0 border-amber-200 dark:border-amber-400/30 bg-amber-50 dark:bg-amber-400/10 text-amber-900 dark:text-amber-200 placeholder:text-amber-700/60 dark:placeholder:text-amber-300/50 focus:border-amber-500`}
+            />
+            <input
+              type="number"
+              min="0"
+              value={bountyReward}
+              onChange={(e) => setBountyReward(e.target.value)}
+              placeholder="UZS"
+              aria-label="Pul mukofoti, UZS"
+              title="Vazifani bajargan xodimga beriladigan pul mukofoti (UZS)"
+              className={`${smallFieldClass} w-[72px] shrink-0 border-emerald-200 dark:border-emerald-400/30 bg-emerald-50 dark:bg-emerald-400/10 text-emerald-900 dark:text-emerald-200 placeholder:text-emerald-700/60 dark:placeholder:text-emerald-300/50 focus:border-emerald-500`}
+            />
+          </div>
         </form>
       )}
     </div>

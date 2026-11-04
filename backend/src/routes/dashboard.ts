@@ -445,6 +445,8 @@ router.get('/premium-stats', requireAuth(), async (req: AuthRequest, res) => {
 
 /** Dashboard "Tugallanmagan ishlar" ro'yxatidagi maksimal vazifalar soni */
 const UNFINISHED_TASKS_LIMIT = 300;
+/** Shuncha kundan ko'p ochiq turgan ish "kechikkan" hisoblanadi (frontend OVERDUE_DAYS bilan bir xil) */
+const UNFINISHED_OVERDUE_DAYS = 3;
 
 // Tugallanmagan ishlar — YAKUNLANDI bo'lmagan vazifalar va ularning bosqichlari.
 // Kesh yo'q: bosqich belgilangandan keyin ro'yxat darhol yangilanishi kerak.
@@ -479,7 +481,19 @@ router.get('/unfinished-tasks', requireAuth(), async (req: AuthRequest, res) => 
       prisma.task.count({ where }),
     ]);
 
-    res.json({ tasks, total });
+    // Ro'yxat eng yangi UNFINISHED_TASKS_LIMIT ta bilan cheklanadi, eng eskilari esa aynan chetda qoladi —
+    // shuning uchun "kechikkan" soni va eng eski ish alohida hisoblanadi
+    const overdueBefore = new Date(Date.now() - UNFINISHED_OVERDUE_DAYS * 24 * 60 * 60 * 1000);
+    const [overdue, oldest] = await Promise.all([
+      prisma.task.count({ where: { ...where, createdAt: { lt: overdueBefore } } }),
+      prisma.task.findFirst({
+        where,
+        orderBy: { createdAt: 'asc' },
+        select: { id: true, title: true, createdAt: true, client: { select: { id: true, name: true } } },
+      }),
+    ]);
+
+    res.json({ tasks, total, overdue, oldest });
   } catch (error) {
     console.error('Error fetching unfinished tasks:', error);
     res.status(500).json({ error: 'Server xatosi' });

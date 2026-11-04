@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Icon } from '@iconify/react';
 import toast from 'react-hot-toast';
+import { useNavigate } from 'react-router-dom';
 import apiClient from '../../lib/api';
 import type { DashboardTaskError } from '../../types/dashboard';
+import type { useUnfinishedTasks } from '../../hooks/useUnfinishedTasks';
 
 interface DashboardHeaderProps {
   user: { name: string; role: string } | null;
@@ -10,6 +12,9 @@ interface DashboardHeaderProps {
   setShowUnratedModal: (show: boolean) => void;
   pendingDeleteErrors?: DashboardTaskError[];
   loadPendingDeleteErrors?: () => void;
+  unfinished: ReturnType<typeof useUnfinishedTasks>;
+  /** Bugun yaratilgan invoyslar (= ishlar) soni; yuklanmagan bo'lsa null */
+  todayCount: number | null;
 }
 
 type DayPhase = 'tong' | 'kun' | 'kech' | 'tun';
@@ -22,6 +27,10 @@ interface PhaseTheme {
   pillBg: string;
   accent: string;
   track: string;
+  chipBg: string;
+  chipBorder: string;
+  onAccent: string;
+  ghostBorder: string;
   greeting: string;
   message: string;
   alertWrap: string;
@@ -58,6 +67,7 @@ const THEMES: Record<DayPhase, PhaseTheme> = {
     gradient: 'linear-gradient(170deg, #FFE9D2 0%, #FFD2AC 100%)',
     ink: '#3D2210', sub: '#6A4226', name: '#A33A08',
     pillBg: 'rgba(255,255,255,0.6)', accent: '#3D2210', track: 'rgba(61,34,16,0.15)',
+    chipBg: 'rgba(255,255,255,0.55)', chipBorder: 'rgba(61,34,16,0.12)', onAccent: '#FFF1E2', ghostBorder: 'rgba(61,34,16,0.4)',
     greeting: 'Xayrli tong',
     message: "Kun rejasi tayyor. Muddati yaqin ishlardan boshlang!",
     ...LIGHT_ALERT,
@@ -66,6 +76,7 @@ const THEMES: Record<DayPhase, PhaseTheme> = {
     gradient: 'linear-gradient(170deg, #E6F5FF 0%, #BADFFF 100%)',
     ink: '#0A2F52', sub: '#27506F', name: '#0B5CAD',
     pillBg: 'rgba(255,255,255,0.65)', accent: '#0B5CAD', track: 'rgba(10,47,82,0.14)',
+    chipBg: 'rgba(255,255,255,0.6)', chipBorder: 'rgba(10,47,82,0.12)', onAccent: '#FFFFFF', ghostBorder: 'rgba(10,47,82,0.4)',
     greeting: 'Xayrli kun',
     message: 'Bugungi ishlaringizda muvaffaqiyat tilaymiz!',
     ...LIGHT_ALERT,
@@ -74,6 +85,7 @@ const THEMES: Record<DayPhase, PhaseTheme> = {
     gradient: 'linear-gradient(170deg, #2B2468 0%, #9B4577 100%)',
     ink: '#FFF1F5', sub: '#FFD9E6', name: '#FFC2D4',
     pillBg: 'rgba(255,255,255,0.14)', accent: '#FFC2D4', track: 'rgba(255,255,255,0.2)',
+    chipBg: 'rgba(255,255,255,0.12)', chipBorder: 'rgba(255,255,255,0.2)', onAccent: '#2B2468', ghostBorder: 'rgba(255,255,255,0.5)',
     greeting: 'Xayrli kech',
     message: "Kun yakuniga oz qoldi. Ochiq qolgan ishlarni tekshiring.",
     ...DARK_ALERT,
@@ -82,6 +94,7 @@ const THEMES: Record<DayPhase, PhaseTheme> = {
     gradient: 'linear-gradient(170deg, #1E1B4B 0%, #100E2E 100%)',
     ink: '#E0E7FF', sub: '#C7D2FE', name: '#A5B4FC',
     pillBg: 'rgba(255,255,255,0.1)', accent: '#A5B4FC', track: 'rgba(255,255,255,0.16)',
+    chipBg: 'rgba(255,255,255,0.08)', chipBorder: 'rgba(255,255,255,0.14)', onAccent: '#1E1B4B', ghostBorder: 'rgba(199,210,254,0.45)',
     greeting: 'Xayrli kech',
     message: "Dam olish vaqti. Ertangi rejani bir ko'zdan kechiring.",
     ...DARK_ALERT,
@@ -107,8 +120,11 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
   unratedErrors,
   setShowUnratedModal,
   pendingDeleteErrors,
-  loadPendingDeleteErrors = () => {}
+  loadPendingDeleteErrors = () => {},
+  unfinished,
+  todayCount
 }) => {
+  const navigate = useNavigate();
   const now = useNow();
   const hour = now.getHours();
   const phase = getPhase(hour);
@@ -128,6 +144,48 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
     hourFraction < WORK_START ? 'Ish kuni 09:00 da boshlanadi'
     : hourFraction >= WORK_END ? 'Ish kuni yakunlandi'
     : `Ish kuni ${workPercent}% o'tdi`;
+
+  // Ko'rsatkichlar va davrga mos asosiy qator
+  const unfinishedData = unfinished.data;
+  const dash = '–';
+  const totalOpen = unfinishedData ? unfinishedData.total : null;
+  const overdue = unfinishedData ? unfinishedData.overdue : null;
+  const oldest = unfinishedData?.oldest ?? null;
+  const oldestDays = oldest ? Math.floor((now.getTime() - new Date(oldest.createdAt).getTime()) / 86_400_000) : 0;
+  const overdueNote = overdue === null ? '' : overdue > 0 ? `${overdue} tasi kechikkan` : "Kechikkan ish yo'q";
+
+  const focus: { label: string; value: string; note: string; to: string } = (() => {
+    if (phase === 'kun' && oldest) {
+      return {
+        label: 'Eng eski ochiq ish',
+        value: oldest.title,
+        note: `${oldest.client?.name ?? "Mijoz yo'q"} · ${oldestDays < 1 ? 'bugun ochilgan' : `${oldestDays} kun ochiq`}`,
+        to: `/invoices?task=${oldest.id}`,
+      };
+    }
+    if (phase === 'kech') {
+      return {
+        label: 'Bugungi ishlar',
+        value: todayCount === null ? dash : `${todayCount} ta invoys`,
+        note: totalOpen === null ? '' : `Ochiq qolgan: ${totalOpen} ta`,
+        to: '/invoices',
+      };
+    }
+    return {
+      label: phase === 'tun' ? 'Ertaga kutilmoqda' : 'Bugungi reja',
+      value: totalOpen === null ? dash : `${totalOpen} ta ochiq ish`,
+      note: overdueNote,
+      to: '/invoices',
+    };
+  })();
+
+  const stats: { value: string; label: string; alert?: boolean }[] = [
+    { value: todayCount === null ? dash : String(todayCount), label: 'Bugungi ishlar' },
+    { value: totalOpen === null ? dash : String(totalOpen), label: 'Ochiq ishlar' },
+    { value: overdue === null ? dash : String(overdue), label: 'Kechikkan', alert: !!overdue },
+  ];
+
+  const canCreate = user?.role === 'ADMIN' || user?.role === 'MANAGER' || user?.role === 'DEKLARANT';
 
   // O'chirish so'rovini tasdiqlash / rad etish. Oldin xato jimgina console'ga ketardi
   const resolveDeleteRequest = async (err: DashboardTaskError, action: 'approve-delete' | 'reject-delete') => {
@@ -205,7 +263,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
         <span className="tabular-nums">{timeString}</span>
       </div>
 
-      <div className="relative mt-6">
+      <div className="relative mt-2">
         <div className="text-[22px] font-semibold leading-tight" style={{ color: theme.sub, ...COLOR_FADE }}>{theme.greeting},</div>
         <h1 className="mt-1 break-words text-5xl xl:text-[64px] font-extrabold leading-none tracking-tight" style={{ color: theme.name, ...COLOR_FADE }}>
           {user?.name?.split(' ')[0] || 'Foydalanuvchi'}
@@ -213,6 +271,37 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
         <p className="mt-4 max-w-[340px] text-base font-medium leading-normal" style={{ color: theme.sub, ...COLOR_FADE }}>
           {theme.message}
         </p>
+      </div>
+
+      {/* Davrga mos asosiy qator */}
+      <button
+        type="button"
+        onClick={() => navigate(focus.to)}
+        className="relative flex w-full items-center gap-3 rounded-[18px] border px-4 py-3.5 text-left transition-[filter] hover:brightness-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-current"
+        style={{ background: theme.chipBg, borderColor: theme.chipBorder, color: theme.ink }}
+      >
+        <span aria-hidden="true" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl" style={{ background: theme.accent, color: theme.onAccent }}>
+          <Icon icon="solar:clock-circle-bold-duotone" className="h-[22px] w-[22px]" />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-xs font-bold uppercase tracking-wider" style={{ color: theme.sub }}>{focus.label}</span>
+          <span className="mt-0.5 block truncate text-base font-bold">{focus.value}</span>
+          {focus.note && <span className="mt-px block truncate text-[13px] font-medium" style={{ color: theme.sub }}>{focus.note}</span>}
+        </span>
+        <Icon icon="solar:alt-arrow-right-bold-duotone" aria-hidden="true" className="h-5 w-5 shrink-0" style={{ color: theme.sub }} />
+      </button>
+
+      {/* Ko'rsatkichlar */}
+      <div className="relative grid grid-cols-3 gap-2.5">
+        {stats.map(stat => (
+          <div key={stat.label} className="rounded-2xl border px-3.5 py-3" style={{ background: theme.chipBg, borderColor: theme.chipBorder }}>
+            <div className="flex items-center gap-1.5 text-[26px] font-extrabold leading-none tabular-nums">
+              {stat.value}
+              {stat.alert && <span aria-hidden="true" className="h-2 w-2 rounded-full bg-rose-500" />}
+            </div>
+            <div className="mt-1.5 text-xs font-semibold" style={{ color: theme.sub }}>{stat.label}</div>
+          </div>
+        ))}
       </div>
 
       {/* Ish kuni progressi */}
@@ -235,6 +324,30 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
             style={{ width: `${workPercent}%`, background: theme.accent, transition: 'width 0.6s ease, background 0.6s ease' }}
           />
         </div>
+      </div>
+
+      {/* Tezkor amallar */}
+      <div className="relative flex gap-2.5">
+        {canCreate && (
+          <button
+            type="button"
+            onClick={() => navigate('/invoices', { state: { openCreateModal: true } })}
+            className="inline-flex min-h-[46px] flex-1 items-center justify-center gap-2 rounded-2xl text-sm font-extrabold transition-[filter] hover:brightness-110"
+            style={{ background: theme.accent, color: theme.onAccent }}
+          >
+            <Icon icon="solar:add-circle-bold-duotone" className="h-[18px] w-[18px]" />
+            Yangi invoys
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={() => navigate('/invoices')}
+          className="inline-flex min-h-[46px] flex-1 items-center justify-center gap-2 rounded-2xl border-[1.5px] text-sm font-extrabold transition-[filter] hover:brightness-95"
+          style={{ borderColor: theme.ghostBorder, color: theme.ink }}
+        >
+          <Icon icon="solar:document-text-bold-duotone" className="h-[18px] w-[18px]" />
+          Invoyslar ro'yxati
+        </button>
       </div>
 
       {(hasUnrated || hasPendingDelete) && (

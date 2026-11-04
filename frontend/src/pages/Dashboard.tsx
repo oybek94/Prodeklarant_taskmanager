@@ -5,6 +5,7 @@ import DashboardNotes from '../components/dashboard/DashboardNotes';
 import DashboardFumigation from '../components/dashboard/DashboardFumigation';
 import { UnratedErrorsModal } from '../components/dashboard/UnratedErrorsModal';
 import { useDashboardStats } from '../hooks/useDashboardStats';
+import { useUnfinishedTasks } from '../hooks/useUnfinishedTasks';
 
 // Child Components
 import { DashboardHeader } from '../components/dashboard/DashboardHeader';
@@ -31,6 +32,7 @@ const Dashboard = () => {
 
   const handleCloseUnratedModal = useCallback(() => setShowUnratedModal(false), []);
 
+  const unfinished = useUnfinishedTasks();
 
   const {
     stats,
@@ -73,6 +75,8 @@ const Dashboard = () => {
               pendingDeleteErrors={pendingDeleteErrors}
               loadPendingDeleteErrors={loadPendingDeleteErrors}
               setShowUnratedModal={setShowUnratedModal}
+              unfinished={unfinished}
+              todayCount={completedSummary?.today.count ?? null}
             />
           </div>
           <div>
@@ -83,7 +87,7 @@ const Dashboard = () => {
           </div>
         </div>
 
-        <DashboardUnfinishedTasks />
+        <DashboardUnfinishedTasks unfinished={unfinished} />
 
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-6">
           <DashboardSummaryCards

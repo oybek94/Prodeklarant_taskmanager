@@ -207,30 +207,30 @@ const DashboardFumigation: React.FC = () => {
               const percent = progressPercent(r, nowMs);
               return (
                 <li key={r.id} className="rounded-2xl border border-slate-200 dark:border-gray-800 bg-slate-50 dark:bg-gray-800/60 py-3 pl-3.5 pr-3">
-                  <div className="flex items-center gap-3">
-                    <span className="inline-flex shrink-0 items-stretch overflow-hidden rounded-[7px] border-2 border-[#0F172A] dark:border-[#F4F4F5] bg-[#F8FAFC] dark:bg-[#F4F4F5]">
-                      <span className="flex items-center bg-blue-700 px-1.5 text-[9px] font-extrabold text-white">UZ</span>
-                      <span className="px-2.5 py-1 text-[15px] font-extrabold tracking-[0.07em] text-slate-900">{r.truckNumber}</span>
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <div className="text-xl font-extrabold leading-none tabular-nums text-gray-900 dark:text-white">{formatClock(r.remindAt)}</div>
-                      <div className="mt-1 truncate text-xs font-semibold text-slate-500 dark:text-gray-400">
-                        {formatDayLabel(r.remindAt, nowMs)} · {r.createdBy.name.split(' ')[0]} kiritdi
-                      </div>
-                    </div>
-                    <span className="whitespace-nowrap rounded-full bg-amber-100 dark:bg-amber-400/15 px-2.5 py-1.5 text-xs font-extrabold text-amber-800 dark:text-amber-300">
-                      {formatRemaining(r.remindAt, nowMs)}
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="inline-flex min-w-0 items-stretch overflow-hidden rounded-[7px] border-2 border-[#0F172A] dark:border-[#F4F4F5] bg-[#F8FAFC] dark:bg-[#F4F4F5]">
+                      <span className="flex shrink-0 items-center bg-blue-700 px-1.5 text-[9px] font-extrabold text-white">UZ</span>
+                      <span className="truncate px-2.5 py-1 text-[15px] font-extrabold tracking-[0.07em] text-slate-900">{r.truckNumber}</span>
                     </span>
                     {canDelete && (
                       <button
                         onClick={() => handleDelete(r.id)}
                         aria-label="Bekor qilish"
                         title="Bekor qilish"
-                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] text-slate-500 dark:text-gray-400 hover:bg-red-50 dark:hover:bg-red-500/10 hover:text-red-500 transition-colors"
+                        className="-my-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] text-slate-500 dark:text-gray-400 hover:bg-red-50 dark:hover:bg-red-500/10 hover:text-red-500 transition-colors"
                       >
                         <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-[18px] h-[18px]" />
                       </button>
                     )}
+                  </div>
+                  <div className="mt-2.5 flex items-center gap-3">
+                    <div className="shrink-0 text-xl font-extrabold leading-none tabular-nums text-gray-900 dark:text-white">{formatClock(r.remindAt)}</div>
+                    <div className="min-w-0 flex-1 truncate text-xs font-semibold text-slate-500 dark:text-gray-400">
+                      {formatDayLabel(r.remindAt, nowMs)} · {r.createdBy.name.split(' ')[0]} kiritdi
+                    </div>
+                    <span className="shrink-0 whitespace-nowrap rounded-full bg-amber-100 dark:bg-amber-400/15 px-2.5 py-1.5 text-xs font-extrabold text-amber-800 dark:text-amber-300">
+                      {formatRemaining(r.remindAt, nowMs)}
+                    </span>
                   </div>
                   <div
                     role="img"

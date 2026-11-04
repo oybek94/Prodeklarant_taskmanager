@@ -1,32 +1,9 @@
-import React, { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react';
+import React, { Suspense, lazy, useCallback, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Icon } from '@iconify/react';
-import api from '../../lib/api';
-import { useSocket } from '../../contexts/SocketContext';
+import type { UnfinishedStage, UnfinishedTask, useUnfinishedTasks } from '../../hooks/useUnfinishedTasks';
 
 const TaskProcessModal = lazy(() => import('../tasks/TaskProcessModal'));
-
-interface UnfinishedStage {
-  id: number;
-  name: string;
-  status: 'BOSHLANMAGAN' | 'TAYYOR';
-  stageOrder: number;
-}
-
-interface UnfinishedTask {
-  id: number;
-  title: string;
-  status: string;
-  createdAt: string;
-  client: { id: number; name: string } | null;
-  branch: { id: number; name: string } | null;
-  stages: UnfinishedStage[];
-}
-
-interface UnfinishedTasksResponse {
-  tasks: UnfinishedTask[];
-  total: number;
-}
 
 /** Shuncha kundan ko'p ochiq turgan ish qizil rangda ko'rsatiladi */
 const OVERDUE_DAYS = 3;
@@ -151,41 +128,13 @@ const TaskRow: React.FC<{ task: UnfinishedTask; now: number; onOpen: (id: number
  * Dashboard: tugallanmagan ishlar ro'yxati. Ish ustiga bosilsa Jarayonlar oynasi ochiladi
  * va bosqichlarni o'sha yerda tayyor deb belgilash mumkin.
  */
-export const DashboardUnfinishedTasks: React.FC = () => {
-  const socket = useSocket();
-  const [data, setData] = useState<UnfinishedTasksResponse | null>(null);
-  const [error, setError] = useState(false);
+interface DashboardUnfinishedTasksProps {
+  unfinished: ReturnType<typeof useUnfinishedTasks>;
+}
+
+export const DashboardUnfinishedTasks: React.FC<DashboardUnfinishedTasksProps> = ({ unfinished }) => {
+  const { data, error, now, reload: load } = unfinished;
   const [openTaskId, setOpenTaskId] = useState<number | null>(null);
-  const [now, setNow] = useState(() => Date.now());
-
-  const load = useCallback(async () => {
-    try {
-      const res = await api.get<UnfinishedTasksResponse>('/dashboard/unfinished-tasks');
-      setData(res.data);
-      setError(false);
-      setNow(Date.now());
-    } catch {
-      setError(true);
-    }
-  }, []);
-
-  useEffect(() => { load(); }, [load]);
-
-  // Boshqa xodimlar bosqich belgilasa yoki ish qo'shsa — ro'yxat yangilanadi (bir nechta hodisa birlashtiriladi)
-  const reloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => {
-    if (!socket) return;
-    const scheduleReload = () => {
-      if (reloadTimerRef.current) clearTimeout(reloadTimerRef.current);
-      reloadTimerRef.current = setTimeout(load, 800);
-    };
-    const events = ['task:stageUpdated', 'task:updated', 'task:created', 'task:deleted'];
-    events.forEach((e) => socket.on(e, scheduleReload));
-    return () => {
-      events.forEach((e) => socket.off(e, scheduleReload));
-      if (reloadTimerRef.current) clearTimeout(reloadTimerRef.current);
-    };
-  }, [socket, load]);
 
   const handleCloseModal = useCallback(() => {
     setOpenTaskId(null);

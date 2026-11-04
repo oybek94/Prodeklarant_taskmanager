@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { prisma } from '../prisma';
 import { requireAuth, AuthRequest } from '../middleware/auth';
 import { z } from 'zod';
+import { appCache } from '../services/cache';
 
 const router = Router();
 
@@ -56,6 +57,9 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
       create: data,
       update: { targetTasks: data.targetTasks },
     });
+
+    // /dashboard/stats yillik maqsadni ham 5 daqiqa keshlaydi — yangi qiymat darhol ko'rinishi uchun
+    appCache.invalidate('dashboard:');
 
     res.json(config);
   } catch (error: any) {

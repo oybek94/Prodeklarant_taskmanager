@@ -150,17 +150,6 @@ const Invoices = () => {
     navigate('/invoices', { replace: true });
   }, [taskIdFromQuery, navigate]);
 
-  // Dashboard "Yangi invoys" tugmasi: state.openCreateModal — yaratish oynasini ochadi
-  const openCreateModalFromState = (location.state as { openCreateModal?: boolean } | null)?.openCreateModal;
-  useEffect(() => {
-    if (!openCreateModalFromState) return;
-    if (canEdit) {
-      setDuplicateInvoiceId(null);
-      setShowCreateModal(true);
-    }
-    navigate('/invoices', { replace: true, state: {} });
-  }, [openCreateModalFromState, canEdit, navigate]);
-
   // Error modal from location state (from invoice page)
   const openErrorModalForTaskId = (location.state as { openErrorModalForTaskId?: number })?.openErrorModalForTaskId;
   useEffect(() => {

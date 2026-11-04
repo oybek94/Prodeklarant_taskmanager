@@ -30,7 +30,6 @@ interface PhaseTheme {
   chipBg: string;
   chipBorder: string;
   onAccent: string;
-  ghostBorder: string;
   greeting: string;
   message: string;
   alertWrap: string;
@@ -67,7 +66,7 @@ const THEMES: Record<DayPhase, PhaseTheme> = {
     gradient: 'linear-gradient(170deg, #FFE9D2 0%, #FFD2AC 100%)',
     ink: '#3D2210', sub: '#6A4226', name: '#A33A08',
     pillBg: 'rgba(255,255,255,0.6)', accent: '#3D2210', track: 'rgba(61,34,16,0.15)',
-    chipBg: 'rgba(255,255,255,0.55)', chipBorder: 'rgba(61,34,16,0.12)', onAccent: '#FFF1E2', ghostBorder: 'rgba(61,34,16,0.4)',
+    chipBg: 'rgba(255,255,255,0.55)', chipBorder: 'rgba(61,34,16,0.12)', onAccent: '#FFF1E2',
     greeting: 'Xayrli tong',
     message: "Kun rejasi tayyor. Muddati yaqin ishlardan boshlang!",
     ...LIGHT_ALERT,
@@ -76,7 +75,7 @@ const THEMES: Record<DayPhase, PhaseTheme> = {
     gradient: 'linear-gradient(170deg, #E6F5FF 0%, #BADFFF 100%)',
     ink: '#0A2F52', sub: '#27506F', name: '#0B5CAD',
     pillBg: 'rgba(255,255,255,0.65)', accent: '#0B5CAD', track: 'rgba(10,47,82,0.14)',
-    chipBg: 'rgba(255,255,255,0.6)', chipBorder: 'rgba(10,47,82,0.12)', onAccent: '#FFFFFF', ghostBorder: 'rgba(10,47,82,0.4)',
+    chipBg: 'rgba(255,255,255,0.6)', chipBorder: 'rgba(10,47,82,0.12)', onAccent: '#FFFFFF',
     greeting: 'Xayrli kun',
     message: 'Bugungi ishlaringizda muvaffaqiyat tilaymiz!',
     ...LIGHT_ALERT,
@@ -85,7 +84,7 @@ const THEMES: Record<DayPhase, PhaseTheme> = {
     gradient: 'linear-gradient(170deg, #2B2468 0%, #9B4577 100%)',
     ink: '#FFF1F5', sub: '#FFD9E6', name: '#FFC2D4',
     pillBg: 'rgba(255,255,255,0.14)', accent: '#FFC2D4', track: 'rgba(255,255,255,0.2)',
-    chipBg: 'rgba(255,255,255,0.12)', chipBorder: 'rgba(255,255,255,0.2)', onAccent: '#2B2468', ghostBorder: 'rgba(255,255,255,0.5)',
+    chipBg: 'rgba(255,255,255,0.12)', chipBorder: 'rgba(255,255,255,0.2)', onAccent: '#2B2468',
     greeting: 'Xayrli kech',
     message: "Kun yakuniga oz qoldi. Ochiq qolgan ishlarni tekshiring.",
     ...DARK_ALERT,
@@ -94,7 +93,7 @@ const THEMES: Record<DayPhase, PhaseTheme> = {
     gradient: 'linear-gradient(170deg, #1E1B4B 0%, #100E2E 100%)',
     ink: '#E0E7FF', sub: '#C7D2FE', name: '#A5B4FC',
     pillBg: 'rgba(255,255,255,0.1)', accent: '#A5B4FC', track: 'rgba(255,255,255,0.16)',
-    chipBg: 'rgba(255,255,255,0.08)', chipBorder: 'rgba(255,255,255,0.14)', onAccent: '#1E1B4B', ghostBorder: 'rgba(199,210,254,0.45)',
+    chipBg: 'rgba(255,255,255,0.08)', chipBorder: 'rgba(255,255,255,0.14)', onAccent: '#1E1B4B',
     greeting: 'Xayrli kech',
     message: "Dam olish vaqti. Ertangi rejani bir ko'zdan kechiring.",
     ...DARK_ALERT,
@@ -185,8 +184,6 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
     { value: overdue === null ? dash : String(overdue), label: 'Kechikkan', alert: !!overdue },
   ];
 
-  const canCreate = user?.role === 'ADMIN' || user?.role === 'MANAGER' || user?.role === 'DEKLARANT';
-
   // O'chirish so'rovini tasdiqlash / rad etish. Oldin xato jimgina console'ga ketardi
   const resolveDeleteRequest = async (err: DashboardTaskError, action: 'approve-delete' | 'reject-delete') => {
     try {
@@ -204,7 +201,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
 
   return (
     <div
-      className="relative h-full min-h-[456px] overflow-hidden rounded-[28px] p-6 sm:p-8 flex flex-col gap-5"
+      className="relative h-full min-h-[380px] overflow-hidden rounded-[28px] p-6 sm:p-7 flex flex-col gap-3.5"
       style={{ color: theme.ink }}
     >
       {/* Fon qatlamlari: davr almashganda yumshoq o'tadi */}
@@ -254,7 +251,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
       </svg>
 
       <div
-        className="relative inline-flex items-center gap-2 self-start rounded-full px-3.5 py-2 text-[13px] font-bold tracking-wide"
+        className="relative inline-flex items-center gap-2 self-start rounded-full px-3 py-1.5 text-[13px] font-bold tracking-wide"
         style={{ background: theme.pillBg, color: theme.ink, transition: 'background 0.6s ease, color 0.6s ease' }}
       >
         <Icon icon="solar:calendar-date-bold-duotone" className="w-4 h-4" />
@@ -265,10 +262,10 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
 
       <div className="relative mt-2">
         <div className="text-[22px] font-semibold leading-tight" style={{ color: theme.sub, ...COLOR_FADE }}>{theme.greeting},</div>
-        <h1 className="mt-1 break-words text-5xl xl:text-[64px] font-extrabold leading-none tracking-tight" style={{ color: theme.name, ...COLOR_FADE }}>
+        <h1 className="mt-1 break-words text-5xl xl:text-[56px] font-extrabold leading-none tracking-tight" style={{ color: theme.name, ...COLOR_FADE }}>
           {user?.name?.split(' ')[0] || 'Foydalanuvchi'}
         </h1>
-        <p className="mt-4 max-w-[340px] text-base font-medium leading-normal" style={{ color: theme.sub, ...COLOR_FADE }}>
+        <p className="mt-2.5 max-w-[340px] text-[15px] font-medium leading-snug" style={{ color: theme.sub, ...COLOR_FADE }}>
           {theme.message}
         </p>
       </div>
@@ -277,29 +274,29 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
       <button
         type="button"
         onClick={() => navigate(focus.to)}
-        className="relative flex w-full items-center gap-3 rounded-[18px] border px-4 py-3.5 text-left transition-[filter] hover:brightness-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-current"
+        className="relative flex w-full items-center gap-2.5 rounded-2xl border px-3 py-2 text-left transition-[filter] hover:brightness-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-current"
         style={{ background: theme.chipBg, borderColor: theme.chipBorder, color: theme.ink }}
       >
-        <span aria-hidden="true" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl" style={{ background: theme.accent, color: theme.onAccent }}>
-          <Icon icon="solar:clock-circle-bold-duotone" className="h-[22px] w-[22px]" />
+        <span aria-hidden="true" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg" style={{ background: theme.accent, color: theme.onAccent }}>
+          <Icon icon="solar:clock-circle-bold-duotone" className="h-[18px] w-[18px]" />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block text-xs font-bold uppercase tracking-wider" style={{ color: theme.sub }}>{focus.label}</span>
-          <span className="mt-0.5 block truncate text-base font-bold">{focus.value}</span>
-          {focus.note && <span className="mt-px block truncate text-[13px] font-medium" style={{ color: theme.sub }}>{focus.note}</span>}
+          <span className="block text-[11px] font-bold uppercase tracking-wider" style={{ color: theme.sub }}>{focus.label}</span>
+          <span className="block truncate text-sm font-bold">{focus.value}</span>
+          {focus.note && <span className="block truncate text-xs font-medium" style={{ color: theme.sub }}>{focus.note}</span>}
         </span>
-        <Icon icon="solar:alt-arrow-right-bold-duotone" aria-hidden="true" className="h-5 w-5 shrink-0" style={{ color: theme.sub }} />
+        <Icon icon="solar:alt-arrow-right-bold-duotone" aria-hidden="true" className="h-4 w-4 shrink-0" style={{ color: theme.sub }} />
       </button>
 
       {/* Ko'rsatkichlar */}
-      <div className="relative grid grid-cols-3 gap-2.5">
+      <div className="relative grid grid-cols-3 gap-2">
         {stats.map(stat => (
-          <div key={stat.label} className="rounded-2xl border px-3.5 py-3" style={{ background: theme.chipBg, borderColor: theme.chipBorder }}>
-            <div className="flex items-center gap-1.5 text-[26px] font-extrabold leading-none tabular-nums">
+          <div key={stat.label} className="rounded-xl border px-3 py-2" style={{ background: theme.chipBg, borderColor: theme.chipBorder }}>
+            <div className="flex items-center gap-1.5 text-xl font-extrabold leading-none tabular-nums">
               {stat.value}
-              {stat.alert && <span aria-hidden="true" className="h-2 w-2 rounded-full bg-rose-500" />}
+              {stat.alert && <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-rose-500" />}
             </div>
-            <div className="mt-1.5 text-xs font-semibold" style={{ color: theme.sub }}>{stat.label}</div>
+            <div className="mt-1 truncate text-[11px] font-semibold" style={{ color: theme.sub }}>{stat.label}</div>
           </div>
         ))}
       </div>
@@ -311,7 +308,7 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
           <span className="tabular-nums">09:00 – 18:00</span>
         </div>
         <div
-          className="mt-2 h-2 overflow-hidden rounded-full"
+          className="mt-1.5 h-1.5 overflow-hidden rounded-full"
           style={{ background: theme.track }}
           role="progressbar"
           aria-label="Ish kuni progressi"
@@ -324,30 +321,6 @@ export const DashboardHeader: React.FC<DashboardHeaderProps> = ({
             style={{ width: `${workPercent}%`, background: theme.accent, transition: 'width 0.6s ease, background 0.6s ease' }}
           />
         </div>
-      </div>
-
-      {/* Tezkor amallar */}
-      <div className="relative flex gap-2.5">
-        {canCreate && (
-          <button
-            type="button"
-            onClick={() => navigate('/invoices', { state: { openCreateModal: true } })}
-            className="inline-flex min-h-[46px] flex-1 items-center justify-center gap-2 rounded-2xl text-sm font-extrabold transition-[filter] hover:brightness-110"
-            style={{ background: theme.accent, color: theme.onAccent }}
-          >
-            <Icon icon="solar:add-circle-bold-duotone" className="h-[18px] w-[18px]" />
-            Yangi invoys
-          </button>
-        )}
-        <button
-          type="button"
-          onClick={() => navigate('/invoices')}
-          className="inline-flex min-h-[46px] flex-1 items-center justify-center gap-2 rounded-2xl border-[1.5px] text-sm font-extrabold transition-[filter] hover:brightness-95"
-          style={{ borderColor: theme.ghostBorder, color: theme.ink }}
-        >
-          <Icon icon="solar:document-text-bold-duotone" className="h-[18px] w-[18px]" />
-          Invoyslar ro'yxati
-        </button>
       </div>
 
       {(hasUnrated || hasPendingDelete) && (

@@ -1,135 +1,60 @@
-# Prodeklarant - Task Tracker
+# Prodeklarant
 
-Bojxona brokerlik korxonasi uchun fura hujjatlari boshqaruvi dasturi.
+Bojxona deklarantlari uchun CRM/ERP tizimi. Deklaratsiya jarayonlarini avtomatlashtirish — hujjatlar, bosqichlar va to'lovlarni yagona tizimda boshqarish.
 
-## Xususiyatlar
+## Imkoniyatlar
 
-- ✅ Har bir fura hujjatini alohida ko'rsatish
-- ✅ Hujjatning qaysi bosqichda ekanligini kuzatish
-- ✅ Har bir bosqichni kim bajarganini belgilash
-- ✅ Har bir bosqich uchun vaqt hisobi (boshlanish va tugash vaqti)
-- ✅ Filiallar bo'yicha filtrlash (Toshkent va Oltiariq)
-- ✅ Zamonaviy va qulay interfeys
+- Vazifalar (fura hujjatlari) va ularning bosqichlarini kuzatish
+- Invoyslar, moliya va mijozlar boshqaruvi
+- CRM va o'quv tizimi (LMS)
+- Hisobotlar, KPI va gamifikatsiya
+- AI yordamchi (hujjatlarni o'qish, tekshirish, tarjima)
+- Real vaqt bildirishnomalari (Socket.IO)
+- PDF / Excel eksport
+- Chrome kengaytmasi — singlewindow.uz bilan integratsiya
 
-## O'rnatish
+## Texnologiyalar
 
-### Backend
+- **Frontend**: React 19, TypeScript, Vite, TailwindCSS, React Router v7
+- **Backend**: Express 5, TypeScript, Prisma ORM, PostgreSQL
+- **Boshqa**: OpenAI API, Socket.IO, JWT, PDFKit, ExcelJS
+
+## Tuzilma
+
+```
+backend/                  — API server (routes, services, ai, middleware)
+frontend/                 — React ilova (pages, components, contexts)
+singlewindow-extension/   — Chrome kengaytmasi (Manifest V3)
+order-bot/                — Zakaz pochta boti
+deploy/                   — Deploy skriptlari
+```
+
+Ma'lumotlar bazasi sxemasi: `backend/prisma/schema.prisma`.
+
+## Ishga tushirish
+
+Talablar: Node.js, PostgreSQL. Backend uchun `backend/.env` faylida `DATABASE_URL`, `JWT_SECRET` va boshqa o'zgaruvchilar sozlanadi (maxfiy kalitlar gitga tushmaydi).
 
 ```bash
+# Backend — http://localhost:3001
 cd backend
 npm install
+npx prisma migrate dev
 npm run dev
-```
 
-Backend server `http://localhost:3001` da ishlaydi.
-
-### Integration tests
-
-We provide a Postman collection and an automated integration test that runs in CI via Newman (Postman CLI).
-
-- Run locally (from repo root):
-
-```bash
-cd backend
-npm ci
-npm run test:integration
-```
-
-- CI: GitHub Action `LMS Integration Tests` runs migrations, seeds DB and executes the Postman collection.
-
-Files:
-- `backend/openapi/lms-postman-collection.json`
-- `backend/openapi/lms-postman-environment.json`
-- `.github/workflows/lms-integration-tests.yml`
-
-### Frontend
-
-```bash
+# Frontend — http://localhost:5173
 cd frontend
 npm install
 npm run dev
 ```
 
-Frontend `http://localhost:3000` da ishlaydi.
+## Testlar
 
-## Ishlatish
+Postman kolleksiyasi Newman orqali ishga tushiriladi (CI: `.github/workflows/lms-integration-tests.yml`):
 
-1. Backend va frontend serverlarni ishga tushiring
-2. Brauzerda `http://localhost:3000` ni oching
-3. Yangi hujjat yaratish uchun "Yangi hujjat" tugmasini bosing
-4. Fura raqami, mijoz nomi va filialni kiriting
-5. Hujjat yaratilganda, avtomatik ravishda barcha bosqichlar yaratiladi:
-   - Hujjat qabul qilish
-   - Bojxona deklaratsiyasi
-   - Yuk ko'chirish
-   - Tekshiruv
-   - Yakunlash
-
-6. Har bir bosqich uchun:
-   - Javobgar xodimni tanlang
-   - "Boshlash" tugmasi bilan bosqichni boshlang
-   - "Yakunlash" tugmasi bilan yakunlang
-   - Vaqt avtomatik hisoblanadi
-
-## Tashqi API Integratsiya
-
-### My.gov.uz yoki boshqa tashqi API dan ma'lumot olish
-
-1. **Backend da axios o'rnatish:**
 ```bash
 cd backend
-npm install axios
+npm run test:integration
 ```
 
-2. **Environment sozlamalari (.env fayl):**
-```env
-MYGOV_API_URL=https://api.my.gov.uz/api/v1
-MYGOV_API_KEY=your-api-key-here
-```
-
-3. **Backend endpoint:**
-- `GET /api/external/mygov-data` - My.gov.uz dan ma'lumot olish
-- `GET /api/external/data-gov?datasetId=xxx` - Data.gov.uz dan ma'lumot olish
-- `POST /api/external/proxy` - Umumiy proxy endpoint
-
-4. **Frontend da ishlatish:**
-```typescript
-import apiClient from '../lib/api';
-
-// My.gov.uz dan ma'lumot olish
-const response = await apiClient.get('/external/mygov-data');
-console.log(response.data);
-```
-
-**Mavjud API portallari:**
-- [data.gov.uz](https://data.gov.uz) - Ochiq ma'lumotlar portali
-- [api-portal.gov.uz](https://api-portal.gov.uz) - API portali
-
-**Eslatma:** My.gov.uz ning ochiq API mavjudligi aniq emas. Rasmiy API hujjatlari uchun portalning qo'llab-quvvatlash xizmatiga murojaat qiling.
-
-## Email (Send Task Documents by Mail.ru)
-
-Completed tasks can send their documents by email via Mail.ru SMTP. See [SETUP_EMAIL.md](SETUP_EMAIL.md) for environment variables (e.g. `MAILRU_USER`, `MAILRU_PASSWORD`) and usage.
-
-## Texnologiyalar
-
-- **Backend**: Node.js, Express, TypeScript, SQLite
-- **Frontend**: React, TypeScript, Tailwind CSS, Vite
-
-## Ma'lumotlar bazasi
-
-SQLite ma'lumotlar bazasi `backend/database.db` faylida saqlanadi.
-
-## Ishchilar
-
-Dastur ishga tushganda quyidagi ishchilar avtomatik yaratiladi:
-- Direktor (Toshkent)
-- Toshkent Xodimi 1
-- Toshkent Xodimi 2
-- Oltiariq Xodimi 1
-- Oltiariq Xodimi 2
-
-# Prodeklarant_taskmanager
-# Prodeklarant_taskmanager
-# Prodeklarant_taskmanager
-# Prodeklarant_taskmanager
+Kolleksiya: `backend/openapi/`.

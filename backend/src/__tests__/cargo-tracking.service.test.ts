@@ -222,7 +222,6 @@ describe('buildWhereReply', () => {
     lastLng: 57.2,
     lastLocationAt: minutesAgo(12),
     lastAddress: 'Aktobe, Qozog‘iston',
-    livePeriodEndsAt: null,
     lastPromptAt: null,
     driverChatId: BigInt(10),
     ...over,
@@ -269,10 +268,27 @@ describe('buildWhereReply', () => {
     expect(m.callTelegram).not.toHaveBeenCalled();
   });
 
-  it("soatlik so'rovdan 10 daqiqa o'tgach mijoz bossa shoshilinch so'rov yuboradi", async () => {
-    m.trackingFindFirst.mockResolvedValue(tracking({ lastLocationAt: minutesAgo(200), lastPromptAt: minutesAgo(10) }));
+  it("davriy eslatmadan 20 daqiqa o'tgach mijoz bossa shoshilinch (tovushli) so'rov yuboradi", async () => {
+    m.trackingFindFirst.mockResolvedValue(tracking({ lastLocationAt: minutesAgo(200), lastPromptAt: minutesAgo(20) }));
     await buildWhereReply({ clientId: 2, trackingId: 4, botToken: 'tok', now: NOW });
     expect(m.callTelegram).toHaveBeenCalledTimes(1);
+    expect(m.callTelegram.mock.calls[0][2]).not.toHaveProperty('disable_notification');
+  });
+
+  it("haydovchi botni bloklagan bo'lsa chatni o'chiradi va mijozga to'g'ridan-to'g'ri bog'lanishni aytadi", async () => {
+    m.trackingFindFirst.mockResolvedValue(tracking({ lastLocationAt: minutesAgo(200) }));
+    m.callTelegram.mockResolvedValue({ ok: false, description: 'Forbidden: bot was blocked by the user' });
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const reply = await buildWhereReply({ clientId: 2, trackingId: 4, botToken: 'tok', now: NOW });
+    expect(reply.ok && reply.text).toContain('свяжитесь с водителем напрямую');
+    expect(m.trackingUpdate).toHaveBeenCalledWith({ where: { id: 4 }, data: { lastPromptAt: NOW, driverChatId: null } });
+  });
+
+  it("chat allaqachon o'chirilgan (bloklangan) haydovchiga umuman yozmaydi", async () => {
+    m.trackingFindFirst.mockResolvedValue(tracking({ lastLocationAt: minutesAgo(200), driverChatId: null }));
+    const reply = await buildWhereReply({ clientId: 2, trackingId: 4, botToken: 'tok', now: NOW });
+    expect(m.callTelegram).not.toHaveBeenCalled();
+    expect(reply.ok && reply.text).toContain('свяжитесь с водителем напрямую');
   });
 
   it("joylashuv hali kelmagan bo'lsa shuni aytadi, xarita yo'q", async () => {
@@ -333,6 +349,7 @@ describe('runHourlyTrackingJob', () => {
     expect(m.pointCreate).not.toHaveBeenCalled();
     expect(m.callTelegram).toHaveBeenCalledTimes(1);
     expect(m.callTelegram.mock.calls[0][2].reply_markup.keyboard[0][0]).toMatchObject({ request_location: true });
+    expect(m.callTelegram.mock.calls[0][2].disable_notification).toBe(true);
     expect(m.trackingUpdate).toHaveBeenCalledWith({ where: { id: 4 }, data: { lastPromptAt: NOW } });
   });
 

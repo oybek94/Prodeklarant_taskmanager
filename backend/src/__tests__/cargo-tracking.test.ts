@@ -14,6 +14,7 @@ import {
   isRecentTask,
   needsFinishQuestion,
   needsDriverPrompt,
+  needsUrgentDriverRequest,
   normalizeDriverCode,
   normalizeInvoiceNumber,
   normalizeVehicleNumber,
@@ -109,7 +110,7 @@ describe('shouldPersistLocation', () => {
 });
 
 describe('needsDriverPrompt', () => {
-  const base = { lastLocationAt: minutesAgo(10), lastPromptAt: null, livePeriodEndsAt: null, now: NOW };
+  const base = { lastLocationAt: minutesAgo(10), lastPromptAt: null, now: NOW };
 
   it("signal yangi bo'lsa so'ramaydi", () => {
     expect(needsDriverPrompt(base)).toBe(false);
@@ -124,9 +125,20 @@ describe('needsDriverPrompt', () => {
     expect(needsDriverPrompt({ ...base, lastLocationAt: minutesAgo(120), lastPromptAt: minutesAgo(30) })).toBe(false);
     expect(needsDriverPrompt({ ...base, lastLocationAt: minutesAgo(120), lastPromptAt: minutesAgo(56) })).toBe(true);
   });
-  it("jonli joylashuv 60 daqiqa ichida tugasa yangi signalda ham eslatadi", () => {
-    expect(needsDriverPrompt({ ...base, livePeriodEndsAt: new Date(NOW.getTime() + 30 * 60_000) })).toBe(true);
-    expect(needsDriverPrompt({ ...base, livePeriodEndsAt: new Date(NOW.getTime() + 5 * 3600_000) })).toBe(false);
+  it("jonli joylashuv tugashiga oz qolgan bo'lsa ham yangi signalda bezovta qilmaydi", () => {
+    expect(needsDriverPrompt(base)).toBe(false);
+  });
+});
+
+describe('needsUrgentDriverRequest', () => {
+  it("avval so'ralmagan bo'lsa yuboradi", () => {
+    expect(needsUrgentDriverRequest({ lastPromptAt: null, now: NOW })).toBe(true);
+  });
+  it("soatlik so'rovdan keyin ham (3 daqiqadan so'ng) shoshilinch so'rov yuboradi", () => {
+    expect(needsUrgentDriverRequest({ lastPromptAt: minutesAgo(10), now: NOW })).toBe(true);
+  });
+  it("3 daqiqa ichida takroriy bosishda spam qilmaydi", () => {
+    expect(needsUrgentDriverRequest({ lastPromptAt: minutesAgo(1), now: NOW })).toBe(false);
   });
 });
 

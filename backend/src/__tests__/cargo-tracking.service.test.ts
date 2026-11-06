@@ -258,6 +258,21 @@ describe('buildWhereReply', () => {
     expect(m.callTelegram).toHaveBeenCalledTimes(1);
     expect(m.callTelegram.mock.calls[0][1]).toBe('sendMessage');
     expect(m.callTelegram.mock.calls[0][2].chat_id).toBe(10);
+    // mijoz so'ragani uchun shoshilinch xabar + joylashuv tugmasi
+    expect(m.callTelegram.mock.calls[0][2].text).toContain('Zudlik bilan');
+    expect(m.callTelegram.mock.calls[0][2].reply_markup.keyboard[0][0]).toMatchObject({ request_location: true });
+  });
+
+  it("signal eskirgan bo'lsa ham 1 daqiqa oldin so'ralgan bo'lsa takroran yozmaydi", async () => {
+    m.trackingFindFirst.mockResolvedValue(tracking({ lastLocationAt: minutesAgo(200), lastPromptAt: minutesAgo(1) }));
+    await buildWhereReply({ clientId: 2, trackingId: 4, botToken: 'tok', now: NOW });
+    expect(m.callTelegram).not.toHaveBeenCalled();
+  });
+
+  it("soatlik so'rovdan 10 daqiqa o'tgach mijoz bossa shoshilinch so'rov yuboradi", async () => {
+    m.trackingFindFirst.mockResolvedValue(tracking({ lastLocationAt: minutesAgo(200), lastPromptAt: minutesAgo(10) }));
+    await buildWhereReply({ clientId: 2, trackingId: 4, botToken: 'tok', now: NOW });
+    expect(m.callTelegram).toHaveBeenCalledTimes(1);
   });
 
   it("joylashuv hali kelmagan bo'lsa shuni aytadi, xarita yo'q", async () => {

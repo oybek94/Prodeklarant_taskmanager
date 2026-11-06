@@ -12,6 +12,7 @@ import {
   isRecentTask,
   minutesBetween,
   needsDriverPrompt,
+  needsUrgentDriverRequest,
   needsFinishQuestion,
   normalizeDriverCode,
   recentTaskCutoff,
@@ -371,8 +372,9 @@ export async function buildWhereReply(input: { clientId: number; trackingId: num
   }
 
   const stale = !hasLocation || minutesBetween(tracking.lastLocationAt as Date, now) > STALE_AFTER_MINUTES;
-  if (stale && tracking.driverChatId !== null && needsDriverPrompt({ ...tracking, now })) {
-    await promptDriver(input.botToken, { id: tracking.id, driverChatId: tracking.driverChatId, lastLocationAt: tracking.lastLocationAt }, now);
+  // Mijoz o'zi so'radi: signal eskirgan (joylashuv o'chiq) bo'lsa haydovchiga zudlik bilan yuborishni talab qiladi
+  if (stale && tracking.driverChatId !== null && needsUrgentDriverRequest({ lastPromptAt: tracking.lastPromptAt, now })) {
+    await promptDriver(input.botToken, { id: tracking.id, driverChatId: tracking.driverChatId }, now, 'urgent');
   }
 
   const text = formatWhereMessage({
@@ -409,19 +411,18 @@ export async function answerDriverFinish(input: { trackingId: number; telegramUs
 
 // ---------- Haydovchiga so'rov va soatlik ish ----------
 
-const PROMPT_STALE = "📍 Iltimos, joylashuvingizni yuboring: pastdagi tugmani bosing.\nJonli joylashuvni qayta yoqish uchun: 📎 → Joylashuv → «Jonli joylashuvni ulashish» → «Doimiy».";
-const PROMPT_ENDING = "⏳ Jonli joylashuvingiz tugayapti. Uni qayta yoqing: 📎 → Joylashuv → «Jonli joylashuvni ulashish» → «Doimiy».\nYoki pastdagi tugma bilan hozirgi joyingizni yuboring.";
+const LOCATION_BUTTON = { keyboard: [[{ text: '📍 Joylashuvni yuborish', request_location: true }]], resize_keyboard: true, one_time_keyboard: true };
 
-async function promptDriver(
-  botToken: string,
-  tracking: { id: number; driverChatId: bigint; lastLocationAt: Date | null },
-  now: Date
-): Promise<void> {
-  const stale = !tracking.lastLocationAt || minutesBetween(tracking.lastLocationAt, now) > STALE_AFTER_MINUTES;
+const PROMPT_PERIODIC =
+  "⚠️ Joylashuvingiz o'chiq yoki yuborilmayapti. Iltimos, telefoningizda joylashuvni (GPS) yoqing va pastdagi tugma bilan yuboring.\nDoimiy kuzatish uchun: 📎 → Joylashuv → «Jonli joylashuvni ulashish» → «Doimiy».";
+const PROMPT_URGENT =
+  "🚨 Mijoz fura qayerdaligini so'rayapti! Zudlik bilan joylashuvingizni yuboring: pastdagi tugmani bosing.\nJoylashuv o'chiq bo'lsa, avval telefoningizda uni yoqing.";
+
+async function promptDriver(botToken: string, tracking: { id: number; driverChatId: bigint }, now: Date, kind: 'periodic' | 'urgent'): Promise<void> {
   const sent = await callTelegram<unknown>(botToken, 'sendMessage', {
     chat_id: Number(tracking.driverChatId),
-    text: stale ? PROMPT_STALE : PROMPT_ENDING,
-    reply_markup: { keyboard: [[{ text: '📍 Joylashuvni yuborish', request_location: true }]], resize_keyboard: true, one_time_keyboard: true },
+    text: kind === 'urgent' ? PROMPT_URGENT : PROMPT_PERIODIC,
+    reply_markup: LOCATION_BUTTON,
   });
   if (!sent.ok) console.error(`[CargoTracking] Haydovchiga so'rov yuborilmadi (kuzatuv ${tracking.id}):`, sent.description);
   await prisma.cargoTracking.update({ where: { id: tracking.id }, data: { lastPromptAt: now } });
@@ -471,7 +472,7 @@ export async function runHourlyTrackingJob(botToken: string, now: Date = new Dat
         if (await askDriverFinished(botToken, { id: tracking.id, driverChatId: tracking.driverChatId }, now)) continue;
       }
       if (tracking.driverChatId !== null && needsDriverPrompt({ ...tracking, now })) {
-        await promptDriver(botToken, { id: tracking.id, driverChatId: tracking.driverChatId, lastLocationAt: tracking.lastLocationAt }, now);
+        await promptDriver(botToken, { id: tracking.id, driverChatId: tracking.driverChatId }, now, 'periodic');
       }
     } catch (e) {
       console.error(`[CargoTracking] Soatlik ish xatosi (kuzatuv ${tracking.id}):`, e instanceof Error ? e.message : e);

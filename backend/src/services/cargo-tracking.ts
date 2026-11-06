@@ -8,10 +8,13 @@ export const DRIVER_CODE_LENGTH = 6;
 
 /** Oxirgi signal shu daqiqadan eski bo'lsa "eskirgan" hisoblanadi va haydovchidan qayta so'raladi */
 export const STALE_AFTER_MINUTES = 50;
-/** Haydovchiga so'rov xabarlari orasidagi minimal masofa */
-export const PROMPT_MIN_GAP_MINUTES = 55;
+/** Davriy (jim) eslatmalar orasidagi minimal masofa — haydovchini bezovta qilmaslik uchun kamdan-kam */
+export const PROMPT_MIN_GAP_MINUTES = 180;
+/** Haydovchi uzoq vaqt (shu daqiqadan ko'p) joylashuv yubormasa, eslatmalar yanada kamayadi */
+export const PROMPT_BACKOFF_AFTER_MINUTES = 12 * 60;
+export const PROMPT_BACKOFF_GAP_MINUTES = 12 * 60;
 /** Mijoz "Где фура?" bosganda eskirgan signal uchun haydovchiga shoshilinch so'rovlar orasidagi minimal masofa (takroriy bosishlar spam bo'lmasin) */
-export const URGENT_REQUEST_MIN_GAP_MINUTES = 3;
+export const URGENT_REQUEST_MIN_GAP_MINUTES = 15;
 /** Haydovchi ulanganidan shuncha kun o'tgach undan bir marta "yukni yakunladingizmi?" deb so'raladi */
 export const FINISH_ASK_AFTER_DAYS = 7;
 /** Joylashuv yangilanishlarini bazaga yozish oralig'i (Telegram har bir necha soniyada yuboradi) */
@@ -110,12 +113,22 @@ export function shouldPersistLocation(lastWrittenAt: Date | null, now: Date): bo
 
 /**
  * Soatlik ish: haydovchidan joylashuvni qayta so'rash kerakmi. Joylashuv yangi kelib turgan bo'lsa (jonli yoki qo'lda)
- * haydovchi bezovta qilinmaydi — faqat signal eskirganda yoki umuman kelmaganda so'raladi.
+ * haydovchi bezovta qilinmaydi — faqat signal eskirganda yoki umuman kelmaganda so'raladi. Haydovchi eslatmalarga
+ * javob bermasa (12 soatdan ortiq signal yo'q) eslatmalar 3 soatda bir martadan 12 soatda bir martaga kamayadi,
+ * shunda u botni bloklab qo'ymaydi.
  */
-export function needsDriverPrompt(input: { lastLocationAt: Date | null; lastPromptAt: Date | null; now: Date }): boolean {
-  const { lastLocationAt, lastPromptAt, now } = input;
-  if (lastPromptAt && minutesBetween(lastPromptAt, now) < PROMPT_MIN_GAP_MINUTES) return false;
-  return !lastLocationAt || minutesBetween(lastLocationAt, now) > STALE_AFTER_MINUTES;
+export function needsDriverPrompt(input: { lastLocationAt: Date | null; lastPromptAt: Date | null; boundAt: Date | null; now: Date }): boolean {
+  const { lastLocationAt, lastPromptAt, boundAt, now } = input;
+  const stale = !lastLocationAt || minutesBetween(lastLocationAt, now) > STALE_AFTER_MINUTES;
+  if (!stale) return false;
+  const silentSince = lastLocationAt ?? boundAt;
+  const gap = silentSince && minutesBetween(silentSince, now) > PROMPT_BACKOFF_AFTER_MINUTES ? PROMPT_BACKOFF_GAP_MINUTES : PROMPT_MIN_GAP_MINUTES;
+  return !lastPromptAt || minutesBetween(lastPromptAt, now) >= gap;
+}
+
+/** Telegram xatosi haydovchi botni bloklagani/chatni o'chirgani bildiradimi (shunda unga qayta yozmaymiz) */
+export function isDriverUnreachableError(description: string): boolean {
+  return description.toLowerCase().startsWith('forbidden') || description.toLowerCase().includes('chat not found');
 }
 
 /** Mijoz "Где фура?" bosdi va signal eskirgan: haydovchiga shoshilinch so'rov yuborish kerakmi (faqat qisqa takrorlanishdan himoya) */
@@ -151,6 +164,8 @@ export function formatWhereMessage(input: {
   lng: number | null;
   lastLocationAt: Date | null;
   now: Date;
+  /** Eskirgan signalda haydovchiga so'rov yetkazildimi (false: bot bloklangan yoki yuborib bo'lmadi). Odatiy: true */
+  driverRequested?: boolean;
 }): string {
   const head = `🚚 ${orDash(input.vehicleNumber)}${input.invoiceNumber?.trim() ? ` · ${input.invoiceNumber.trim()}` : ''}`;
   if (input.lat === null || input.lng === null || !input.lastLocationAt) {
@@ -161,7 +176,11 @@ export function formatWhereMessage(input: {
   if (input.address?.trim()) lines.push(`Координаты: ${formatCoordinates(input.lat, input.lng)}`);
   lines.push(`Последнее обновление: ${formatAge(age)}`);
   if (age > STALE_AFTER_MINUTES) {
-    lines.push('⚠️ Данные устарели. У водителя срочно запрошено местоположение.');
+    lines.push(
+      input.driverRequested === false
+        ? '⚠️ Данные устарели. Запросить местоположение через бот не удалось — свяжитесь с водителем напрямую.'
+        : '⚠️ Данные устарели. У водителя срочно запрошено местоположение.'
+    );
   }
   return lines.join('\n');
 }

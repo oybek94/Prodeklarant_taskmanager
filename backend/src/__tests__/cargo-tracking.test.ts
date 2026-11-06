@@ -13,6 +13,7 @@ import {
   isDriverCodeShape,
   isRecentTask,
   needsFinishQuestion,
+  isDriverUnreachableError,
   needsDriverPrompt,
   needsUrgentDriverRequest,
   normalizeDriverCode,
@@ -110,23 +111,40 @@ describe('shouldPersistLocation', () => {
 });
 
 describe('needsDriverPrompt', () => {
-  const base = { lastLocationAt: minutesAgo(10), lastPromptAt: null, now: NOW };
+  const base = { lastLocationAt: minutesAgo(10), lastPromptAt: null, boundAt: minutesAgo(60 * 24), now: NOW };
 
-  it("signal yangi bo'lsa so'ramaydi", () => {
+  it("signal yangi bo'lsa so'ramaydi (jonli joylashuv tugashiga oz qolgan bo'lsa ham)", () => {
     expect(needsDriverPrompt(base)).toBe(false);
   });
   it("signal 50 daqiqadan eski bo'lsa so'raydi", () => {
     expect(needsDriverPrompt({ ...base, lastLocationAt: minutesAgo(51) })).toBe(true);
   });
   it("hech qachon signal kelmagan bo'lsa so'raydi", () => {
-    expect(needsDriverPrompt({ ...base, lastLocationAt: null })).toBe(true);
+    expect(needsDriverPrompt({ ...base, lastLocationAt: null, boundAt: minutesAgo(120) })).toBe(true);
   });
-  it('bir soatda bir martadan ko\'p so\'ramaydi', () => {
-    expect(needsDriverPrompt({ ...base, lastLocationAt: minutesAgo(120), lastPromptAt: minutesAgo(30) })).toBe(false);
-    expect(needsDriverPrompt({ ...base, lastLocationAt: minutesAgo(120), lastPromptAt: minutesAgo(56) })).toBe(true);
+  it("davriy eslatmalar orasida kamida 3 soat", () => {
+    expect(needsDriverPrompt({ ...base, lastLocationAt: minutesAgo(120), lastPromptAt: minutesAgo(120) })).toBe(false);
+    expect(needsDriverPrompt({ ...base, lastLocationAt: minutesAgo(240), lastPromptAt: minutesAgo(181) })).toBe(true);
   });
-  it("jonli joylashuv tugashiga oz qolgan bo'lsa ham yangi signalda bezovta qilmaydi", () => {
-    expect(needsDriverPrompt(base)).toBe(false);
+  it("12 soatdan ortiq javob bo'lmasa eslatma 12 soatda bir marta (bot bloklanmasin)", () => {
+    const silent = { ...base, lastLocationAt: minutesAgo(13 * 60) };
+    expect(needsDriverPrompt({ ...silent, lastPromptAt: minutesAgo(4 * 60) })).toBe(false);
+    expect(needsDriverPrompt({ ...silent, lastPromptAt: minutesAgo(11 * 60) })).toBe(false);
+    expect(needsDriverPrompt({ ...silent, lastPromptAt: minutesAgo(12 * 60 + 1) })).toBe(true);
+  });
+  it("hech qachon signal yubormagan, ulanganiga 12 soatdan ko'p bo'lsa ham kamaytirilgan chastota", () => {
+    const never = { ...base, lastLocationAt: null, boundAt: minutesAgo(30 * 60) };
+    expect(needsDriverPrompt({ ...never, lastPromptAt: minutesAgo(5 * 60) })).toBe(false);
+    expect(needsDriverPrompt({ ...never, lastPromptAt: minutesAgo(12 * 60 + 1) })).toBe(true);
+  });
+});
+
+describe('isDriverUnreachableError', () => {
+  it("bot bloklangan yoki chat topilmasa true, tarmoq xatosida false", () => {
+    expect(isDriverUnreachableError('Forbidden: bot was blocked by the user')).toBe(true);
+    expect(isDriverUnreachableError('Bad Request: chat not found')).toBe(true);
+    expect(isDriverUnreachableError('TypeError')).toBe(false);
+    expect(isDriverUnreachableError('Too Many Requests: retry after 5')).toBe(false);
   });
 });
 
@@ -134,11 +152,12 @@ describe('needsUrgentDriverRequest', () => {
   it("avval so'ralmagan bo'lsa yuboradi", () => {
     expect(needsUrgentDriverRequest({ lastPromptAt: null, now: NOW })).toBe(true);
   });
-  it("soatlik so'rovdan keyin ham (3 daqiqadan so'ng) shoshilinch so'rov yuboradi", () => {
-    expect(needsUrgentDriverRequest({ lastPromptAt: minutesAgo(10), now: NOW })).toBe(true);
+  it("davriy eslatmadan 15 daqiqa o'tgach shoshilinch so'rov yuboradi", () => {
+    expect(needsUrgentDriverRequest({ lastPromptAt: minutesAgo(20), now: NOW })).toBe(true);
   });
-  it("3 daqiqa ichida takroriy bosishda spam qilmaydi", () => {
+  it("15 daqiqa ichida takroriy bosishda haydovchini bezovta qilmaydi", () => {
     expect(needsUrgentDriverRequest({ lastPromptAt: minutesAgo(1), now: NOW })).toBe(false);
+    expect(needsUrgentDriverRequest({ lastPromptAt: minutesAgo(14), now: NOW })).toBe(false);
   });
 });
 

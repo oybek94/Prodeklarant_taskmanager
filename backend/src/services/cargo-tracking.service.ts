@@ -9,6 +9,7 @@ import {
   formatDriverConnectedMessage,
   formatWhereMessage,
   generateDriverCode,
+  isDriverUnreachableError,
   isRecentTask,
   minutesBetween,
   needsDriverPrompt,
@@ -273,6 +274,8 @@ export interface LocationUpdate {
   /** Telegram xabarining asl yuborilgan vaqti (unix sekund) — jonli muddat shundan hisoblanadi */
   messageDate: number;
   livePeriod?: number;
+  /** Haydovchi shaxsiy chati: bot bloklanib keyin qayta ochilgan bo'lsa, ogohlantirishlar tiklanishi uchun saqlanadi */
+  chatId?: number;
   now?: Date;
 }
 
@@ -296,6 +299,7 @@ export async function recordDriverLocation(update: LocationUpdate): Promise<Loca
     lastLocationAt: now,
     lastAddress: null,
     ...(livePeriodEndsAt ? { livePeriodEndsAt } : {}),
+    ...(update.chatId !== undefined ? { driverChatId: BigInt(update.chatId) } : {}),
   };
   if (firstFix) {
     // Birinchi signalni faqat bitta yangilanish "yutadi" (boshlang'ich va tahrirlangan xabar bir vaqtda kelsa guruhga ikki marta yozilmasin)
@@ -359,7 +363,7 @@ export async function buildWhereReply(input: { clientId: number; trackingId: num
   const now = input.now ?? new Date();
   const tracking = await prisma.cargoTracking.findFirst({
     where: { id: input.trackingId, clientId: input.clientId, status: { in: [...OPEN_STATUSES] }, driverTelegramId: { not: null } },
-    select: { id: true, taskId: true, lastLat: true, lastLng: true, lastLocationAt: true, lastAddress: true, livePeriodEndsAt: true, lastPromptAt: true, driverChatId: true },
+    select: { id: true, taskId: true, lastLat: true, lastLng: true, lastLocationAt: true, lastAddress: true, lastPromptAt: true, driverChatId: true },
   });
   if (!tracking) return { ok: false };
 
@@ -372,9 +376,14 @@ export async function buildWhereReply(input: { clientId: number; trackingId: num
   }
 
   const stale = !hasLocation || minutesBetween(tracking.lastLocationAt as Date, now) > STALE_AFTER_MINUTES;
-  // Mijoz o'zi so'radi: signal eskirgan (joylashuv o'chiq) bo'lsa haydovchiga zudlik bilan yuborishni talab qiladi
-  if (stale && tracking.driverChatId !== null && needsUrgentDriverRequest({ lastPromptAt: tracking.lastPromptAt, now })) {
-    await promptDriver(input.botToken, { id: tracking.id, driverChatId: tracking.driverChatId }, now, 'urgent');
+  // Mijoz o'zi so'radi: signal eskirgan (joylashuv o'chiq) bo'lsa haydovchiga zudlik bilan yuborishni talab qiladi.
+  // Takroriy bosishlarda haydovchi bezovta qilinmaydi (15 daqiqada bir marta); bot bloklangan bo'lsa mijozga shu aytiladi.
+  let driverRequested = true;
+  if (stale) {
+    if (tracking.driverChatId === null) driverRequested = false;
+    else if (needsUrgentDriverRequest({ lastPromptAt: tracking.lastPromptAt, now })) {
+      driverRequested = await promptDriver(input.botToken, { id: tracking.id, driverChatId: tracking.driverChatId }, now, 'urgent');
+    }
   }
 
   const text = formatWhereMessage({
@@ -385,6 +394,7 @@ export async function buildWhereReply(input: { clientId: number; trackingId: num
     lng: tracking.lastLng,
     lastLocationAt: tracking.lastLocationAt,
     now,
+    driverRequested,
   });
   return { ok: true, text, location: hasLocation ? { lat: tracking.lastLat as number, lng: tracking.lastLng as number } : null };
 }
@@ -418,14 +428,22 @@ const PROMPT_PERIODIC =
 const PROMPT_URGENT =
   "🚨 Mijoz fura qayerdaligini so'rayapti! Zudlik bilan joylashuvingizni yuboring: pastdagi tugmani bosing.\nJoylashuv o'chiq bo'lsa, avval telefoningizda uni yoqing.";
 
-async function promptDriver(botToken: string, tracking: { id: number; driverChatId: bigint }, now: Date, kind: 'periodic' | 'urgent'): Promise<void> {
+/**
+ * Haydovchiga joylashuv so'rovi. Davriy eslatma tovushsiz (disable_notification), shoshilinch (mijoz so'ragan) — tovushli.
+ * Haydovchi botni bloklagan bo'lsa chat saqlanmaydi (driverChatId = null) — keyin unga urinmaymiz, u joylashuv yuborganda tiklanadi.
+ * Yuborilgan bo'lsa true.
+ */
+async function promptDriver(botToken: string, tracking: { id: number; driverChatId: bigint }, now: Date, kind: 'periodic' | 'urgent'): Promise<boolean> {
   const sent = await callTelegram<unknown>(botToken, 'sendMessage', {
     chat_id: Number(tracking.driverChatId),
     text: kind === 'urgent' ? PROMPT_URGENT : PROMPT_PERIODIC,
     reply_markup: LOCATION_BUTTON,
+    ...(kind === 'periodic' ? { disable_notification: true } : {}),
   });
   if (!sent.ok) console.error(`[CargoTracking] Haydovchiga so'rov yuborilmadi (kuzatuv ${tracking.id}):`, sent.description);
-  await prisma.cargoTracking.update({ where: { id: tracking.id }, data: { lastPromptAt: now } });
+  const unreachable = !sent.ok && isDriverUnreachableError(sent.description);
+  await prisma.cargoTracking.update({ where: { id: tracking.id }, data: { lastPromptAt: now, ...(unreachable ? { driverChatId: null } : {}) } });
+  return sent.ok;
 }
 
 const FINISH_QUESTION =
@@ -471,7 +489,7 @@ export async function runHourlyTrackingJob(botToken: string, now: Date = new Dat
       if (tracking.driverChatId !== null && needsFinishQuestion({ boundAt: tracking.boundAt, finishAskedAt: tracking.finishAskedAt, now })) {
         if (await askDriverFinished(botToken, { id: tracking.id, driverChatId: tracking.driverChatId }, now)) continue;
       }
-      if (tracking.driverChatId !== null && needsDriverPrompt({ ...tracking, now })) {
+      if (tracking.driverChatId !== null && needsDriverPrompt({ lastLocationAt: tracking.lastLocationAt, lastPromptAt: tracking.lastPromptAt, boundAt: tracking.boundAt, now })) {
         await promptDriver(botToken, { id: tracking.id, driverChatId: tracking.driverChatId }, now, 'periodic');
       }
     } catch (e) {

@@ -279,6 +279,7 @@ function registerHandlers(instance: TelegramBot, miniAppLink: string | undefined
         lat: msg.location.latitude,
         lng: msg.location.longitude,
         messageDate: msg.date,
+        chatId: msg.chat.id,
         // @types/node-telegram-bot-api Location'da live_period yo'q, Telegram API'da bor
         livePeriod: (msg.location as TelegramBot.Location & { live_period?: number }).live_period,
       });

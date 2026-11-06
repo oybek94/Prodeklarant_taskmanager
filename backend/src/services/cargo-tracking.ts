@@ -10,8 +10,8 @@ export const DRIVER_CODE_LENGTH = 6;
 export const STALE_AFTER_MINUTES = 50;
 /** Haydovchiga so'rov xabarlari orasidagi minimal masofa */
 export const PROMPT_MIN_GAP_MINUTES = 55;
-/** Jonli joylashuv shu daqiqa ichida tugasa haydovchiga eslatiladi */
-export const LIVE_ENDING_SOON_MINUTES = 60;
+/** Mijoz "Где фура?" bosganda eskirgan signal uchun haydovchiga shoshilinch so'rovlar orasidagi minimal masofa (takroriy bosishlar spam bo'lmasin) */
+export const URGENT_REQUEST_MIN_GAP_MINUTES = 3;
 /** Haydovchi ulanganidan shuncha kun o'tgach undan bir marta "yukni yakunladingizmi?" deb so'raladi */
 export const FINISH_ASK_AFTER_DAYS = 7;
 /** Joylashuv yangilanishlarini bazaga yozish oralig'i (Telegram har bir necha soniyada yuboradi) */
@@ -108,18 +108,19 @@ export function shouldPersistLocation(lastWrittenAt: Date | null, now: Date): bo
   return now.getTime() - lastWrittenAt.getTime() >= LOCATION_WRITE_GAP_MS;
 }
 
-/** Soatlik ish: haydovchidan joylashuvni qayta so'rash kerakmi */
-export function needsDriverPrompt(input: {
-  lastLocationAt: Date | null;
-  lastPromptAt: Date | null;
-  livePeriodEndsAt: Date | null;
-  now: Date;
-}): boolean {
-  const { lastLocationAt, lastPromptAt, livePeriodEndsAt, now } = input;
+/**
+ * Soatlik ish: haydovchidan joylashuvni qayta so'rash kerakmi. Joylashuv yangi kelib turgan bo'lsa (jonli yoki qo'lda)
+ * haydovchi bezovta qilinmaydi — faqat signal eskirganda yoki umuman kelmaganda so'raladi.
+ */
+export function needsDriverPrompt(input: { lastLocationAt: Date | null; lastPromptAt: Date | null; now: Date }): boolean {
+  const { lastLocationAt, lastPromptAt, now } = input;
   if (lastPromptAt && minutesBetween(lastPromptAt, now) < PROMPT_MIN_GAP_MINUTES) return false;
-  const stale = !lastLocationAt || minutesBetween(lastLocationAt, now) > STALE_AFTER_MINUTES;
-  const liveEndingSoon = !!livePeriodEndsAt && minutesBetween(now, livePeriodEndsAt) < LIVE_ENDING_SOON_MINUTES;
-  return stale || liveEndingSoon;
+  return !lastLocationAt || minutesBetween(lastLocationAt, now) > STALE_AFTER_MINUTES;
+}
+
+/** Mijoz "Где фура?" bosdi va signal eskirgan: haydovchiga shoshilinch so'rov yuborish kerakmi (faqat qisqa takrorlanishdan himoya) */
+export function needsUrgentDriverRequest(input: { lastPromptAt: Date | null; now: Date }): boolean {
+  return !input.lastPromptAt || minutesBetween(input.lastPromptAt, input.now) >= URGENT_REQUEST_MIN_GAP_MINUTES;
 }
 
 /** Soatlik ish: haydovchidan "yukni yakunladingizmi?" deb so'rash vaqti keldimi (ulanganidan 7 kun o'tgan, hali so'ralmagan) */
@@ -160,7 +161,7 @@ export function formatWhereMessage(input: {
   if (input.address?.trim()) lines.push(`Координаты: ${formatCoordinates(input.lat, input.lng)}`);
   lines.push(`Последнее обновление: ${formatAge(age)}`);
   if (age > STALE_AFTER_MINUTES) {
-    lines.push('⚠️ Данные устарели. Местоположение у водителя запрошено повторно.');
+    lines.push('⚠️ Данные устарели. У водителя срочно запрошено местоположение.');
   }
   return lines.join('\n');
 }

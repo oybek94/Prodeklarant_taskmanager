@@ -1908,25 +1908,6 @@ async function cargoPickOption(selectId, wanted, label) {
     return await cargoClickOption(select, index, label);
 }
 
-// "ТИФ божхона пости (7-графа 1-банд)" ro'yxatining id si ma'lum emas, shuning uchun
-// yorlig'i matni bo'yicha topiladi: avval label[for], bo'lmasa shu guruhdagi birinchi select
-function cargoSelectIdByLabel(pane, labelWords) {
-    const wanted = labelWords.map((word) => word.toLowerCase());
-    const label = [...pane.querySelectorAll('label')].find((el) => {
-        const text = el.textContent.toLowerCase();
-        return wanted.every((word) => text.includes(word));
-    });
-    if (!label) return null;
-
-    const forId = label.getAttribute('for');
-    let select = forId ? document.getElementById(forId) : null;
-    if (!select || select.tagName !== 'SELECT') {
-        const group = label.closest('.form-group') || label.parentElement;
-        select = group ? group.querySelector('select') : null;
-    }
-    return select && select.id ? select.id : null;
-}
-
 // Ro'yxatdagi birinchi bo'sh bo'lmagan variantni tanlaydi
 async function cargoPickFirstOption(selectId, label) {
     const select = document.getElementById(selectId);
@@ -2292,14 +2273,10 @@ async function cargoFillCustomsValue(warnings) {
     if (saved && !saved.value.trim()) warnings.push('Божхона қиймати: saqlangandan keyin ham bo\'sh');
 }
 
-// ТИФ божхона пости (7-графа 1-банд): sayt o'zi boshqa post qo'yib qo'yadi, shuning uchun
-// har safar 27009 ga o'rnatiladi. Qaytaradi: xato matni yoki null.
+// ТИФ божхона пости (7-графа 1-банд) — select#G29T. Sayt o'zi boshqa post qo'yib
+// qo'yadi (masalan 27016 "Янгийўл"), shuning uchun har safar 27009 ga o'rnatiladi.
 async function cargoPickTifCustomsPost() {
-    const label = 'ТИФ божхона пости (7-графа)';
-    const pane = cargoStep1();
-    const selectId = pane ? cargoSelectIdByLabel(pane, ['тиф', '7-графа']) : null;
-    if (!selectId) return `${label}: maydon topilmadi, qo'lda tanlang`;
-    return await cargoPickOption(selectId, CARGO_DEFAULTS.tifCustomsPost, label);
+    return await cargoPickOption('G29T', CARGO_DEFAULTS.tifCustomsPost, 'ТИФ божхона пости (7-графа)');
 }
 
 async function fillCargoByud(data) {

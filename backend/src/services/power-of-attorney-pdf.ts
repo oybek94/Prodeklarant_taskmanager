@@ -216,42 +216,39 @@ export const generatePowerOfAttorneyPdf = async (payload: PowerOfAttorneyPdfPayl
   doc.text('Без права передоверия.', left, y, { width });
   y = doc.y + 30;
 
-  // --- Imzo qatori: Директор | imzo + muhr | F.I.Sh. -------------------------------
+  // --- Imzo bloki: chapda matn ("Директор:" va ostida ism), o'ngda alohida ustunda imzo + muhr ---
+  // Matn va rasmlar bir-birining ustiga tushmasligi uchun ikki mustaqil ustun; ikkalasi
+  // bloklarning vertikal markaziga tekislanadi.
   const sealHeight = SEAL_HEIGHT_CM * PT_PER_CM;
   const signatureHeight = SIGNATURE_HEIGHT_CM * PT_PER_CM;
-  // Direktor ismi imzo chizig'ining ostida, alohida pastki qatorda
-  const nameRowHeight = lineHeight() + 4;
-  const rowHeight = Math.max(seal ? sealHeight : 0, signature ? signatureHeight : 0, lineHeight() * 2);
-  if (y + rowHeight + nameRowHeight > footerTop - 8) {
+  const textLine = lineHeight();
+  const textBlockHeight = textLine * 2 + 4;
+  const blockHeight = Math.max(seal ? sealHeight : 0, signature ? signatureHeight : 0, textBlockHeight);
+  if (y + blockHeight > footerTop - 8) {
     // Bitta sahifaga sig'masa ham imzo matndan ajralib qolmasin — joyni siqamiz
-    y = Math.max(ruleY + 34, footerTop - 8 - rowHeight - nameRowHeight);
+    y = Math.max(ruleY + 34, footerTop - 8 - blockHeight);
   }
 
-  const rowBottom = y + rowHeight;
-  const baseline = rowBottom - lineHeight();
-  doc.font(FONT_BOLD).fontSize(BODY_SIZE);
-  doc.text('Директор:', left, baseline, { lineBreak: false });
-  const directorLabelWidth = doc.widthOfString('Директор: ');
-
-  // Imzo chizig'i yo'q: imzo va muhr "Директор:" yozuvining o'ng tomonida turadi
-  const lineStart = left + directorLabelWidth + 6;
-  const signatureColumnWidth = 190;
-
-  // Direktor ismi "Директор:" yozuvining ostida, chap tomonda
   const directorName = clean(exporter.director) || '____________________';
   doc.font(FONT_BOLD).fontSize(BODY_SIZE);
-  doc.text(directorName, left, rowBottom + 2, { width, align: 'left', lineBreak: false });
+  const nameWidthPt = doc.widthOfString(directorName);
 
-  // Qog'ozdagidek: muhr imzo chizig'ining ustida markazda, imzo esa muhr ustidan
-  // chiziladi. Ikkalasining pastki chetlari bir chiziqda; ism ochiq qoladi.
-  const lineCenter = lineStart + signatureColumnWidth / 2;
-  const drawCentered = (image: DocImage | null, height: number) => {
+  const textTop = y + (blockHeight - textBlockHeight) / 2;
+  doc.text('Директор:', left, textTop, { lineBreak: false });
+  doc.text(directorName, left, textTop + textLine + 4, { lineBreak: false });
+
+  // Rasmlar ustuni ism tugagandan keyin boshlanadi — uzun ism ham muhrga tegmaydi
+  const imageColumnX = left + Math.max(150, nameWidthPt + 24);
+  const drawImage = (image: DocImage | null, height: number, centerX: number) => {
     if (!image) return;
     const imageWidth = (height * image.widthPx) / image.heightPx;
-    doc.image(image.data, lineCenter - imageWidth / 2, rowBottom - height, { width: imageWidth, height });
+    doc.image(image.data, centerX - imageWidth / 2, y + (blockHeight - height) / 2, { width: imageWidth, height });
   };
-  drawCentered(seal, sealHeight);
-  drawCentered(signature, signatureHeight);
+  const sealWidth = seal ? (sealHeight * seal.widthPx) / seal.heightPx : 0;
+  const imageCenterX = imageColumnX + (sealWidth || 90) / 2;
+  // Muhr pastda, imzo uning ustidan chiziladi — qog'ozdagidek
+  drawImage(seal, sealHeight, imageCenterX);
+  drawImage(signature, signatureHeight, imageCenterX);
 
   doc.end();
   return done;

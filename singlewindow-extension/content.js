@@ -1857,6 +1857,7 @@ async function fillFumigatsiya() {
 const CARGO_DEFAULTS = {
     paymentMethodCode: '50',       // Тўлов усули: 50 - Экспорт факти бўйича
     borderCustomsPost: '27009',    // Чегара божхона пости: "С. Нажимов" чегара пости
+    tifCustomsPost: '27009',       // ТИФ божхона пости (7-графа 1-банд): шу ҳам "С. Нажимов"
     g54Address: 'Ферганская обл., Алтыарыкский район',
     g54Email: 'docs@prodeklarant.uz',
     customsValueTotal: '4000',     // Ҳаражатлар суммаси
@@ -1905,6 +1906,25 @@ async function cargoPickOption(selectId, wanted, label) {
     if (select.selectedIndex === index) return null;
 
     return await cargoClickOption(select, index, label);
+}
+
+// "ТИФ божхона пости (7-графа 1-банд)" ro'yxatining id si ma'lum emas, shuning uchun
+// yorlig'i matni bo'yicha topiladi: avval label[for], bo'lmasa shu guruhdagi birinchi select
+function cargoSelectIdByLabel(pane, labelWords) {
+    const wanted = labelWords.map((word) => word.toLowerCase());
+    const label = [...pane.querySelectorAll('label')].find((el) => {
+        const text = el.textContent.toLowerCase();
+        return wanted.every((word) => text.includes(word));
+    });
+    if (!label) return null;
+
+    const forId = label.getAttribute('for');
+    let select = forId ? document.getElementById(forId) : null;
+    if (!select || select.tagName !== 'SELECT') {
+        const group = label.closest('.form-group') || label.parentElement;
+        select = group ? group.querySelector('select') : null;
+    }
+    return select && select.id ? select.id : null;
 }
 
 // Ro'yxatdagi birinchi bo'sh bo'lmagan variantni tanlaydi
@@ -2272,6 +2292,16 @@ async function cargoFillCustomsValue(warnings) {
     if (saved && !saved.value.trim()) warnings.push('Божхона қиймати: saqlangandan keyin ham bo\'sh');
 }
 
+// ТИФ божхона пости (7-графа 1-банд): sayt o'zi boshqa post qo'yib qo'yadi, shuning uchun
+// har safar 27009 ga o'rnatiladi. Qaytaradi: xato matni yoki null.
+async function cargoPickTifCustomsPost() {
+    const label = 'ТИФ божхона пости (7-графа)';
+    const pane = cargoStep1();
+    const selectId = pane ? cargoSelectIdByLabel(pane, ['тиф', '7-графа']) : null;
+    if (!selectId) return `${label}: maydon topilmadi, qo'lda tanlang`;
+    return await cargoPickOption(selectId, CARGO_DEFAULTS.tifCustomsPost, label);
+}
+
 async function fillCargoByud(data) {
     const warnings = [];
     if (!cargoStep1()) {
@@ -2287,6 +2317,7 @@ async function fillCargoByud(data) {
 
     push(await cargoPickOption('G20', CARGO_DEFAULTS.paymentMethodCode, 'Тўлов усули'));
     push(await cargoPickOption('G29', CARGO_DEFAULTS.borderCustomsPost, 'Чегара божхона пости'));
+    push(await cargoPickTifCustomsPost());
 
     let savedDriver = null;
     if (poa) {

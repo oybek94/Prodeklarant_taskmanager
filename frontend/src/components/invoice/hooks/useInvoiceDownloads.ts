@@ -194,26 +194,6 @@ export function useInvoiceDownloads({
     }
   }, [invoice?.id, buildDownloadBase]);
 
-  // Eksportyor nomidan xat (Word) — rekvizitlar shartnomadan:
-  // 'blank' — bo'sh firma blankasi, 'gmo' — GMO ishlatilmagani haqida spravka
-  const generateLetterhead = useCallback(async (type: 'blank' | 'gmo' = 'blank') => {
-    if (!invoice?.id) {
-      alert('Invoice topilmadi');
-      return;
-    }
-    try {
-      const response = await apiClient.get(`/invoices/${invoice.id}/letterhead`, {
-        params: { type },
-        responseType: 'blob',
-      });
-      const fileName = `${buildDownloadBase(type === 'gmo' ? 'SPRAVKA_GMO' : 'BLANKA')}.docx`;
-      await downloadDocumentResponse(response, fileName, 'Firma blankasini yuklab olishda xatolik yuz berdi');
-    } catch (error) {
-      console.error('Error downloading letterhead:', error);
-      alert(error instanceof Error ? error.message : 'Firma blankasini yuklab olishda xatolik yuz berdi');
-    }
-  }, [invoice?.id, buildDownloadBase]);
-
   // --- FSS Excel ---
 
   const generateFssExcel = useCallback(async (override?: {
@@ -305,7 +285,6 @@ export function useInvoiceDownloads({
     generateCmrDoc,
     generateOriginInfoDoc,
     generatePowerOfAttorneyDoc,
-    generateLetterhead,
     generateTirExcel,
     generateST1GoodsExcel,
     generateCommodityEkExcel,

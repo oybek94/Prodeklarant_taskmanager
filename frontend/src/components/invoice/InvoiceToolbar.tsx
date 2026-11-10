@@ -85,6 +85,9 @@ const MENU_PANEL =
 const MENU_ITEM =
   'flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-40';
 
+/** Dropdown bandidagi ikonka: matndan biroz xira, torayib ketmaydi */
+const MENU_ICON = 'h-4 w-4 shrink-0 text-gray-500';
+
 /** Ochiladigan menyu tugmasidagi kichik strelka */
 const Chevron: React.FC = () => (
   <Icon icon="solar:alt-arrow-down-linear" className="h-3.5 w-3.5 opacity-60" aria-hidden="true" />
@@ -235,6 +238,7 @@ export const InvoiceToolbar: React.FC<InvoiceToolbarProps> = React.memo(({
                     className={MENU_ITEM}
                     role="menuitem"
                   >
+                    <Icon icon="solar:delivery-linear" className={MENU_ICON} aria-hidden="true" />
                     SMR
                   </button>
                   <button
@@ -244,6 +248,7 @@ export const InvoiceToolbar: React.FC<InvoiceToolbarProps> = React.memo(({
                     className={MENU_ITEM}
                     role="menuitem"
                   >
+                    <Icon icon="solar:routing-linear" className={MENU_ICON} aria-hidden="true" />
                     TIR
                   </button>
                   <button
@@ -253,6 +258,7 @@ export const InvoiceToolbar: React.FC<InvoiceToolbarProps> = React.memo(({
                     className={MENU_ITEM}
                     role="menuitem"
                   >
+                    <Icon icon="solar:document-text-linear" className={MENU_ICON} aria-hidden="true" />
                     CMR (Docx)
                   </button>
                 </div>
@@ -299,6 +305,7 @@ export const InvoiceToolbar: React.FC<InvoiceToolbarProps> = React.memo(({
                     className={MENU_ITEM}
                     role="menuitem"
                   >
+                    <Icon icon="solar:shield-check-linear" className={MENU_ICON} aria-hidden="true" />
                     Tashqi
                   </button>
                   <button
@@ -309,6 +316,7 @@ export const InvoiceToolbar: React.FC<InvoiceToolbarProps> = React.memo(({
                     role="menuitem"
                     title="ST-1 dasturiga tovarlarni import qilish uchun ro'yxat"
                   >
+                    <Icon icon="solar:box-linear" className={MENU_ICON} aria-hidden="true" />
                     ST-1 tovarlar
                   </button>
                   <button
@@ -319,6 +327,7 @@ export const InvoiceToolbar: React.FC<InvoiceToolbarProps> = React.memo(({
                     role="menuitem"
                     title="Информация о происхождении товара (ПКМ № 994) — PDF"
                   >
+                    <Icon icon="solar:letter-linear" className={MENU_ICON} aria-hidden="true" />
                     Kelib chiqish xati
                   </button>
                   <button
@@ -329,6 +338,7 @@ export const InvoiceToolbar: React.FC<InvoiceToolbarProps> = React.memo(({
                     role="menuitem"
                     title="Haydovchiga ishonchnoma (firma blankasida, imzo va muhr bilan) — PDF"
                   >
+                    <Icon icon="solar:user-id-linear" className={MENU_ICON} aria-hidden="true" />
                     Ishonchnoma (haydovchi)
                   </button>
                 </div>
@@ -361,6 +371,7 @@ export const InvoiceToolbar: React.FC<InvoiceToolbarProps> = React.memo(({
                     className={MENU_ITEM}
                     role="menuitem"
                   >
+                    <Icon icon="solar:table-linear" className={MENU_ICON} aria-hidden="true" />
                     Invoys Excel
                   </button>
                   <button
@@ -370,6 +381,7 @@ export const InvoiceToolbar: React.FC<InvoiceToolbarProps> = React.memo(({
                     className={MENU_ITEM}
                     role="menuitem"
                   >
+                    <Icon icon="solar:file-text-linear" className={MENU_ICON} aria-hidden="true" />
                     Pechatsiz PDF
                   </button>
                   <button
@@ -379,6 +391,7 @@ export const InvoiceToolbar: React.FC<InvoiceToolbarProps> = React.memo(({
                     className={MENU_ITEM}
                     role="menuitem"
                   >
+                    <Icon icon="solar:verified-check-linear" className={MENU_ICON} aria-hidden="true" />
                     Pechatli PDF
                   </button>
                   {/* Prays-list rasmga aylantirilib chiziladi (html2canvas) —
@@ -393,7 +406,7 @@ export const InvoiceToolbar: React.FC<InvoiceToolbarProps> = React.memo(({
                         className={`${MENU_ITEM} font-medium text-emerald-700`}
                         role="menuitem"
                       >
-                        <Icon icon="solar:translation-linear" className="h-4 w-4" />
+                        <Icon icon="solar:translation-linear" className="h-4 w-4 shrink-0" aria-hidden="true" />
                         {viewTab === 'packing'
                           ? 'English Packing List (AI)'
                           : viewTab === 'spec'

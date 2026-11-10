@@ -219,10 +219,12 @@ export const generatePowerOfAttorneyPdf = async (payload: PowerOfAttorneyPdfPayl
   // --- Imzo qatori: Директор | imzo + muhr | F.I.Sh. -------------------------------
   const sealHeight = SEAL_HEIGHT_CM * PT_PER_CM;
   const signatureHeight = SIGNATURE_HEIGHT_CM * PT_PER_CM;
+  // Direktor ismi imzo chizig'ining ostida, alohida pastki qatorda
+  const nameRowHeight = lineHeight() + 4;
   const rowHeight = Math.max(seal ? sealHeight : 0, signature ? signatureHeight : 0, lineHeight() * 2);
-  if (y + rowHeight > footerTop - 8) {
+  if (y + rowHeight + nameRowHeight > footerTop - 8) {
     // Bitta sahifaga sig'masa ham imzo matndan ajralib qolmasin — joyni siqamiz
-    y = Math.max(ruleY + 34, footerTop - 8 - rowHeight);
+    y = Math.max(ruleY + 34, footerTop - 8 - rowHeight - nameRowHeight);
   }
 
   const rowBottom = y + rowHeight;
@@ -232,12 +234,19 @@ export const generatePowerOfAttorneyPdf = async (payload: PowerOfAttorneyPdfPayl
   const directorLabelWidth = doc.widthOfString('Директор: ');
 
   const lineStart = left + directorLabelWidth + 6;
-  const signatureColumnWidth = 150;
+  const signatureColumnWidth = 190;
   doc.lineWidth(0.6).strokeColor(INK);
   doc.moveTo(lineStart, rowBottom - 3).lineTo(lineStart + signatureColumnWidth, rowBottom - 3).stroke();
 
-  const nameText = `/ ${clean(exporter.director) || '____________________'} /`;
-  doc.font(FONT_BOLD).text(nameText, lineStart + signatureColumnWidth + 10, baseline, { lineBreak: false });
+  // Ism chiziq ostida markazda; uzun bo'lsa chiziqdan kengroq maydonda turadi
+  const directorName = clean(exporter.director) || '____________________';
+  const nameWidth = Math.max(signatureColumnWidth, 240);
+  doc.font(FONT_BOLD).fontSize(BODY_SIZE);
+  doc.text(directorName, lineStart + signatureColumnWidth / 2 - nameWidth / 2, rowBottom + 2, {
+    width: nameWidth,
+    align: 'center',
+    lineBreak: false,
+  });
 
   // Qog'ozdagidek: muhr imzo chizig'ining ustida markazda, imzo esa muhr ustidan
   // chiziladi. Ikkalasining pastki chetlari bir chiziqda; ism ochiq qoladi.

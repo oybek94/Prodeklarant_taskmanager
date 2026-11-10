@@ -725,6 +725,9 @@ router.get('/:id/letterhead', requireAuth(), async (req: AuthRequest, res: Respo
 
 // --- Haydovchiga ishonchnoma (cargo.customs.uz 50-grafa) ---------------------------
 
+// Invoysni saqlash/o'chirish bilan bir xil rollar: hujjatda haydovchining pasporti va JSHSHIR i bor
+const POWER_OF_ATTORNEY_ROLES = ['ADMIN', 'MANAGER', 'DEKLARANT'] as const;
+
 const parseInvoiceId = (raw: string) => {
   const id = parseInt(raw, 10);
   return Number.isFinite(id) ? id : null;
@@ -739,7 +742,7 @@ const sendPowerOfAttorneyError = (res: Response, error: unknown, label: string) 
 };
 
 // POST /invoices/:id/power-of-attorney - raqam berish (kengaytma saytga yozishdan oldin chaqiradi)
-router.post('/:id/power-of-attorney', requireAuth(), async (req: AuthRequest, res: Response) => {
+router.post('/:id/power-of-attorney', requireAuth(...POWER_OF_ATTORNEY_ROLES), async (req: AuthRequest, res: Response) => {
   const id = parseInvoiceId(req.params.id);
   if (id === null) return res.status(404).json({ error: 'Invoice topilmadi' });
   const body = z.object({ pinfl: pinflSchema }).safeParse(req.body);
@@ -755,7 +758,7 @@ router.post('/:id/power-of-attorney', requireAuth(), async (req: AuthRequest, re
 });
 
 // PUT /invoices/:id/power-of-attorney/driver - saytdan o'qilgan haydovchi ma'lumoti
-router.put('/:id/power-of-attorney/driver', requireAuth(), async (req: AuthRequest, res: Response) => {
+router.put('/:id/power-of-attorney/driver', requireAuth(...POWER_OF_ATTORNEY_ROLES), async (req: AuthRequest, res: Response) => {
   const id = parseInvoiceId(req.params.id);
   if (id === null) return res.status(404).json({ error: 'Invoice topilmadi' });
   const body = driverDetailsSchema.safeParse(req.body);
@@ -771,7 +774,7 @@ router.put('/:id/power-of-attorney/driver', requireAuth(), async (req: AuthReque
 });
 
 // GET /invoices/:id/power-of-attorney-doc - ishonchnoma (PDF, firma blankasida, imzo va muhr bilan)
-router.get('/:id/power-of-attorney-doc', requireAuth(), async (req: AuthRequest, res: Response) => {
+router.get('/:id/power-of-attorney-doc', requireAuth(...POWER_OF_ATTORNEY_ROLES), async (req: AuthRequest, res: Response) => {
   const id = parseInvoiceId(req.params.id);
   if (id === null) return res.status(404).json({ error: 'Invoice topilmadi' });
   try {

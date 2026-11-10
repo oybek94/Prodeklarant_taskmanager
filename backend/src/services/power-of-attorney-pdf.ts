@@ -233,20 +233,14 @@ export const generatePowerOfAttorneyPdf = async (payload: PowerOfAttorneyPdfPayl
   doc.text('Директор:', left, baseline, { lineBreak: false });
   const directorLabelWidth = doc.widthOfString('Директор: ');
 
+  // Imzo chizig'i yo'q: imzo va muhr "Директор:" yozuvining o'ng tomonida turadi
   const lineStart = left + directorLabelWidth + 6;
   const signatureColumnWidth = 190;
-  doc.lineWidth(0.6).strokeColor(INK);
-  doc.moveTo(lineStart, rowBottom - 3).lineTo(lineStart + signatureColumnWidth, rowBottom - 3).stroke();
 
-  // Ism chiziq ostida markazda; uzun bo'lsa chiziqdan kengroq maydonda turadi
+  // Direktor ismi "Директор:" yozuvining ostida, chap tomonda
   const directorName = clean(exporter.director) || '____________________';
-  const nameWidth = Math.max(signatureColumnWidth, 240);
   doc.font(FONT_BOLD).fontSize(BODY_SIZE);
-  doc.text(directorName, lineStart + signatureColumnWidth / 2 - nameWidth / 2, rowBottom + 2, {
-    width: nameWidth,
-    align: 'center',
-    lineBreak: false,
-  });
+  doc.text(directorName, left, rowBottom + 2, { width, align: 'left', lineBreak: false });
 
   // Qog'ozdagidek: muhr imzo chizig'ining ustida markazda, imzo esa muhr ustidan
   // chiziladi. Ikkalasining pastki chetlari bir chiziqda; ism ochiq qoladi.

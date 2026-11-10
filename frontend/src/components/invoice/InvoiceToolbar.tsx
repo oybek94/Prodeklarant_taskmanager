@@ -31,6 +31,7 @@ interface InvoiceToolbarProps {
   generateSmrExcel: () => void;
   generateCmrDoc: () => void;
   generateOriginInfoDoc: () => void;
+  generatePowerOfAttorneyDoc: () => void;
   generateLetterhead: (type?: 'blank' | 'gmo') => void;
   generateTirExcel: () => void;
   generateST1GoodsExcel: () => void;
@@ -119,6 +120,7 @@ export const InvoiceToolbar: React.FC<InvoiceToolbarProps> = React.memo(({
   generateSmrExcel,
   generateCmrDoc,
   generateOriginInfoDoc,
+  generatePowerOfAttorneyDoc,
   generateLetterhead,
   generateTirExcel,
   generateST1GoodsExcel,
@@ -320,6 +322,16 @@ export const InvoiceToolbar: React.FC<InvoiceToolbarProps> = React.memo(({
                     title="Информация о происхождении товара (ПКМ № 994) — PDF"
                   >
                     Kelib chiqish xati
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { generatePowerOfAttorneyDoc(); setSertifikatlarDropdownOpen(false); }}
+                    disabled={templatesDisabled}
+                    className={MENU_ITEM}
+                    role="menuitem"
+                    title="Haydovchiga ishonchnoma (firma blankasida, imzo va muhr bilan) — PDF"
+                  >
+                    Ishonchnoma (haydovchi)
                   </button>
                   <button
                     type="button"

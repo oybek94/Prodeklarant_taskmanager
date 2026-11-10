@@ -993,12 +993,36 @@ model Invoice {
   contract           Contract?       @relation(fields: [contractId], references: [id])
   task               Task            @relation(fields: [taskId], references: [id], onDelete: Cascade)
   items              InvoiceItem[]
+  powerOfAttorney    PowerOfAttorney?
 
   @@index([clientId])
   @@index([taskId])
   @@index([branchId])
   @@index([invoiceNumber])
   @@index([contractId])
+}
+
+// Haydovchiga bojxona ko'rigida korxona nomidan qatnashish uchun beriladigan
+// ishonchnoma (cargo.customs.uz 50-grafa). Bitta invoysga bitta ishonchnoma;
+// raqam eksportyor INN + sana bo'yicha 1, 2, 3... tartibda beriladi.
+model PowerOfAttorney {
+  id          Int      @id @default(autoincrement())
+  invoiceId   Int      @unique
+  exporterInn String
+  // Ishonchnoma sanasi (invoys sanasi) — raqam shu sana ichida takrorlanmaydi
+  issueDate   DateTime @db.Date
+  sequence    Int
+  // Haydovchi: JSHSHIR darhol saqlanadi, F.I.Sh. va pasport sayt javobidan keyin
+  pinfl       String
+  lastName    String?
+  firstName   String?
+  patronymic  String?
+  passport    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@unique([exporterInn, issueDate, sequence])
 }
 
 model InvoiceItem {

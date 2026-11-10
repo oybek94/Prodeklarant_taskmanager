@@ -16,6 +16,15 @@ import { generateCommodityEkExcel } from '../services/commodity-ek-excel';
 import { generateCmrDocx } from '../services/cmr-doc';
 import { generateOriginInfoPdf } from '../services/origin-info-pdf';
 import { generateExporterLetterhead } from '../services/exporter-letterhead';
+import {
+  PowerOfAttorneyError,
+  driverDetailsSchema,
+  loadPowerOfAttorneyContext,
+  pinflSchema,
+  reservePowerOfAttorney,
+  saveDriverDetails,
+} from '../services/power-of-attorney';
+import { generatePowerOfAttorneyPdf } from '../services/power-of-attorney-pdf';
 import fs from 'fs/promises';
 import { socketEmitter } from '../services/socketEmitter';
 import {
@@ -711,6 +720,83 @@ router.get('/:id/letterhead', requireAuth(), async (req: AuthRequest, res: Respo
   } catch (error: unknown) {
     console.error('Error generating letterhead:', error);
     res.status(500).json({ error: 'Serverda xatolik yuz berdi' });
+  }
+});
+
+// --- Haydovchiga ishonchnoma (cargo.customs.uz 50-grafa) ---------------------------
+
+const parseInvoiceId = (raw: string) => {
+  const id = parseInt(raw, 10);
+  return Number.isFinite(id) ? id : null;
+};
+
+const sendPowerOfAttorneyError = (res: Response, error: unknown, label: string) => {
+  if (error instanceof PowerOfAttorneyError) {
+    return res.status(error.status).json({ error: error.message });
+  }
+  console.error(`Error ${label}:`, error);
+  return res.status(500).json({ error: 'Serverda xatolik yuz berdi' });
+};
+
+// POST /invoices/:id/power-of-attorney - raqam berish (kengaytma saytga yozishdan oldin chaqiradi)
+router.post('/:id/power-of-attorney', requireAuth(), async (req: AuthRequest, res: Response) => {
+  const id = parseInvoiceId(req.params.id);
+  if (id === null) return res.status(404).json({ error: 'Invoice topilmadi' });
+  const body = z.object({ pinfl: pinflSchema }).safeParse(req.body);
+  if (!body.success) {
+    return res.status(400).json({ error: body.error.issues[0]?.message || 'Noto\'g\'ri JSHSHIR' });
+  }
+  try {
+    const reserved = await reservePowerOfAttorney(id, body.data.pinfl);
+    res.json({ number: reserved.number, date: reserved.date });
+  } catch (error: unknown) {
+    sendPowerOfAttorneyError(res, error, 'reserving power of attorney');
+  }
+});
+
+// PUT /invoices/:id/power-of-attorney/driver - saytdan o'qilgan haydovchi ma'lumoti
+router.put('/:id/power-of-attorney/driver', requireAuth(), async (req: AuthRequest, res: Response) => {
+  const id = parseInvoiceId(req.params.id);
+  if (id === null) return res.status(404).json({ error: 'Invoice topilmadi' });
+  const body = driverDetailsSchema.safeParse(req.body);
+  if (!body.success) {
+    return res.status(400).json({ error: body.error.issues[0]?.message || 'Haydovchi ma\'lumoti noto\'g\'ri' });
+  }
+  try {
+    await saveDriverDetails(id, body.data);
+    res.json({ ok: true });
+  } catch (error: unknown) {
+    sendPowerOfAttorneyError(res, error, 'saving power of attorney driver');
+  }
+});
+
+// GET /invoices/:id/power-of-attorney-doc - ishonchnoma (PDF, firma blankasida, imzo va muhr bilan)
+router.get('/:id/power-of-attorney-doc', requireAuth(), async (req: AuthRequest, res: Response) => {
+  const id = parseInvoiceId(req.params.id);
+  if (id === null) return res.status(404).json({ error: 'Invoice topilmadi' });
+  try {
+    const record = await prisma.powerOfAttorney.findUnique({ where: { invoiceId: id } });
+    if (!record || !record.lastName || !record.firstName || !record.passport) {
+      return res.status(404).json({
+        error: 'Bu invoys uchun ishonchnoma yo\'q. Avval kengaytmada "Ishonchnoma bilan BYUD" orqali haydovchi JSHSHIR ini kiriting',
+      });
+    }
+    const context = await loadPowerOfAttorneyContext(id);
+    const buffer = await generatePowerOfAttorneyPdf({
+      record,
+      exporter: context.exporter,
+      exporterInn: context.exporterInn,
+      contract: context.contract,
+      issueDate: context.invoice.date,
+    });
+
+    const fileName = `Doverennost_${record.sequence}_${context.invoice.invoiceNumber || id}.pdf`;
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', attachmentDisposition(fileName));
+    res.setHeader('Content-Length', buffer.length);
+    res.end(buffer);
+  } catch (error: unknown) {
+    sendPowerOfAttorneyError(res, error, 'generating power of attorney');
   }
 });
 

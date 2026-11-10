@@ -12,6 +12,7 @@ import { useClickOutside } from '../hooks/useClickOutside';
 import { useInvoiceSocket } from '../components/invoice/hooks/useInvoiceSocket';
 import { useInvoiceColumns, findActiveCustomColumnKey } from '../components/invoice/hooks/useInvoiceColumns';
 import { useInvoiceExtension } from '../components/invoice/hooks/useInvoiceExtension';
+import { usePowerOfAttorneyBridge } from '../components/invoice/hooks/usePowerOfAttorneyBridge';
 import { useInvoiceServiceAgreement } from '../components/invoice/hooks/useInvoiceServiceAgreement';
 import { useInvoiceNumberCheck } from '../components/invoice/hooks/useInvoiceNumberCheck';
 import { useProductOptions } from '../components/invoice/hooks/useProductOptions';
@@ -271,6 +272,7 @@ const Invoice = () => {
   } = useInvoiceItems({ selectedContractSpec, invoiceProductOptions, globalTnvedProducts: tnvedProducts, tareRules });
   const serviceAgreements = useInvoiceServiceAgreement(task?.client?.id);
   useInvoiceExtension(form, items, contracts, selectedContractId, invoice?.id, task?.client?.inn, serviceAgreements);
+  usePowerOfAttorneyBridge(invoice?.id);
 
 
   // task stages effect removed, handled by useInvoiceStages
@@ -283,6 +285,7 @@ const Invoice = () => {
     generateSmrExcel,
     generateCmrDoc,
     generateOriginInfoDoc,
+    generatePowerOfAttorneyDoc,
     generateLetterhead,
     generateTirExcel,
     generateST1GoodsExcel,
@@ -799,6 +802,7 @@ const Invoice = () => {
           generateSmrExcel={generateSmrExcel}
           generateCmrDoc={generateCmrDoc}
           generateOriginInfoDoc={generateOriginInfoDoc}
+          generatePowerOfAttorneyDoc={generatePowerOfAttorneyDoc}
           generateLetterhead={generateLetterhead}
           generateTirExcel={generateTirExcel}
           generateST1GoodsExcel={generateST1GoodsExcel}

@@ -176,6 +176,24 @@ export function useInvoiceDownloads({
     }
   }, [invoice?.id, buildDownloadBase, trackProcessDownload]);
 
+  // Haydovchiga ishonchnoma (PDF): kengaytmadagi "Ishonchnoma bilan BYUD" yaratadi
+  const generatePowerOfAttorneyDoc = useCallback(async () => {
+    if (!invoice?.id) {
+      alert('Invoice topilmadi');
+      return;
+    }
+    try {
+      const response = await apiClient.get(`/invoices/${invoice.id}/power-of-attorney-doc`, {
+        responseType: 'blob',
+      });
+      const fileName = `${buildDownloadBase('ISHONCHNOMA')}.pdf`;
+      await downloadDocumentResponse(response, fileName, 'Ishonchnomani yuklab olishda xatolik yuz berdi');
+    } catch (error) {
+      console.error('Error downloading power of attorney:', error);
+      alert(error instanceof Error ? error.message : 'Ishonchnomani yuklab olishda xatolik yuz berdi');
+    }
+  }, [invoice?.id, buildDownloadBase]);
+
   // Eksportyor nomidan xat (Word) — rekvizitlar shartnomadan:
   // 'blank' — bo'sh firma blankasi, 'gmo' — GMO ishlatilmagani haqida spravka
   const generateLetterhead = useCallback(async (type: 'blank' | 'gmo' = 'blank') => {
@@ -286,6 +304,7 @@ export function useInvoiceDownloads({
     generateSmrExcel,
     generateCmrDoc,
     generateOriginInfoDoc,
+    generatePowerOfAttorneyDoc,
     generateLetterhead,
     generateTirExcel,
     generateST1GoodsExcel,

@@ -234,6 +234,21 @@
     </div>
   </form>
 
+  <!-- BYUD 1-qadam: haydovchi 50-grafaga ishonchli vakil sifatida qo'shiladi -->
+  <form class="act" id="poaPanel" hidden>
+    <p class="act__title">Haydovchi — ishonchli vakil (50-grafa)</p>
+    <label class="act__field">
+      <span class="act__label">Haydovchi JSHSHIR (14 ta raqam)</span>
+      <input class="act__input" id="poaPinfl" type="text" inputmode="numeric" maxlength="14" autocomplete="off" required>
+    </label>
+    <p class="act__hint">Haydovchi qo'shiladi, ishonchnoma raqami avtomatik beriladi va PDF tayyorlanadi.</p>
+    <div class="act__actions">
+      <button class="btn btn--read" id="poaCancelBtn" type="button">Bekor</button>
+      <button class="btn btn--read" id="poaSkipBtn" type="button">Ishonchnomasiz</button>
+      <button class="btn btn--fill" id="poaSaveBtn" type="submit">To'ldirish</button>
+    </div>
+  </form>
+
   <p class="eyebrow" id="elsewhere-title" hidden>Boshqa saytlarda</p>
   <div id="elsewhere"></div>
 

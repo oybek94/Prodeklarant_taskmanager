@@ -231,7 +231,7 @@ function runAction(request, sendResponse) {
             return;
         }
         fillCargoByud(data)
-            .then((warnings) => sendResponse({ success: true, warnings }))
+            .then(({ warnings, driver }) => sendResponse({ success: true, warnings, driver }))
             .catch((err) => sendResponse({ success: false, errorMsg: String(err && err.message || err) }));
     } else if (request.action === "fill_cargo_step2") {
         const data = request.data;
@@ -2111,6 +2111,136 @@ async function cargoFillG54(data, warnings) {
     if (error) warnings.push(error);
 }
 
+// ---------------------------------------------------------------------------
+// 50-grafa: "Ишончли вакил" — haydovchi, korxona nomidan ko'rikda qatnashadi
+// ---------------------------------------------------------------------------
+
+// Sayt JSHSHIR bo'yicha shaxs ma'lumotini o'zining /personDate/datedocv4 so'rovi
+// bilan oladi, lekin F.I.Sh. ni faqat lotinda ko'rsatadi. Ishonchnoma kirillda
+// yoziladi, shuning uchun xuddi shu so'rov bizdan ham yuboriladi (sessiya va
+// CSRF token sahifadagi bilan bir xil; content script sahifa originidan so'raydi).
+async function cargoLookupPerson(pinfl) {
+    const tokenMeta = document.querySelector('meta[name="_csrf"]');
+    const headerMeta = document.querySelector('meta[name="_csrf_header"]');
+    if (!tokenMeta || !headerMeta) throw new Error('50-grafa: CSRF token topilmadi, sahifani yangilang');
+
+    const response = await fetch('/personDate/datedocv4', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+            'Accept': 'application/json, text/javascript, */*; q=0.01',
+            'X-Requested-With': 'XMLHttpRequest',
+            [headerMeta.content]: tokenMeta.content,
+        },
+        body: `document=${encodeURIComponent(pinfl)}`,
+    });
+    if (!response.ok) throw new Error(`50-grafa: JSHSHIR bo'yicha so'rov xato (${response.status})`);
+
+    let person;
+    try {
+        person = await response.json();
+    } catch (err) {
+        throw new Error("50-grafa: JSHSHIR bo'yicha javob o'qilmadi (sessiya tugagan bo'lishi mumkin)");
+    }
+    if (!person || person.result !== 1 || !person.surnamecyr || !person.namecyr) {
+        const reason = person && person.comments ? `: ${person.comments}` : '';
+        throw new Error(`50-grafa: ${pinfl} bo'yicha shaxs topilmadi${reason}`);
+    }
+    return {
+        pinfl,
+        lastName: String(person.surnamecyr).trim(),
+        firstName: String(person.namecyr).trim(),
+        patronymic: String(person.patronymcyr || '').trim(),
+        passport: String(person.current_document || person.document || '').trim(),
+    };
+}
+
+// Saytdagi yangi qo'shilgan variantni tanlaydi: sayt ro'yxatga qo'shadi, lekin O'ZI tanlamaydi
+async function cargoSelectNewOption(selectId, before, label, warnings) {
+    const added = await cargoWaitFor(() => {
+        const select = document.getElementById(selectId);
+        if (!select) return null;
+        const option = [...select.options].find((opt) => opt.value && !before.includes(opt.value));
+        return option ? { select, value: option.value } : null;
+    }, 8000);
+
+    if (!added) {
+        warnings.push(`${label}: yangi yozuv ro'yxatga qo'shilmadi`);
+        return false;
+    }
+    if (added.select.value === added.value) return true;
+
+    const index = [...added.select.options].findIndex((opt) => opt.value === added.value);
+    const error = await cargoClickOption(added.select, index, label);
+    if (error) { warnings.push(error); return false; }
+    return true;
+}
+
+// Ishonchli vakil qo'shiladi: JSHSHIR → lupa → sayt F.I.Sh./pasportni to'ldiradi →
+// telefon, ishonchnoma raqami, sanasi va muddati → saqlash → ro'yxatdan tanlash.
+// Qaytaradi: saytga yozilgan haydovchi (Prodeklarantga saqlash uchun) yoki null.
+async function cargoFillG50(poa, driver, warnings) {
+    const existing = document.getElementById('G50_ID');
+    if (existing && existing.value) {
+        warnings.push(`50-grafa allaqachon tanlangan — ishonchli vakil qo'shilmadi (ishonchnoma № ${poa.number} band qilingan)`);
+        return null;
+    }
+    const before = existing ? [...existing.options].map((opt) => opt.value).filter(Boolean) : [];
+
+    const modal = await cargoOpenModal('Trustee()', 'ModalWin1g50Id', '50-grafa');
+
+    // Oyna mavjud yozuvni tahrirlash rejimida ochilgan bo'lsa yashirin `id` to'la
+    // bo'ladi va "Saqlash" yangisini qo'shmay, eskisini o'zgartirib yuboradi
+    const hiddenId = modal.querySelector('input[name="id"]');
+    if (hiddenId && hiddenId.value) cargoWriteValue(hiddenId, '');
+
+    // Oyna oldingi yozuvning qoldiq qiymatlari bilan ochilishi mumkin — sayt
+    // javobini kutishdan oldin tozalaymiz, aks holda eski F.I.Sh. ni yangi deb olamiz
+    for (const id of ['PASSPORT', 'DATE_BIRTH', 'FULLNAME']) {
+        const el = document.getElementById(id);
+        if (el) cargoWriteValue(el, '');
+    }
+
+    const pinflOk = await cargoSetInputById('G50PINFL', poa.pinfl, warnings, '50-grafa ЖШШИР');
+    if (!pinflOk) throw new Error('50-grafa: ЖШШИР yozilmadi, oyna ochiq qoldi');
+
+    const lookup = modal.querySelector('button[onclick*="getPinflInfoEk"]');
+    if (!lookup) throw new Error('50-grafa: qidiruv (lupa) tugmasi topilmadi');
+    lookup.click();
+
+    const filled = await cargoWaitFor(() => {
+        const name = document.getElementById('FULLNAME');
+        const passport = document.getElementById('PASSPORT');
+        return name && name.value.trim() && passport && passport.value.trim() ? { name, passport } : null;
+    }, 8000);
+    if (!filled) throw new Error("50-grafa: sayt JSHSHIR bo'yicha ma'lumot to'ldirmadi, oyna ochiq qoldi");
+
+    // Telefon: foydalanuvchi talabi — "99"; maska raqamlarni o'zi joylaydi
+    const phone = document.getElementById('G50_PHONE');
+    if (phone) {
+        // cargoSetInput ishlatilmaydi: u maskali maydonni harfma-harf yozib buzadi
+        // ("(9_) ___ __ __"); oddiy yozuvda maska "(99) ___ __ __" ni o'zi quradi
+        cargoWriteValue(phone, '99');
+        triggerEvents(phone);
+        if (!phone.value.replace(/\D/g, '').startsWith('99')) {
+            warnings.push(`50-grafa Телефон рақами: "99" o'rniga "${phone.value}" yozildi`);
+        }
+    } else {
+        warnings.push('50-grafa Телефон рақами: maydon topilmadi');
+    }
+
+    await cargoSetInputById('G50NO', String(poa.number), warnings, '50-grafa Ишончнома рақами');
+    await cargoSetInputById('G50DATE', poa.date, warnings, '50-grafa Ишончнома санаси');
+    await cargoSetInputById('FINISHDATE', poa.validUntil, warnings, '50-grafa Амал қилиш муддати');
+
+    await cargoSaveModal(modal, 'saveFromG()', '50-grafa', warnings);
+    await cargoSelectNewOption('G50_ID', before, '50-grafa', warnings);
+
+    // Pasport — saytning o'zida turgani (deklaratsiyaga shu tushadi); kirill ism reyestrdan
+    return { ...driver, passport: filled.passport.value.trim() || driver.passport };
+}
+
 // Invoys ID si — takrorlanmas tartib raqam sifatida 6 xonaga to'ldiriladi
 function cargoByudNumber(invoiceId) {
     const id = Number(invoiceId);
@@ -2150,14 +2280,25 @@ async function fillCargoByud(data) {
 
     const push = (err) => { if (err) warnings.push(err); };
 
+    // Ishonchnoma bilan ishlaganda haydovchi avval tekshiriladi: topilmasa sayt
+    // hali tegilmagan holda to'xtaymiz
+    const poa = data.powerOfAttorney || null;
+    const driver = poa ? await cargoLookupPerson(poa.pinfl) : null;
+
     push(await cargoPickOption('G20', CARGO_DEFAULTS.paymentMethodCode, 'Тўлов усули'));
     push(await cargoPickOption('G29', CARGO_DEFAULTS.borderCustomsPost, 'Чегара божхона пости'));
-    push(await cargoPickFirstOption('G50_ID', 'Ишонч билдирилган шахс'));
+
+    let savedDriver = null;
+    if (poa) {
+        savedDriver = await cargoFillG50(poa, driver, warnings);
+    } else {
+        push(await cargoPickFirstOption('G50_ID', 'Ишонч билдирилган шахс'));
+    }
 
     await cargoFillG54(data, warnings);
     await cargoFillCustomsValue(warnings);
 
-    return warnings;
+    return { warnings, driver: savedDriver };
 }
 
 // ---------------------------------------------------------------------------

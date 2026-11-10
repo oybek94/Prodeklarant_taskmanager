@@ -5,25 +5,29 @@ function setStatus(el, text, kind) {
     el.className = kind ? `status status--${kind}` : 'status';
 }
 
+// Prodeklarantda ochiq invoys tabi. Bir nechta bo'lishi mumkin (masalan, boshqa
+// korxonaning eski tabi fon rejimida qolgan). tabs.query tartibi qachon
+// ochilganiga bog'liq, foydalanuvchi nimani ko'zda tutgani bilan bog'liq emas —
+// shu sababli ENG OXIRGI faollashtirilgan tab olinadi, aks holda boshqa
+// korxonaning ma'lumotlari yuklanadi.
+async function pickInvoiceTab() {
+    const appTabs = await chrome.tabs.query({ url: ["http://localhost/*", "https://*.prodeklarant.uz/*", "https://prodeklarant.uz/*"] });
+    const validTabs = appTabs.filter(t => t.url && t.url.includes('/invoices/task/'));
+    if (validTabs.length === 0) return null;
+    return validTabs.length === 1
+        ? validTabs[0]
+        : [...validTabs].sort((a, b) => (b.lastAccessed || 0) - (a.lastAccessed || 0))[0];
+}
+
 async function getProdeklarantData(statusDiv) {
     setStatus(statusDiv, "Ma'lumotlar olinmoqda...");
     try {
-        const appTabs = await chrome.tabs.query({ url: ["http://localhost/*", "https://*.prodeklarant.uz/*", "https://prodeklarant.uz/*"] });
-        
         let mockData = null;
-        const validTabs = appTabs.filter(t => t.url && t.url.includes('/invoices/task/'));
+        const targetTab = await pickInvoiceTab();
 
-        if (validTabs && validTabs.length > 0) {
-            // Bir nechta invoys tabi ochiq bo'lishi mumkin (masalan, boshqa
-            // korxonaning eski tabi fon rejimida qolgan). tabs.query tartibi
-            // qachon ochilganiga bog'liq, foydalanuvchi nimani ko'zda tutgani
-            // bilan bog'liq emas — shu sababli ENG OXIRGI faollashtirilgan tab
-            // olinadi, aks holda boshqa korxonaning ma'lumotlari yuklanadi.
-            const targetTab = validTabs.length === 1
-                ? validTabs[0]
-                : [...validTabs].sort((a, b) => (b.lastAccessed || 0) - (a.lastAccessed || 0))[0];
+        if (targetTab) {
             const targetTabId = targetTab.id;
-            
+
             const injectionResults = await chrome.scripting.executeScript({
                 target: { tabId: targetTabId },
                 func: () => {
@@ -62,6 +66,61 @@ async function getProdeklarantData(statusDiv) {
         setStatus(statusDiv, "Ma'lumotlarni olishda xatolik! Saytni yangilab qaytadan urinib ko'ring.", 'error');
         return null;
     }
+}
+
+// Ishonchnoma API si Prodeklarant sahifasi orqali chaqiriladi: kirish tokeni faqat
+// o'sha yerda turadi. action: 'reserve' | 'save'. Xatoda Error tashlaydi.
+async function callPowerOfAttorney(action, payload) {
+    const tab = await pickInvoiceTab();
+    if (!tab) throw new Error("Prodeklarant dasturida biron invoys ochilmagan!");
+
+    const [injection] = await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        args: [action, payload],
+        func: (requestAction, requestPayload) => new Promise((resolve) => {
+            const requestId = `poa-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+            const timeout = setTimeout(() => {
+                window.removeEventListener('message', handler);
+                resolve({ ok: false, error: "Prodeklarant sahifasi javob bermadi. Sahifani yangilab qayta urinib ko'ring." });
+            }, 15000);
+
+            function handler(event) {
+                const data = event.data;
+                if (event.source !== window || !data || data.type !== 'PRODEKLARANT_POA_RESPONSE' || data.requestId !== requestId) return;
+                clearTimeout(timeout);
+                window.removeEventListener('message', handler);
+                resolve({ ok: data.ok, data: data.data, error: data.error });
+            }
+
+            window.addEventListener('message', handler);
+            window.postMessage({ type: 'PRODEKLARANT_POA_REQUEST', requestId, action: requestAction, payload: requestPayload }, '*');
+        }),
+    });
+
+    const result = injection && injection.result;
+    if (!result) throw new Error("Prodeklarant sahifasidan javob kelmadi");
+    if (!result.ok) throw new Error(result.error || "Ishonchnoma so'rovi bajarilmadi");
+    return result.data;
+}
+
+// Aktiv tabdagi content scriptga xabar yuboradi va javobni qaytaradi (sendToContentScript'ning
+// holat qatori yozmaydigan varianti — qo'ng'iroq qiluvchi holatni o'zi ko'rsatadi)
+function askActiveTab(action, data) {
+    return new Promise((resolve) => {
+        chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+            if (!tabs || !tabs[0]) {
+                resolve({ success: false, errorMsg: 'Aktiv tab topilmadi.' });
+                return;
+            }
+            chrome.tabs.sendMessage(tabs[0].id, { action, data }, (response) => {
+                if (chrome.runtime.lastError) {
+                    resolve({ success: false, errorMsg: "Xatolik! Sayt to'liq yuklanganini tekshiring." });
+                } else {
+                    resolve(response || { success: false, errorMsg: "Noma'lum xatolik yuz berdi." });
+                }
+            });
+        });
+    });
 }
 
 function sendToContentScript(action, mockData, statusDiv) {
@@ -191,11 +250,97 @@ document.getElementById('fillFumigatsiyaBtn').addEventListener('click', async ()
     sendToContentScript("fill_fumigatsiya", mockData, statusDiv);
 });
 
-document.getElementById('fillCargoBtn').addEventListener('click', async () => {
+// BYUD 1-qadam: avval haydovchi JSHSHIR i so'raladi (50-grafa uchun ishonchnoma),
+// xuddi fumigatsiya akti raqami kabi. "Ishonchnomasiz" eski xatti-harakat.
+const poaPanel = document.getElementById('poaPanel');
+const poaPinflInput = document.getElementById('poaPinfl');
+
+function togglePoaPanel(open) {
+    poaPanel.hidden = !open;
+    document.getElementById('here').hidden = open;
+}
+
+document.getElementById('fillCargoBtn').addEventListener('click', () => {
+    setStatus(document.getElementById('status'), '');
+    togglePoaPanel(true);
+    poaPinflInput.focus();
+});
+
+document.getElementById('poaCancelBtn').addEventListener('click', () => togglePoaPanel(false));
+
+poaPinflInput.addEventListener('input', () => {
+    poaPinflInput.value = poaPinflInput.value.replace(/\D/g, '');
+});
+
+document.getElementById('poaSkipBtn').addEventListener('click', async () => {
     const statusDiv = document.getElementById('status');
     const mockData = await getProdeklarantData(statusDiv);
     if (!mockData) return;
+    togglePoaPanel(false);
     sendToContentScript("fill_cargo_byud", mockData, statusDiv);
+});
+
+poaPanel.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const statusDiv = document.getElementById('status');
+    const pinfl = poaPinflInput.value.replace(/\D/g, '');
+    if (!/^\d{14}$/.test(pinfl)) {
+        setStatus(statusDiv, "JSHSHIR 14 ta raqamdan iborat bo'lishi kerak.", 'error');
+        poaPinflInput.focus();
+        return;
+    }
+
+    const mockData = await getProdeklarantData(statusDiv);
+    if (!mockData) return;
+    if (!mockData.INVOICE_ID) {
+        setStatus(statusDiv, "Invoys hali saqlanmagan. Avval Prodeklarantda saqlang.", 'error');
+        return;
+    }
+    togglePoaPanel(false);
+
+    // Raqam saytga yozishdan OLDIN olinadi. Sayt xato bersa ham raqam invoysga
+    // bog'langan qoladi — qayta urinish o'sha raqamni ishlatadi, yangisini olmaydi.
+    setStatus(statusDiv, 'Ishonchnoma raqami olinmoqda...');
+    let reserved;
+    try {
+        reserved = await callPowerOfAttorney('reserve', { pinfl });
+    } catch (err) {
+        setStatus(statusDiv, String(err.message || err), 'error');
+        return;
+    }
+
+    setStatus(statusDiv, `Ishonchnoma № ${reserved.number} bilan to'ldirilmoqda...`);
+    const response = await askActiveTab('fill_cargo_byud', {
+        ...mockData,
+        powerOfAttorney: {
+            pinfl,
+            number: reserved.number,
+            date: reserved.date, // YYYY-MM-DD, invoys sanasi
+            validUntil: `${reserved.date.slice(0, 4)}-12-31`,
+        },
+    });
+    if (!response.success) {
+        setStatus(statusDiv, response.errorMsg || "Noma'lum xatolik yuz berdi.", 'error');
+        return;
+    }
+
+    const warnings = [...(response.warnings || [])];
+    if (response.driver) {
+        try {
+            await callPowerOfAttorney('save', response.driver);
+        } catch (err) {
+            warnings.push(`haydovchi ma'lumoti Prodeklarantga saqlanmadi (${err.message || err}) — ishonchnoma PDF si chiqmaydi`);
+        }
+    }
+
+    const done = response.driver
+        ? `Ishonchnoma № ${reserved.number} bilan to'ldirildi. PDF: Prodeklarant → Sertifikatlar → Ishonchnoma (haydovchi).`
+        : "Shakl to'ldirildi, lekin ishonchli vakil qo'shilmadi";
+    if (warnings.length > 0) {
+        setStatus(statusDiv, `${done} Lekin: ${warnings.join('; ')}`, 'warn');
+    } else {
+        setStatus(statusDiv, done, 'ok');
+    }
 });
 
 document.getElementById('fillCargoStep2Btn').addEventListener('click', async () => {

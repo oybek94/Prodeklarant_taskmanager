@@ -42,6 +42,7 @@ const Workers = () => {
   const [branches, setBranches] = useState<{ id: number; name: string }[]>([]);
   const [form, setForm] = useState({
     name: '',
+    phone: '',
     password: '',
     role: 'DEKLARANT' as 'ADMIN' | 'MANAGER' | 'DEKLARANT' | 'SELLER',
     branchId: '',
@@ -92,6 +93,7 @@ const Workers = () => {
     setEditingWorker(null);
     setForm({
       name: '',
+      phone: '',
       password: '',
       role: 'DEKLARANT',
       branchId: '',
@@ -119,6 +121,7 @@ const Workers = () => {
         // Update existing worker
         const updateData: any = {
           name: form.name,
+          ...(form.phone.trim() ? { phone: form.phone.trim() } : {}),
           // Bo'sh qoldirilsa parol o'zgarmaydi
           ...(form.password ? { password: form.password } : {}),
           role: form.role,
@@ -134,6 +137,7 @@ const Workers = () => {
         // Create new worker
         await apiClient.post('/users', {
           name: form.name,
+          phone: form.phone.trim(),
           password: form.password,
           role: form.role,
           branchId: form.branchId ? parseInt(form.branchId) : undefined,
@@ -154,6 +158,7 @@ const Workers = () => {
     setEditingWorker(worker);
     setForm({
       name: worker.name,
+      phone: worker.phone ?? '',
       password: '',
       role: worker.role as 'ADMIN' | 'MANAGER' | 'DEKLARANT' | 'SELLER',
       branchId: worker.branch?.id ? worker.branch.id.toString() : '',

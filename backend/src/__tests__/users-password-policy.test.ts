@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => {
   process.env.JWT_REFRESH_SECRET = randomKey();
   return {
     userFindUnique: vi.fn(),
+    userFindFirst: vi.fn(),
     userFindMany: vi.fn(),
     userCreate: vi.fn(),
     userUpdate: vi.fn(),
@@ -23,6 +24,7 @@ vi.mock('../prisma', () => ({
   prisma: {
     user: {
       findUnique: mocks.userFindUnique,
+      findFirst: mocks.userFindFirst,
       findMany: mocks.userFindMany,
       create: mocks.userCreate,
       update: mocks.userUpdate,
@@ -64,6 +66,7 @@ afterAll(() => {
 beforeEach(() => {
   Object.values(mocks).forEach((mock) => mock.mockReset());
   mocks.userFindUnique.mockResolvedValue(null);
+  mocks.userFindFirst.mockResolvedValue(null);
   mocks.userFindMany.mockResolvedValue([]);
   mocks.branchFindFirst.mockResolvedValue({ id: 1 });
   mocks.userCreate.mockResolvedValue({ id: 10, name: 'Yangi', email: 'a@b.test', role: 'DEKLARANT', branchId: 1 });
@@ -72,13 +75,13 @@ beforeEach(() => {
 
 describe('xodim paroli — minimal uzunlik (8 belgi)', () => {
   it('qisqa parol bilan xodim yaratilmaydi', async () => {
-    const res = await send('POST', '/api/users', { name: 'Yangi xodim', password: shortPassword, role: 'DEKLARANT', branchId: 1 });
+    const res = await send('POST', '/api/users', { name: 'Yangi xodim', password: shortPassword, role: 'DEKLARANT', branchId: 1, phone: '901234567' });
     expect(res.status).toBe(400);
     expect(mocks.userCreate).not.toHaveBeenCalled();
   });
 
   it('yetarli uzunlikdagi parol bilan xodim yaratiladi', async () => {
-    const res = await send('POST', '/api/users', { name: 'Yangi xodim', password: longPassword, role: 'DEKLARANT', branchId: 1 });
+    const res = await send('POST', '/api/users', { name: 'Yangi xodim', password: longPassword, role: 'DEKLARANT', branchId: 1, phone: '901234567' });
     expect(res.status).toBe(201);
     expect(mocks.userCreate).toHaveBeenCalledTimes(1);
   });

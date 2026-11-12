@@ -42,6 +42,8 @@ router.get('/', requireAuth(), async (req: AuthRequest, res) => {
         id: true,
         name: true,
         email: true,
+        // Telefon — login; ochiladigan ro'yxat (dropdown) javobida qaytarilmaydi
+        phone: !isDropdown,
         role: true,
         branchId: true,
         position: true,

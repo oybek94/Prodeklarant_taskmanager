@@ -91,6 +91,24 @@ const WorkerFormModal = React.memo(({
 
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Telefon <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                            type="tel"
+                            inputMode="tel"
+                            required
+                            value={form.phone}
+                            onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="90 123 45 67"
+                        />
+                        <p className="mt-1 text-xs text-gray-500">
+                            Xodim tizimga shu raqam va parol bilan kiradi. Har bir xodimda alohida raqam bo'lishi kerak.
+                        </p>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
                             Parol {!editingWorker && <span className="text-red-500">*</span>}
                         </label>
                         <input

@@ -3,6 +3,7 @@ import { prisma } from '../prisma';
 import { requireAuth, AuthRequest } from '../middleware/auth';
 import { hashPassword, comparePassword, MIN_PASSWORD_LENGTH, PASSWORD_TOO_SHORT_MESSAGE } from '../utils/hash';
 import { z } from 'zod';
+import { normalizeStaffPhone, INVALID_PHONE_MESSAGE, PHONE_TAKEN_MESSAGE } from '../utils/phone';
 
 const router = Router();
 
@@ -99,6 +100,7 @@ router.get('/:id', requireAuth('ADMIN'), async (req, res) => {
         id: true,
         name: true,
         email: true,
+        phone: true,
         role: true,
         branchId: true,
         position: true,
@@ -122,6 +124,8 @@ const createUserSchema = z.object({
   email: z.string().email().optional(),
   password: z.string().min(MIN_PASSWORD_LENGTH, PASSWORD_TOO_SHORT_MESSAGE),
   role: z.enum(['ADMIN', 'MANAGER', 'DEKLARANT', 'SELLER']),
+  // Telefon — tizimga kirish logini; har bir xodimda bo'lishi va takrorlanmasligi shart
+  phone: z.string(),
   branchId: z.number().optional(),
   position: z.string().optional(),
   salary: z.number().optional(),
@@ -134,6 +138,11 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
       console.error('Validation error:', parsed.error);
       return res.status(400).json({ error: parsed.error.flatten() });
     }
+
+    const phone = normalizeStaffPhone(parsed.data.phone);
+    if (!phone) return res.status(400).json({ error: INVALID_PHONE_MESSAGE });
+    const phoneOwner = await prisma.user.findFirst({ where: { phone }, select: { id: true } });
+    if (phoneOwner) return res.status(400).json({ error: PHONE_TAKEN_MESSAGE });
 
     // Generate email if not provided
     let email = parsed.data.email;
@@ -192,6 +201,7 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
     const userData: any = {
       name: parsed.data.name,
       email: email,
+      phone,
       passwordHash: await hashPassword(parsed.data.password),
       role: parsed.data.role,
       branchId: branchId || null,
@@ -232,6 +242,7 @@ const updateUserSchema = z.object({
   // Bo'sh satr — "parolni o'zgartirma" (forma maydoni bo'sh qoldirilgan)
   password: z.string().min(MIN_PASSWORD_LENGTH, PASSWORD_TOO_SHORT_MESSAGE).optional().or(z.literal('')),
   role: z.enum(['ADMIN', 'MANAGER', 'DEKLARANT', 'SELLER', 'CERTIFICATE_WORKER']).optional(),
+  phone: z.string().optional(),
   branchId: z.union([z.number(), z.null()]).optional(),
   position: z.string().optional(),
   salary: z.number().optional(),
@@ -245,6 +256,17 @@ router.put('/:id', requireAuth('ADMIN'), async (req, res) => {
     return res.status(400).json({ error: parsed.error.flatten() });
   }
   const data: any = { ...parsed.data };
+
+  if (data.phone !== undefined) {
+    const phone = normalizeStaffPhone(data.phone);
+    if (!phone) return res.status(400).json({ error: INVALID_PHONE_MESSAGE });
+    const phoneOwner = await prisma.user.findFirst({
+      where: { phone, id: { not: parseInt(req.params.id) } },
+      select: { id: true },
+    });
+    if (phoneOwner) return res.status(400).json({ error: PHONE_TAKEN_MESSAGE });
+    data.phone = phone;
+  }
 
   if (data.password) {
     // Check if password is unique (excluding current user)

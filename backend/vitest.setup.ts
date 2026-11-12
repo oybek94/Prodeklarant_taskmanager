@@ -6,5 +6,6 @@ import { vi } from 'vitest';
 vi.mock('./src/utils/staff-session', () => ({
   isStaffSessionValid: vi.fn(async () => true),
   invalidateStaffSession: vi.fn(),
+  onStaffSessionRevoked: vi.fn(),
   clearStaffSessionCache: vi.fn(),
 }));

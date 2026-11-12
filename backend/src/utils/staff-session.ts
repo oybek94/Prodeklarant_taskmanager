@@ -38,8 +38,24 @@ export const isStaffSessionValid = async (userId: number, tokenVersion: number |
   return !!snapshot && snapshot.active && snapshot.tokenVersion === (tokenVersion ?? 0);
 };
 
+type RevokeListener = (userId: number) => void;
+const revokeListeners: RevokeListener[] = [];
+
+/** Sessiya bekor qilinganda chaqiriladi (masalan, ochiq socket ulanishlarini uzish uchun). */
+export const onStaffSessionRevoked = (listener: RevokeListener): void => {
+  revokeListeners.push(listener);
+};
+
+/** Xodimning kirish huquqi o'zgargan/o'chirilgan: keshni tozalaydi va tinglovchilarni xabardor qiladi. */
 export const invalidateStaffSession = (userId: number): void => {
   cache.delete(userId);
+  for (const listener of revokeListeners) {
+    try {
+      listener(userId);
+    } catch (err) {
+      console.error('Staff session revoke listener error:', err instanceof Error ? err.message : err);
+    }
+  }
 };
 
 export const clearStaffSessionCache = (): void => {

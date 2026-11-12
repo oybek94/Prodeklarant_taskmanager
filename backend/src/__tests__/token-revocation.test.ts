@@ -16,7 +16,7 @@ vi.mock('../utils/staff-session', async () => vi.importActual('../utils/staff-se
 
 import { authenticateApi, requireAuth } from '../middleware/auth';
 import { signAccessToken } from '../utils/jwt';
-import { isStaffSessionValid, invalidateStaffSession, clearStaffSessionCache } from '../utils/staff-session';
+import { isStaffSessionValid, invalidateStaffSession, clearStaffSessionCache, onStaffSessionRevoked } from '../utils/staff-session';
 
 beforeEach(() => {
   mocks.userFindUnique.mockReset();
@@ -60,6 +60,23 @@ describe('isStaffSessionValid', () => {
     expect(await isStaffSessionValid(1, 0)).toBe(true); // kesh eskirmagan
     invalidateStaffSession(1);
     expect(await isStaffSessionValid(1, 0)).toBe(false);
+  });
+});
+
+describe('onStaffSessionRevoked', () => {
+  it('invalidate tinglovchini xodim ID si bilan chaqiradi (ochiq socketlarni uzish uchun)', () => {
+    const listener = vi.fn();
+    onStaffSessionRevoked(listener);
+    invalidateStaffSession(42);
+    expect(listener).toHaveBeenCalledWith(42);
+  });
+
+  it('buzuq tinglovchi invalidateni to\'xtatmaydi', () => {
+    onStaffSessionRevoked(() => { throw new Error('boom'); });
+    const after = vi.fn();
+    onStaffSessionRevoked(after);
+    expect(() => invalidateStaffSession(7)).not.toThrow();
+    expect(after).toHaveBeenCalledWith(7);
   });
 });
 

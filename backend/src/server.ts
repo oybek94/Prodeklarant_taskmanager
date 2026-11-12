@@ -306,7 +306,7 @@ if (isStandby) {
 
 // ===== Socket.io =====
 import { verifyAccessToken } from './utils/jwt';
-import { isStaffSessionValid } from './utils/staff-session';
+import { isStaffSessionValid, onStaffSessionRevoked } from './utils/staff-session';
 
 const io = new SocketIOServer(httpServer, {
   cors: { origin: corsOrigin },
@@ -329,6 +329,12 @@ io.use(async (socket, next) => {
   } catch {
     next(new Error('Invalid or expired token'));
   }
+});
+
+// Parol/rol/filial o'zgargan yoki bloklangan xodimning ochiq socketlari darhol uziladi
+// (ulanish tokeni faqat handshake'da tekshiriladi, shuning uchun aks holda ochiq qolardi)
+onStaffSessionRevoked((userId) => {
+  io.in(`user:${userId}`).disconnectSockets(true);
 });
 
 io.on('connection', (socket) => {

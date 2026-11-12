@@ -131,8 +131,17 @@ describe('POST /auth/login — telefon + parol', () => {
     for (let i = 0; i < 25; i++) {
       statuses.push((await login({ phone, password: wrongPassword }, `198.51.100.${i}`)).status);
     }
-    expect(statuses.filter((status) => status === 401)).toHaveLength(20);
-    expect(statuses.slice(20).every((status) => status === 429)).toBe(true);
+    // Blok paytida ham javob oddiy "noto'g'ri parol" bilan bir xil (401): 429 qaytsa,
+    // raqam tizimda borligi bilinib qolardi
+    expect(statuses.every((status) => status === 401)).toBe(true);
+    // 20 ta urinishdan keyin to'g'ri parol ham vaqtincha qabul qilinmaydi
+    expect((await login({ phone, password: correctPassword }, '198.51.100.200')).status).toBe(401);
+  });
+
+  it("umumiy blokka yetmagan telefon to'g'ri parol bilan boshqa IP dan kiradi", async () => {
+    const phone = '90 111 00 12';
+    for (let i = 0; i < 19; i++) await login({ phone, password: wrongPassword }, `198.51.100.${i}`);
+    expect((await login({ phone, password: correctPassword }, '198.51.100.201')).status).toBe(200);
   });
 
   it("mavjud bo'lmagan telefonlar umumiy (telefon bo'yicha) hisobni to'ldirmaydi", async () => {
@@ -182,8 +191,9 @@ describe('createLoginAttemptLimiter', () => {
     // Hujumchi tasodifiy kalitlar bilan jabrlanuvchi hisobini o'chira olmadi
     limiter.recordFailure('victim');
     expect(limiter.isBlocked('victim')).toBe(true);
-    // Joy yo'q paytda kuzatib bo'lmaydigan kalit ochiq qolmaydi
-    expect(limiter.isBlocked('never-seen')).toBe(true);
+    // Joy yo'q paytda yangi kalit bloklanmaydi: aks holda tasodifiy kalitlar bilan
+    // xotirani to'ldirgan hujumchi barcha foydalanuvchilarni kirishdan to'sib qo'yardi
+    expect(limiter.isBlocked('never-seen')).toBe(false);
   });
 
   it("muddati o'tgan yozuvlar joy bo'shatadi", () => {

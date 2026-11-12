@@ -55,13 +55,20 @@ router.post('/login', async (req, res) => {
     // Muvaffaqiyatli kirishda hisob nolga qaytariladi.
     // Telefon bo'yicha umumiy hisob faqat MAVJUD xodimlar uchun yuritiladi — kalitlar soni
     // xodimlar soni bilan chegaralanadi, tasodifiy raqamlar bilan to'ldirib bo'lmaydi.
-    if (attemptsPerPhoneAndIp.isBlocked(phoneAndIp) || (user && attemptsPerPhone.isBlocked(phone))) {
+    if (attemptsPerPhoneAndIp.isBlocked(phoneAndIp)) {
       return res.status(429).json({
         error: `Juda ko'p noto'g'ri urinish. ${LOGIN_LOCK_MINUTES} daqiqadan keyin qayta urinib ko'ring.`,
       });
     }
+    // Telefon bo'yicha umumiy blok: javob oddiy "noto'g'ri parol" bilan bir xil (401) va
+    // bir xil vaqt sarflanadi — 429 qaytsa, raqam tizimda borligi bilinib qolardi.
+    const phoneLocked = !!user && attemptsPerPhone.isBlocked(phone);
     attemptsPerPhoneAndIp.recordFailure(phoneAndIp);
     if (user) attemptsPerPhone.recordFailure(phone);
+    if (phoneLocked) {
+      await comparePassword(password, DUMMY_PASSWORD_HASH);
+      return res.status(401).json({ error: LOGIN_FAILED_MESSAGE });
+    }
 
     // Xodim topilmasa ham bir xil vaqt sarflanadi va bir xil xabar qaytadi —
     // telefon tizimda bor-yo'qligi oshkor bo'lmaydi

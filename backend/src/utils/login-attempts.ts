@@ -47,10 +47,11 @@ export function createLoginAttemptLimiter({ maxFailures, windowMs, now = Date.no
 
   return {
     isBlocked(key: string): boolean {
-      const entry = current(key);
-      if (entry) return entry.failures >= maxFailures;
-      // Joy yo'q — yangi kalitni kuzatib bo'lmaydi; ochiq qoldirmasdan rad etamiz (fail closed)
-      return !hasRoom();
+      // Kuzatilmayotgan kalit bloklanmaydi. Xotira to'lgan paytda ham shunday: yangi
+      // kalitlarni rad etish hujumchiga hammani kirishdan to'sish imkonini berardi.
+      // Haqiqiy hisoblarni himoya qiluvchi limiter (telefon bo'yicha, faqat mavjud xodimlar)
+      // xodimlar soni bilan chegaralangan va hech qachon to'lmaydi.
+      return (current(key)?.failures ?? 0) >= maxFailures;
     },
     recordFailure(key: string): void {
       const entry = current(key);

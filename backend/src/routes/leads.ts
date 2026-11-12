@@ -7,7 +7,8 @@ import * as XLSX from 'xlsx';
 import { socketEmitter } from '../services/socketEmitter';
 
 const router = Router();
-const upload = multer({ storage: multer.memoryStorage() });
+// Fayl xotiraga o'qiladi — hajm chegarasiz qolsa bitta katta fayl serverni to'ldirib qo'yadi
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024, files: 1 } });
 
 // GET /api/leads — Ro'yxat (filter: stage, assignedToId, search, reminder)
 router.get('/', async (req: AuthRequest, res: Response) => {

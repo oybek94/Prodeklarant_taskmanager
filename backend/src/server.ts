@@ -52,6 +52,7 @@ import { auditLog } from './middleware/audit';
 import { requestTiming } from './middleware/request-timing';
 import { sanitizeErrorResponses, GENERIC_ERROR_MESSAGE } from './middleware/sanitize-errors';
 import { blockPrivateUploads, serveSecureUpload } from './middleware/secure-uploads';
+import { parseRequestBody } from './middleware/body-limits';
 import OpenAIClient from './ai/openai.client';
 import path from 'path';
 import lmsRouter from './routes/lms';
@@ -107,9 +108,8 @@ app.use(helmet({
 // CORS: faqat ruxsat etilgan originlar (qarang config/cors.ts). Auth — Bearer
 // token, cookie ishlatilmaydi, shuning uchun credentials yoqilmaydi.
 app.use(cors({ origin: corsOrigin }));
-// Increase body size limits for file uploads (50MB for multiple files)
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+// So'rov tanasi bu yerda EMAS, pastda — rate-limit va autentifikatsiyadan keyin
+// o'qiladi (middleware/body-limits.ts): token'siz so'rov katta tanani xotiraga o'qittira olmasin.
 
 // Static file serving - himoyalangan
 // /uploads faqat autentifikatsiya bilan ochiladi; yo'l himoyasi (traversal, yopiq
@@ -180,6 +180,8 @@ app.use('/api/portal/auth/login', loginLimiter);  // Mijoz portali login
 app.use('/api', apiLimiter);                      // Barcha API uchun umumiy limit
 // Sukut bo'yicha yopiq: /api ostida token talab qilinadi (ochiq yo'llar — middleware/auth.ts PUBLIC_API)
 app.use('/api', authenticateApi);
+// Tana hajmi chegarasi: token'siz so'rovga kichik, xodimga kattaroq (req.user ga qarab)
+app.use(parseRequestBody());
 
 app.use('/api/auth', authRouter);
 app.use('/api/portal', portalRouter);

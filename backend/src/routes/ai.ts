@@ -10,22 +10,28 @@ import { InvoiceExtraction, ST1Extraction, ComparisonResult } from '../ai/prompt
 
 const router = Router();
 
+/**
+ * AI'ga yuboriladigan hujjat matni uzunligi chegarasi. Chegarasiz matn OpenAI xarajatini
+ * cheksiz oshirishi mumkin edi; odatdagi invoys/ST-1 matni bir necha ming belgi.
+ */
+export const MAX_AI_TEXT_LENGTH = 200_000;
+
 // Validation schemas
 const analyzeInvoiceSchema = z.object({
-  text: z.string().min(1, 'Document text is required'),
+  text: z.string().min(1, 'Document text is required').max(MAX_AI_TEXT_LENGTH, 'Document text is too long'),
 });
 
 const analyzeST1Schema = z.object({
-  text: z.string().min(1, 'Document text is required'),
+  text: z.string().min(1, 'Document text is required').max(MAX_AI_TEXT_LENGTH, 'Document text is too long'),
 });
 
 const analyzeFitoSchema = z.object({
-  text: z.string().min(1, 'Document text is required'),
+  text: z.string().min(1, 'Document text is required').max(MAX_AI_TEXT_LENGTH, 'Document text is too long'),
 });
 
 const compareInvoiceST1Schema = z.object({
-  invoiceText: z.string().min(1, 'Invoice text is required'),
-  st1Text: z.string().min(1, 'ST-1 text is required'),
+  invoiceText: z.string().min(1, 'Invoice text is required').max(MAX_AI_TEXT_LENGTH, 'Invoice text is too long'),
+  st1Text: z.string().min(1, 'ST-1 text is required').max(MAX_AI_TEXT_LENGTH, 'ST-1 text is too long'),
   invoiceStructured: z.any().optional(),
   st1Structured: z.any().optional(),
 });

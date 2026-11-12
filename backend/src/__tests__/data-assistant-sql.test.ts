@@ -89,7 +89,8 @@ describe('runReadOnlyQuery', () => {
     expect(state.connectionStrings).toEqual([readOnlyUrl]);
     expect(state.queries[0]).toBe('BEGIN READ ONLY');
     expect(state.queries[1]).toMatch(/^SET LOCAL statement_timeout/);
-    expect(state.queries[2]).toBe('SELECT "id", "name" FROM "User"');
+    // Chegara bazaning o'zida: natija xotiraga to'liq yuklanmaydi
+    expect(state.queries[2]).toBe(`SELECT * FROM (SELECT "id", "name" FROM "User") AS assistant_query LIMIT ${MAX_RESULT_ROWS + 1}`);
     expect(state.queries[3]).toBe('ROLLBACK');
     expect(state.ended).toBe(1);
   });

@@ -58,15 +58,19 @@ export async function runReadOnlyQuery(query: string): Promise<QueryResult> {
   try {
     await client.query('BEGIN READ ONLY');
     await client.query(`SET LOCAL statement_timeout = ${STATEMENT_TIMEOUT_MS}`);
-    const res = await client.query(query.trim().replace(/;+\s*$/, ''));
+    // Chegara bazaning o'zida qo'llanadi (bittasi ortiqcha — "kesildi"ni bilish uchun):
+    // aks holda million qatorli natija avval to'liq xotiraga yuklanardi.
+    const sql = query.trim().replace(/;+\s*$/, '');
+    const res = await client.query(`SELECT * FROM (${sql}) AS assistant_query LIMIT ${MAX_RESULT_ROWS + 1}`);
 
+    const truncated = res.rows.length > MAX_RESULT_ROWS;
     // SELECT * parol hashini ham olib keladi — modelga (va OpenAI'ga) ketmasin
-    const rows = redactSensitive(res.rows) as unknown[];
-    if (rows.length > MAX_RESULT_ROWS) {
+    const rows = redactSensitive(res.rows.slice(0, MAX_RESULT_ROWS)) as unknown[];
+    if (truncated) {
       return {
-        rows: rows.slice(0, MAX_RESULT_ROWS),
+        rows,
         truncated: true,
-        note: `Natija ${rows.length} qator; faqat birinchi ${MAX_RESULT_ROWS} tasi ko'rsatildi. Yig'ma (COUNT/SUM/GROUP BY) so'rov yozing.`,
+        note: `Natija ${MAX_RESULT_ROWS} qatordan ko'p; faqat birinchi ${MAX_RESULT_ROWS} tasi ko'rsatildi. Yig'ma (COUNT/SUM/GROUP BY) so'rov yozing.`,
       };
     }
     return rows;

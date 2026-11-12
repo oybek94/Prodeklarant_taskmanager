@@ -32,25 +32,25 @@ export function createLoginAttemptLimiter({ maxFailures, windowMs, now = Date.no
   };
 
   /**
-   * Xotira to'lganda joy ochadi: avval muddati o'tganlar, keyin hali bloklanmaganlar
-   * o'chiriladi. Bloklangan yozuvlar HECH QACHON o'chirilmaydi — aks holda hujumchi
-   * tasodifiy kalitlar bilan xotirani to'ldirib, o'z blokini yechib olardi.
+   * Xotira to'lganda FAQAT muddati o'tgan yozuvlar o'chiriladi. Amaldagi hisob (bloklangan
+   * ham, hali chegaraga yetmagan ham) hech qachon o'chirilmaydi — aks holda hujumchi
+   * tasodifiy kalitlar bilan xotirani to'ldirib, o'z urinishlar hisobini nolga tushirardi.
    */
-  const makeRoom = (): boolean => {
+  const hasRoom = (): boolean => {
+    if (entries.size < maxKeys) return true;
     const time = now();
     for (const [key, entry] of entries) {
       if (entry.expiresAt <= time) entries.delete(key);
-    }
-    if (entries.size < maxKeys) return true;
-    for (const [key, entry] of entries) {
-      if (entry.failures < maxFailures) entries.delete(key);
     }
     return entries.size < maxKeys;
   };
 
   return {
     isBlocked(key: string): boolean {
-      return (current(key)?.failures ?? 0) >= maxFailures;
+      const entry = current(key);
+      if (entry) return entry.failures >= maxFailures;
+      // Joy yo'q — yangi kalitni kuzatib bo'lmaydi; ochiq qoldirmasdan rad etamiz (fail closed)
+      return !hasRoom();
     },
     recordFailure(key: string): void {
       const entry = current(key);
@@ -59,7 +59,7 @@ export function createLoginAttemptLimiter({ maxFailures, windowMs, now = Date.no
         entry.expiresAt = now() + windowMs;
         return;
       }
-      if (entries.size >= maxKeys && !makeRoom()) return;
+      if (!hasRoom()) return;
       entries.set(key, { failures: 1, expiresAt: now() + windowMs });
     },
     reset(key: string): void {

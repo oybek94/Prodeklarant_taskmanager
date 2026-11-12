@@ -134,6 +134,15 @@ describe('POST /auth/login — telefon + parol', () => {
     expect(statuses.filter((status) => status === 401)).toHaveLength(20);
     expect(statuses.slice(20).every((status) => status === 429)).toBe(true);
   });
+
+  it("mavjud bo'lmagan telefonlar umumiy (telefon bo'yicha) hisobni to'ldirmaydi", async () => {
+    mocks.userFindFirst.mockResolvedValue(null);
+    const statuses: number[] = [];
+    for (let i = 0; i < 25; i++) {
+      statuses.push((await login({ phone: '90 111 00 11', password: wrongPassword }, `192.0.2.${i}`)).status);
+    }
+    expect(statuses.every((status) => status === 401)).toBe(true);
+  });
 });
 
 describe('createLoginAttemptLimiter', () => {
@@ -162,6 +171,30 @@ describe('createLoginAttemptLimiter', () => {
     limiter.recordFailure('blocked');
     for (let i = 0; i < 10; i++) limiter.recordFailure(`random-${i}`);
     expect(limiter.isBlocked('blocked')).toBe(true);
+  });
+
+  it("xotira to'lganda mavjud hisoblar nolga tushmaydi, yangi kalit esa yopiq hisoblanadi", () => {
+    const limiter = createLoginAttemptLimiter({ maxFailures: 3, windowMs: 1000, now: () => 0, maxKeys: 2 });
+    limiter.recordFailure('victim');
+    limiter.recordFailure('victim');
+    for (let i = 0; i < 10; i++) limiter.recordFailure(`random-${i}`);
+
+    // Hujumchi tasodifiy kalitlar bilan jabrlanuvchi hisobini o'chira olmadi
+    limiter.recordFailure('victim');
+    expect(limiter.isBlocked('victim')).toBe(true);
+    // Joy yo'q paytda kuzatib bo'lmaydigan kalit ochiq qolmaydi
+    expect(limiter.isBlocked('never-seen')).toBe(true);
+  });
+
+  it("muddati o'tgan yozuvlar joy bo'shatadi", () => {
+    let now = 0;
+    const limiter = createLoginAttemptLimiter({ maxFailures: 3, windowMs: 1000, now: () => now, maxKeys: 2 });
+    limiter.recordFailure('a');
+    limiter.recordFailure('b');
+    now = 1001;
+    expect(limiter.isBlocked('c')).toBe(false);
+    limiter.recordFailure('c');
+    expect(limiter.isBlocked('c')).toBe(false);
   });
 
   it('muvaffaqiyatli kirish hisobni nolga qaytaradi', () => {

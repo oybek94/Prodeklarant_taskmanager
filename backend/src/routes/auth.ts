@@ -44,21 +44,24 @@ router.post('/login', async (req, res) => {
     }
 
     const phoneAndIp = `${phone}|${req.ip ?? ''}`;
-    if (attemptsPerPhoneAndIp.isBlocked(phoneAndIp) || attemptsPerPhone.isBlocked(phone)) {
-      return res.status(429).json({
-        error: `Juda ko'p noto'g'ri urinish. ${LOGIN_LOCK_MINUTES} daqiqadan keyin qayta urinib ko'ring.`,
-      });
-    }
-    // Urinish bazaga murojaat va bcrypt'dan OLDIN (sinxron) hisobga olinadi: aks holda
-    // parallel yuborilgan so'rovlarning hammasi tekshiruvdan o'tib, chegarani chetlab o'tardi.
-    // Muvaffaqiyatli kirishda hisob nolga qaytariladi.
-    attemptsPerPhoneAndIp.recordFailure(phoneAndIp);
-    attemptsPerPhone.recordFailure(phone);
 
     const user = await prisma.user.findFirst({
       where: { phone },
       select: { id: true, name: true, passwordHash: true, role: true, branchId: true, active: true },
     });
+
+    // Tekshiruv va hisobga olish bcrypt'dan OLDIN, bitta sinxron qadamda bajariladi: aks holda
+    // parallel yuborilgan so'rovlarning hammasi tekshiruvdan o'tib, chegarani chetlab o'tardi.
+    // Muvaffaqiyatli kirishda hisob nolga qaytariladi.
+    // Telefon bo'yicha umumiy hisob faqat MAVJUD xodimlar uchun yuritiladi — kalitlar soni
+    // xodimlar soni bilan chegaralanadi, tasodifiy raqamlar bilan to'ldirib bo'lmaydi.
+    if (attemptsPerPhoneAndIp.isBlocked(phoneAndIp) || (user && attemptsPerPhone.isBlocked(phone))) {
+      return res.status(429).json({
+        error: `Juda ko'p noto'g'ri urinish. ${LOGIN_LOCK_MINUTES} daqiqadan keyin qayta urinib ko'ring.`,
+      });
+    }
+    attemptsPerPhoneAndIp.recordFailure(phoneAndIp);
+    if (user) attemptsPerPhone.recordFailure(phone);
 
     // Xodim topilmasa ham bir xil vaqt sarflanadi va bir xil xabar qaytadi —
     // telefon tizimda bor-yo'qligi oshkor bo'lmaydi

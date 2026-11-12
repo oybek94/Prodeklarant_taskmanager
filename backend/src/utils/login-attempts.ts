@@ -56,6 +56,9 @@ export function createLoginAttemptLimiter({ maxFailures, windowMs, now = Date.no
     recordFailure(key: string): void {
       const entry = current(key);
       if (entry) {
+        // Blok boshlangach muddat qotadi: bloklangan paytdagi urinishlar uni cho'zmaydi,
+        // aks holda hujumchi urinishni davom ettirib blokni cheksiz ushlab turardi
+        if (entry.failures >= maxFailures) return;
         entry.failures += 1;
         entry.expiresAt = now() + windowMs;
         return;

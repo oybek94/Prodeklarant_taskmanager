@@ -207,6 +207,18 @@ describe('createLoginAttemptLimiter', () => {
     expect(limiter.isBlocked('c')).toBe(false);
   });
 
+  it("bloklangandan keyingi urinishlar blok muddatini cho'zmaydi", () => {
+    let now = 0;
+    const limiter = createLoginAttemptLimiter({ maxFailures: 2, windowMs: 1000, now: () => now });
+    limiter.recordFailure('a');
+    limiter.recordFailure('a');
+    now = 900;
+    limiter.recordFailure('a');
+    limiter.recordFailure('a');
+    now = 1001;
+    expect(limiter.isBlocked('a')).toBe(false);
+  });
+
   it('muvaffaqiyatli kirish hisobni nolga qaytaradi', () => {
     const limiter = createLoginAttemptLimiter({ maxFailures: 2, windowMs: 1000, now: () => 0 });
     limiter.recordFailure('a');

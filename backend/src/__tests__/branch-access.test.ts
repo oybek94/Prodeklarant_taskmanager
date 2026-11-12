@@ -84,12 +84,19 @@ describe('vazifa — filial chegarasi', () => {
     expect((await get('/tasks/5', asUser('DEKLARANT', null))).status).toBe(200);
   });
 
-  it('mavjud bo\'lmagan vazifa va noto\'g\'ri ID endpointning o\'ziga o\'tadi (404/400 ni u qaytaradi)', async () => {
+  it('mavjud bo\'lmagan vazifa endpointning o\'ziga o\'tadi (404 ni u qaytaradi)', async () => {
     mocks.taskFindUnique.mockResolvedValue(null);
     expect((await get('/tasks/999', asUser('DEKLARANT', 1))).status).toBe(200);
-    expect((await get('/tasks/abc', asUser('DEKLARANT', 1))).status).toBe(200);
-    expect((await get('/tasks/7e1', asUser('DEKLARANT', 1))).status).toBe(200);
   });
+
+  it.each(['abc', '7e1', '0x10', '7.0', '%207', '-3', '1' + '0'.repeat(20)])(
+    'kanonik bo\'lmagan ID (%s) rad etiladi — handler boshqacha o\'qib tekshiruvni chetlab o\'tolmaydi',
+    async (id) => {
+      expect((await get(`/tasks/${id}`, asUser('DEKLARANT', 1))).status).toBe(400);
+      expect((await get(`/tasks/${id}`, asUser('ADMIN', 1))).status).toBe(400);
+      expect(mocks.taskFindUnique).not.toHaveBeenCalled();
+    },
+  );
 
   it('foydalanuvchi yo\'q bo\'lsa auth middleware hal qiladi (param bloklamaydi)', async () => {
     expect((await get('/tasks/5')).status).toBe(200);

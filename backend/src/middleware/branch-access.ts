@@ -47,8 +47,8 @@ export const checkInvoiceAccess = async (user: Actor, invoiceId: number): Promis
 const FORBIDDEN_MESSAGE = "Bu yozuvga kirish huquqingiz yo'q";
 
 /**
- * `router.param(name, ...)` uchun: URL'dagi ID bo'yicha filial tekshiruvi. Noto'g'ri ID yoki
- * topilmagan yozuv uchun jim o'tkazadi — 400/404 ni endpointning o'zi qaytaradi. Param
+ * `router.param(name, ...)` uchun: URL'dagi ID bo'yicha filial tekshiruvi. Noto'g'ri ko'rinishdagi
+ * ID rad etiladi (400), topilmagan yozuvni esa endpointning o'zi 404 qiladi. Param
  * handler route middleware'dan OLDIN ishlaydi, shuning uchun foydalanuvchi bo'lmasa (yoki
  * mijoz tokeni bo'lsa) ham o'tkazadi — autentifikatsiyani requireAuth/authenticateApi hal qiladi.
  */
@@ -57,7 +57,11 @@ const guardParam =
   async (req: Request, res: Response, next: NextFunction, value: string) => {
     try {
       const user = (req as AuthRequest).user;
-      if (!user || !/^\d+$/.test(value)) return next();
+      if (!user) return next();
+      // Faqat kanonik o'nlik ID. Handlerlar ID ni turlicha o'qiydi (Number, parseInt, z.coerce),
+      // "7e1" ni esa biri 70, boshqasi 7 deb o'qiydi — tekshiruv bitta ID ga, handler boshqasiga
+      // ishlamasligi uchun boshqa ko'rinishdagi qiymat (e-yozuv, 0x, bo'shliq, kasr) rad etiladi.
+      if (!/^\d{1,15}$/.test(value)) return res.status(400).json({ error: "Noto'g'ri ID" });
       const access = await check(user, Number(value));
       if (access === 'forbidden') return res.status(403).json({ error: FORBIDDEN_MESSAGE });
       return next();

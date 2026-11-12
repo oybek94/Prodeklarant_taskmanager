@@ -223,7 +223,7 @@ router.post(
   }
 );
 
-import { DataAssistantService } from '../services/data-assistant.service';
+import { DataAssistantService, dataAssistantRequestSchema } from '../services/data-assistant.service';
 
 /**
  * POST /api/ai/data-assistant
@@ -234,16 +234,11 @@ router.post(
   requireAuth('ADMIN', 'OWNER'), // FAKAT ADMIN/OWNER KIRA OLADI
   async (req: AuthRequest, res) => {
     try {
-      const { question, history } = req.body;
-      
-      // XAVFSIZLIK: Faqat o'zingizning ID raqamingizni kiritib qattiq bloklashingiz mumkin
-      // if (req.user?.id !== 1) { // <-- 1 o'rniga o'zingizning ID'ingiz
-      //   return res.status(403).json({ error: 'Faqatgina dastur egasi foydalana oladi!' });
-      // }
-
-      if (!question) {
-        return res.status(400).json({ error: 'question is required' });
+      const parsed = dataAssistantRequestSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Savol yoki suhbat tarixi noto'g'ri formatda" });
       }
+      const { question, history } = parsed.data;
 
       const service = new DataAssistantService();
       const answer = await service.askQuestion(question, history || []);

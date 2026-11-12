@@ -1,7 +1,84 @@
 import OpenAI from 'openai';
 import { Client } from 'pg';
-import { PrismaClient } from '@prisma/client';
+import { z } from 'zod';
 import { assistantModel, samplingParams } from '../ai/models';
+import { redactSensitive } from '../middleware/audit';
+
+/** Modelga qaytariladigan qatorlar chegarasi — katta natija xotira va OpenAI xarajatini oshiradi */
+export const MAX_RESULT_ROWS = 200;
+const STATEMENT_TIMEOUT_MS = 10_000;
+
+/**
+ * So'rov tanasi. `history` ga faqat user/assistant xabarlari kiradi: aks holda mijoz
+ * `system` xabari yuborib, modelning qoidalarini almashtirib qo'yishi mumkin edi.
+ */
+export const dataAssistantRequestSchema = z.object({
+  question: z.string().trim().min(1).max(2000),
+  history: z
+    .array(z.object({ role: z.enum(['user', 'assistant']), content: z.string().max(8000) }))
+    .max(20)
+    .optional(),
+});
+
+export type AssistantHistory = NonNullable<z.infer<typeof dataAssistantRequestSchema>['history']>;
+
+/**
+ * Model yozgan SQL bazaga yuborilishidan oldin tekshiriladi. Xato matni qaytsa — bajarilmaydi.
+ *
+ * Bitta buyruq sharti muhim: `SELECT 1; COMMIT; DELETE ...` ko'rinishidagi so'rov
+ * `BEGIN READ ONLY` tranzaksiyasini COMMIT bilan yopib, qolganini yozish rejimida bajarardi.
+ */
+export function validateReadOnlySql(query: string): string | null {
+  const sql = query.trim().replace(/;+\s*$/, '');
+  if (!/^(select|with)\b/i.test(sql)) return "Faqat SELECT so'rovlariga ruxsat berilgan!";
+  if (sql.includes(';')) return "Bir so'rovda faqat bitta SQL buyrug'i bo'lishi mumkin.";
+  if (/password/i.test(sql)) return "Parol ustunlarini o'qish taqiqlangan.";
+  return null;
+}
+
+type QueryResult = unknown[] | { rows: unknown[]; truncated: true; note: string } | { error: string };
+
+/**
+ * Model yozgan SELECT so'rovini FAQAT o'qish huquqli ulanish (READ_ONLY_DATABASE_URL) orqali,
+ * vaqt chegarali READ ONLY tranzaksiyada bajaradi. Faqat-o'qish ulanishi sozlanmagan bo'lsa
+ * asosiy (yozish huquqli) bazaga tushmaydi — rad etadi.
+ */
+export async function runReadOnlyQuery(query: string): Promise<QueryResult> {
+  const validationError = validateReadOnlySql(query);
+  if (validationError) return { error: validationError };
+
+  const connectionString = process.env.READ_ONLY_DATABASE_URL;
+  if (!connectionString) {
+    console.error("[AI Data Assistant] READ_ONLY_DATABASE_URL sozlanmagan — so'rov bajarilmadi.");
+    return { error: "Faqat-o'qish ulanishi sozlanmagan. Administratorga murojaat qiling." };
+  }
+
+  const client = new Client({ connectionString });
+  await client.connect();
+  try {
+    await client.query('BEGIN READ ONLY');
+    await client.query(`SET LOCAL statement_timeout = ${STATEMENT_TIMEOUT_MS}`);
+    const res = await client.query(query.trim().replace(/;+\s*$/, ''));
+
+    // SELECT * parol hashini ham olib keladi — modelga (va OpenAI'ga) ketmasin
+    const rows = redactSensitive(res.rows) as unknown[];
+    if (rows.length > MAX_RESULT_ROWS) {
+      return {
+        rows: rows.slice(0, MAX_RESULT_ROWS),
+        truncated: true,
+        note: `Natija ${rows.length} qator; faqat birinchi ${MAX_RESULT_ROWS} tasi ko'rsatildi. Yig'ma (COUNT/SUM/GROUP BY) so'rov yozing.`,
+      };
+    }
+    return rows;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[SQL XATOSI]:', message);
+    return { error: message };
+  } finally {
+    await client.query('ROLLBACK').catch(() => {});
+    await client.end();
+  }
+}
 
 let openai: OpenAI | null = null;
 function getOpenAI() {
@@ -41,7 +118,7 @@ export class DataAssistantService {
   /**
    * Foydalanuvchining savoliga javob berish uchun Agent mantig'i
    */
-  public async askQuestion(question: string, conversationHistory: any[] = []): Promise<string> {
+  public async askQuestion(question: string, conversationHistory: AssistantHistory = []): Promise<string> {
     const messages: any[] = [
       { role: 'system', content: DATABASE_SCHEMA },
       ...conversationHistory,
@@ -99,7 +176,7 @@ export class DataAssistantService {
             try {
               const sqlQuery = JSON.parse(toolCall.function.arguments).query;
               console.log('[AI Data Assistant] Executing SQL:', sqlQuery);
-              result = await this.executeReadOnlySql(sqlQuery);
+              result = await runReadOnlyQuery(sqlQuery);
             } catch (err: any) {
               result = { error: err.message };
             }
@@ -117,36 +194,6 @@ export class DataAssistantService {
     } catch (error: any) {
       console.error('[DataAssistantService] Error:', error);
       throw new Error('Sun\'iy intellekt xizmatida xatolik yuz berdi: ' + error.message);
-    }
-  }
-
-  /**
-   * Xavfsiz, faqat o'qish (READ-ONLY) uchun ulanish
-   */
-  private async executeReadOnlySql(query: string): Promise<any> {
-    // FAKAT SELECT ISHLATILISHINI QAT'IY TEKSHIRISH (Ehtiyot chorasi)
-    const upperQuery = query.trim().toUpperCase();
-    if (!upperQuery.startsWith('SELECT') && !upperQuery.startsWith('WITH')) {
-      return { error: 'Faqat SELECT so\'rovlariga ruxsat berilgan!' };
-    }
-
-    // READ_ONLY_DATABASE_URL env da yo'q bo'lsa, oddiy ulanishni ishlatadi (XAVFLI)
-    // Haqiqiy proektda buni alohida read_only URL bilan almashtirish shart.
-    const connectionString = process.env.READ_ONLY_DATABASE_URL || process.env.DATABASE_URL;
-    
-    const client = new Client({ connectionString });
-    await client.connect();
-    try {
-      // READ ONLY tranzaksiya: "WITH x AS (DELETE ...)" kabi yozuvchi so'rovlarni ham DB o'zi rad etadi
-      await client.query('BEGIN READ ONLY');
-      const res = await client.query(query);
-      return res.rows;
-    } catch (err: any) {
-      console.error('[SQL XATOSI]:', err.message);
-      return { error: err.message };
-    } finally {
-      await client.query('ROLLBACK').catch(() => {});
-      await client.end();
     }
   }
 }

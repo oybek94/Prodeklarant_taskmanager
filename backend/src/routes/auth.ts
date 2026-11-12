@@ -15,14 +15,16 @@ const loginSchema = z.object({
 });
 
 const LOGIN_FAILED_MESSAGE = "Telefon yoki parol noto'g'ri";
-const MAX_LOGIN_FAILURES = 5;
 const LOGIN_LOCK_MINUTES = 15;
+const LOGIN_LOCK_MS = LOGIN_LOCK_MINUTES * 60 * 1000;
 
-// Bitta telefonga ketma-ket noto'g'ri urinishlar (IP dan qat'i nazar)
-const loginAttempts = createLoginAttemptLimiter({
-  maxFailures: MAX_LOGIN_FAILURES,
-  windowMs: LOGIN_LOCK_MINUTES * 60 * 1000,
-});
+// Ikki darajali chegara:
+//  - (telefon + IP): 5 urinish — bitta joydan parol saralashni to'xtatadi;
+//  - telefon (barcha IP lar): 20 urinish — ko'p IP dan taqsimlangan saralashni to'xtatadi.
+// Faqat telefon bo'yicha qattiq blok bo'lsa, begona odam 5 ta xato urinish bilan
+// xodimni o'z kompyuteridan ham bloklab qo'yardi.
+const attemptsPerPhoneAndIp = createLoginAttemptLimiter({ maxFailures: 5, windowMs: LOGIN_LOCK_MS });
+const attemptsPerPhone = createLoginAttemptLimiter({ maxFailures: 20, windowMs: LOGIN_LOCK_MS });
 
 /**
  * Kirish: telefon + parol. Parol FAQAT shu telefon egasining hashiga solishtiriladi.
@@ -41,11 +43,17 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ error: LOGIN_FAILED_MESSAGE });
     }
 
-    if (loginAttempts.isBlocked(phone)) {
+    const phoneAndIp = `${phone}|${req.ip ?? ''}`;
+    if (attemptsPerPhoneAndIp.isBlocked(phoneAndIp) || attemptsPerPhone.isBlocked(phone)) {
       return res.status(429).json({
         error: `Juda ko'p noto'g'ri urinish. ${LOGIN_LOCK_MINUTES} daqiqadan keyin qayta urinib ko'ring.`,
       });
     }
+    // Urinish bazaga murojaat va bcrypt'dan OLDIN (sinxron) hisobga olinadi: aks holda
+    // parallel yuborilgan so'rovlarning hammasi tekshiruvdan o'tib, chegarani chetlab o'tardi.
+    // Muvaffaqiyatli kirishda hisob nolga qaytariladi.
+    attemptsPerPhoneAndIp.recordFailure(phoneAndIp);
+    attemptsPerPhone.recordFailure(phone);
 
     const user = await prisma.user.findFirst({
       where: { phone },
@@ -56,10 +64,10 @@ router.post('/login', async (req, res) => {
     // telefon tizimda bor-yo'qligi oshkor bo'lmaydi
     const isValidPassword = await comparePassword(password, user?.passwordHash ?? DUMMY_PASSWORD_HASH);
     if (!user || !user.active || !isValidPassword) {
-      loginAttempts.recordFailure(phone);
       return res.status(401).json({ error: LOGIN_FAILED_MESSAGE });
     }
-    loginAttempts.reset(phone);
+    attemptsPerPhoneAndIp.reset(phoneAndIp);
+    attemptsPerPhone.reset(phone);
 
     // Token roli bazadagi rol bilan bir xil (eski rollar DEKLARANT ga tushadi)
     const validRole = resolveStaffRole(user.role);

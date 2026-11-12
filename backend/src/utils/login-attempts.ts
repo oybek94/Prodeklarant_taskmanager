@@ -7,6 +7,8 @@ interface LimiterOptions {
   maxFailures: number;
   windowMs: number;
   now?: () => number;
+  /** Kuzatiladigan kalitlar soni chegarasi (xotira himoyasi) */
+  maxKeys?: number;
 }
 
 interface Entry {
@@ -15,9 +17,9 @@ interface Entry {
   expiresAt: number;
 }
 
-const MAX_TRACKED_KEYS = 10_000;
+const DEFAULT_MAX_KEYS = 10_000;
 
-export function createLoginAttemptLimiter({ maxFailures, windowMs, now = Date.now }: LimiterOptions) {
+export function createLoginAttemptLimiter({ maxFailures, windowMs, now = Date.now, maxKeys = DEFAULT_MAX_KEYS }: LimiterOptions) {
   const entries = new Map<string, Entry>();
 
   const current = (key: string): Entry | undefined => {
@@ -27,6 +29,23 @@ export function createLoginAttemptLimiter({ maxFailures, windowMs, now = Date.no
       return undefined;
     }
     return entry;
+  };
+
+  /**
+   * Xotira to'lganda joy ochadi: avval muddati o'tganlar, keyin hali bloklanmaganlar
+   * o'chiriladi. Bloklangan yozuvlar HECH QACHON o'chirilmaydi — aks holda hujumchi
+   * tasodifiy kalitlar bilan xotirani to'ldirib, o'z blokini yechib olardi.
+   */
+  const makeRoom = (): boolean => {
+    const time = now();
+    for (const [key, entry] of entries) {
+      if (entry.expiresAt <= time) entries.delete(key);
+    }
+    if (entries.size < maxKeys) return true;
+    for (const [key, entry] of entries) {
+      if (entry.failures < maxFailures) entries.delete(key);
+    }
+    return entries.size < maxKeys;
   };
 
   return {
@@ -40,8 +59,7 @@ export function createLoginAttemptLimiter({ maxFailures, windowMs, now = Date.no
         entry.expiresAt = now() + windowMs;
         return;
       }
-      // Tasodifiy telefonlar bilan xotirani to'ldirib yuborishdan himoya
-      if (entries.size >= MAX_TRACKED_KEYS) entries.clear();
+      if (entries.size >= maxKeys && !makeRoom()) return;
       entries.set(key, { failures: 1, expiresAt: now() + windowMs });
     },
     reset(key: string): void {

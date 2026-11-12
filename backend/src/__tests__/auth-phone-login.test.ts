@@ -31,6 +31,8 @@ let baseUrl: string;
 beforeAll(async () => {
   passwordHash = await hashPassword(correctPassword);
   const app = express();
+  // Testda mijoz IP sini X-Forwarded-For orqali almashtirish uchun
+  app.set('trust proxy', true);
   app.use(express.json());
   app.use('/api/auth', authRouter);
   server = app.listen(0);
@@ -51,10 +53,10 @@ beforeEach(() => {
   mocks.userFindFirst.mockResolvedValue(staff());
 });
 
-const login = (body: unknown) =>
+const login = (body: unknown, ip = '10.0.0.1') =>
   fetch(`${baseUrl}/api/auth/login`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'X-Forwarded-For': ip },
     body: JSON.stringify(body),
   });
 
@@ -106,6 +108,32 @@ describe('POST /auth/login — telefon + parol', () => {
     // boshqa telefon bloklanmaydi
     expect((await login({ phone: '90 111 00 07', password: correctPassword })).status).toBe(200);
   });
+
+  it("parallel yuborilgan urinishlar chegaradan o'tib ketmaydi", async () => {
+    const phone = '90 111 00 08';
+    const results = await Promise.all(
+      Array.from({ length: 12 }, () => login({ phone, password: wrongPassword }).then((res) => res.status))
+    );
+    expect(results.filter((status) => status === 401)).toHaveLength(5);
+    expect(results.filter((status) => status === 429)).toHaveLength(7);
+  });
+
+  it("begona IP dan qilingan xato urinishlar xodimni o'z IP sidan bloklamaydi", async () => {
+    const phone = '90 111 00 09';
+    for (let i = 0; i < 5; i++) await login({ phone, password: wrongPassword }, '203.0.113.9');
+    expect((await login({ phone, password: wrongPassword }, '203.0.113.9')).status).toBe(429);
+    expect((await login({ phone, password: correctPassword }, '10.0.0.2')).status).toBe(200);
+  });
+
+  it("ko'p IP dan taqsimlangan saralash ham telefon bo'yicha umumiy chegaraga uriladi", async () => {
+    const phone = '90 111 00 10';
+    const statuses: number[] = [];
+    for (let i = 0; i < 25; i++) {
+      statuses.push((await login({ phone, password: wrongPassword }, `198.51.100.${i}`)).status);
+    }
+    expect(statuses.filter((status) => status === 401)).toHaveLength(20);
+    expect(statuses.slice(20).every((status) => status === 429)).toBe(true);
+  });
 });
 
 describe('createLoginAttemptLimiter', () => {
@@ -126,6 +154,14 @@ describe('createLoginAttemptLimiter', () => {
     expect(limiter.isBlocked('a')).toBe(true);
     now = 1001;
     expect(limiter.isBlocked('a')).toBe(false);
+  });
+
+  it("xotira to'lganda bloklangan yozuvlar tozalanmaydi", () => {
+    const limiter = createLoginAttemptLimiter({ maxFailures: 2, windowMs: 1000, now: () => 0, maxKeys: 3 });
+    limiter.recordFailure('blocked');
+    limiter.recordFailure('blocked');
+    for (let i = 0; i < 10; i++) limiter.recordFailure(`random-${i}`);
+    expect(limiter.isBlocked('blocked')).toBe(true);
   });
 
   it('muvaffaqiyatli kirish hisobni nolga qaytaradi', () => {

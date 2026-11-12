@@ -2461,12 +2461,43 @@ async function cargoAttachVehicleDoc(root, onclickPart, label, warnings) {
     return true;
 }
 
+// Haydovchi JSHSHIR i: 1-qadamda (50-grafa ishonchnomasi uchun) kiritilgan raqam
+// bu yerda ham ishlatiladi. Maydon blur bo'lganda sayt (getPinflInfoDriverEk)
+// haydovchining qolgan ma'lumotlarini o'zi to'ldiradi, shuning uchun qiymatdan
+// keyin `blur` yuboriladi. Mashina raqami lupasi haydovchini boshqa shaxs bilan
+// to'ldirib qo'yishi mumkin, shu sababli bu qadam lupadan KEYIN bajariladi.
+async function cargoFillDriverPinfl(data, warnings) {
+    const pinfl = String(data.driverPinfl || '').replace(/\D/g, '');
+    if (!pinfl) return; // 1-qadam ishonchnomasiz bajarilgan — haydovchiga tegilmaydi
+
+    const input = document.getElementById('D_PINFL');
+    if (!input) { warnings.push('Haydovchi ЖШШИР: maydon topilmadi'); return; }
+
+    const ok = await cargoSetInput(input, pinfl);
+    if (!ok) {
+        warnings.push(`Haydovchi ЖШШИР: "${pinfl}" o'rniga "${input.value}" yozildi`);
+        return;
+    }
+
+    input.dispatchEvent(new Event('blur', { bubbles: true }));
+    // Sayt haydovchi ma'lumotini tarmoq orqali olib keladi
+    await delay(2000);
+
+    if (input.value.replace(/\D/g, '') !== pinfl) {
+        warnings.push("Haydovchi ЖШШИР: sayt qiymatni o'zgartirib yubordi, tekshiring");
+    }
+}
+
 async function cargoFillTransport(data, warnings) {
     const tabError = await cargoSwitchTab('#tabTransport', 'Транспорт варағи');
     if (tabError) { warnings.push(tabError); return; }
 
     const { truck, trailer } = cargoSplitVehicleNumber(data.vehicleNumber);
-    if (!truck) { warnings.push("Транспорт: invoysda mashina raqami yo'q"); return; }
+    if (!truck) {
+        warnings.push("Транспорт: invoysda mashina raqami yo'q");
+        await cargoFillDriverPinfl(data, warnings);
+        return;
+    }
 
     // 1. Давлат рақами — raqamning birinchi qismi
     const plateInput = document.getElementById('G21NO');
@@ -2487,6 +2518,9 @@ async function cargoFillTransport(data, warnings) {
             warnings.push('Транспорт: qidiruv mashina maʼlumotini keltirmadi');
         }
     }
+
+    // 2b. Haydovchi — 1-qadamda kiritilgan JSHSHIR bo'yicha
+    await cargoFillDriverPinfl(data, warnings);
 
     // 3. Транспорт воситаси техник паспорти — fayl foydalanuvchidan
     await cargoAttachVehicleDoc(

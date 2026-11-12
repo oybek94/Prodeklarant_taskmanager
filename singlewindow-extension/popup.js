@@ -272,11 +272,38 @@ poaPinflInput.addEventListener('input', () => {
     poaPinflInput.value = poaPinflInput.value.replace(/\D/g, '');
 });
 
+// 1-qadamda kiritilgan haydovchi JSHSHIR i 2-qadamda ham kerak. Popup har
+// ochilganda holati yo'qoladi, shuning uchun invoys ID si bo'yicha saqlanadi.
+const driverPinflKey = (invoiceId) => `driverPinfl:${invoiceId}`;
+
+async function rememberDriverPinfl(invoiceId, pinfl) {
+    if (!invoiceId) return;
+    try {
+        if (pinfl) await chrome.storage.local.set({ [driverPinflKey(invoiceId)]: pinfl });
+        else await chrome.storage.local.remove(driverPinflKey(invoiceId));
+    } catch (err) {
+        console.warn('[AutoFill] Haydovchi JSHSHIR ini saqlab bo\'lmadi:', err);
+    }
+}
+
+async function recallDriverPinfl(invoiceId) {
+    if (!invoiceId) return '';
+    try {
+        const stored = await chrome.storage.local.get(driverPinflKey(invoiceId));
+        return String(stored[driverPinflKey(invoiceId)] || '');
+    } catch (err) {
+        console.warn('[AutoFill] Haydovchi JSHSHIR ini o\'qib bo\'lmadi:', err);
+        return '';
+    }
+}
+
 document.getElementById('poaSkipBtn').addEventListener('click', async () => {
     const statusDiv = document.getElementById('status');
     const mockData = await getProdeklarantData(statusDiv);
     if (!mockData) return;
     togglePoaPanel(false);
+    // Ishonchnomasiz bajarilsa eski JSHSHIR 2-qadamga o'tib qolmasin
+    await rememberDriverPinfl(mockData.INVOICE_ID, '');
     sendToContentScript("fill_cargo_byud", mockData, statusDiv);
 });
 
@@ -297,6 +324,7 @@ poaPanel.addEventListener('submit', async (event) => {
         return;
     }
     togglePoaPanel(false);
+    await rememberDriverPinfl(mockData.INVOICE_ID, pinfl);
 
     // Raqam saytga yozishdan OLDIN olinadi. Sayt xato bersa ham raqam invoysga
     // bog'langan qoladi — qayta urinish o'sha raqamni ishlatadi, yangisini olmaydi.
@@ -348,7 +376,8 @@ document.getElementById('fillCargoStep2Btn').addEventListener('click', async () 
     const mockData = await getProdeklarantData(statusDiv);
     if (!mockData) return;
 
-    sendToContentScript("fill_cargo_step2", mockData, statusDiv);
+    const driverPinfl = await recallDriverPinfl(mockData.INVOICE_ID);
+    sendToContentScript("fill_cargo_step2", { ...mockData, driverPinfl }, statusDiv);
 });
 
 document.getElementById('checkDataBtn').addEventListener('click', async () => {

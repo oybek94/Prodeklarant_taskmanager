@@ -1,12 +1,15 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { AuthRequest, requireAuth } from '../middleware/auth';
+import { taskBranchParam } from '../middleware/branch-access';
 import { getDriverCodeStatus, issueDriverCode, revokeDriverCode } from '../services/cargo-tracking.service';
 
 // Haydovchi boti kodi (yukka bog'langan): xodim kodni oladi, haydovchiga beradi, ulanish holatini ko'radi.
 // /api/tasks/:id/driver-code ostida ulanadi (server.ts).
 
 const router = Router();
+
+router.param('id', taskBranchParam);
 const STAFF = ['ADMIN', 'DEKLARANT', 'MANAGER', 'SELLER'] as const;
 const paramsSchema = z.object({ id: z.coerce.number().int().positive() });
 

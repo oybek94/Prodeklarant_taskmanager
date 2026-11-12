@@ -13,6 +13,7 @@ import { isActiveContentFile, uploadRejectedError, ACTIVE_CONTENT_REJECT_MESSAGE
 
 const router = Router();
 
+router.param('id', taskBranchParam);
 router.param('taskId', taskBranchParam);
 
 // Uploads papkasi uchun absolute path

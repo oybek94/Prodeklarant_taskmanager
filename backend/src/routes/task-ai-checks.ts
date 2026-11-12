@@ -3,10 +3,13 @@ import { z } from 'zod';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../prisma';
 import { requireAuth, AuthRequest } from '../middleware/auth';
+import { taskBranchParam } from '../middleware/branch-access';
 import { ValidationService } from '../services/validation.service';
 import { DocumentVerificationService } from '../services/document-verification.service';
 
 const router = Router();
+
+router.param('id', taskBranchParam);
 
 async function canAccess(taskId: number, userId: number, role: string): Promise<boolean> {
   const validationService = new ValidationService(prisma);

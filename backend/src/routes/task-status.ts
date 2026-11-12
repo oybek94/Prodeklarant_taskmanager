@@ -2,12 +2,15 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../prisma';
 import { requireAuth, AuthRequest } from '../middleware/auth';
+import { taskBranchParam } from '../middleware/branch-access';
 import { ValidationService } from '../services/validation.service';
 import { DocumentService } from '../services/document.service';
 import { AiService } from '../services/ai.service';
 import { TaskStatus } from '@prisma/client';
 
 const router = Router();
+
+router.param('id', taskBranchParam);
 
 const updateStatusSchema = z.object({
   status: z.enum([

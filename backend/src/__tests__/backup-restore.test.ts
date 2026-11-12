@@ -10,7 +10,14 @@ vi.mock('../prisma', () => ({
 }));
 
 import path from 'path';
-import { BACKUP_DIR, BackupService, RestoreValidationError, validateRestoreData } from '../services/backup.service';
+import {
+  BACKUP_DIR,
+  BackupService,
+  RestoreValidationError,
+  reviveBigIntFields,
+  serializeBackup,
+  validateRestoreData,
+} from '../services/backup.service';
 
 const modelNames = Prisma.dmmf.datamodel.models.map((m) => m.name);
 
@@ -42,6 +49,25 @@ function fakeTx(calls: Call[], failOnModel?: string) {
 
 beforeEach(() => {
   mocks.transaction.mockReset();
+});
+
+describe('BigInt ustunli jadvallar (CargoTracking)', () => {
+  it('zaxira BigInt qiymatni yo\'qotmasdan matn sifatida yozadi', () => {
+    const json = serializeBackup({ CargoTracking: [{ id: 1, driverTelegramId: 7123456789012345678n, driverChatId: null }] });
+    expect(JSON.parse(json)).toEqual({ CargoTracking: [{ id: 1, driverTelegramId: '7123456789012345678', driverChatId: null }] });
+  });
+
+  it('tiklashda BigInt ustunlar matndan qayta BigInt ga aylanadi, boshqa ustunlarga tegilmaydi', () => {
+    const rows = reviveBigIntFields('CargoTracking', [
+      { id: 1, code: '123456', driverTelegramId: '7123456789012345678', driverChatId: null },
+    ]);
+    expect(rows).toEqual([{ id: 1, code: '123456', driverTelegramId: 7123456789012345678n, driverChatId: null }]);
+  });
+
+  it('BigInt ustuni yo\'q jadval qatorlari o\'zgarmaydi', () => {
+    const rows = [{ id: 1, name: '12345' }];
+    expect(reviveBigIntFields('Branch', rows)).toEqual(rows);
+  });
 });
 
 describe('BACKUP_DIR', () => {

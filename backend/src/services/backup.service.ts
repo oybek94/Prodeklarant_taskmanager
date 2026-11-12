@@ -43,6 +43,32 @@ export function validateRestoreData(backupData: unknown, modelNames: string[]): 
   return data as Record<string, unknown[]>;
 }
 
+/**
+ * Zaxirani JSON matnga aylantiradi. BigInt (masalan CargoTracking.driverTelegramId) ni
+ * JSON.stringify yoza olmaydi va butun zaxira yiqilardi — matn sifatida yoziladi
+ * (number ga o'girilsa katta qiymatlar aniqligini yo'qotadi).
+ */
+export function serializeBackup(data: Record<string, unknown[]>): string {
+  return JSON.stringify(data, (_key, value) => (typeof value === 'bigint' ? value.toString() : value), 2);
+}
+
+/** Zaxiradagi matn ko'rinishidagi BigInt ustunlarni tiklashdan oldin qayta BigInt ga aylantiradi */
+export function reviveBigIntFields(modelName: string, records: unknown[]): unknown[] {
+  const model = Prisma.dmmf.datamodel.models.find((m) => m.name === modelName);
+  const bigIntFields = model?.fields.filter((f) => f.type === 'BigInt').map((f) => f.name) ?? [];
+  if (bigIntFields.length === 0) return records;
+
+  return records.map((record) => {
+    if (typeof record !== 'object' || record === null) return record;
+    const row: Record<string, unknown> = { ...record };
+    for (const field of bigIntFields) {
+      const value = row[field];
+      if (typeof value === 'string' || typeof value === 'number') row[field] = BigInt(value);
+    }
+    return row;
+  });
+}
+
 export class BackupService {
   /**
    * Barcha jadvallardagi ma'lumotlarni o'qiydi (JSON formatida).
@@ -91,7 +117,7 @@ export class BackupService {
         const delegates = tx as unknown as Record<string, CreateManyDelegate>;
         const inserted: Record<string, number> = {};
         for (const model of models) {
-          const records = data[model.name];
+          const records = reviveBigIntFields(model.name, data[model.name]);
           const delegate = delegates[model.name.charAt(0).toLowerCase() + model.name.slice(1)];
           let count = 0;
           for (let i = 0; i < records.length; i += RESTORE_CHUNK_SIZE) {
@@ -137,7 +163,7 @@ export class BackupService {
     const filepath = path.join(BACKUP_DIR, filename);
 
     const data = await this.exportAllData();
-    const jsonString = JSON.stringify(data, null, 2);
+    const jsonString = serializeBackup(data);
 
     return new Promise((resolve, reject) => {
       const output = fs.createWriteStream(filepath);

@@ -69,13 +69,58 @@ export function reviveBigIntFields(modelName: string, records: unknown[]): unkno
   });
 }
 
+const MAX_ALERT_ERROR_LENGTH = 500;
+
+/** Zaxira yaratilmaganda Telegram guruhiga yuboriladigan ogohlantirish matni */
+export function formatBackupFailureMessage(error: unknown, now: Date): string {
+  const reason = (error instanceof Error ? error.message : String(error)).slice(0, MAX_ALERT_ERROR_LENGTH);
+  return [
+    '🚨 ZAXIRA YARATILMADI',
+    `📅 ${now.toLocaleString('uz-UZ', { timeZone: 'Asia/Tashkent' })}`,
+    `❌ Sabab: ${reason}`,
+    '',
+    'Bugungi DB zaxirasi yo\'q. Sabab bartaraf etilmaguncha har kuni takrorlanadi.',
+  ].join('\n');
+}
+
 export class BackupService {
+  /**
+   * Rejalashtirilgan (cron) zaxira. Yiqilsa — zaxira guruhiga ogohlantirish yuboradi:
+   * 2026-11 da zaxira 10 kun davomida jim yiqilib kelgan, xato faqat server logida edi.
+   * Hech qachon xato tashlamaydi.
+   */
+  static async runScheduledBackup(): Promise<void> {
+    try {
+      await this.createBackupArchive();
+      console.log('[CRON] Zaxira nusxasi muvaffaqiyatli yaratildi.');
+    } catch (error) {
+      console.error('[CRON] Zaxira yaratishda xatolik:', error);
+      await this.notifyFailure(error);
+    }
+  }
+
+  static async notifyFailure(error: unknown): Promise<void> {
+    try {
+      const token = process.env.BACKUP_TELEGRAM_BOT_TOKEN;
+      const chatId = process.env.BACKUP_TELEGRAM_CHAT_ID;
+      if (!token || !chatId) {
+        console.warn('[BACKUP] BACKUP_TELEGRAM_BOT_TOKEN yoki BACKUP_TELEGRAM_CHAT_ID sozlanmagan — xato haqida ogohlantirish yuborilmadi.');
+        return;
+      }
+      const bot = new TelegramBot(token, { polling: false });
+      await bot.sendMessage(chatId, formatBackupFailureMessage(error, new Date()));
+    } catch (alertError) {
+      console.error('[BACKUP] Ogohlantirishni Telegramga yuborib bo\'lmadi:', alertError);
+    }
+  }
+
   /**
    * Barcha jadvallardagi ma'lumotlarni o'qiydi (JSON formatida).
    */
   static async exportAllData(): Promise<Record<string, any[]>> {
     const backupData: Record<string, any[]> = {};
     const models = Prisma.dmmf.datamodel.models;
+    const failedTables: string[] = [];
 
     for (const model of models) {
       const modelName = model.name as string;
@@ -89,7 +134,14 @@ export class BackupService {
         }
       } catch (e) {
         console.error(`[BACKUP] Xatolik jadvalni o'qishda: ${modelName}`, e);
+        failedTables.push(modelName);
       }
+    }
+
+    // To'liqsiz zaxira foydasiz (tiklash uni baribir rad etadi) va "zaxira bor" degan
+    // yolg'on ishonch beradi — xato tashlanadi, shunda ogohlantirish yuboriladi
+    if (failedTables.length > 0) {
+      throw new Error(`Zaxira to'liqsiz: quyidagi jadvallar o'qilmadi: ${failedTables.join(', ')}`);
     }
 
     return backupData;

@@ -113,12 +113,8 @@ export const initCronJobs = () => {
   // Run database backup daily at 03:00 AM
   cron.schedule('0 3 * * *', async () => {
     console.log('[CRON] Kundalik ma\'lumotlar zaxirasi boshlandi.');
-    try {
-      await BackupService.createBackupArchive();
-      console.log('[CRON] Zaxira nusxasi muvaffaqiyatli yaratildi.');
-    } catch (e) {
-      console.error('[CRON] Zaxira yaratishda xatolik:', e);
-    }
+    // Yiqilsa zaxira guruhiga ogohlantirish yuboradi (services/backup.service.ts)
+    await BackupService.runScheduledBackup();
   });
   console.log('[CRON] Kundalik DB zaxiralash (03:00) ishga tushdi.');
 

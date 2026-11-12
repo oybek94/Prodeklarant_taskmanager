@@ -1,6 +1,7 @@
 import express from 'express';
 import { prisma } from '../prisma';
 import { requireAuth, AuthRequest } from '../middleware/auth';
+import { taskBranchParam } from '../middleware/branch-access';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
@@ -8,6 +9,9 @@ import archiver from 'archiver';
 import { isActiveContentFile, uploadRejectedError, ACTIVE_CONTENT_REJECT_MESSAGE } from '../utils/upload-guard';
 
 const router = express.Router();
+
+// Boshqa filial vazifasi hujjatlarini ID almashtirib ko'rishning oldini oladi
+router.param('taskId', taskBranchParam);
 
 // Uploads papkasini yaratish
 const uploadsDir = path.join(__dirname, '../../uploads');

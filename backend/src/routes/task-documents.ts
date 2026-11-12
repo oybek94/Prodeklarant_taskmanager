@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../prisma';
 import { requireAuth, AuthRequest } from '../middleware/auth';
+import { taskBranchParam } from '../middleware/branch-access';
 import { ValidationService } from '../services/validation.service';
 import { DocumentService } from '../services/document.service';
 import multer from 'multer';
@@ -11,6 +12,8 @@ import fsSync from 'fs';
 import { isActiveContentFile, uploadRejectedError, ACTIVE_CONTENT_REJECT_MESSAGE } from '../utils/upload-guard';
 
 const router = Router();
+
+router.param('taskId', taskBranchParam);
 
 // Uploads papkasi uchun absolute path
 const uploadsDir = path.join(__dirname, '../../uploads');

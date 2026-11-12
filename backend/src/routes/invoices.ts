@@ -1,6 +1,7 @@
 import { Router, Response } from 'express';
 import { prisma } from '../prisma';
 import { requireAuth, AuthRequest } from '../middleware/auth';
+import { taskBranchParam, invoiceBranchParam, branchScopeWhere } from '../middleware/branch-access';
 import { z } from 'zod';
 import { generateInvoicePDF } from '../services/invoice-pdf';
 import { translateRequisites, isCachedTranslationUsable } from '../services/translate.service';
@@ -36,6 +37,10 @@ import {
 } from '../services/invoice-save.service';
 
 const router = Router();
+
+// Boshqa filial invoysini ID almashtirib ko'rishning oldini oladi (hamma /:id/* endpointlar)
+router.param('id', invoiceBranchParam);
+router.param('taskId', taskBranchParam);
 
 // GET /invoices/next-number?contractId=:id - Shartnoma uchun keyingi invoice raqami (parametrli routelardan oldin)
 router.get('/next-number', requireAuth(), async (req: AuthRequest, res) => {
@@ -352,7 +357,7 @@ router.get('/client/:clientId', requireAuth(), async (req: AuthRequest, res) => 
     }
 
     const invoices = await prisma.invoice.findMany({
-      where: { clientId },
+      where: { clientId, ...branchScopeWhere(req.user) },
       include: {
         items: {
           orderBy: { orderIndex: 'asc' }

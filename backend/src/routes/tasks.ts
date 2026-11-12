@@ -1,6 +1,7 @@
 import { Router, Response } from 'express';
 import { prisma } from '../prisma';
 import { AuthRequest, requireAuth } from '../middleware/auth';
+import { taskBranchParam } from '../middleware/branch-access';
 import { TaskStatus } from '@prisma/client';
 import { z } from 'zod';
 
@@ -24,6 +25,10 @@ const taskRepo = new TaskRepository();
 const taskService = new TaskService(taskRepo);
 
 const router = Router();
+
+// Boshqa filial vazifasini ID almashtirib ko'rishning oldini oladi (GET/PATCH/DELETE, xatolar, bosqichlar)
+router.param('id', taskBranchParam);
+router.param('taskId', taskBranchParam);
 
 // Xatolar (TaskError) — mantiq: services/task-error.service.ts
 router.get('/errors/unrated', requireAuth('ADMIN'), async (_req: AuthRequest, res) => {

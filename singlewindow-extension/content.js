@@ -2423,7 +2423,7 @@ function cargoToast(text) {
 // bosishini talab qiladi (aks holda istalgan sayt kompyuterdan fayl o'g'irlagan
 // bo'lardi). Shuning uchun ish taqsimlanadi: oynani biz ochamiz, faylni
 // foydalanuvchi tanlaydi, "Сақлаш" ni yana biz bosamiz.
-async function cargoAttachVehicleDoc(root, onclickPart, label, warnings) {
+async function cargoAttachVehicleDoc(root, onclickPart, label, warnings, fileHint = 'tex.pdf ni') {
     const opener = root.querySelector(`button[onclick*="${onclickPart}"]`);
     if (!opener) { warnings.push(`${label}: biriktirish tugmasi topilmadi`); return false; }
     opener.click();
@@ -2435,7 +2435,7 @@ async function cargoAttachVehicleDoc(root, onclickPart, label, warnings) {
     if (!modal) { warnings.push(`${label}: fayl oynasi ochilmadi`); return false; }
     await delay(400);
 
-    cargoToast(`${label}: "Ҳужжат файли" ni bosib tex.pdf ni tanlang — "Сақлаш" ni o'zim bosaman`);
+    cargoToast(`${label}: "Ҳужжат файли" ni bosib ${fileHint} tanlang — "Сақлаш" ni o'zim bosaman`);
 
     // Foydalanuvchi oynani o'zi yopib qo'yishi ham mumkin — o'shanda aralashmaymiz
     const outcome = await cargoWaitFor(() => {
@@ -2485,7 +2485,18 @@ async function cargoFillDriverPinfl(data, warnings) {
 
     if (input.value.replace(/\D/g, '') !== pinfl) {
         warnings.push("Haydovchi ЖШШИР: sayt qiymatni o'zgartirib yubordi, tekshiring");
+        return;
     }
+
+    // Паспорт файли — papka tugmasi (eArxivEk(866, ...)). Fayl tanlashni
+    // foydalanuvchi qiladi, oynani ochish va "Сақлаш" ni biz bosamiz.
+    await cargoAttachVehicleDoc(
+        document,
+        'eArxivEk(866',
+        'Haydovchi паспорт файли',
+        warnings,
+        'pasport rasmini',
+    );
 }
 
 async function cargoFillTransport(data, warnings) {

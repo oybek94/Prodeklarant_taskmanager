@@ -66,6 +66,17 @@ export function canWorkerDeleteTransaction(
   return transaction.createdAt >= startOfToday;
 }
 
+/**
+ * Bitta yozuvni ID bo'yicha ko'rish: ro'yxat (`buildTransactionWhere`) bilan bir xil
+ * qoida — admin hammasini, xodim faqat o'ziga tegishli yozuvni ko'radi.
+ */
+export function canViewTransaction(
+  transaction: { workerId: number | null },
+  user: { id: number; role: string }
+): boolean {
+  return user.role === 'ADMIN' || transaction.workerId === user.id;
+}
+
 /** Tranzaksiyalar faqat so'mda: USD yozuv qabul qilinmaydi (yaratish va tahrirlash). */
 export function uzsOnlyError(currency: string): string | null {
   return currency === 'UZS' ? null : "To'lovlar faqat so'mda (UZS) qabul qilinadi";

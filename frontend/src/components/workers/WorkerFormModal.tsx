@@ -91,16 +91,23 @@ const WorkerFormModal = React.memo(({
 
                     <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Parol <span className="text-red-500">*</span>
+                            Parol {!editingWorker && <span className="text-red-500">*</span>}
                         </label>
                         <input
                             type="password"
-                            required
+                            required={!editingWorker}
+                            minLength={8}
+                            autoComplete="new-password"
                             value={form.password}
                             onChange={(e) => setForm({ ...form, password: e.target.value })}
                             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            placeholder="Parol"
+                            placeholder={editingWorker ? "O'zgartirmaslik uchun bo'sh qoldiring" : 'Kamida 8 belgi'}
                         />
+                        <p className="mt-1 text-xs text-gray-500">
+                            {editingWorker
+                                ? "Bo'sh qoldirilsa amaldagi parol saqlanadi. Yangi parol kamida 8 belgi."
+                                : 'Kamida 8 belgi.'}
+                        </p>
                     </div>
 
                     <div>

@@ -1,8 +1,28 @@
 import TelegramBot from 'node-telegram-bot-api';
 import { prisma } from '../prisma';
 import { getLatestExchangeRate } from './exchange-rate';
+import { createChatAllowlist, guardBotUpdates } from './telegram-bot-guard';
 
 let bot: TelegramBot | null = null;
+
+const BOT_ERROR_MESSAGE = 'Xatolik yuz berdi. Keyinroq qayta urinib ko\'ring.';
+
+/**
+ * Moliya botiga kimlar yoza oladi: moliya guruhi (FINANCE_GROUP_CHAT_ID), qo'shimcha
+ * chatlar (FINANCE_BOT_ALLOWED_CHAT_IDS, vergul bilan) va Telegram ID si tizimga
+ * kiritilgan faol adminlarning shaxsiy chati.
+ */
+const isFinanceChatAllowed = createChatAllowlist(async () => {
+  const admins = await prisma.user.findMany({
+    where: { role: 'ADMIN', active: true, telegramChatId: { not: null } },
+    select: { telegramChatId: true },
+  });
+  return [
+    process.env.FINANCE_GROUP_CHAT_ID,
+    process.env.FINANCE_BOT_ALLOWED_CHAT_IDS,
+    ...admins.map((admin) => admin.telegramChatId),
+  ];
+});
 
 const userStates: Record<number, any> = {};
 
@@ -89,6 +109,10 @@ export const initFinanceBot = () => {
 
   bot = new TelegramBot(token, { polling: true });
 
+  // Bot seyf balanslarini ko'rsatadi va xarajat/qarz yozadi — faqat moliya guruhi va
+  // ruxsat etilgan shaxsiy chatlar. Handlerlar ro'yxatdan o'tkazilishidan OLDIN ulanadi.
+  guardBotUpdates(bot, isFinanceChatAllowed);
+
   bot.on('polling_error', (error) => {
     console.error('[FinanceBot] Polling error:', error.message);
   });
@@ -110,7 +134,7 @@ export const initFinanceBot = () => {
       bot!.sendMessage(chatId, text, { parse_mode: 'Markdown' });
     } catch (e: any) {
       console.error('[FinanceBot /balans error]', e);
-      bot!.sendMessage(chatId, 'Xatolik yuz berdi: ' + e.message);
+      bot!.sendMessage(chatId, BOT_ERROR_MESSAGE);
     }
   });
 
@@ -129,7 +153,7 @@ export const initFinanceBot = () => {
       userStates[chatId] = { step: 'WAITING_CARD', messageId: sentMsg.message_id };
     } catch (e: any) {
       console.error('[FinanceBot /chiqim error]', e);
-      bot!.sendMessage(chatId, 'Xatolik yuz berdi: ' + e.message);
+      bot!.sendMessage(chatId, BOT_ERROR_MESSAGE);
     }
   });
 
@@ -145,7 +169,7 @@ export const initFinanceBot = () => {
       userStates[chatId] = { step: 'QARZ_WAITING_CARD', messageId: sentMsg.message_id };
     } catch (e: any) {
       console.error('[FinanceBot /qarz error]', e);
-      bot!.sendMessage(chatId, 'Xatolik yuz berdi: ' + e.message);
+      bot!.sendMessage(chatId, BOT_ERROR_MESSAGE);
     }
   });
 
@@ -178,7 +202,7 @@ export const initFinanceBot = () => {
       bot!.sendMessage(chatId, text, { parse_mode: 'Markdown' });
     } catch (e: any) {
       console.error('[FinanceBot /qarzlar error]', e);
-      bot!.sendMessage(chatId, 'Xatolik yuz berdi: ' + e.message);
+      bot!.sendMessage(chatId, BOT_ERROR_MESSAGE);
     }
   });
 
@@ -203,7 +227,7 @@ export const initFinanceBot = () => {
       userStates[chatId] = { step: 'QAYTARISH_WAITING_CARD', messageId: sentMsg.message_id };
     } catch (e: any) {
       console.error('[FinanceBot /qaytarish error]', e);
-      bot!.sendMessage(chatId, 'Xatolik yuz berdi: ' + e.message);
+      bot!.sendMessage(chatId, BOT_ERROR_MESSAGE);
     }
   });
 

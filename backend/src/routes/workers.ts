@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../prisma';
-import { requireAuth, AuthRequest } from '../middleware/auth';
+import { requireAuth, requireSelfOrAdmin, AuthRequest } from '../middleware/auth';
 import { getWorkerPaymentReport } from '../services/worker-payment';
 import { computeClientAssignmentBonusBreakdown, getClientBonusBalance } from '../services/client-assignment-bonus';
 
@@ -91,7 +91,7 @@ router.get('/', requireAuth(), async (req: AuthRequest, res) => {
 });
 
 
-router.get('/:id/stats', requireAuth(), async (req, res) => {
+router.get('/:id/stats', requireAuth(), requireSelfOrAdmin('id'), async (req, res) => {
   const workerId = parseInt(req.params.id);
   const { period = 'month', startDate, endDate } = req.query;
 
@@ -200,7 +200,7 @@ router.get('/:id/stats', requireAuth(), async (req, res) => {
   });
 });
 
-router.get('/:id/stage-stats', requireAuth(), async (req, res) => {
+router.get('/:id/stage-stats', requireAuth(), requireSelfOrAdmin('id'), async (req, res) => {
   const workerId = parseInt(req.params.id);
   const { period = 'month', startDate, endDate } = req.query;
 
@@ -457,7 +457,7 @@ router.get('/:id/stage-stats', requireAuth(), async (req, res) => {
 });
 
 // Get error statistics for a worker
-router.get('/:id/error-stats', requireAuth(), async (req, res) => {
+router.get('/:id/error-stats', requireAuth(), requireSelfOrAdmin('id'), async (req, res) => {
   const workerId = parseInt(req.params.id);
   const { period = 'month', startDate, endDate } = req.query;
 
@@ -672,7 +672,7 @@ router.get('/:id/client-bonuses/:bonusId', requireAuth(), async (req: AuthReques
 });
 
 // GET /api/workers/:id/current-earnings - Get detailed breakdown of current season earnings
-router.get('/:id/current-earnings', requireAuth(), async (req, res) => {
+router.get('/:id/current-earnings', requireAuth(), requireSelfOrAdmin('id'), async (req, res) => {
   try {
     const workerId = parseInt(req.params.id);
     const { period = 'month', startDate, endDate } = req.query;
@@ -754,7 +754,7 @@ router.get('/:id/current-earnings', requireAuth(), async (req, res) => {
 });
 
 // GET /api/workers/:id/participations - Get all task participations
-router.get('/:id/participations', requireAuth(), async (req, res) => {
+router.get('/:id/participations', requireAuth(), requireSelfOrAdmin('id'), async (req, res) => {
   try {
     const workerId = parseInt(req.params.id);
     const { period = 'month', startDate, endDate } = req.query;
@@ -810,7 +810,7 @@ router.get('/:id/participations', requireAuth(), async (req, res) => {
 });
 
 // GET /api/workers/:id/contributions - Get worker contributions for the last year
-router.get('/:id/contributions', requireAuth(), async (req, res) => {
+router.get('/:id/contributions', requireAuth(), requireSelfOrAdmin('id'), async (req, res) => {
   try {
     const workerId = parseInt(req.params.id);
 

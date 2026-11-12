@@ -34,3 +34,7 @@ backend/users*.json
 *.tsbuildinfo
 __pycache__/
 *.pyc
+
+# DB zaxiralari (butun baza, parol hashlari bilan) — hech qachon commit qilinmasin
+backend/backups/
+backups-tmp/

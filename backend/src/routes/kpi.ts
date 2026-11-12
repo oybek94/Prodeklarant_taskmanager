@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { prisma } from '../prisma';
-import { requireAuth } from '../middleware/auth';
+import { requireAuth, requireSelfOrAdmin } from '../middleware/auth';
 import { z } from 'zod';
 import { getWorkerKpiStats } from '../services/kpi';
 
@@ -198,7 +198,7 @@ router.get('/logs', requireAuth('ADMIN'), async (_req, res) => {
 });
 
 // ─── Worker Performance Stats ───
-router.get('/worker-stats/:workerId', requireAuth(), async (req, res) => {
+router.get('/worker-stats/:workerId', requireAuth(), requireSelfOrAdmin('workerId'), async (req, res) => {
   try {
     const workerId = parseInt(req.params.workerId, 10);
     if (isNaN(workerId)) {

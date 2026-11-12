@@ -119,7 +119,8 @@ const Workers = () => {
         // Update existing worker
         const updateData: any = {
           name: form.name,
-          password: form.password,
+          // Bo'sh qoldirilsa parol o'zgarmaydi
+          ...(form.password ? { password: form.password } : {}),
           role: form.role,
           salary: form.salary ? parseFloat(form.salary) : undefined,
         };

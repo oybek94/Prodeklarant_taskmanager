@@ -1,7 +1,30 @@
 import TelegramBot from 'node-telegram-bot-api';
 import { prisma } from '../prisma';
+import { createChatAllowlist, guardBotUpdates } from './telegram-bot-guard';
 
 let bot: TelegramBot | null = null;
+
+const BOT_ERROR_MESSAGE = 'Xatolik yuz berdi. Keyinroq qayta urinib ko\'ring.';
+
+/**
+ * Lid botiga kimlar yoza oladi: umumiy guruh (TELEGRAM_GROUP_CHAT_ID), qo'shimcha chatlar
+ * (LEAD_BOT_ALLOWED_CHAT_IDS, vergul bilan) va Telegram ID si bazaga kiritilgan faol
+ * xodimlarning shaxsiy chati. Begonaga faqat /start, /help va /myid javob beradi —
+ * xodim o'z chat ID sini bilib olishi uchun.
+ */
+const isLeadChatAllowed = createChatAllowlist(async () => {
+  const users = await prisma.user.findMany({
+    where: { active: true, telegramChatId: { not: null } },
+    select: { telegramChatId: true },
+  });
+  return [
+    process.env.TELEGRAM_GROUP_CHAT_ID,
+    process.env.LEAD_BOT_ALLOWED_CHAT_IDS,
+    ...users.map((user) => user.telegramChatId),
+  ];
+});
+
+const LEAD_BOT_PUBLIC_COMMAND = /^\/(start|help|myid)(@\w+)?\s*$/;
 
 const STAGE_LABELS: Record<string, string> = {
   COLD: 'Yangi',
@@ -53,6 +76,10 @@ export const initLeadReminderBot = () => {
 
   try {
     bot = new TelegramBot(token, { polling: true });
+
+    // Bot lidlar ro'yxatini (kompaniya, telefon) beradi — faqat ruxsat etilgan chatlar.
+    // Handlerlar ro'yxatdan o'tkazilishidan OLDIN ulanadi.
+    guardBotUpdates(bot, isLeadChatAllowed, { publicCommand: LEAD_BOT_PUBLIC_COMMAND });
 
     bot.on('polling_error', (error) => {
       console.error('[LeadReminderBot] Polling error:', error.message);
@@ -115,7 +142,7 @@ export const initLeadReminderBot = () => {
         bot!.sendMessage(chatId, text, { parse_mode: 'HTML' });
       } catch (err: any) {
         console.error('[LeadReminderBot /bugun error]', err);
-        bot!.sendMessage(chatId, 'Xatolik yuz berdi: ' + err.message);
+        bot!.sendMessage(chatId, BOT_ERROR_MESSAGE);
       }
     });
 
@@ -155,7 +182,7 @@ export const initLeadReminderBot = () => {
         bot!.sendMessage(chatId, text, { parse_mode: 'HTML' });
       } catch (err: any) {
         console.error('[LeadReminderBot /ertaga error]', err);
-        bot!.sendMessage(chatId, 'Xatolik yuz berdi: ' + err.message);
+        bot!.sendMessage(chatId, BOT_ERROR_MESSAGE);
       }
     });
 
@@ -191,7 +218,7 @@ export const initLeadReminderBot = () => {
         bot!.sendMessage(chatId, text, { parse_mode: 'HTML' });
       } catch (err: any) {
         console.error('[LeadReminderBot /otib_ketgan error]', err);
-        bot!.sendMessage(chatId, 'Xatolik yuz berdi: ' + err.message);
+        bot!.sendMessage(chatId, BOT_ERROR_MESSAGE);
       }
     });
 

@@ -9,7 +9,8 @@ vi.mock('../prisma', () => ({
   prisma: { $transaction: mocks.transaction },
 }));
 
-import { BackupService, RestoreValidationError, validateRestoreData } from '../services/backup.service';
+import path from 'path';
+import { BACKUP_DIR, BackupService, RestoreValidationError, validateRestoreData } from '../services/backup.service';
 
 const modelNames = Prisma.dmmf.datamodel.models.map((m) => m.name);
 
@@ -41,6 +42,14 @@ function fakeTx(calls: Call[], failOnModel?: string) {
 
 beforeEach(() => {
   mocks.transaction.mockReset();
+});
+
+describe('BACKUP_DIR', () => {
+  it('zaxira papkasi HTTP orqali beriladigan uploads ichida emas', () => {
+    const uploadsRoot = path.resolve(__dirname, '../../uploads');
+    const relative = path.relative(uploadsRoot, path.resolve(BACKUP_DIR));
+    expect(relative.startsWith('..')).toBe(true);
+  });
 });
 
 describe('validateRestoreData', () => {

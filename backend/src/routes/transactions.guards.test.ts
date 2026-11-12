@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   applySelfSalaryRestrictions,
+  canViewTransaction,
   canWorkerDeleteTransaction,
   uzsOnlyError,
   type SelfSalaryInput,
@@ -84,6 +85,22 @@ describe('canWorkerDeleteTransaction', () => {
 
   it('ish haqi bo\'lmagan yozuvni o\'chirishga ruxsat bermaydi', () => {
     expect(canWorkerDeleteTransaction({ ...own, type: 'EXPENSE' }, 7, NOW)).toBe(false);
+  });
+});
+
+describe('canViewTransaction', () => {
+  it('admin har qanday yozuvni ko\'radi', () => {
+    expect(canViewTransaction({ workerId: 9 }, { id: 1, role: 'ADMIN' })).toBe(true);
+    expect(canViewTransaction({ workerId: null }, { id: 1, role: 'ADMIN' })).toBe(true);
+  });
+
+  it('xodim faqat o\'ziga tegishli yozuvni ko\'radi', () => {
+    expect(canViewTransaction({ workerId: 7 }, { id: 7, role: 'DEKLARANT' })).toBe(true);
+    expect(canViewTransaction({ workerId: 9 }, { id: 7, role: 'DEKLARANT' })).toBe(false);
+  });
+
+  it('xodim mijoz to\'lovi yoki xarajat yozuvini ko\'rmaydi', () => {
+    expect(canViewTransaction({ workerId: null }, { id: 7, role: 'MANAGER' })).toBe(false);
   });
 });
 

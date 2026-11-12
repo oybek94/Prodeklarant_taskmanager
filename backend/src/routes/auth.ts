@@ -1,8 +1,8 @@
 import { Router } from 'express';
 import { prisma } from '../prisma';
-import { comparePassword, hashPassword } from '../utils/hash';
+import { comparePassword, hashPassword, DUMMY_PASSWORD_HASH, MIN_PASSWORD_LENGTH, PASSWORD_TOO_SHORT_MESSAGE } from '../utils/hash';
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from '../utils/jwt';
-import { requireAuth, AuthRequest } from '../middleware/auth';
+import { requireAuth, AuthRequest, resolveStaffRole } from '../middleware/auth';
 import { z } from 'zod';
 
 const router = Router();
@@ -72,7 +72,7 @@ router.post('/login', async (req, res) => {
 
         // Agar user topilmasa, dummy comparison qilamiz (timing attack oldini olish uchun)
         if (!user) {
-          await comparePassword(password, '$2a$10$dummyhash');
+          await comparePassword(password, DUMMY_PASSWORD_HASH);
         }
       }
     } catch (dbError: any) {
@@ -87,7 +87,7 @@ router.post('/login', async (req, res) => {
     // This prevents user enumeration attacks (timing differences)
     if (!user || !user.active) {
       // Perform dummy comparison to prevent timing attacks
-      await comparePassword(password, '$2a$10$dummyhash');
+      await comparePassword(password, DUMMY_PASSWORD_HASH);
       return res.status(401).json({ error: 'Email yoki parol noto\'g\'ri' });
     }
 
@@ -102,15 +102,8 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ error: 'Email yoki parol noto\'g\'ri' });
     }
 
-    // Convert role to valid enum value
-    let validRole = user.role;
-    if (user.role === 'WORKER' || user.role === 'ACCOUNTANT') {
-      validRole = 'DEKLARANT';
-    } else if (user.role === 'ADMIN' || user.role === 'MANAGER' || user.role === 'DEKLARANT' || user.role === 'SELLER') {
-      validRole = user.role;
-    } else {
-      validRole = 'DEKLARANT';
-    }
+    // Token roli bazadagi rol bilan bir xil (eski rollar DEKLARANT ga tushadi)
+    const validRole = resolveStaffRole(user.role);
 
     const payload = { sub: user.id, role: validRole, branchId: user.branchId || null, name: user.name };
     return res.json({
@@ -149,7 +142,7 @@ router.post('/refresh', async (req, res) => {
     const user = await prisma.user.findUnique({ where: { id: payload.sub } });
     // Bloklangan xodim refresh orqali yangi token ololmasligi kerak
     if (!user || !user.active) return res.status(401).json({ error: 'Invalid refresh' });
-    const newPayload = { sub: user.id, role: user.role, branchId: user.branchId || null, name: user.name };
+    const newPayload = { sub: user.id, role: resolveStaffRole(user.role), branchId: user.branchId || null, name: user.name };
     return res.json({
       accessToken: signAccessToken(newPayload),
       refreshToken: signRefreshToken(newPayload),
@@ -167,7 +160,7 @@ router.post('/refresh', async (req, res) => {
 const registerSchema = z.object({
   name: z.string().min(2),
   email: z.string().email(),
-  password: z.string(),
+  password: z.string().min(MIN_PASSWORD_LENGTH, PASSWORD_TOO_SHORT_MESSAGE),
   role: z.enum(['ADMIN', 'MANAGER', 'DEKLARANT']),
   branchId: z.number(),
 });
@@ -177,13 +170,12 @@ router.post('/register', requireAuth('ADMIN'), async (req, res) => {
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
   const exists = await prisma.user.findUnique({ where: { email: parsed.data.email } });
   if (exists) return res.status(400).json({ error: 'Email already used' });
-  const validRole = parsed.data.role === 'ADMIN' ? 'ADMIN' : 'DEKLARANT';
   const user = await prisma.user.create({
     data: {
       name: parsed.data.name,
       email: parsed.data.email,
       passwordHash: await hashPassword(parsed.data.password),
-      role: validRole,
+      role: parsed.data.role,
       branchId: parsed.data.branchId,
     },
   });

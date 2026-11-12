@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { prisma } from '../prisma';
 import { requireAuth, AuthRequest } from '../middleware/auth';
-import { hashPassword, comparePassword } from '../utils/hash';
+import { hashPassword, comparePassword, MIN_PASSWORD_LENGTH, PASSWORD_TOO_SHORT_MESSAGE } from '../utils/hash';
 import { z } from 'zod';
 
 const router = Router();
@@ -120,7 +120,7 @@ router.get('/:id', requireAuth('ADMIN'), async (req, res) => {
 const createUserSchema = z.object({
   name: z.string().min(2),
   email: z.string().email().optional(),
-  password: z.string(),
+  password: z.string().min(MIN_PASSWORD_LENGTH, PASSWORD_TOO_SHORT_MESSAGE),
   role: z.enum(['ADMIN', 'MANAGER', 'DEKLARANT', 'SELLER']),
   branchId: z.number().optional(),
   position: z.string().optional(),
@@ -229,7 +229,8 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
 const updateUserSchema = z.object({
   name: z.string().min(2).optional(),
   email: z.string().email().optional(),
-  password: z.string().optional(),
+  // Bo'sh satr — "parolni o'zgartirma" (forma maydoni bo'sh qoldirilgan)
+  password: z.string().min(MIN_PASSWORD_LENGTH, PASSWORD_TOO_SHORT_MESSAGE).optional().or(z.literal('')),
   role: z.enum(['ADMIN', 'MANAGER', 'DEKLARANT', 'SELLER', 'CERTIFICATE_WORKER']).optional(),
   branchId: z.union([z.number(), z.null()]).optional(),
   position: z.string().optional(),
@@ -259,8 +260,9 @@ router.put('/:id', requireAuth('ADMIN'), async (req, res) => {
     }
 
     data.passwordHash = await hashPassword(data.password);
-    delete data.password;
   }
+  // `password` Prisma maydoni emas — bo'sh satr bo'lsa ham update'ga o'tib ketmasin
+  delete data.password;
 
   // BranchId logic: Manager roli uchun branchId null bo'lishi kerak
   // Agar branchId undefined bo'lsa, o'zgartirmaymiz (mavjud qiymatni saqlaymiz)

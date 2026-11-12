@@ -6,7 +6,7 @@ import { Prisma, Currency, ExchangeSource } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 import { getLatestExchangeRate, getExchangeRate } from '../services/exchange-rate';
 import { validateMonetaryFields, calculateAmountUzs } from '../services/monetary-validation';
-import { applySelfSalaryRestrictions, canWorkerDeleteTransaction, uzsOnlyError } from './transactions.guards';
+import { applySelfSalaryRestrictions, canViewTransaction, canWorkerDeleteTransaction, uzsOnlyError } from './transactions.guards';
 import { buildTransactionListArgs } from './transactions.query';
 import { getClientBonusBalance } from '../services/client-assignment-bonus';
 import { getMedalBonusBalance } from '../services/medal-bonus';
@@ -560,13 +560,20 @@ router.post('/', requireAuth(), async (req: AuthRequest, res) => {
   res.status(201).json(workerPaymentWarning ? { ...result, workerPaymentWarning } : result);
 });
 
-router.get('/:id', async (req, res) => {
+router.get('/:id', requireAuth(), async (req: AuthRequest, res) => {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
   const id = Number(req.params.id);
   const item = await prisma.transaction.findUnique({
     where: { id },
-    include: { client: true, worker: true },
+    // To'liq mijoz/xodim qatori (oylik, qarz, kredit limiti) emas — faqat ko'rsatish uchun kerakli maydonlar
+    include: {
+      client: { select: { id: true, name: true } },
+      worker: { select: { id: true, name: true } },
+    },
   });
   if (!item) return res.status(404).json({ error: 'Not found' });
+  // Ro'yxatdagi qoida bilan bir xil: xodim faqat o'ziga tegishli yozuvni ko'radi
+  if (!canViewTransaction(item, req.user)) return res.status(403).json({ error: 'Ruxsat yo\'q' });
   res.json(item);
 });
 

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Icon } from '@iconify/react';
 import api from '../../lib/api';
 import { useSocket } from '../../contexts/SocketContext';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface User {
   id: number;
@@ -23,6 +24,12 @@ interface Note {
 
 const firstName = (name: string): string => name.split(' ')[0];
 
+/** Server rad etganda (masalan ruxsat yo'q) sababini foydalanuvchiga ko'rsatish uchun */
+const apiErrorMessage = (err: unknown, fallback: string): string => {
+  const message = (err as { response?: { data?: { error?: unknown } } })?.response?.data?.error;
+  return typeof message === 'string' ? message : fallback;
+};
+
 const DashboardNotes: React.FC = () => {
   const [notes, setNotes] = useState<Note[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -36,6 +43,9 @@ const DashboardNotes: React.FC = () => {
   const [editingNoteId, setEditingNoteId] = useState<number | null>(null);
   const [editingContent, setEditingContent] = useState('');
   const socket = useSocket();
+  const { user } = useAuth();
+  // Mukofot (XP, pul) bajargan xodimning hisobiga qo'shiladi — uni faqat admin belgilaydi
+  const canSetReward = user?.role === 'ADMIN';
 
   const fetchData = useCallback(async (silent = false) => {
     try {
@@ -85,8 +95,8 @@ const DashboardNotes: React.FC = () => {
       await api.post('/dashboard-notes', {
         content,
         assignedToId: assignedToId ? Number(assignedToId) : null,
-        xpReward: xpReward ? Number(xpReward) : null,
-        bountyReward: bountyReward ? Number(bountyReward) : null,
+        xpReward: canSetReward && xpReward ? Number(xpReward) : null,
+        bountyReward: canSetReward && bountyReward ? Number(bountyReward) : null,
       });
       setContent('');
       setAssignedToId('');
@@ -99,6 +109,7 @@ const DashboardNotes: React.FC = () => {
       }
     } catch (err) {
       console.error('Failed to add note', err);
+      alert(apiErrorMessage(err, "Vazifani qo'shib bo'lmadi"));
     } finally {
       setSubmitting(false);
     }
@@ -114,6 +125,7 @@ const DashboardNotes: React.FC = () => {
       console.error('Failed to toggle note', err);
       // Revert on error
       fetchData();
+      alert(apiErrorMessage(err, "Vazifa holatini o'zgartirib bo'lmadi"));
     }
   };
 
@@ -124,6 +136,7 @@ const DashboardNotes: React.FC = () => {
       setNotes(prev => prev.filter(n => n.id !== id));
     } catch (err) {
       console.error('Failed to delete note', err);
+      alert(apiErrorMessage(err, "Vazifani o'chirib bo'lmadi"));
     }
   };
 
@@ -138,6 +151,7 @@ const DashboardNotes: React.FC = () => {
       setEditingNoteId(null);
     } catch (err) {
       console.error('Failed to edit note', err);
+      alert(apiErrorMessage(err, "Vazifani tahrirlab bo'lmadi"));
     }
   };
 
@@ -328,26 +342,30 @@ const DashboardNotes: React.FC = () => {
                 <option key={u.id} value={u.id}>{u.name}</option>
               ))}
             </select>
-            <input
-              type="number"
-              min="0"
-              value={xpReward}
-              onChange={(e) => setXpReward(e.target.value)}
-              placeholder="XP"
-              aria-label="XP mukofoti"
-              title="Vazifani bajargan xodimga beriladigan XP"
-              className={`${smallFieldClass} w-14 shrink-0 border-amber-200 dark:border-amber-400/30 bg-amber-50 dark:bg-amber-400/10 text-amber-900 dark:text-amber-200 placeholder:text-amber-700/60 dark:placeholder:text-amber-300/50 focus:border-amber-500`}
-            />
-            <input
-              type="number"
-              min="0"
-              value={bountyReward}
-              onChange={(e) => setBountyReward(e.target.value)}
-              placeholder="UZS"
-              aria-label="Pul mukofoti, UZS"
-              title="Vazifani bajargan xodimga beriladigan pul mukofoti (UZS)"
-              className={`${smallFieldClass} w-[72px] shrink-0 border-emerald-200 dark:border-emerald-400/30 bg-emerald-50 dark:bg-emerald-400/10 text-emerald-900 dark:text-emerald-200 placeholder:text-emerald-700/60 dark:placeholder:text-emerald-300/50 focus:border-emerald-500`}
-            />
+            {canSetReward && (
+              <>
+                <input
+                  type="number"
+                  min="0"
+                  value={xpReward}
+                  onChange={(e) => setXpReward(e.target.value)}
+                  placeholder="XP"
+                  aria-label="XP mukofoti"
+                  title="Vazifani bajargan xodimga beriladigan XP"
+                  className={`${smallFieldClass} w-14 shrink-0 border-amber-200 dark:border-amber-400/30 bg-amber-50 dark:bg-amber-400/10 text-amber-900 dark:text-amber-200 placeholder:text-amber-700/60 dark:placeholder:text-amber-300/50 focus:border-amber-500`}
+                />
+                <input
+                  type="number"
+                  min="0"
+                  value={bountyReward}
+                  onChange={(e) => setBountyReward(e.target.value)}
+                  placeholder="UZS"
+                  aria-label="Pul mukofoti, UZS"
+                  title="Vazifani bajargan xodimga beriladigan pul mukofoti (UZS)"
+                  className={`${smallFieldClass} w-[72px] shrink-0 border-emerald-200 dark:border-emerald-400/30 bg-emerald-50 dark:bg-emerald-400/10 text-emerald-900 dark:text-emerald-200 placeholder:text-emerald-700/60 dark:placeholder:text-emerald-300/50 focus:border-emerald-500`}
+                />
+              </>
+            )}
           </div>
         </form>
       )}

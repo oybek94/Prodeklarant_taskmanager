@@ -5,7 +5,12 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '../prisma';
 import TelegramBot from 'node-telegram-bot-api';
 
-const UPLOADS_DIR = path.join(__dirname, '../../uploads/backups');
+/**
+ * Zaxira fayllari `uploads/` dan TASHQARIDA saqlanadi. Ilgari `uploads/backups/` da
+ * turgani uchun butun baza (parol hashlari bilan) `/api/secure-uploads` orqali
+ * har qanday xodim tokeni bilan yuklab olinishi mumkin edi.
+ */
+export const BACKUP_DIR = path.join(__dirname, '../../backups');
 
 const RESTORE_CHUNK_SIZE = 1000;
 const RESTORE_TIMEOUT_MS = 10 * 60 * 1000;
@@ -123,13 +128,13 @@ export class BackupService {
    * JSON ma'lumotlarini ZIP qilib saqlaydi.
    */
   static async createBackupArchive(): Promise<string> {
-    if (!fs.existsSync(UPLOADS_DIR)) {
-      fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+    if (!fs.existsSync(BACKUP_DIR)) {
+      fs.mkdirSync(BACKUP_DIR, { recursive: true });
     }
 
     const dateStr = new Date().toISOString().replace(/[:.]/g, '-');
     const filename = `db-backup-${dateStr}.zip`;
-    const filepath = path.join(UPLOADS_DIR, filename);
+    const filepath = path.join(BACKUP_DIR, filename);
 
     const data = await this.exportAllData();
     const jsonString = JSON.stringify(data, null, 2);
@@ -161,9 +166,9 @@ export class BackupService {
    * Oxirgi 3 ta backupdan tashqari eskilarini o'chiradi
    */
   static cleanOldBackups(keepCount = 3) {
-    if (!fs.existsSync(UPLOADS_DIR)) return;
+    if (!fs.existsSync(BACKUP_DIR)) return;
 
-    fs.readdir(UPLOADS_DIR, (err, files) => {
+    fs.readdir(BACKUP_DIR, (err, files) => {
       if (err) {
         console.error('[BACKUP] Eski fayllarni tekshirishda xatolik:', err);
         return;
@@ -171,7 +176,7 @@ export class BackupService {
 
       const zipFiles = files
         .filter(f => f.endsWith('.zip') && f.startsWith('db-backup-'))
-        .map(f => ({ name: f, path: path.join(UPLOADS_DIR, f), time: fs.statSync(path.join(UPLOADS_DIR, f)).mtime.getTime() }))
+        .map(f => ({ name: f, path: path.join(BACKUP_DIR, f), time: fs.statSync(path.join(BACKUP_DIR, f)).mtime.getTime() }))
         .sort((a, b) => b.time - a.time);
 
       if (zipFiles.length > keepCount) {

@@ -51,9 +51,9 @@ import { requireAuth, authenticateApi } from './middleware/auth';
 import { auditLog } from './middleware/audit';
 import { requestTiming } from './middleware/request-timing';
 import { sanitizeErrorResponses, GENERIC_ERROR_MESSAGE } from './middleware/sanitize-errors';
+import { blockPrivateUploads, serveSecureUpload } from './middleware/secure-uploads';
 import OpenAIClient from './ai/openai.client';
 import path from 'path';
-import fs from 'fs';
 import lmsRouter from './routes/lms';
 import { initializeExchangeRateScheduler } from './services/exchange-rate-scheduler';
 import { initializeProcessScheduler } from './services/process-scheduler';
@@ -113,38 +113,14 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Static file serving - himoyalangan
-// /uploads endi faqat autentifikatsiya bilan ochiladi
-app.use('/uploads', requireAuth(), express.static(path.join(__dirname, '../uploads')));
+// /uploads faqat autentifikatsiya bilan ochiladi; yo'l himoyasi (traversal, yopiq
+// papkalar — masalan eski DB zaxiralari) middleware/secure-uploads.ts da.
+const uploadsRootDir = path.resolve(path.join(__dirname, '../uploads'));
+app.use('/uploads', requireAuth(), blockPrivateUploads(uploadsRootDir), express.static(uploadsRootDir));
 // /api/uploads eski static endi o'chirildi - /api/secure-uploads ishlatiladi
 
 // Himoyalangan fayl yuklash endpoint - JWT token talab qiladi
-const uploadsRootDir = path.resolve(path.join(__dirname, '../uploads'));
-
-app.get('/api/secure-uploads/*path', requireAuth(), (req, res) => {
-  const rawParam = req.params.path;
-  const relativePath = decodeURIComponent(
-    Array.isArray(rawParam) ? rawParam.join('/') : (rawParam as string) || ''
-  );
-
-  if (!relativePath) {
-    return res.status(400).json({ error: 'Fayl yo\'li ko\'rsatilmagan' });
-  }
-
-  // Path traversal hujumidan himoya
-  // Trailing separator bilan tekshiramiz — aks holda "uploads-secret" kabi
-  // yonma-yon papka ham prefiks bo'yicha o'tib ketishi mumkin edi.
-  const absolutePath = path.resolve(path.join(uploadsRootDir, relativePath));
-
-  if (absolutePath !== uploadsRootDir && !absolutePath.startsWith(uploadsRootDir + path.sep)) {
-    return res.status(403).json({ error: 'Ruxsat berilmagan yo\'l' });
-  }
-
-  if (!fs.existsSync(absolutePath)) {
-    return res.status(404).json({ error: 'Fayl topilmadi' });
-  }
-
-  res.sendFile(absolutePath);
-});
+app.get('/api/secure-uploads/*path', requireAuth(), serveSecureUpload(uploadsRootDir));
 
 
 // Rate limiting — brute force va DDoS dan himoya

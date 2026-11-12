@@ -58,6 +58,30 @@ export const requireAuth =
     }
   };
 
+/**
+ * Token'ga yoziladigan rol. Amaldagi xodim rollari o'z holicha qoladi; faqat enum'dan
+ * olib tashlangan eski rollar (WORKER, ACCOUNTANT) DEKLARANT ga tushiriladi.
+ * Ilgari login CERTIFICATE_WORKER ni ham DEKLARANT qilib yuborardi — sertifikatchi
+ * birinchi refresh'gacha deklarant huquqlari bilan ishlardi.
+ */
+export const resolveStaffRole = (role: string): string =>
+  (STAFF_ROLES as readonly string[]).includes(role) ? role : 'DEKLARANT';
+
+/**
+ * `:param` dagi xodim ID si so'rovchining o'ziniki bo'lishi shart (admin bundan mustasno).
+ * Xodimning daromadi, KPI va statistikasi kabi shaxsiy ma'lumot endpointlari uchun.
+ * requireAuth() dan KEYIN qo'yiladi.
+ */
+export const requireSelfOrAdmin =
+  (param: string) =>
+  (req: AuthRequest, res: Response, next: NextFunction) => {
+    if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+    if (req.user.role !== 'ADMIN' && req.user.id !== Number(req.params[param])) {
+      return res.status(403).json({ error: 'Ruxsat yo\'q' });
+    }
+    next();
+  };
+
 // Faqat mijoz portali endpointlari uchun (`/api/portal/*`): xodim tokeni o'tmaydi.
 export const requirePortal = () => requireAuth(PORTAL_ROLE);
 

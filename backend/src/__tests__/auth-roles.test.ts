@@ -102,8 +102,16 @@ describe('requireSelfOrAdmin', () => {
     expect((await getStats('9', tokenFor(1, 'ADMIN'))).status).toBe(200);
   });
 
+  it('Number() va parseInt() turlicha o\'qiydigan ID bilan chetlab o\'tib bo\'lmaydi', async () => {
+    // Number('7e1') = 70, parseInt('7e1') = 7: 70-xodim 7-xodim ma'lumotini olardi
+    expect((await getStats('7e1', tokenFor(70, 'DEKLARANT'))).status).toBe(400);
+    expect((await getStats('0x7', tokenFor(7, 'DEKLARANT'))).status).toBe(400);
+    expect((await getStats('7.0', tokenFor(7, 'DEKLARANT'))).status).toBe(400);
+    expect((await getStats('7e1', tokenFor(1, 'ADMIN'))).status).toBe(400);
+  });
+
   it('raqam bo\'lmagan ID ni admin bo\'lmaganga bermaydi', async () => {
-    expect((await getStats('abc', tokenFor(7, 'DEKLARANT'))).status).toBe(403);
+    expect((await getStats('abc', tokenFor(7, 'DEKLARANT'))).status).toBe(400);
   });
 });
 

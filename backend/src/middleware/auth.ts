@@ -76,7 +76,11 @@ export const requireSelfOrAdmin =
   (param: string) =>
   (req: AuthRequest, res: Response, next: NextFunction) => {
     if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
-    if (req.user.role !== 'ADMIN' && req.user.id !== Number(req.params[param])) {
+    // Faqat o'nlik raqamlar: handlerlar ID ni parseInt bilan o'qiydi, Number() esa
+    // "7e1" ni 70, parseInt 7 deb o'qiydi — turlicha talqin tekshiruvni chetlab o'tardi.
+    const raw = String(req.params[param] ?? '');
+    if (!/^\d+$/.test(raw)) return res.status(400).json({ error: 'Noto\'g\'ri ID' });
+    if (req.user.role !== 'ADMIN' && req.user.id !== parseInt(raw, 10)) {
       return res.status(403).json({ error: 'Ruxsat yo\'q' });
     }
     next();

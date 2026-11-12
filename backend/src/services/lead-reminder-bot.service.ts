@@ -60,13 +60,6 @@ export const initLeadReminderBot = () => {
     return;
   }
 
-  // Dual bot warning check: If finance bot uses same token with polling, avoid 409 conflict.
-  if (process.env.FINANCE_BOT_ENABLED === 'true' && process.env.FINANCE_BOT_TOKEN === token) {
-    console.warn('[LeadReminderBot] Token finance-bot bilan bir xil va polling yoqilgan. Conflict oldini olish uchun faqat message handler/sendMessage ishlatiladi.');
-    bot = new TelegramBot(token, { polling: false });
-    return;
-  }
-
   // Lokal dev instansiyalar serverdagi jonli botga polling orqali halaqit bermasligi uchun.
   if (process.env.LEAD_BOT_POLLING === 'false') {
     console.warn('[LeadReminderBot] LEAD_BOT_POLLING=false — polling o\'chirilgan (lokal), faqat sendMessage ishlaydi.');

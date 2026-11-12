@@ -68,7 +68,6 @@ import faqRouter from './routes/faq';
 import medalsRouter from './routes/medals';
 import sellerKpiRouter from './routes/seller-kpi';
 import publicSiteStatsRouter from './routes/public-site-stats';
-import { initFinanceBot } from './services/finance-bot.service';
 import { initLeadReminderBot } from './services/lead-reminder-bot.service';
 import { initClientCargoBot } from './services/client-cargo-bot.service';
 import { stripSecretsReplacer } from './utils/json-secrets';
@@ -297,7 +296,6 @@ if (isStandby) {
   initializeExchangeRateScheduler();
   initializeProcessScheduler();
   initCronJobs();
-  initFinanceBot();
   initLeadReminderBot();
   initClientCargoBot();
 } else {

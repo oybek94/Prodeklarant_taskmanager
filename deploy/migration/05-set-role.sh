@@ -10,7 +10,6 @@ B=/var/www/app/backend/.env
 
 set_env() { if grep -q "^$2=" "$1"; then sed -i "s|^$2=.*|$2=$3|" "$1"; else printf '\n%s=%s\n' "$2" "$3" >> "$1"; fi; }
 set_env "$B" INSTANCE_ROLE "$ROLE"
-echo "FINANCE_BOT_ENABLED hozir: $(grep '^FINANCE_BOT_ENABLED=' "$B" || echo 'yo'\''q (bot o'\''chiq)')"
 
 start_or_restart() { # name cwd script
   if pm2 describe "$1" >/dev/null 2>&1; then pm2 restart "$1" --update-env; else pm2 start "$3" --name "$1" --cwd "$2"; fi

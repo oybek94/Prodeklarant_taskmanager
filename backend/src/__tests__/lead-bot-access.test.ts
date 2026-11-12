@@ -52,7 +52,6 @@ beforeAll(() => {
   process.env.TELEGRAM_GROUP_CHAT_ID = String(GROUP_ID);
   process.env.LEAD_BOT_POLLING = 'true';
   process.env.LEAD_BOT_ALLOWED_CHAT_IDS = `999, ${EXTRA_CHAT_ID}`;
-  process.env.FINANCE_BOT_ENABLED = 'false';
   state.userFindMany.mockResolvedValue([{ telegramChatId: String(SELLER_CHAT_ID) }]);
 
   initLeadReminderBot();

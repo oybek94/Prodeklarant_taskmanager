@@ -10,5 +10,6 @@ export default defineConfig({
       'src/services/**/*.test.ts',
     ],
     environment: 'node',
+    setupFiles: ['./vitest.setup.ts'],
   },
 });

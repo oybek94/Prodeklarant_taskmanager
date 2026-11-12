@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
-import { verifyAccessToken } from '../utils/jwt';
+import { verifyAccessToken, type JwtPayload } from '../utils/jwt';
+import { isStaffSessionValid } from '../utils/staff-session';
 
 export interface AuthRequest extends Request {
   user?: {
@@ -21,37 +22,56 @@ const REVOKED_CLIENT_ROLE = 'CLIENT';
 export const PORTAL_ROLE = 'PORTAL';
 export const STAFF_ROLES = ['ADMIN', 'MANAGER', 'DEKLARANT', 'SELLER', 'CERTIFICATE_WORKER'] as const;
 
+
+/**
+ * Xodim tokeni hali amalda ekanini bazadagi holat bilan solishtiradi (tokenVersion + active).
+ * Portal tokeni o'z `pv` tekshiruviga ega, mijoz tokeni umuman qabul qilinmaydi.
+ * Baza xatosida 'error' — foydalanuvchini tizimdan chiqarib yubormaslik uchun 503 qaytariladi.
+ */
+const checkStaffSession = async (payload: JwtPayload): Promise<'ok' | 'revoked' | 'error'> => {
+  if (payload.role === PORTAL_ROLE || payload.role === REVOKED_CLIENT_ROLE) return 'ok';
+  try {
+    return (await isStaffSessionValid(payload.sub, payload.tv)) ? 'ok' : 'revoked';
+  } catch (err) {
+    console.error('Staff session check error:', err instanceof Error ? err.message : err);
+    return 'error';
+  }
+};
+
 export const requireAuth =
   (...roles: string[]) =>
-  (req: AuthRequest, res: Response, next: NextFunction) => {
+  async (req: AuthRequest, res: Response, next: NextFunction) => {
     try {
       const auth = req.headers.authorization;
       if (!auth?.startsWith('Bearer ')) {
         return res.status(401).json({ error: 'Unauthorized' });
       }
-      const token = auth.slice(7);
+      let payload: JwtPayload;
       try {
-        const payload = verifyAccessToken(token);
-        req.user = {
-          id: payload.sub,
-          role: payload.role,
-          branchId: payload.branchId || null,
-          name: payload.name,
-        };
-        if (payload.role === REVOKED_CLIENT_ROLE) {
-          return res.status(403).json({ error: 'Forbidden' });
-        }
-        if (payload.role === PORTAL_ROLE && !roles.includes(PORTAL_ROLE)) {
-          return res.status(403).json({ error: 'Forbidden' });
-        }
-        if (roles.length && !roles.includes(payload.role)) {
-          return res.status(403).json({ error: 'Forbidden' });
-        }
-        next();
+        payload = verifyAccessToken(auth.slice(7));
       } catch (err: any) {
         console.error('JWT verification error:', err.message);
         return res.status(401).json({ error: 'Unauthorized' });
       }
+      if (payload.role === REVOKED_CLIENT_ROLE) {
+        return res.status(403).json({ error: 'Forbidden' });
+      }
+      if (payload.role === PORTAL_ROLE && !roles.includes(PORTAL_ROLE)) {
+        return res.status(403).json({ error: 'Forbidden' });
+      }
+      if (roles.length && !roles.includes(payload.role)) {
+        return res.status(403).json({ error: 'Forbidden' });
+      }
+      const session = await checkStaffSession(payload);
+      if (session === 'revoked') return res.status(401).json({ error: 'Unauthorized' });
+      if (session === 'error') return res.status(503).json({ error: 'Service unavailable' });
+      req.user = {
+        id: payload.sub,
+        role: payload.role,
+        branchId: payload.branchId || null,
+        name: payload.name,
+      };
+      next();
     } catch (err: any) {
       console.error('Auth middleware error:', err);
       return res.status(500).json({ error: 'Internal server error' });
@@ -117,23 +137,27 @@ export const isPublicApiPath = (path: string): boolean => {
  * edi — bittasini unutish endpointni ochiq qoldirardi. Rol cheklovlari hamon
  * endpoint darajasidagi requireAuth(...) da.
  */
-export const authenticateApi = (req: AuthRequest, res: Response, next: NextFunction) => {
+export const authenticateApi = async (req: AuthRequest, res: Response, next: NextFunction) => {
   if (req.method === 'OPTIONS' || isPublicApiPath(req.path)) return next();
   const auth = req.headers.authorization;
   if (!auth?.startsWith('Bearer ')) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
+  let payload: JwtPayload;
   try {
-    const payload = verifyAccessToken(auth.slice(7));
-    if (payload.role === REVOKED_CLIENT_ROLE) return res.status(403).json({ error: 'Forbidden' });
-    // Portal tokeni faqat o'z yo'llarida: endpoint-darajasida requireAuth unutilgan
-    // router'larga mijoz (sub = Client.id) kira olmasligi uchun.
-    if (payload.role === PORTAL_ROLE && !req.path.startsWith('/portal/')) {
-      return res.status(403).json({ error: 'Forbidden' });
-    }
-    req.user = { id: payload.sub, role: payload.role, branchId: payload.branchId || null, name: payload.name };
-    next();
+    payload = verifyAccessToken(auth.slice(7));
   } catch {
     return res.status(401).json({ error: 'Unauthorized' });
   }
+  if (payload.role === REVOKED_CLIENT_ROLE) return res.status(403).json({ error: 'Forbidden' });
+  // Portal tokeni faqat o'z yo'llarida: endpoint-darajasida requireAuth unutilgan
+  // router'larga mijoz (sub = Client.id) kira olmasligi uchun.
+  if (payload.role === PORTAL_ROLE && !req.path.startsWith('/portal/')) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  const session = await checkStaffSession(payload);
+  if (session === 'revoked') return res.status(401).json({ error: 'Unauthorized' });
+  if (session === 'error') return res.status(503).json({ error: 'Service unavailable' });
+  req.user = { id: payload.sub, role: payload.role, branchId: payload.branchId || null, name: payload.name };
+  next();
 };

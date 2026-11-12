@@ -47,7 +47,7 @@ router.post('/login', async (req, res) => {
 
     const user = await prisma.user.findFirst({
       where: { phone },
-      select: { id: true, name: true, passwordHash: true, role: true, branchId: true, active: true },
+      select: { id: true, name: true, passwordHash: true, role: true, branchId: true, active: true, tokenVersion: true },
     });
 
     // Tekshiruv va hisobga olish bcrypt'dan OLDIN, bitta sinxron qadamda bajariladi: aks holda
@@ -82,7 +82,7 @@ router.post('/login', async (req, res) => {
     // Token roli bazadagi rol bilan bir xil (eski rollar DEKLARANT ga tushadi)
     const validRole = resolveStaffRole(user.role);
 
-    const payload = { sub: user.id, role: validRole, branchId: user.branchId || null, name: user.name };
+    const payload = { sub: user.id, role: validRole, branchId: user.branchId || null, name: user.name, tv: user.tokenVersion };
     return res.json({
       accessToken: signAccessToken(payload),
       refreshToken: signRefreshToken(payload),
@@ -114,7 +114,10 @@ router.post('/refresh', async (req, res) => {
     const user = await prisma.user.findUnique({ where: { id: payload.sub } });
     // Bloklangan xodim refresh orqali yangi token ololmasligi kerak
     if (!user || !user.active) return res.status(401).json({ error: 'Invalid refresh' });
-    const newPayload = { sub: user.id, role: resolveStaffRole(user.role), branchId: user.branchId || null, name: user.name };
+    // Parol/rol/filial o'zgargan yoki sessiya bekor qilingan bo'lsa eski refresh token yaroqsiz
+    // (tv yo'q = bu o'zgarishdan oldingi token = 0 versiya)
+    if ((payload.tv ?? 0) !== user.tokenVersion) return res.status(401).json({ error: 'Invalid refresh' });
+    const newPayload = { sub: user.id, role: resolveStaffRole(user.role), branchId: user.branchId || null, name: user.name, tv: user.tokenVersion };
     return res.json({
       accessToken: signAccessToken(newPayload),
       refreshToken: signRefreshToken(newPayload),
@@ -151,7 +154,7 @@ router.post('/register', requireAuth('ADMIN'), async (req, res) => {
       branchId: parsed.data.branchId,
     },
   });
-  const payload = { sub: user.id, role: user.role, branchId: user.branchId, name: user.name };
+  const payload = { sub: user.id, role: user.role, branchId: user.branchId, name: user.name, tv: user.tokenVersion };
   res.status(201).json({
     accessToken: signAccessToken(payload),
     refreshToken: signRefreshToken(payload),

@@ -79,19 +79,33 @@ describe('requireAuth — mijoz tokeni xodim endpointlaridan ajratilgan', () => 
 describe('/auth/refresh — rolni saqlaydi va bloklanganni to\'xtatadi', () => {
   it('CLIENT refresh tokeni xodim tokeniga aylanmaydi (id to\'qnashuvi)', async () => {
     // Bir xil id=3 li ADMIN mavjud — eski kod aynan shu xodim tokenini berardi
-    mocks.userFindUnique.mockResolvedValue({ id: 3, role: 'ADMIN', branchId: 1, name: 'Admin', active: true });
+    mocks.userFindUnique.mockResolvedValue({ id: 3, role: 'ADMIN', branchId: 1, name: 'Admin', active: true, tokenVersion: 0 });
 
     expect((await refresh(signRefreshToken(clientPayload))).status).toBe(401);
     expect(mocks.userFindUnique).not.toHaveBeenCalled();
   });
 
   it('bloklangan (active=false) xodim refresh qila olmaydi', async () => {
-    mocks.userFindUnique.mockResolvedValue({ id: 3, role: 'ADMIN', branchId: 1, name: 'Admin', active: false });
+    mocks.userFindUnique.mockResolvedValue({ id: 3, role: 'ADMIN', branchId: 1, name: 'Admin', active: false, tokenVersion: 0 });
     expect((await refresh(signRefreshToken(adminPayload))).status).toBe(401);
   });
 
+  it('versiyasi oshgan (parol/rol o\'zgargan) xodimning eski refresh tokeni yaroqsiz', async () => {
+    mocks.userFindUnique.mockResolvedValue({ id: 3, role: 'ADMIN', branchId: 1, name: 'Admin', active: true, tokenVersion: 4 });
+    expect((await refresh(signRefreshToken({ ...adminPayload, tv: 3 }))).status).toBe(401);
+    // tv yo'q (o'zgarishdan oldingi) refresh token = 0 versiya
+    expect((await refresh(signRefreshToken(adminPayload))).status).toBe(401);
+  });
+
+  it('yangi tokenlarga amaldagi versiya yoziladi', async () => {
+    mocks.userFindUnique.mockResolvedValue({ id: 3, role: 'ADMIN', branchId: 1, name: 'Admin', active: true, tokenVersion: 4 });
+    const res = await refresh(signRefreshToken({ ...adminPayload, tv: 4 }));
+    expect(res.status).toBe(200);
+    expect(verifyAccessToken(((await res.json()) as { accessToken: string }).accessToken).tv).toBe(4);
+  });
+
   it('faol xodim odatdagidek yangi token oladi', async () => {
-    mocks.userFindUnique.mockResolvedValue({ id: 3, role: 'ADMIN', branchId: 1, name: 'Admin', active: true });
+    mocks.userFindUnique.mockResolvedValue({ id: 3, role: 'ADMIN', branchId: 1, name: 'Admin', active: true, tokenVersion: 0 });
     const res = await refresh(signRefreshToken(adminPayload));
     expect(res.status).toBe(200);
     expect(verifyAccessToken(((await res.json()) as { accessToken: string }).accessToken).role).toBe('ADMIN');

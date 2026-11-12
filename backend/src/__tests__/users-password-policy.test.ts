@@ -65,7 +65,7 @@ afterAll(() => {
 
 beforeEach(() => {
   Object.values(mocks).forEach((mock) => mock.mockReset());
-  mocks.userFindUnique.mockResolvedValue(null);
+  mocks.userFindUnique.mockResolvedValue({ id: 10, role: 'DEKLARANT', branchId: 1, active: true });
   mocks.userFindFirst.mockResolvedValue(null);
   mocks.userFindMany.mockResolvedValue([]);
   mocks.branchFindFirst.mockResolvedValue({ id: 1 });
@@ -96,5 +96,32 @@ describe('xodim paroli — minimal uzunlik (8 belgi)', () => {
     const res = await send('PUT', '/api/users/10', { name: 'Yangi ism' });
     expect(res.status).toBe(200);
     expect(mocks.userUpdate).toHaveBeenCalledTimes(1);
+  });
+
+  describe('tokenlarni bekor qilish (tokenVersion)', () => {
+    const sentData = () => mocks.userUpdate.mock.calls[0][0].data;
+
+    it('parol almashsa versiya oshadi', async () => {
+      await send('PUT', '/api/users/10', { password: 'yetarlicha-uzun-1' });
+      expect(sentData().tokenVersion).toEqual({ increment: 1 });
+    });
+
+    it('rol yoki filial haqiqatan o\'zgarsa versiya oshadi', async () => {
+      await send('PUT', '/api/users/10', { role: 'SELLER' });
+      expect(sentData().tokenVersion).toEqual({ increment: 1 });
+      mocks.userUpdate.mockClear();
+      await send('PUT', '/api/users/10', { branchId: 2 });
+      expect(sentData().tokenVersion).toEqual({ increment: 1 });
+    });
+
+    it('bloklansa versiya oshadi', async () => {
+      await send('PUT', '/api/users/10', { active: false });
+      expect(sentData().tokenVersion).toEqual({ increment: 1 });
+    });
+
+    it('forma o\'zgarmagan rol/filial/faollikni yuborsa — xodim tizimdan chiqarilmaydi', async () => {
+      await send('PUT', '/api/users/10', { name: 'Yangi ism', role: 'DEKLARANT', branchId: 1, active: true, password: '' });
+      expect(sentData()).not.toHaveProperty('tokenVersion');
+    });
   });
 });

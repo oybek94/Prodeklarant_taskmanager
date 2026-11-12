@@ -19,7 +19,7 @@ export const config = {
   port: Number(process.env.PORT || 3001),
   jwtSecret,
   jwtRefreshSecret,
-  tokenTtl: '24h',   // 24 soat - logout qilinmaguncha ishlaydi
+  tokenTtl: '1h',    // access token qisqa; 401 da frontend refresh orqali yangilaydi
   refreshTtl: '30d', // 30 kun - uzoq muddatli saqlash
   // Stream token TTL in seconds (default 120s)
   streamTokenTtlSec: Number(process.env.STREAM_TOKEN_TTL_SEC || 120),

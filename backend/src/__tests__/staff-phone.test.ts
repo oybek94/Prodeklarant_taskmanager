@@ -73,7 +73,7 @@ afterAll(() => {
 
 beforeEach(() => {
   Object.values(mocks).forEach((mock) => mock.mockReset());
-  mocks.userFindUnique.mockResolvedValue(null);
+  mocks.userFindUnique.mockResolvedValue({ id: 10, role: 'DEKLARANT', branchId: 1, active: true });
   mocks.userFindFirst.mockResolvedValue(null);
   mocks.userFindMany.mockResolvedValue([]);
   mocks.branchFindFirst.mockResolvedValue({ id: 1 });

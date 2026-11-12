@@ -39,6 +39,8 @@ model User {
   salaryCurrency     Currency                 @default(UZS)
   branchId           Int?
   passwordHash       String
+  /// Oshirilganda shu xodimning barcha eski access/refresh tokenlari yaroqsiz bo'ladi
+  tokenVersion       Int                      @default(0)
   photoUrl           String?
   active             Boolean                  @default(true)
   xp                 Int                      @default(0)

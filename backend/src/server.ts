@@ -306,6 +306,7 @@ if (isStandby) {
 
 // ===== Socket.io =====
 import { verifyAccessToken } from './utils/jwt';
+import { isStaffSessionValid } from './utils/staff-session';
 
 const io = new SocketIOServer(httpServer, {
   cors: { origin: corsOrigin },
@@ -313,7 +314,7 @@ const io = new SocketIOServer(httpServer, {
 });
 
 // JWT autentifikatsiya — faqat ruxsat berilgan foydalanuvchilar ulanishi mumkin
-io.use((socket, next) => {
+io.use(async (socket, next) => {
   const token = socket.handshake.auth?.token;
   if (!token) return next(new Error('Authentication token required'));
   try {
@@ -321,6 +322,8 @@ io.use((socket, next) => {
     // Mijoz tokeni (sub = Client.id) `user:<id>` xonasida shu ID'li xodimning
     // bildirishnomalarini olardi — socket faqat xodimlar uchun
     if (payload.role === 'CLIENT' || payload.role === 'PORTAL') return next(new Error('Forbidden'));
+    // Bekor qilingan (parol/rol o'zgargan yoki bloklangan) xodim socketga ulana olmaydi
+    if (!(await isStaffSessionValid(payload.sub, payload.tv))) return next(new Error('Invalid or expired token'));
     socket.data.user = { id: payload.sub, role: payload.role, name: payload.name, branchId: payload.branchId };
     next();
   } catch {

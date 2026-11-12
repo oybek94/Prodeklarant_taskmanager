@@ -1,3 +1,4 @@
+import { invalidateStaffSession } from '../utils/staff-session';
 import { Router } from 'express';
 import { prisma } from '../prisma';
 import { requireAuth, AuthRequest } from '../middleware/auth';
@@ -285,8 +286,25 @@ router.put('/:id', requireAuth('ADMIN'), async (req, res) => {
     delete data.branchId;
   }
 
+  const targetId = parseInt(req.params.id);
+
+  // Kirish huquqiga ta'sir qiluvchi o'zgarish (parol, rol, filial, bloklash) bo'lsa xodimning
+  // eski tokenlari bekor qilinadi. Forma har safar o'zgarmagan rol/filialni ham yuboradi,
+  // shuning uchun faqat HAQIQATAN o'zgargani hisobga olinadi.
+  const current = await prisma.user.findUnique({
+    where: { id: targetId },
+    select: { role: true, branchId: true, active: true },
+  });
+  if (!current) return res.status(404).json({ error: 'User not found' });
+  const accessChanged =
+    !!data.passwordHash ||
+    (data.role !== undefined && data.role !== current.role) ||
+    (data.branchId !== undefined && data.branchId !== current.branchId) ||
+    (data.active === false && current.active);
+  if (accessChanged) data.tokenVersion = { increment: 1 };
+
   const user = await prisma.user.update({
-    where: { id: parseInt(req.params.id) },
+    where: { id: targetId },
     data,
     select: {
       id: true,
@@ -299,6 +317,7 @@ router.put('/:id', requireAuth('ADMIN'), async (req, res) => {
       active: true,
     },
   });
+  if (accessChanged) invalidateStaffSession(targetId);
   res.json(user);
 });
 
@@ -353,14 +372,16 @@ router.delete('/:id', requireAuth('ADMIN'), async (req, res) => {
       if (user.active) {
         await prisma.user.update({
           where: { id: userId },
-          data: { active: false },
+          data: { active: false, tokenVersion: { increment: 1 } },
         });
+        invalidateStaffSession(userId);
       }
       return res.status(204).send();
     }
 
     try {
       await prisma.user.delete({ where: { id: userId } });
+      invalidateStaffSession(userId);
       res.status(204).send();
     } catch (dbError: any) {
       // If it fails due to a foreign key constraint, just deactivate instead
@@ -368,8 +389,9 @@ router.delete('/:id', requireAuth('ADMIN'), async (req, res) => {
         if (user.active) {
           await prisma.user.update({
             where: { id: userId },
-            data: { active: false },
+            data: { active: false, tokenVersion: { increment: 1 } },
           });
+          invalidateStaffSession(userId);
         }
         return res.status(204).send();
       }

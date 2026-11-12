@@ -132,6 +132,12 @@ const Login = () => {
                   icon="solar:phone-bold-duotone"
                   className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"
                 />
+                <span
+                  aria-hidden="true"
+                  className="absolute left-9 top-1/2 -translate-y-1/2 text-sm text-gray-500 pointer-events-none select-none"
+                >
+                  +998
+                </span>
                 <input
                   id="login-phone"
                   type="tel"
@@ -142,7 +148,7 @@ const Login = () => {
                   required
                   autoFocus
                   placeholder="90 123 45 67"
-                  className="w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all bg-white text-gray-900 placeholder-gray-400"
+                  className="w-full pl-[4.75rem] pr-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all bg-white text-gray-900 placeholder-gray-400"
                 />
               </div>
             </div>

@@ -5,7 +5,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { Icon } from '@iconify/react';
 
 const Login = () => {
-  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -31,7 +31,7 @@ const Login = () => {
     setIsLoading(true);
 
     try {
-      const user = await login(email, password) as any;
+      const user = await login(phone, password) as any;
       const role = user?.role;
       if (role === 'SELLER') {
         navigate('/crm');
@@ -118,17 +118,33 @@ const Login = () => {
             <h1 className="text-2xl font-semibold text-gray-900 tracking-tight mb-1">
               Tizimga kirish
             </h1>
-            <p className="text-sm text-gray-500">Parolingizni kiriting davom etish uchun</p>
+            <p className="text-sm text-gray-500">Telefon raqamingiz va parolingizni kiriting</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5">
-            {/* Yashirin email (mantiq moslik uchun saqlanadi) */}
-            <div className="hidden">
-              <input
-                type="text"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
+            {/* Telefon maydoni */}
+            <div className="space-y-1.5">
+              <label htmlFor="login-phone" className="block text-sm font-medium text-gray-700">
+                Telefon raqam
+              </label>
+              <div className="relative">
+                <Icon
+                  icon="solar:phone-bold-duotone"
+                  className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none"
+                />
+                <input
+                  id="login-phone"
+                  type="tel"
+                  inputMode="tel"
+                  autoComplete="username"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  required
+                  autoFocus
+                  placeholder="90 123 45 67"
+                  className="w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all bg-white text-gray-900 placeholder-gray-400"
+                />
+              </div>
             </div>
 
             {/* Parol maydoni */}
@@ -146,6 +162,7 @@ const Login = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
+                  autoComplete="current-password"
                   placeholder="Parolingizni kiriting"
                   className="w-full pl-10 pr-10 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all bg-white text-gray-900 placeholder-gray-400"
                 />

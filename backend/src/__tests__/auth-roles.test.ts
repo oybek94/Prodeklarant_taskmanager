@@ -10,11 +10,11 @@ const mocks = vi.hoisted(() => {
   const randomKey = () => Array.from({ length: 48 }, () => Math.floor(Math.random() * 36).toString(36)).join('');
   process.env.JWT_SECRET = randomKey();
   process.env.JWT_REFRESH_SECRET = randomKey();
-  return { userFindUnique: vi.fn() };
+  return { userFindUnique: vi.fn(), userFindFirst: vi.fn() };
 });
 
 vi.mock('../prisma', () => ({
-  prisma: { user: { findUnique: mocks.userFindUnique } },
+  prisma: { user: { findUnique: mocks.userFindUnique, findFirst: mocks.userFindFirst } },
 }));
 
 import authRouter from '../routes/auth';
@@ -66,7 +66,7 @@ describe('resolveStaffRole', () => {
 describe('POST /auth/login — token roli bazadagi rol bilan bir xil', () => {
   it('CERTIFICATE_WORKER login qilganda DEKLARANT tokeni olmaydi', async () => {
     const loginPassword = randomBytes(9).toString('base64url');
-    mocks.userFindUnique.mockResolvedValue({
+    mocks.userFindFirst.mockResolvedValue({
       id: 5,
       name: 'Sertifikatchi',
       passwordHash: await hashPassword(loginPassword),
@@ -78,7 +78,7 @@ describe('POST /auth/login — token roli bazadagi rol bilan bir xil', () => {
     const res = await fetch(`${baseUrl}/api/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: 'cert@example.test', password: loginPassword }),
+      body: JSON.stringify({ phone: '90 222 33 44', password: loginPassword }),
     });
     expect(res.status).toBe(200);
 

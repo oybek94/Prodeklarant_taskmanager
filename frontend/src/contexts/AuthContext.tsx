@@ -12,7 +12,7 @@ interface User {
 
 interface AuthContextType {
   user: User | null;
-  login: (email: string, password: string) => Promise<User>;
+  login: (phone: string, password: string) => Promise<User>;
   logout: () => void;
   isLoading: boolean;
   isAuthenticated: boolean;
@@ -113,13 +113,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     checkAuth();
   }, []);
 
-  const login = async (email: string, password: string) => {
+  const login = async (phone: string, password: string) => {
     try {
-      // Email bo'sh bo'lsa, undefined yuboramiz
-      const response = await apiClient.post('/auth/login', {
-        ...(email && email.trim() !== '' ? { email } : {}),
-        password
-      });
+      const response = await apiClient.post('/auth/login', { phone: phone.trim(), password });
       if (response.status >= 400 || response.data?.error) {
         throw new Error(response.data?.error || 'Login failed');
       }

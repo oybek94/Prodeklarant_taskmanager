@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { prisma } from '../prisma';
 import { requireAuth, AuthRequest } from '../middleware/auth';
-import { hashPassword, comparePassword, MIN_PASSWORD_LENGTH, PASSWORD_TOO_SHORT_MESSAGE } from '../utils/hash';
+import { hashPassword, MIN_PASSWORD_LENGTH, PASSWORD_TOO_SHORT_MESSAGE } from '../utils/hash';
 import { z } from 'zod';
 import { normalizeStaffPhone, INVALID_PHONE_MESSAGE, PHONE_TAKEN_MESSAGE } from '../utils/phone';
 
@@ -156,15 +156,6 @@ router.post('/', requireAuth('ADMIN'), async (req: AuthRequest, res) => {
       email = `user_${Date.now()}_${Math.random().toString(36).substring(7)}@local.test`;
     }
 
-    // Check if password is unique
-    const allUsers = await prisma.user.findMany({ select: { passwordHash: true } });
-    for (const user of allUsers) {
-      const isMatch = await comparePassword(parsed.data.password, user.passwordHash);
-      if (isMatch) {
-        return res.status(400).json({ error: 'Bu parol allaqachon boshqa foydalanuvchi tomonidan ishlatilmoqda. Iltimos, boshqa parol tanlang.' });
-      }
-    }
-
     // BranchId logic: Manager roli uchun branchId optional, Deklarant uchun majburiy
     let branchId = parsed.data.branchId;
     if (parsed.data.role === 'MANAGER') {
@@ -269,18 +260,6 @@ router.put('/:id', requireAuth('ADMIN'), async (req, res) => {
   }
 
   if (data.password) {
-    // Check if password is unique (excluding current user)
-    const allUsers = await prisma.user.findMany({
-      where: { id: { not: parseInt(req.params.id) } },
-      select: { passwordHash: true }
-    });
-    for (const user of allUsers) {
-      const isMatch = await comparePassword(data.password, user.passwordHash);
-      if (isMatch) {
-        return res.status(400).json({ error: 'Bu parol allaqachon boshqa foydalanuvchi tomonidan ishlatilmoqda. Iltimos, boshqa parol tanlang.' });
-      }
-    }
-
     data.passwordHash = await hashPassword(data.password);
   }
   // `password` Prisma maydoni emas — bo'sh satr bo'lsa ham update'ga o'tib ketmasin

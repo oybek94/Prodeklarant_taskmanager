@@ -4,103 +4,62 @@ import { comparePassword, hashPassword, DUMMY_PASSWORD_HASH, MIN_PASSWORD_LENGTH
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from '../utils/jwt';
 import { requireAuth, AuthRequest, resolveStaffRole } from '../middleware/auth';
 import { z } from 'zod';
+import { normalizeStaffPhone } from '../utils/phone';
+import { createLoginAttemptLimiter } from '../utils/login-attempts';
 
 const router = Router();
 
 const loginSchema = z.object({
-  email: z.string().optional().or(z.literal('')).or(z.undefined()),
-  password: z.string().min(1, 'Parol kiritilishi shart'),
+  phone: z.string().min(1, 'Telefon raqam kiritilishi shart').max(40),
+  password: z.string().min(1, 'Parol kiritilishi shart').max(200),
 });
 
+const LOGIN_FAILED_MESSAGE = "Telefon yoki parol noto'g'ri";
+const MAX_LOGIN_FAILURES = 5;
+const LOGIN_LOCK_MINUTES = 15;
+
+// Bitta telefonga ketma-ket noto'g'ri urinishlar (IP dan qat'i nazar)
+const loginAttempts = createLoginAttemptLimiter({
+  maxFailures: MAX_LOGIN_FAILURES,
+  windowMs: LOGIN_LOCK_MINUTES * 60 * 1000,
+});
+
+/**
+ * Kirish: telefon + parol. Parol FAQAT shu telefon egasining hashiga solishtiriladi.
+ * Ilgari faqat parol kiritilardi va u barcha xodimlarga solishtirilardi — bitta zaif
+ * parolni topgan kishi o'sha xodim (admin ham) bo'lib kirardi.
+ */
 router.post('/login', async (req, res) => {
   try {
     const parsed = loginSchema.safeParse(req.body);
-    if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
-    const { email, password } = parsed.data;
-    const emailValue = email && email.trim() !== '' ? email : undefined;
+    if (!parsed.success) return res.status(400).json({ error: 'Telefon raqam va parolni kiriting' });
+    const { password } = parsed.data;
 
-    let user;
-
-    try {
-      if (emailValue) {
-        // Email bo'lsa, email orqali user topamiz
-        // Add timeout to database query
-        user = await Promise.race([
-          prisma.user.findUnique({
-            where: { email: emailValue },
-            select: {
-              id: true,
-              name: true,
-              passwordHash: true,
-              role: true,
-              branchId: true,
-              active: true,
-            },
-          }),
-          new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('Database query timeout')), 10000)
-          )
-        ]) as any;
-      } else {
-        // Email bo'lmasa, faqat parol bilan user topamiz
-        // Barcha active userlarni olamiz va parolni tekshiramiz
-        const allUsers = await Promise.race([
-          prisma.user.findMany({
-            where: { active: true },
-            select: {
-              id: true,
-              name: true,
-              passwordHash: true,
-              role: true,
-              branchId: true,
-              active: true,
-            },
-          }),
-          new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('Database query timeout')), 10000)
-          )
-        ]) as any[];
-
-        // Parol bilan mos kelgan birinchi userni topamiz
-        for (const u of allUsers) {
-          const isValidPassword = await comparePassword(password, u.passwordHash);
-          if (isValidPassword) {
-            user = u;
-            break;
-          }
-        }
-
-        // Agar user topilmasa, dummy comparison qilamiz (timing attack oldini olish uchun)
-        if (!user) {
-          await comparePassword(password, DUMMY_PASSWORD_HASH);
-        }
-      }
-    } catch (dbError: any) {
-      console.error('Database error during login:', dbError);
-      if (dbError.message && dbError.message.includes('timeout')) {
-        return res.status(503).json({ error: 'Database serverga ulanib bo\'lmayapti. Iltimos, keyinroq urinib ko\'ring.' });
-      }
-      throw dbError;
-    }
-
-    // Security: Always perform password comparison, even if user not found
-    // This prevents user enumeration attacks (timing differences)
-    if (!user || !user.active) {
-      // Perform dummy comparison to prevent timing attacks
+    const phone = normalizeStaffPhone(parsed.data.phone);
+    if (!phone) {
       await comparePassword(password, DUMMY_PASSWORD_HASH);
-      return res.status(401).json({ error: 'Email yoki parol noto\'g\'ri' });
+      return res.status(401).json({ error: LOGIN_FAILED_MESSAGE });
     }
 
-    // Security: Verify password using bcrypt.compare
-    // This uses constant-time comparison to prevent timing attacks
-    // Note: Agar email bo'lmasa, parol allaqachon tekshirilgan
-    const isValidPassword = emailValue
-      ? await comparePassword(password, user.passwordHash)
-      : true; // Email bo'lmasa, parol allaqachon tekshirilgan
-
-    if (!isValidPassword) {
-      return res.status(401).json({ error: 'Email yoki parol noto\'g\'ri' });
+    if (loginAttempts.isBlocked(phone)) {
+      return res.status(429).json({
+        error: `Juda ko'p noto'g'ri urinish. ${LOGIN_LOCK_MINUTES} daqiqadan keyin qayta urinib ko'ring.`,
+      });
     }
+
+    const user = await prisma.user.findFirst({
+      where: { phone },
+      select: { id: true, name: true, passwordHash: true, role: true, branchId: true, active: true },
+    });
+
+    // Xodim topilmasa ham bir xil vaqt sarflanadi va bir xil xabar qaytadi —
+    // telefon tizimda bor-yo'qligi oshkor bo'lmaydi
+    const isValidPassword = await comparePassword(password, user?.passwordHash ?? DUMMY_PASSWORD_HASH);
+    if (!user || !user.active || !isValidPassword) {
+      loginAttempts.recordFailure(phone);
+      return res.status(401).json({ error: LOGIN_FAILED_MESSAGE });
+    }
+    loginAttempts.reset(phone);
 
     // Token roli bazadagi rol bilan bir xil (eski rollar DEKLARANT ga tushadi)
     const validRole = resolveStaffRole(user.role);
@@ -116,13 +75,8 @@ router.post('/login', async (req, res) => {
         branchId: user.branchId || null
       },
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Login error:', error);
-    if (error.message && error.message.includes('not found in enum')) {
-      return res.status(500).json({
-        error: 'Database rollarida muammo. Iltimos, backend/fix-roles.sql faylini pgAdmin orqali bajarishingiz kerak.'
-      });
-    }
     return res.status(500).json({ error: 'Internal server error' });
   }
 });

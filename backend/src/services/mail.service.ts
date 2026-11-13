@@ -1,4 +1,4 @@
-import nodemailer from 'nodemailer';
+import nodemailer, { type SendMailOptions as SmtpMailOptions } from 'nodemailer';
 import { composeEmail } from './mail-footer';
 
 // SMTP config from env. Defaults to Mail.ru (smtp.mail.ru:465, SSL) for
@@ -95,7 +95,7 @@ export async function sendMail(options: SendMailOptions): Promise<void> {
   }));
   const allAttachments = [...bodyAttachments, ...(composed?.attachments ?? [])];
 
-  const mailOptions: nodemailer.SendMailOptions = {
+  const mailOptions: SmtpMailOptions = {
     from,
     to: options.to.join(', '),
     subject: options.subject,

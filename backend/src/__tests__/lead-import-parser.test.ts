@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import ExcelJS from 'exceljs';
-import { LeadImportFormatError, parseLeadImportFile } from '../services/lead-import-parser';
+import {
+  LEAD_IMPORT_MAX_COLS,
+  LEAD_IMPORT_MAX_UNZIPPED_BYTES,
+  LeadImportFormatError,
+  getZipDeclaredUncompressedSize,
+  parseLeadImportFile,
+} from '../services/lead-import-parser';
 
 const HEADER = ['Firma nomi', 'Viloyat', 'Viloyat', 'STIR', 'Telefon', "Mas'ul", 'Tahminiy hajmi'];
 
@@ -62,6 +68,27 @@ describe('parseLeadImportFile', () => {
   it('buzuq ZIP (xlsx emas) LeadImportFormatError beradi', async () => {
     const broken = Buffer.concat([Buffer.from([0x50, 0x4b, 0x03, 0x04]), Buffer.from('axlat')]);
     await expect(parseLeadImportFile(broken)).rejects.toBeInstanceOf(LeadImportFormatError);
+  });
+
+  it("ortiqcha ustunlar o'qilmaydi", async () => {
+    const wide = Array.from({ length: 40 }, (_, i) => `u${i}`);
+    const rows = await parseLeadImportFile(await buildXlsx([wide, wide]));
+    expect(rows[1]).toHaveLength(LEAD_IMPORT_MAX_COLS);
+  });
+
+  it("ZIP e'lon qilgan ochilgan hajm haqiqiy faylda o'qiladi", async () => {
+    const buf = await buildXlsx([HEADER, ['Agro']]);
+    const size = getZipDeclaredUncompressedSize(buf);
+    expect(size).toBeGreaterThan(buf.length / 4);
+    expect(size).toBeLessThan(LEAD_IMPORT_MAX_UNZIPPED_BYTES);
+  });
+
+  it("zip-bomba: e'lon qilingan hajm chegaradan oshsa, ochmasdan rad etadi", async () => {
+    const buf = await buildXlsx([HEADER, ['Agro']]);
+    // Birinchi markaziy katalog yozuvining "ochilgan hajm" maydonini 3 GB qilib qo'yamiz
+    const central = buf.indexOf(Buffer.from([0x50, 0x4b, 0x01, 0x02]));
+    buf.writeUInt32LE(3_000_000_000, central + 24);
+    await expect(parseLeadImportFile(buf)).rejects.toThrow('juda katta');
   });
 
   it('prototipni ifloslantirmaydi (__proto__ sarlavhali ustun)', async () => {

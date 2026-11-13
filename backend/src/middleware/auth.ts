@@ -121,7 +121,6 @@ const PUBLIC_API_EXACT = new Set([
 ]);
 const PUBLIC_API_PREFIXES = [
   '/q/', // QR orqali hujjatni ochiq tekshirish
-  '/v1/media/stream/', // LMS video — o'z stream token'ini query'da tekshiradi
   '/tg-cargo/', // Yuk ma'lumotlari Mini App — router har so'rovda Telegram initData imzosini tekshiradi
 ];
 

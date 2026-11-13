@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Prodeklarant",
-  "version": "2.0",
+  "version": "2.1",
   "description": "Prodeklarant invoysidan singlewindow.uz, app.expertiza.uz, cabinet.karantin.uz va cargo.customs.uz arizalarini to'ldiradi",
   "permissions": ["storage", "activeTab", "scripting"],
   "host_permissions": [

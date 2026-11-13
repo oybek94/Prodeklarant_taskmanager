@@ -3,11 +3,15 @@ import { notify, getAdminUserIds } from '../services/notificationService';
 import { prisma } from '../prisma';
 import { AuthRequest } from '../middleware/auth';
 import multer from 'multer';
+import { canDeleteAnyLead, canDeleteLead, LEAD_DELETE_FORBIDDEN } from './leads.guards';
+import { z } from 'zod';
 import { LeadImportFormatError, parseLeadImportFile } from '../services/lead-import-parser';
 import { socketEmitter } from '../services/socketEmitter';
 
 const router = Router();
 // Fayl xotiraga o'qiladi — hajm chegarasiz qolsa bitta katta fayl serverni to'ldirib qo'yadi
+const bulkDeleteSchema = z.object({ ids: z.array(z.number().int().positive()).min(1).max(5000) });
+
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024, files: 1 } });
 
 // GET /api/leads — Ro'yxat (filter: stage, assignedToId, search, reminder)
@@ -610,9 +614,17 @@ router.post('/:id/send-reminder', async (req: AuthRequest, res: Response) => {
 // POST /api/leads/bulk-delete
 router.post('/bulk-delete', async (req: AuthRequest, res: Response) => {
     try {
-        const { ids } = req.body;
-        if (!ids || !Array.isArray(ids)) {
+        const parsed = bulkDeleteSchema.safeParse(req.body);
+        if (!parsed.success) {
             return res.status(400).json({ error: 'ids massivi majburiy' });
+        }
+        const ids = [...new Set(parsed.data.ids)];
+        if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+        if (!canDeleteAnyLead(req.user.role)) {
+            const own = await prisma.lead.count({ where: { id: { in: ids }, assignedToId: req.user.id } });
+            if (own !== ids.length) {
+                return res.status(403).json({ error: LEAD_DELETE_FORBIDDEN });
+            }
         }
         await prisma.lead.deleteMany({
             where: { id: { in: ids } }
@@ -627,6 +639,14 @@ router.post('/bulk-delete', async (req: AuthRequest, res: Response) => {
 router.delete('/:id', async (req: AuthRequest, res: Response) => {
     try {
         const id = Number(req.params.id);
+        if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+        if (!canDeleteAnyLead(req.user.role)) {
+            const lead = await prisma.lead.findUnique({ where: { id }, select: { assignedToId: true } });
+            if (!lead) return res.status(404).json({ error: 'Lid topilmadi' });
+            if (!canDeleteLead(req.user, lead)) {
+                return res.status(403).json({ error: LEAD_DELETE_FORBIDDEN });
+            }
+        }
         await prisma.lead.delete({ where: { id } });
         res.json({ success: true });
     } catch (err: any) {

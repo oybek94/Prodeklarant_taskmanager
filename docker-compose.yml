@@ -22,7 +22,8 @@ services:
       PGADMIN_DEFAULT_EMAIL: admin@local.test
       PGADMIN_DEFAULT_PASSWORD: admin
     ports:
-      - "5050:80"
+      # Faqat shu kompyuterdan: pgAdmin standart parol bilan tarmoqqa ochilmasin
+      - "127.0.0.1:5050:80"
     depends_on:
       - db
 

@@ -2,6 +2,7 @@ import PDFDocument from 'pdfkit';
 import { Invoice, InvoiceItem, Client, CompanySettings } from '@prisma/client';
 import * as fs from 'fs';
 import * as path from 'path';
+import { resolveUploadFilePath } from './uploaded-file-cleanup';
 
 interface InvoiceData {
   invoice: Invoice & { items: InvoiceItem[] };
@@ -54,10 +55,9 @@ const resolveUploadImagePath = (url?: string | null): string | null => {
   if (!url) return null;
   if (url.startsWith('http://') || url.startsWith('https://')) return null;
   const clean = url.split('?')[0];
-  if (!clean.startsWith('/uploads/')) return null;
-  const relativePath = clean.replace(/^\//, '');
-  const absolutePath = path.resolve(process.cwd(), relativePath);
-  return fs.existsSync(absolutePath) ? absolutePath : null;
+  // `/uploads/../...` bilan uploads'dan tashqariga chiqib bo'lmaydi
+  const absolutePath = resolveUploadFilePath(clean, path.resolve(process.cwd(), 'uploads'));
+  return absolutePath && fs.existsSync(absolutePath) ? absolutePath : null;
 };
 
 export function generateInvoicePDF(data: InvoiceData): any {

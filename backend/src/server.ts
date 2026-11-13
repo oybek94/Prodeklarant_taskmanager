@@ -55,7 +55,6 @@ import { blockPrivateUploads, serveSecureUpload } from './middleware/secure-uplo
 import { parseRequestBody } from './middleware/body-limits';
 import OpenAIClient from './ai/openai.client';
 import path from 'path';
-import lmsRouter from './routes/lms';
 import { initializeExchangeRateScheduler } from './services/exchange-rate-scheduler';
 import { initializeProcessScheduler } from './services/process-scheduler';
 import { initCronJobs } from './cron';
@@ -142,6 +141,16 @@ const apiLimiter = rateLimit({
   skip: (req) => req.path.startsWith('/uploads') || req.path.startsWith('/api/uploads'),
 });
 
+// QR orqali ochiq hujjat tekshiruvi (token'siz): bitta IP dan daqiqasiga 30 so'rov.
+// `/q` umumiy apiLimiter ostida emas edi — tokenlarni saralab ko'rishga cheklov yo'q edi.
+const qrLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: process.env.NODE_ENV === 'production' ? 30 : 1000,
+  message: { error: "Juda ko'p so'rov. Bir daqiqadan keyin qayta urinib ko'ring." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // Ochiq endpoint — API xaritasini (endpoint ro'yxatini) oshkor qilmaydi
 app.get('/', (_req, res) => {
   res.json({ message: 'Prodeklarant API' });
@@ -197,7 +206,9 @@ app.use('/api/tasks', requireAuth(), taskAiChecksRouter);
 app.use('/api/send-task-email', requireAuth(), sendTaskEmailRouter);
 app.use('/api/transactions', requireAuth(), auditLog('ACCESS', 'TRANSACTION'), transactionsRouter);
 app.use('/api/kpi', requireAuth(), kpiRouter);
-app.use('/api/users', requireAuth('ADMIN'), auditLog('ACCESS', 'USER'), usersRouter);
+// Router ichidagi har bir yo'l ADMIN ni o'zi talab qiladi; faqat `GET /?selectList=true`
+// (tanlov ro'yxati: id, ism, rol) har qanday xodimga ochiq — ilgari bu yerdagi ADMIN sharti uni ham yopardi.
+app.use('/api/users', requireAuth(), auditLog('ACCESS', 'USER'), usersRouter);
 app.use('/api/dashboard', dashboardRouter);
 app.use('/api/dashboard-notes', dashboardNotesRouter);
 app.use('/api/fumigation-reminders', fumigationRemindersRouter);
@@ -223,8 +234,8 @@ app.use('/api/service-agreements', requireAuth(), serviceAgreementsRouter);
 app.use('/api/tnved-products', requireAuth(), tnvedProductsRouter);
 app.use('/api/contracts', requireAuth(), contractsRouter);
 // Public QR verification endpoint (no authentication required)
-app.use('/q', qrRouter);
-app.use('/api/q', qrRouter);
+app.use('/q', qrLimiter, qrRouter);
+app.use('/api/q', qrLimiter, qrRouter);
 // Sticker PDF generation endpoint (requires authentication)
 app.use('/api/sticker', stickerRouter);
 app.use('/api/process', requireAuth(), processRouter);
@@ -238,9 +249,6 @@ app.use('/api/medals', medalsRouter);
 app.use('/api/seller-kpi', requireAuth(), sellerKpiRouter);
 // Landing uchun jamlangan statistika: JWT emas, SITE_STATS_KEY sarlavhasi (middleware/auth.ts PUBLIC_API_EXACT)
 app.use('/api/public/site-stats', publicSiteStatsRouter);
-
-// LMS endpoints (v1) - stream token issuance and streaming proxy
-app.use('/api/v1', lmsRouter);
 
 // Global error handler
 // Bu yerga faqat kutilmagan (throw qilingan) xatolar tushadi — 5xx matni production'da
@@ -448,7 +456,9 @@ process.on('unhandledRejection', (error) => {
 
 process.on('uncaughtException', (error) => {
   console.error('❌ Uncaught Exception:', error);
-  // Server'ni to'xtatmasdan davom ettiramiz
+  // Ushlanmagan xatodan keyin jarayon holati noma'lum — davom etish xavfli.
+  // Chiqamiz, pm2 toza holatda qayta ishga tushiradi.
+  process.exit(1);
 });
 
 // Graceful shutdown

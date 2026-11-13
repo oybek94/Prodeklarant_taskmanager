@@ -64,7 +64,8 @@ const upload = multer({
   },
   fileFilter: (req, file, cb) => {
     // Allow PDF and JPG files
-    const allowedMimeTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/pjpeg'];
+    // octet-stream: ayrim brauzer/telefonlar turni aniqlay olmaganda shuni yuboradi
+    const allowedMimeTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/pjpeg', 'application/octet-stream'];
     const allowedExtensions = ['.pdf', '.jpg', '.jpeg'];
     const originalNameDecoded = decodeText(file.originalname);
     const fileExtension = path.extname(originalNameDecoded).toLowerCase();
@@ -72,7 +73,8 @@ const upload = multer({
     if (isActiveContentFile(originalNameDecoded, file.mimetype)) {
       return cb(uploadRejectedError(ACTIVE_CONTENT_REJECT_MESSAGE));
     }
-    if (allowedMimeTypes.includes(file.mimetype) || allowedExtensions.includes(fileExtension)) {
+    // Kengaytma HAM, tur HAM mos bo'lishi shart (ilgari bittasi yetarli edi: `.exe` + application/pdf o'tardi)
+    if (allowedExtensions.includes(fileExtension) && allowedMimeTypes.includes(file.mimetype)) {
       cb(null, true);
     } else {
       cb(new Error('Faqat PDF va JPG fayllar qabul qilinadi'));

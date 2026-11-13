@@ -274,28 +274,55 @@ poaPinflInput.addEventListener('input', () => {
 
 // 1-qadamda kiritilgan haydovchi JSHSHIR i 2-qadamda ham kerak. Popup har
 // ochilganda holati yo'qoladi, shuning uchun invoys ID si bo'yicha saqlanadi.
-const driverPinflKey = (invoiceId) => `driverPinfl:${invoiceId}`;
+const DRIVER_PINFL_PREFIX = 'driverPinfl:';
+const driverPinflKey = (invoiceId) => `${DRIVER_PINFL_PREFIX}${invoiceId}`;
+// JSHSHIR shaxsiy ma'lumot — brauzerda cheksiz qolmasin. 1- va 2-qadam orasida
+// shuncha vaqt yetarli; muddati o'tgani o'qilmaydi va popup ochilganda o'chiriladi.
+const DRIVER_PINFL_TTL_MS = 12 * 60 * 60 * 1000;
+
+const isFreshPinflEntry = (entry) =>
+    Boolean(entry) && typeof entry === 'object' && Date.now() - Number(entry.savedAt) < DRIVER_PINFL_TTL_MS;
 
 async function rememberDriverPinfl(invoiceId, pinfl) {
     if (!invoiceId) return;
     try {
-        if (pinfl) await chrome.storage.local.set({ [driverPinflKey(invoiceId)]: pinfl });
+        if (pinfl) await chrome.storage.local.set({ [driverPinflKey(invoiceId)]: { pinfl, savedAt: Date.now() } });
         else await chrome.storage.local.remove(driverPinflKey(invoiceId));
     } catch (err) {
-        console.warn('[AutoFill] Haydovchi JSHSHIR ini saqlab bo\'lmadi:', err);
+        console.warn("[AutoFill] Haydovchi JSHSHIR ini saqlab bo'lmadi:", err);
     }
 }
 
 async function recallDriverPinfl(invoiceId) {
     if (!invoiceId) return '';
     try {
-        const stored = await chrome.storage.local.get(driverPinflKey(invoiceId));
-        return String(stored[driverPinflKey(invoiceId)] || '');
+        const key = driverPinflKey(invoiceId);
+        const entry = (await chrome.storage.local.get(key))[key];
+        if (!isFreshPinflEntry(entry)) {
+            // Muddati o'tgan yoki eski formatdagi (vaqtsiz) yozuv
+            if (entry !== undefined) await chrome.storage.local.remove(key);
+            return '';
+        }
+        return String(entry.pinfl || '');
     } catch (err) {
-        console.warn('[AutoFill] Haydovchi JSHSHIR ini o\'qib bo\'lmadi:', err);
+        console.warn("[AutoFill] Haydovchi JSHSHIR ini o'qib bo'lmadi:", err);
         return '';
     }
 }
+
+// Popup har ochilganda muddati o'tgan (va vaqtsiz eski) JSHSHIR yozuvlarini tozalaydi
+async function purgeStaleDriverPinfls() {
+    try {
+        const all = await chrome.storage.local.get(null);
+        const stale = Object.keys(all).filter(
+            (key) => key.startsWith(DRIVER_PINFL_PREFIX) && !isFreshPinflEntry(all[key]),
+        );
+        if (stale.length) await chrome.storage.local.remove(stale);
+    } catch (err) {
+        console.warn("[AutoFill] Eski JSHSHIR yozuvlarini tozalab bo'lmadi:", err);
+    }
+}
+purgeStaleDriverPinfls();
 
 document.getElementById('poaSkipBtn').addEventListener('click', async () => {
     const statusDiv = document.getElementById('status');

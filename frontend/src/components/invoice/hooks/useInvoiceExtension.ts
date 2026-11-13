@@ -23,6 +23,8 @@ export function useInvoiceExtension(
 ) {
   useEffect(() => {
     const handleExtensionRequest = (event: MessageEvent) => {
+      // Faqat shu sahifaning o'zidan (kengaytma content-script'i) kelgan so'rov — iframe/boshqa oyna emas
+      if (event.source !== window) return;
       if (event.data?.type !== 'PRODEKLARANT_REQUEST_INVOICE') return;
       if (!form || items.length === 0) return;
 

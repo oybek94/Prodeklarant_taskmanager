@@ -45,8 +45,14 @@ export function measureZipInflatedSize(buf: Buffer, limit: number): number {
   if (eocd < 0) throw invalid();
 
   const entryCount = buf.readUInt16LE(eocd + 10);
+  const centralSize = buf.readUInt32LE(eocd + 12);
   let offset = buf.readUInt32LE(eocd + 16);
-  if (entryCount === 0xffff || offset === 0xffffffff || entryCount > ZIP_MAX_ENTRIES) throw invalid();
+  if (entryCount === 0xffff || centralSize === 0xffffffff || offset === 0xffffffff) throw invalid(); // ZIP64
+  if (entryCount > ZIP_MAX_ENTRIES) throw invalid();
+  // Ko'p diskli arxiv emas, va katalog aynan EOCD oldida tugashi shart. Aks holda (fayl boshiga
+  // bayt qo'shilgan bo'lsa) jszip barcha ofsetlarni siljitib, biz tekshirmagan joyni o'qiydi.
+  if (buf.readUInt16LE(eocd + 4) !== 0 || buf.readUInt16LE(eocd + 6) !== 0) throw invalid();
+  if (buf.readUInt16LE(eocd + 8) !== entryCount || offset + centralSize !== eocd) throw invalid();
 
   let total = 0;
   for (let i = 0; i < entryCount; i++) {
@@ -57,6 +63,7 @@ export function measureZipInflatedSize(buf: Buffer, limit: number): number {
     if (compressedSize === 0xffffffff || localOffset === 0xffffffff) throw invalid(); // ZIP64
 
     if (localOffset + 30 > buf.length || buf.readUInt32LE(localOffset) !== ZIP_LOCAL_SIGNATURE) throw invalid();
+    if (buf.readUInt16LE(localOffset + 8) !== method) throw invalid(); // lokal va markaziy sarlavha farq qilmasin
     const dataStart = localOffset + 30 + buf.readUInt16LE(localOffset + 26) + buf.readUInt16LE(localOffset + 28);
     const dataEnd = dataStart + compressedSize;
     if (dataEnd > buf.length) throw invalid();
@@ -78,6 +85,7 @@ export function measureZipInflatedSize(buf: Buffer, limit: number): number {
 
     offset += 46 + buf.readUInt16LE(offset + 28) + buf.readUInt16LE(offset + 30) + buf.readUInt16LE(offset + 32);
   }
+  if (offset !== eocd) throw invalid();
   return total;
 }
 

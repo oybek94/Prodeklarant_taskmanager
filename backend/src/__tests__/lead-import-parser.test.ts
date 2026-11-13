@@ -103,6 +103,18 @@ describe('parseLeadImportFile', () => {
     expect(() => measureZipInflatedSize(buf, 100)).toThrow('juda katta');
   });
 
+  it("fayl boshiga bayt qo'shilgan ZIP rad etiladi (ofset siljishi)", async () => {
+    const buf = await buildXlsx([HEADER, ['Agro']]);
+    const shifted = Buffer.concat([Buffer.from('PK'), Buffer.alloc(64), buf]);
+    await expect(parseLeadImportFile(shifted)).rejects.toBeInstanceOf(LeadImportFormatError);
+  });
+
+  it('lokal va markaziy sarlavhada siqish usuli farq qilsa rad etiladi', async () => {
+    const buf = await buildXlsx([HEADER, ['Agro']]);
+    buf.writeUInt16LE(0, 8); // birinchi lokal sarlavha: deflate -> stored
+    expect(() => measureZipInflatedSize(buf, LEAD_IMPORT_MAX_UNZIPPED_BYTES)).toThrow(LeadImportFormatError);
+  });
+
   it('notanish siqish usuli rad etiladi', async () => {
     const buf = await buildXlsx([HEADER, ['Agro']]);
     const central = buf.indexOf(Buffer.from([0x50, 0x4b, 0x01, 0x02]));

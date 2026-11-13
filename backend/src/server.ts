@@ -143,9 +143,10 @@ const apiLimiter = rateLimit({
 
 // QR orqali ochiq hujjat tekshiruvi (token'siz): bitta IP dan daqiqasiga 30 so'rov.
 // `/q` umumiy apiLimiter ostida emas edi — tokenlarni saralab ko'rishga cheklov yo'q edi.
+// NODE_ENV ga bog'liq emas: prod serverda NODE_ENV=development turibdi.
 const qrLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: process.env.NODE_ENV === 'production' ? 30 : 1000,
+  max: 30,
   message: { error: "Juda ko'p so'rov. Bir daqiqadan keyin qayta urinib ko'ring." },
   standardHeaders: true,
   legacyHeaders: false,

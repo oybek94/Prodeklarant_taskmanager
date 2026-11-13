@@ -1,4 +1,5 @@
 import { Readable } from 'stream';
+import { inflateRawSync } from 'zlib';
 import ExcelJS from 'exceljs';
 
 /** Import faylidan o'qilgan katak: son (Excel sonli katagi) yoki matn. */
@@ -16,15 +17,22 @@ export const LEAD_IMPORT_MAX_UNZIPPED_BYTES = 50 * 1024 * 1024;
 
 const ZIP_EOCD_SIGNATURE = 0x06054b50;
 const ZIP_CENTRAL_SIGNATURE = 0x02014b50;
+const ZIP_LOCAL_SIGNATURE = 0x04034b50;
 const ZIP_EOCD_MIN_SIZE = 22;
 const ZIP_MAX_ENTRIES = 2000;
+const ZIP_METHOD_STORED = 0;
+const ZIP_METHOD_DEFLATE = 8;
 
 /**
- * ZIP markaziy katalogidan e'lon qilingan ochilgan hajmlar yig'indisini o'qiydi (hech narsa ochmasdan).
- * Katalog topilmasa, buzuq yoki ZIP64 bo'lsa — LeadImportFormatError.
+ * ZIP ichidagi har bir yozuvni haqiqatda ochib, chiqqan baytlar yig'indisini qaytaradi.
+ * Sarlavhadagi e'lon qilingan hajmga ISHONILMAYDI (u soxta bo'lishi mumkin): chegaradan
+ * oshgan zahoti ochish to'xtaydi. Yozuvlar exceljs (jszip) o'qiydigan yo'l bilan —
+ * markaziy katalog bo'yicha topiladi, shuning uchun tekshirilgan va o'qiladigan ma'lumot bir xil.
+ * Buzuq, ZIP64 yoki notanish siqish usuli — LeadImportFormatError.
  */
-export function getZipDeclaredUncompressedSize(buf: Buffer): number {
+export function measureZipInflatedSize(buf: Buffer, limit: number): number {
   const invalid = () => new LeadImportFormatError("Excel faylini o'qib bo'lmadi");
+  const tooLarge = () => new LeadImportFormatError('Excel fayli juda katta');
   // EOCD fayl oxirida, undan keyin ko'pi bilan 65535 baytli izoh bo'lishi mumkin
   const searchFloor = Math.max(0, buf.length - ZIP_EOCD_MIN_SIZE - 0xffff);
   let eocd = -1;
@@ -43,9 +51,31 @@ export function getZipDeclaredUncompressedSize(buf: Buffer): number {
   let total = 0;
   for (let i = 0; i < entryCount; i++) {
     if (offset + 46 > buf.length || buf.readUInt32LE(offset) !== ZIP_CENTRAL_SIGNATURE) throw invalid();
-    const uncompressed = buf.readUInt32LE(offset + 24);
-    if (uncompressed === 0xffffffff) throw invalid(); // ZIP64 — import uchun keragi yo'q
-    total += uncompressed;
+    const method = buf.readUInt16LE(offset + 10);
+    const compressedSize = buf.readUInt32LE(offset + 20);
+    const localOffset = buf.readUInt32LE(offset + 42);
+    if (compressedSize === 0xffffffff || localOffset === 0xffffffff) throw invalid(); // ZIP64
+
+    if (localOffset + 30 > buf.length || buf.readUInt32LE(localOffset) !== ZIP_LOCAL_SIGNATURE) throw invalid();
+    const dataStart = localOffset + 30 + buf.readUInt16LE(localOffset + 26) + buf.readUInt16LE(localOffset + 28);
+    const dataEnd = dataStart + compressedSize;
+    if (dataEnd > buf.length) throw invalid();
+
+    if (method === ZIP_METHOD_STORED) {
+      total += compressedSize;
+    } else if (method === ZIP_METHOD_DEFLATE) {
+      try {
+        // maxOutputLength: chegaradan oshsa zlib xotira ajratmasdan xato beradi
+        total += inflateRawSync(buf.subarray(dataStart, dataEnd), { maxOutputLength: limit - total + 1 }).length;
+      } catch (err) {
+        if ((err as NodeJS.ErrnoException).code === 'ERR_BUFFER_TOO_LARGE') throw tooLarge();
+        throw invalid();
+      }
+    } else {
+      throw invalid();
+    }
+    if (total > limit) throw tooLarge();
+
     offset += 46 + buf.readUInt16LE(offset + 28) + buf.readUInt16LE(offset + 30) + buf.readUInt16LE(offset + 32);
   }
   return total;
@@ -112,9 +142,7 @@ export async function parseLeadImportFile(buffer: Buffer): Promise<LeadImportCel
   const workbook = new ExcelJS.Workbook();
 
   if (isZip(buffer)) {
-    if (getZipDeclaredUncompressedSize(buffer) > LEAD_IMPORT_MAX_UNZIPPED_BYTES) {
-      throw new LeadImportFormatError('Excel fayli juda katta');
-    }
+    measureZipInflatedSize(buffer, LEAD_IMPORT_MAX_UNZIPPED_BYTES);
     try {
       // exceljs turlari eski Buffer'ni kutadi; Node 22+ da Buffer generik bo'lgani uchun ArrayBuffer beramiz
       const data = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength) as ArrayBuffer;

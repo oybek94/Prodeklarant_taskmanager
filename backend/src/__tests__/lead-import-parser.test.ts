@@ -4,7 +4,7 @@ import {
   LEAD_IMPORT_MAX_COLS,
   LEAD_IMPORT_MAX_UNZIPPED_BYTES,
   LeadImportFormatError,
-  getZipDeclaredUncompressedSize,
+  measureZipInflatedSize,
   parseLeadImportFile,
 } from '../services/lead-import-parser';
 
@@ -76,19 +76,38 @@ describe('parseLeadImportFile', () => {
     expect(rows[1]).toHaveLength(LEAD_IMPORT_MAX_COLS);
   });
 
-  it("ZIP e'lon qilgan ochilgan hajm haqiqiy faylda o'qiladi", async () => {
+  it("ZIP: haqiqatda ochilgan hajm o'lchanadi", async () => {
     const buf = await buildXlsx([HEADER, ['Agro']]);
-    const size = getZipDeclaredUncompressedSize(buf);
+    const size = measureZipInflatedSize(buf, LEAD_IMPORT_MAX_UNZIPPED_BYTES);
     expect(size).toBeGreaterThan(buf.length / 4);
     expect(size).toBeLessThan(LEAD_IMPORT_MAX_UNZIPPED_BYTES);
   });
 
-  it("zip-bomba: e'lon qilingan hajm chegaradan oshsa, ochmasdan rad etadi", async () => {
+  it('zip-bomba: ochilgan hajm chegaradan oshsa rad etadi', async () => {
+    const big = 'A'.repeat(200_000);
+    const buf = await buildXlsx([HEADER, ...Array.from({ length: 50 }, () => [big])]);
+    const real = measureZipInflatedSize(buf, LEAD_IMPORT_MAX_UNZIPPED_BYTES);
+    expect(real).toBeGreaterThan(buf.length * 20); // kuchli siqilgan
+    expect(() => measureZipInflatedSize(buf, Math.floor(real / 2))).toThrow('juda katta');
+  });
+
+  it("zip-bomba: sarlavhadagi soxta (kichik) hajmga ishonmaydi", async () => {
     const buf = await buildXlsx([HEADER, ['Agro']]);
-    // Birinchi markaziy katalog yozuvining "ochilgan hajm" maydonini 3 GB qilib qo'yamiz
+    const real = measureZipInflatedSize(buf, LEAD_IMPORT_MAX_UNZIPPED_BYTES);
+    // Barcha markaziy katalog yozuvlarida "ochilgan hajm"ni 1 bayt deb yozamiz
+    const signature = Buffer.from([0x50, 0x4b, 0x01, 0x02]);
+    for (let at = buf.indexOf(signature); at !== -1; at = buf.indexOf(signature, at + 4)) {
+      buf.writeUInt32LE(1, at + 24);
+    }
+    expect(measureZipInflatedSize(buf, LEAD_IMPORT_MAX_UNZIPPED_BYTES)).toBe(real);
+    expect(() => measureZipInflatedSize(buf, 100)).toThrow('juda katta');
+  });
+
+  it('notanish siqish usuli rad etiladi', async () => {
+    const buf = await buildXlsx([HEADER, ['Agro']]);
     const central = buf.indexOf(Buffer.from([0x50, 0x4b, 0x01, 0x02]));
-    buf.writeUInt32LE(3_000_000_000, central + 24);
-    await expect(parseLeadImportFile(buf)).rejects.toThrow('juda katta');
+    buf.writeUInt16LE(14, central + 10); // LZMA
+    await expect(parseLeadImportFile(buf)).rejects.toBeInstanceOf(LeadImportFormatError);
   });
 
   it('prototipni ifloslantirmaydi (__proto__ sarlavhali ustun)', async () => {

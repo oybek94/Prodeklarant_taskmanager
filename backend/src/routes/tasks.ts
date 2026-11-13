@@ -20,6 +20,7 @@ import {
 import { TaskRepository, tashkentDayRange } from '../repositories/task.repository';
 import { taskStatsPeriods } from '../services/task-stats-periods';
 import { TaskService } from '../services/task.service';
+import { deleteTask, TaskDeleteError } from '../services/task-delete.service';
 
 const taskRepo = new TaskRepository();
 const taskService = new TaskService(taskRepo);
@@ -476,46 +477,14 @@ router.delete('/:id', requireAuth(), async (req: AuthRequest, res) => {
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
-  const task = await prisma.task.findUnique({ 
-    where: { id },
-    include: {
-      stages: {
-        select: {
-          status: true,
-        },
-      },
-    },
-  });
-  if (!task) return res.status(404).json({ error: 'Task not found' });
-
-  // RBAC: Faqat ADMIN yoki task yaratuvchisi o'chirishi mumkin
-  if (user.role !== 'ADMIN' && task.createdById !== user.id) {
-    return res.status(403).json({ error: 'Ruxsat yo\'q — faqat admin yoki task yaratuvchisi o\'chirishi mumkin' });
+  try {
+    await deleteTask(id, user);
+  } catch (error) {
+    if (error instanceof TaskDeleteError) {
+      return res.status(error.status).json({ error: error.message });
+    }
+    throw error;
   }
-
-  // Agar task Jarayonda bo'lsa, o'chirish mumkin emas
-  if (task.status === 'JARAYONDA') {
-    return res.status(400).json({ 
-      error: 'Jarayonda bo\'lgan taskni o\'chirish mumkin emas' 
-    });
-  }
-
-  // Faqat barcha jarayonlar BOSHLANMAGAN bo'lsa, o'chirish mumkin
-  const hasStartedStages = task.stages.some(stage => stage.status !== 'BOSHLANMAGAN');
-  if (hasStartedStages) {
-    return res.status(400).json({ 
-      error: 'Taskni o\'chirish uchun barcha jarayonlar boshlanmagan (BOSHLANMAGAN) bo\'lishi kerak' 
-    });
-  }
-
-  await prisma.$transaction(async (tx) => {
-    await (tx as any).taskError.deleteMany({ where: { taskId: id } });
-    await (tx as any).taskStage.deleteMany({ where: { taskId: id } });
-    await (tx as any).kpiLog.deleteMany({ where: { taskId: id } });
-    await (tx as any).transaction.deleteMany({ where: { taskId: id } });
-    await (tx as any).taskDocument.deleteMany({ where: { taskId: id } });
-    await (tx as any).task.delete({ where: { id } });
-  });
 
   res.status(204).send();
   // Real-time: task o'chirilishi haqida xabar berish

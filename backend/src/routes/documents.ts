@@ -7,6 +7,15 @@ import path from 'path';
 import fs from 'fs';
 import archiver from 'archiver';
 import { isActiveContentFile, uploadRejectedError, ACTIVE_CONTENT_REJECT_MESSAGE } from '../utils/upload-guard';
+import { z } from 'zod';
+import { socketEmitter } from '../services/socketEmitter';
+import { deleteDocument, DocumentDeleteError } from '../services/document-delete.service';
+
+const deleteDocumentParamsSchema = z.object({
+  // Faqat kanonik musbat butun son — "12abc" yoki "1e3" kabi qiymatlar rad etiladi
+  id: z.string().regex(/^[1-9]\d*$/).transform(Number),
+  source: z.enum(['task', 'archive']).default('task'),
+});
 
 const router = express.Router();
 
@@ -227,7 +236,6 @@ router.post('/task/:taskId', requireAuth(), upload.array('files'), async (req: A
       documents.push(document);
     }
     
-    const { socketEmitter } = require('../services/socketEmitter');
     socketEmitter.broadcast('taskDocument:created', { taskId: taskId });
 
     res.json(documents);
@@ -378,187 +386,24 @@ router.post('/archive/task/:taskId', requireAuth('ADMIN'), upload.array('files')
   }
 });
 
-// Task hujjatini o'chirish
+// Hujjatni o'chirish. Standart — vazifa hujjati; arxiv hujjati faqat `?source=archive` bilan
+// (ikki jadvalning ID lari mustaqil — avval topilmagan vazifa hujjati o'rniga arxivdagisi o'chardi).
 router.delete('/:id', requireAuth(), async (req: AuthRequest, res) => {
+  const parsed = deleteDocumentParamsSchema.safeParse({ id: req.params.id, source: req.query.source });
+  if (!parsed.success) {
+    return res.status(400).json({ error: "Noto'g'ri so'rov" });
+  }
+
   try {
-    const id = parseInt(req.params.id);
-    console.log(`[DELETE /documents/${id}] Starting deletion process`);
-
-    // Avval TaskDocument'da qidiramiz
-    let document: any = null;
-    try {
-      // Use raw SQL query to avoid documentType and updatedAt column issues
-      // Only select columns that definitely exist in the database
-      const result = await prisma.$queryRaw<Array<{id: number, taskId: number, name: string, fileUrl: string, fileType: string, fileSize: number | null, description: string | null, uploadedById: number, createdAt: Date}>>`
-        SELECT id, "taskId", name, "fileUrl", "fileType", "fileSize", description, "uploadedById", "createdAt"
-        FROM "TaskDocument"
-        WHERE id = ${id}
-        LIMIT 1
-      `;
-      document = result[0] || null;
-    } catch (findError: any) {
-      console.error(`[DELETE /documents/${id}] Error finding TaskDocument:`, findError);
-      // Continue to check ArchiveDocument
-    }
-
-    let isArchive = false;
-
-    // Agar TaskDocument'da topilmasa, ArchiveDocument'da qidiramiz
-    if (!document) {
-      try {
-        document = await prisma.archiveDocument.findUnique({
-          where: { id },
-        }) as any;
-        isArchive = true;
-      } catch (archiveError: any) {
-        console.error(`[DELETE /documents/${id}] Error finding ArchiveDocument:`, archiveError);
-      }
-    }
-
-    if (!document) {
-      console.log(`[DELETE /documents/${id}] Document not found`);
-      return res.status(404).json({ error: 'Hujjat topilmadi' });
-    }
-
-    console.log(`[DELETE /documents/${id}] Document found, isArchive: ${isArchive}`);
-
-    // Faqat yuklagan odam yoki admin o'chira oladi
-    if (document.uploadedById !== req.user!.id && req.user!.role !== 'ADMIN') {
-      console.log(`[DELETE /documents/${id}] Access denied - not owner and not admin`);
-      return res.status(403).json({ error: 'Ruxsat yo\'q' });
-    }
-
-    // Admin'dan boshqa foydalanuvchilar 2 kungacha o'chira oladi (2 kundan keyin o'chirish mumkin emas)
-    if (req.user!.role !== 'ADMIN' && document.uploadedById === req.user!.id) {
-      const uploadTime = new Date(document.createdAt || (document as any).archivedAt);
-      const now = new Date();
-      const diffInMs = now.getTime() - uploadTime.getTime();
-      const diffInDays = diffInMs / (1000 * 60 * 60 * 24);
-      
-      if (diffInDays > 2) {
-        console.log(`[DELETE /documents/${id}] Too late to delete (${diffInDays.toFixed(2)} days passed)`);
-        return res.status(403).json({ 
-          error: 'Hujjatni 2 kundan keyin o\'chirish mumkin emas' 
-        });
-      }
-    }
-
-    // Faylni o'chirish
-    if (document.fileUrl) {
-      const filePath = path.join(__dirname, '../../', document.fileUrl);
-      console.log(`[DELETE /documents/${id}] Attempting to delete file: ${filePath}`);
-      if (fs.existsSync(filePath)) {
-        try {
-          fs.unlinkSync(filePath);
-          console.log(`[DELETE /documents/${id}] File deleted successfully`);
-        } catch (fileError) {
-          console.warn(`[DELETE /documents/${id}] Error deleting file from filesystem:`, fileError);
-          // Continue even if file deletion fails
-        }
-      } else {
-        console.log(`[DELETE /documents/${id}] File not found at path: ${filePath}`);
-      }
-    }
-
-    if (isArchive) {
-      console.log(`[DELETE /documents/${id}] Deleting ArchiveDocument`);
-      await prisma.archiveDocument.delete({
-        where: { id },
-      });
-      console.log(`[DELETE /documents/${id}] ArchiveDocument deleted successfully`);
-    } else {
-      console.log(`[DELETE /documents/${id}] Deleting TaskDocument and related records`);
-      
-      // TaskDocument'ni o'chirishdan oldin, bog'liq jadvallarni o'chirish
-      // (Cascade delete ishlamasa, manual o'chirish)
-      
-      // DocumentMetadata'ni o'chirish (agar mavjud bo'lsa)
-      // Prisma client'da model mavjudligini tekshirish
-      if ('documentMetadata' in prisma && typeof (prisma as any).documentMetadata !== 'undefined') {
-        try {
-          const metaResult = await (prisma as any).documentMetadata.deleteMany({
-            where: { taskDocumentId: id },
-          });
-          console.log(`[DELETE /documents/${id}] Deleted ${metaResult.count} DocumentMetadata records`);
-        } catch (metaError: any) {
-          // Agar jadval mavjud bo'lmasa, e'tiborsiz qoldirish
-          const isTableMissing = 
-            metaError?.code === 'P2021' || 
-            metaError?.code === 'P2010' ||
-            metaError?.code === 'P2003' ||
-            metaError?.message?.includes('does not exist') ||
-            metaError?.message?.includes('не существует') ||
-            metaError?.message?.includes('Unknown arg') ||
-            metaError?.message?.includes('Unknown model');
-          
-          if (isTableMissing) {
-            console.log(`[DELETE /documents/${id}] DocumentMetadata table/model does not exist, skipping`);
-          } else {
-            console.warn(`[DELETE /documents/${id}] Error deleting DocumentMetadata:`, metaError);
-          }
-        }
-      } else {
-        console.log(`[DELETE /documents/${id}] DocumentMetadata model not available in Prisma client, skipping`);
-      }
-
-      // StructuredDocument'ni o'chirish (agar mavjud bo'lsa)
-      // Prisma client'da model mavjudligini tekshirish
-      if ('structuredDocument' in prisma && typeof (prisma as any).structuredDocument !== 'undefined') {
-        try {
-          const structResult = await (prisma as any).structuredDocument.deleteMany({
-            where: { taskDocumentId: id },
-          });
-          console.log(`[DELETE /documents/${id}] Deleted ${structResult.count} StructuredDocument records`);
-        } catch (structError: any) {
-          // Agar jadval mavjud bo'lmasa, e'tiborsiz qoldirish
-          const isTableMissing = 
-            structError?.code === 'P2021' || 
-            structError?.code === 'P2010' ||
-            structError?.code === 'P2003' ||
-            structError?.message?.includes('does not exist') ||
-            structError?.message?.includes('не существует') ||
-            structError?.message?.includes('Unknown arg') ||
-            structError?.message?.includes('Unknown model');
-          
-          if (isTableMissing) {
-            console.log(`[DELETE /documents/${id}] StructuredDocument table/model does not exist, skipping`);
-          } else {
-            console.warn(`[DELETE /documents/${id}] Error deleting StructuredDocument:`, structError);
-          }
-        }
-      } else {
-        console.log(`[DELETE /documents/${id}] StructuredDocument model not available in Prisma client, skipping`);
-      }
-
-      // TaskDocument'ni o'chirish
-      try {
-        await prisma.taskDocument.delete({
-          where: { id },
-        });
-        console.log(`[DELETE /documents/${id}] TaskDocument deleted successfully`);
-      } catch (deleteError: any) {
-        console.error(`[DELETE /documents/${id}] Error deleting TaskDocument:`, deleteError);
-        throw deleteError;
-      }
-    }
-
-    console.log(`[DELETE /documents/${id}] Deletion completed successfully`);
-    const { socketEmitter } = require('../services/socketEmitter');
-    if (document && document.taskId) {
-      socketEmitter.broadcast('taskDocument:deleted', { taskId: document.taskId });
-    }
+    const { taskId } = await deleteDocument(parsed.data.id, req.user!, parsed.data.source);
+    socketEmitter.broadcast('taskDocument:deleted', { taskId });
     res.json({ success: true });
   } catch (error) {
-    console.error(`[DELETE /documents/${req.params.id}] Error deleting document:`, error);
-    const errorMessage = error instanceof Error ? error.message : 'Internal server error';
-    const errorStack = error instanceof Error ? error.stack : undefined;
-    console.error(`[DELETE /documents/${req.params.id}] Error stack:`, errorStack);
-    if (!res.headersSent) {
-      res.status(500).json({ 
-        error: 'Internal server error',
-        details: process.env.NODE_ENV === 'development' ? errorMessage : undefined
-      });
+    if (error instanceof DocumentDeleteError) {
+      return res.status(error.status).json({ error: error.message });
     }
+    console.error(`[DELETE /documents/${parsed.data.id}] Error deleting document:`, error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 

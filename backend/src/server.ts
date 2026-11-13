@@ -15,6 +15,7 @@ import tasksRouter from './routes/tasks';
 import transactionsRouter from './routes/transactions';
 import kpiRouter from './routes/kpi';
 import usersRouter from './routes/users';
+import { usersAccessGuard } from './middleware/users-access';
 import dashboardRouter from './routes/dashboard';
 import dashboardNotesRouter from './routes/dashboard-notes';
 import fumigationRemindersRouter from './routes/fumigation-reminders';
@@ -207,9 +208,9 @@ app.use('/api/tasks', requireAuth(), taskAiChecksRouter);
 app.use('/api/send-task-email', requireAuth(), sendTaskEmailRouter);
 app.use('/api/transactions', requireAuth(), auditLog('ACCESS', 'TRANSACTION'), transactionsRouter);
 app.use('/api/kpi', requireAuth(), kpiRouter);
-// Router ichidagi har bir yo'l ADMIN ni o'zi talab qiladi; faqat `GET /?selectList=true`
-// (tanlov ro'yxati: id, ism, rol) har qanday xodimga ochiq — ilgari bu yerdagi ADMIN sharti uni ham yopardi.
-app.use('/api/users', requireAuth(), auditLog('ACCESS', 'USER'), usersRouter);
+// Butun router ADMIN ostida; yagona istisno — `GET /?selectList=true` (tanlov ro'yxati: id, ism, rol),
+// u har qanday xodimga ochiq. Yangi yo'l qo'shilsa sukut bo'yicha ADMIN talab qilinadi.
+app.use('/api/users', usersAccessGuard, auditLog('ACCESS', 'USER'), usersRouter);
 app.use('/api/dashboard', dashboardRouter);
 app.use('/api/dashboard-notes', dashboardNotesRouter);
 app.use('/api/fumigation-reminders', fumigationRemindersRouter);

@@ -3,7 +3,7 @@ import { notify, getAdminUserIds } from '../services/notificationService';
 import { prisma } from '../prisma';
 import { AuthRequest } from '../middleware/auth';
 import multer from 'multer';
-import * as XLSX from 'xlsx';
+import { LeadImportFormatError, parseLeadImportFile } from '../services/lead-import-parser';
 import { socketEmitter } from '../services/socketEmitter';
 
 const router = Router();
@@ -689,11 +689,8 @@ router.post('/import', upload.single('file'), async (req: AuthRequest, res: Resp
     try {
         if (!req.file) return res.status(400).json({ error: 'Fayl yuklanmadi' });
 
-        const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
-        const sheet = workbook.Sheets[workbook.SheetNames[0]];
-
-        // Use raw array to handle duplicate columns like "Viloyat"
-        const rows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+        // Qatorlar massiv ko'rinishida — "Viloyat" kabi takror ustunlar tartib bo'yicha o'qiladi
+        const rows = await parseLeadImportFile(req.file.buffer);
 
         if (rows.length < 2) return res.status(400).json({ error: 'Faylda ma\'lumot yo\'q' });
 
@@ -744,6 +741,9 @@ router.post('/import', upload.single('file'), async (req: AuthRequest, res: Resp
 
         res.json({ imported: created.length, leads: created });
     } catch (err: any) {
+        if (err instanceof LeadImportFormatError) {
+            return res.status(400).json({ error: err.message });
+        }
         res.status(500).json({ error: err.message });
     }
 });

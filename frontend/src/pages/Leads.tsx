@@ -435,7 +435,7 @@ export default function Leads() {
                     <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">Potensial eksportyor mijozlar</p>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
-                    <input ref={importRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleImport} />
+                    <input ref={importRef} type="file" accept=".xlsx,.csv" className="hidden" onChange={handleImport} />
                     {selectedLeads.length > 0 && (
                         <button
                             onClick={handleBulkDelete}

@@ -106,28 +106,34 @@ export const useInvoiceReport = (
         activeColumns = ['invoiceDate', ...activeColumns.filter((c) => c !== 'invoiceDate')];
       }
 
-      const excelData = rows.map((row) => {
-        const obj: Record<string, string | number> = {};
-        for (const key of activeColumns) {
-          const label = INVOICE_REPORT_COLUMNS[key];
-          if (key === 'totalAmount') {
-            obj[label] = row.totalAmount ? Number(row.totalAmount) : 0;
-          } else if (key === 'invoiceDate') {
-            obj[label] = row.invoiceDate ? formatDateOnly(row.invoiceDate) : '';
-          } else {
-            obj[label] = row[key] || '';
-          }
-        }
-        return obj;
+      const { default: ExcelJS } = await import('exceljs');
+      const wb = new ExcelJS.Workbook();
+      const ws = wb.addWorksheet('Hisobot');
+      ws.columns = activeColumns.map((key) => ({
+        header: INVOICE_REPORT_COLUMNS[key],
+        width: COLUMN_WIDTHS[key] ?? 20,
+      }));
+      for (const row of rows) {
+        ws.addRow(
+          activeColumns.map((key): string | number => {
+            if (key === 'totalAmount') return row.totalAmount ? Number(row.totalAmount) : 0;
+            if (key === 'invoiceDate') return row.invoiceDate ? formatDateOnly(row.invoiceDate) : '';
+            return row[key] || '';
+          }),
+        );
+      }
+
+      const blob = new Blob([await wb.xlsx.writeBuffer()], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       });
-
-      const XLSX = await import('xlsx');
-      const ws = XLSX.utils.json_to_sheet(excelData);
-      ws['!cols'] = activeColumns.map((key) => ({ wch: COLUMN_WIDTHS[key] ?? 20 }));
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'Hisobot');
-
-      XLSX.writeFile(wb, buildReportFilename(filters, branches, clients));
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = buildReportFilename(filters, branches, clients);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
       toast.success(`Hisobot yuklab olindi (${rows.length} ta yozuv)`);
     } catch (error: unknown) {
       console.error('Error generating invoice report:', error);

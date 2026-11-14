@@ -9,7 +9,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node .claude/hooks/block-secrets.mjs",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/block-secrets.mjs\"",
             "timeout": 15,
             "statusMessage": "Secret tekshiruvi..."
           }
@@ -22,7 +22,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node .claude/hooks/typecheck.mjs",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/typecheck.mjs\"",
             "asyncRewake": true,
             "timeout": 120,
             "statusMessage": "Type-check...",

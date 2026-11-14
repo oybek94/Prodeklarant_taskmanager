@@ -54,6 +54,7 @@ import { requestTiming } from './middleware/request-timing';
 import { sanitizeErrorResponses, GENERIC_ERROR_MESSAGE } from './middleware/sanitize-errors';
 import { blockPrivateUploads, serveSecureUpload } from './middleware/secure-uploads';
 import { parseRequestBody } from './middleware/body-limits';
+import { createRateLimiters } from './middleware/rate-limits';
 import OpenAIClient from './ai/openai.client';
 import path from 'path';
 import { initializeExchangeRateScheduler } from './services/exchange-rate-scheduler';
@@ -122,29 +123,12 @@ app.use('/uploads', requireAuth(), blockPrivateUploads(uploadsRootDir), express.
 app.get('/api/secure-uploads/*path', requireAuth(), serveSecureUpload(uploadsRootDir));
 
 
-// Rate limiting — brute force va DDoS dan himoya
-// Login uchun: 15 daqiqada max 10 urinish (production da)
-const loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 daqiqa
-  max: process.env.NODE_ENV === 'production' ? 10 : 1000,
-  message: { error: 'Juda ko\'p urinish. 15 daqiqadan keyin qayta urinib ko\'ring.' },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
-// Umumiy API: 1 daqiqada max 200 so\'rov (production da)
-const apiLimiter = rateLimit({
-  windowMs: 60 * 1000, // 1 daqiqa
-  max: process.env.NODE_ENV === 'production' ? 200 : 3000,
-  message: { error: 'Juda ko\'p so\'rov. Bir daqiqadan keyin qayta urinib ko\'ring.' },
-  standardHeaders: true,
-  legacyHeaders: false,
-  skip: (req) => req.path.startsWith('/uploads') || req.path.startsWith('/api/uploads'),
-});
+// Rate limiting — brute force va DDoS dan himoya (chegaralar va kalitlar: middleware/rate-limits.ts)
+const { apiIpBackstop, apiLimiter, loginLimiter } = createRateLimiters();
 
 // QR orqali ochiq hujjat tekshiruvi (token'siz): bitta IP dan daqiqasiga 30 so'rov.
 // `/q` umumiy apiLimiter ostida emas edi — tokenlarni saralab ko'rishga cheklov yo'q edi.
-// NODE_ENV ga bog'liq emas: prod serverda NODE_ENV=development turibdi.
+// NODE_ENV ga bog'liq emas.
 const qrLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 30,
@@ -188,9 +172,10 @@ app.get(['/health/db', '/api/health/db'], async (_req, res) => {
 // Rate limiting qo'llash
 app.use('/api/auth/login', loginLimiter);         // Login uchun qat'iy limit
 app.use('/api/portal/auth/login', loginLimiter);  // Mijoz portali login
-app.use('/api', apiLimiter);                      // Barcha API uchun umumiy limit
+app.use('/api', apiIpBackstop);                   // IP bo'yicha keng zaxira chegara (token tekshiruvidan oldin)
 // Sukut bo'yicha yopiq: /api ostida token talab qilinadi (ochiq yo'llar — middleware/auth.ts PUBLIC_API)
 app.use('/api', authenticateApi);
+app.use('/api', apiLimiter);                      // Xodim/mijoz o'z hisobi bo'yicha; token'siz — IP bo'yicha
 // Tana hajmi chegarasi: token'siz so'rovga kichik, xodimga kattaroq (req.user ga qarab)
 app.use(parseRequestBody());
 

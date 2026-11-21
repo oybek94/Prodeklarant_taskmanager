@@ -1407,6 +1407,18 @@ async function karantinFillFumigationAct(card, index, actNumber, actDate, vehicl
     return null;
 }
 
+// Akt kiritilmaganda "Transport raqami" ni invoysdagi mashina raqamidan yozadi.
+// Maydon yo'q yoki faqat o'qish uchun bo'lsa (sayt o'zi to'ldiradi) — jim o'tadi.
+function karantinFillTransportNumber(card, index, vehicleNumber) {
+    const prefix = `#${index + 1} mahsulot`;
+    const input = card.querySelector(`[name="products.${index}.transport_number"]`);
+    if (!input || input.readOnly || input.disabled) return null;
+    const plate = toSingleLine(vehicleNumber || '').trim();
+    if (!plate) return `${prefix}: transport raqami invoysda yo'q`;
+    karantinSetInput(input, plate);
+    return null;
+}
+
 // "Mahsulot" maydoni oddiy input emas — bosilganda TIF TN bo'yicha qidiriladigan
 // jadvalli oyna ochiladi, mahsulot o'sha jadvaldan tanlanadi.
 async function karantinPickProduct(card, tnved, name) {
@@ -1687,12 +1699,21 @@ async function fillKarantinIchkiFss(data) {
             );
             if (levelError) { warnings.push(levelError); continue; }
 
-            // Transport raqami endi qo'lda yozilmaydi: u fumigatsiya aktidan olinadi
+            // Fumigatsiya akti majburiy emas (sayt 2026-11 da majburiyatni olib tashladi).
+            // Akt kiritilgan bo'lsa — transport raqami undan olinadi; aks holda
+            // (yoki akt maydoni chizilmasa) transport raqami invoysdan yoziladi.
+            let actDone = false;
             if (actNumber && actDate) {
-                push(await karantinFillFumigationAct(card, index, actNumber, actDate, data.vehicleNumber));
-            } else {
-                warnings.push(`#${index + 1} mahsulot: fumigatsiya akti raqami/sanasi kiritilmagan`);
+                const hasActField = await waitUntil(
+                    () => card.querySelector(`[name="products.${index}.transport_fumigation_number"]`), 1500);
+                if (hasActField) {
+                    push(await karantinFillFumigationAct(card, index, actNumber, actDate, data.vehicleNumber));
+                    actDone = true;
+                } else {
+                    warnings.push(`#${index + 1} mahsulot: akt maydoni sayt formasida yo'q — akt o'tkazib yuborildi`);
+                }
             }
+            if (!actDone) push(karantinFillTransportNumber(card, index, data.vehicleNumber));
 
             if (data.EXPPN_REGN_TP_NM) {
                 push(await karantinPickOption('Mahsulot yetishtirilgan tuman', data.EXPPN_REGN_TP_NM, { root: card }));

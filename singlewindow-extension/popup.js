@@ -180,64 +180,13 @@ document.getElementById('fillSt1Btn').addEventListener('click', async () => {
     sendToContentScript("fill_st1_form", mockData, statusDiv);
 });
 
-// Ichki FSS: fumigatsiya akti invoysda yo'q, shuning uchun avval akt raqami va
-// sanasi qo'lda kiritiladi; to'ldirgich faqat "Saqlash" bosilgandan keyin ishlaydi
-const actPanel = document.getElementById('actPanel');
-const actNumberInput = document.getElementById('actNumber');
-const actDateInput = document.getElementById('actDate');
-
-function localIsoDate() {
-    const now = new Date();
-    const mm = String(now.getMonth() + 1).padStart(2, '0');
-    const dd = String(now.getDate()).padStart(2, '0');
-    return `${now.getFullYear()}-${mm}-${dd}`;
-}
-
-function toggleActPanel(open) {
-    actPanel.hidden = !open;
-    document.getElementById('here').hidden = open;
-}
-
-document.getElementById('fillKarantinBtn').addEventListener('click', () => {
-    setStatus(document.getElementById('status'), '');
-    actDateInput.max = localIsoDate();
-    // Akt odatda shu kuni olinadi, lekin har safar tekshirib chiqilsin deb raqam bo'sh turadi
-    if (!actDateInput.value) actDateInput.value = localIsoDate();
-    toggleActPanel(true);
-    actNumberInput.focus();
-});
-
-document.getElementById('actCancelBtn').addEventListener('click', () => toggleActPanel(false));
-
-actNumberInput.addEventListener('input', () => {
-    actNumberInput.value = actNumberInput.value.replace(/\D/g, '');
-});
-
-actPanel.addEventListener('submit', async (event) => {
-    event.preventDefault();
+// Ichki FSS: fumigatsiya akti majburiyligi bekor qilingan (2026-11) — akt so'ralmaydi,
+// forma to'g'ridan-to'g'ri to'ldiriladi. Transport raqami invoysdan yoziladi.
+document.getElementById('fillKarantinBtn').addEventListener('click', async () => {
     const statusDiv = document.getElementById('status');
-    const actNumber = actNumberInput.value.replace(/\D/g, '');
-    const actDate = actDateInput.value; // YYYY-MM-DD
-
-    if (!/^\d{11}$/.test(actNumber)) {
-        setStatus(statusDiv, "Akt raqami 11 ta raqamdan iborat bo'lishi kerak.", 'error');
-        actNumberInput.focus();
-        return;
-    }
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(actDate)) {
-        setStatus(statusDiv, "Akt sanasini kiriting.", 'error');
-        actDateInput.focus();
-        return;
-    }
-
     const mockData = await getProdeklarantData(statusDiv);
     if (!mockData) return;
-    toggleActPanel(false);
-    sendToContentScript("fill_karantin_fss", {
-        ...mockData,
-        fumigationActNumber: actNumber,
-        fumigationActDate: actDate,
-    }, statusDiv);
+    sendToContentScript("fill_karantin_fss", mockData, statusDiv);
 });
 
 // Fumigatsiya arizasidagi maydonlar butunlay doimiy qiymatlardan iborat, lekin

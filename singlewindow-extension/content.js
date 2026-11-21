@@ -1056,7 +1056,6 @@ const KARANTIN_DEFAULTS = {
     destinationRegion: ["Farg`ona viloyati", "Farg'ona viloyati", "Fargona viloyati"],
     customsPost: ["Водий TIF", "Водий ТИФ", "Vodiy TIF"],
     packagingType: "Oddiy qadoq",
-    // "Avto" tanlanmaguncha mahsulot kartasida fumigatsiya akti maydonlari chizilmaydi
     transportType: "Avto",
     productSource: "Yetishtirilgan hudud asosida",
     productLevel: "Tuman darajasida",
@@ -1359,60 +1358,14 @@ async function karantinSetDate(labelText, isoDate, root) {
     return isSet() ? null : `${labelText}: sana yozilmadi`;
 }
 
-// Mahsulot kartasidagi "Fumigatsiya akti raqami" + "Akt sanasi" ni yozib, qidiruv
-// tugmasini bosadi. Sayt aktni tekshirgach "Transport raqami" ni (faqat o'qish
-// uchun maydon) o'zi to'ldiradi — shuning uchun mashina raqami qo'lda yozilmaydi.
-async function karantinFillFumigationAct(card, index, actNumber, actDate, vehicleNumber) {
+// "Transport raqami" ni invoysdagi mashina raqamidan yozadi (akt endi talab qilinmaydi).
+// Maydon topilmasa yoki faqat o'qish uchun bo'lsa — foydalanuvchi qo'lda to'ldirishi kerak.
+async function karantinFillTransportNumber(card, index, vehicleNumber) {
     const prefix = `#${index + 1} mahsulot`;
-    const numberName = `products.${index}.transport_fumigation_number`;
-    const numberInput = () => card.querySelector(`[name="${numberName}"]`);
-
-    if (!(await waitUntil(numberInput, 1500))) {
-        return `${prefix}: fumigatsiya akti maydoni topilmadi (Transport turi "${KARANTIN_DEFAULTS.transportType}" tanlanganmi?)`;
-    }
-    karantinSetInput(numberInput(), actNumber);
-
-    const dateError = await karantinSetDate('Akt sanasi', actDate, card);
-    if (dateError) return `${prefix}: ${dateError}`;
-    // Sana tanlanganda React kartani qayta chizib, raqamni tozalab yuborishi mumkin
-    if (numberInput() && numberInput().value !== actNumber) karantinSetInput(numberInput(), actNumber);
-
-    // Qidiruv tugmasi raqam va sana ikkalasi to'lmaguncha o'chiq turadi
-    const wrap = karantinWrap('Akt sanasi', card);
-    const searchBtn = () => wrap && wrap.querySelector('button');
-    if (!(await waitUntil(() => searchBtn() && !searchBtn().disabled, 1500))) {
-        return `${prefix}: akt qidiruv tugmasi faollashmadi`;
-    }
-    searchBtn().click();
-
-    const transportInput = () => card.querySelector(`[name="products.${index}.transport_number"]`);
-    // "… raqamli fumigatsiya akti topilmadi…" va "Bu aktni ishlatib bo'lmaydi"
-    const failureText = () => (card.innerText.match(/[^\n]*(?:topilmadi|ishlatib bo.lmaydi)[^\n]*/i) || [])[0];
-    const outcome = await waitUntil(() => {
-        const found = transportInput();
-        if (found && found.value) return 'ok';
-        return failureText() ? 'fail' : null;
-    }, 10000, 100);
-
-    if (outcome === 'fail') return `${prefix}: ${failureText().trim()}`;
-    if (!outcome) return `${prefix}: akt tekshiruvidan javob kelmadi`;
-
-    // Saytdagi raqam aktdan keladi; invoysdagi bilan farq qilsa foydalanuvchi bilsin
-    const plate = (value) => String(value || '').toUpperCase().replace(/[^A-ZА-Я0-9]/g, '');
-    const fromAct = plate(transportInput().value);
-    const fromInvoice = plate(vehicleNumber);
-    if (fromAct && fromInvoice && !fromInvoice.includes(fromAct) && !fromAct.includes(fromInvoice)) {
-        return `${prefix}: aktdagi transport raqami (${transportInput().value}) invoysdagidan (${toSingleLine(vehicleNumber)}) farq qiladi`;
-    }
-    return null;
-}
-
-// Akt kiritilmaganda "Transport raqami" ni invoysdagi mashina raqamidan yozadi.
-// Maydon yo'q yoki faqat o'qish uchun bo'lsa (sayt o'zi to'ldiradi) — jim o'tadi.
-function karantinFillTransportNumber(card, index, vehicleNumber) {
-    const prefix = `#${index + 1} mahsulot`;
-    const input = card.querySelector(`[name="products.${index}.transport_number"]`);
-    if (!input || input.readOnly || input.disabled) return null;
+    const name = `products.${index}.transport_number`;
+    const input = await waitUntil(() => card.querySelector(`[name="${name}"]`), 1500);
+    if (!input) return `${prefix}: transport raqami maydoni topilmadi — qo'lda kiriting`;
+    if (input.readOnly || input.disabled) return `${prefix}: transport raqami maydoni yopiq — qo'lda kiriting`;
     const plate = toSingleLine(vehicleNumber || '').trim();
     if (!plate) return `${prefix}: transport raqami invoysda yo'q`;
     karantinSetInput(input, plate);
@@ -1665,9 +1618,6 @@ async function fillKarantinIchkiFss(data) {
     }
 
     // 4. Mahsulot(lar)
-    // Fumigatsiya akti invoysda yo'q — foydalanuvchi popup'da qo'lda kiritadi
-    const actNumber = String(data.fumigationActNumber || '').replace(/\D/g, '');
-    const actDate = String(data.fumigationActDate || '');
     const items = karantinGroupItems(data.items);
     if (items.length === 0) {
         warnings.push("Invoysda mahsulot qatori yo'q");
@@ -1699,21 +1649,8 @@ async function fillKarantinIchkiFss(data) {
             );
             if (levelError) { warnings.push(levelError); continue; }
 
-            // Fumigatsiya akti majburiy emas (sayt 2026-11 da majburiyatni olib tashladi).
-            // Akt kiritilgan bo'lsa — transport raqami undan olinadi; aks holda
-            // (yoki akt maydoni chizilmasa) transport raqami invoysdan yoziladi.
-            let actDone = false;
-            if (actNumber && actDate) {
-                const hasActField = await waitUntil(
-                    () => card.querySelector(`[name="products.${index}.transport_fumigation_number"]`), 1500);
-                if (hasActField) {
-                    push(await karantinFillFumigationAct(card, index, actNumber, actDate, data.vehicleNumber));
-                    actDone = true;
-                } else {
-                    warnings.push(`#${index + 1} mahsulot: akt maydoni sayt formasida yo'q — akt o'tkazib yuborildi`);
-                }
-            }
-            if (!actDone) push(karantinFillTransportNumber(card, index, data.vehicleNumber));
+            // Fumigatsiya akti talab qilinmaydi (sayt 2026-11 da bekor qildi)
+            push(await karantinFillTransportNumber(card, index, data.vehicleNumber));
 
             if (data.EXPPN_REGN_TP_NM) {
                 push(await karantinPickOption('Mahsulot yetishtirilgan tuman', data.EXPPN_REGN_TP_NM, { root: card }));

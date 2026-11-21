@@ -19,8 +19,12 @@ const deleteDocumentParamsSchema = z.object({
 
 const router = express.Router();
 
-// Boshqa filial vazifasi hujjatlarini ID almashtirib ko'rishning oldini oladi
-router.param('taskId', taskBranchParam);
+// Yuklangan hujjatlarni (ro'yxat, ZIP, arxiv) har bir xodim ochishi mumkin — fayl o'zi ham
+// /api/secure-uploads orqali token bilan hammaga ochiq, shuning uchun o'qishda filial
+// tekshiruvi yo'q. Filial chegarasi faqat o'zgartiradigan so'rovlarga (yuklash, arxivlash) qoladi.
+router.param('taskId', (req, res, next, value) =>
+  req.method === 'GET' || req.method === 'HEAD' ? next() : taskBranchParam(req, res, next, value)
+);
 
 // Uploads papkasini yaratish
 const uploadsDir = path.join(__dirname, '../../uploads');

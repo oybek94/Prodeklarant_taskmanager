@@ -7,23 +7,13 @@ export class DocumentDeleteError extends Error {
   }
 }
 
-interface DocumentDeleteActor {
-  id: number;
-  role: string;
-}
-
 export type DocumentSource = 'task' | 'archive';
 
-/** Admin bo'lmagan xodim o'zi yuklagan hujjatni shu muddat ichida o'chira oladi. */
-const OWNER_DELETE_WINDOW_MS = 2 * 24 * 60 * 60 * 1000;
-
-function assertCanDelete(uploadedById: number, uploadedAt: Date, actor: DocumentDeleteActor, now: Date): void {
-  if (actor.role === 'ADMIN') return;
-  if (uploadedById !== actor.id) throw new DocumentDeleteError(403, 'Ruxsat yo\'q');
-  if (now.getTime() - uploadedAt.getTime() > OWNER_DELETE_WINDOW_MS) {
-    throw new DocumentDeleteError(403, 'Hujjatni 2 kundan keyin o\'chirish mumkin emas');
-  }
-}
+/**
+ * Har qanday tizimga kirgan xodim (kim yuklaganidan va qancha vaqt o'tganidan qat'i nazar)
+ * hujjatni o'chira oladi — "faqat yuklagan odam, 2 kun ichida" qoidasi ish tezligini tushirardi.
+ * Mijoz portali tokenlari bu yo'lga umuman kira olmaydi (auth middleware /portal/ dan tashqarini rad etadi).
+ */
 
 /**
  * Hujjatni o'chirish — DELETE /documents/:id.
@@ -36,17 +26,14 @@ function assertCanDelete(uploadedById: number, uploadedAt: Date, actor: Document
  */
 export async function deleteDocument(
   id: number,
-  actor: DocumentDeleteActor,
-  source: DocumentSource = 'task',
-  now: Date = new Date()
+  source: DocumentSource = 'task'
 ): Promise<{ taskId: number }> {
   if (source === 'archive') {
     const doc = await prisma.archiveDocument.findUnique({
       where: { id },
-      select: { taskId: true, fileUrl: true, uploadedById: true, archivedAt: true },
+      select: { taskId: true, fileUrl: true },
     });
     if (!doc) throw new DocumentDeleteError(404, 'Hujjat topilmadi');
-    assertCanDelete(doc.uploadedById, doc.archivedAt, actor, now);
 
     await prisma.archiveDocument.delete({ where: { id } });
     await removeUnreferencedUploads([doc.fileUrl]);
@@ -55,10 +42,9 @@ export async function deleteDocument(
 
   const doc = await prisma.taskDocument.findUnique({
     where: { id },
-    select: { taskId: true, fileUrl: true, uploadedById: true, createdAt: true },
+    select: { taskId: true, fileUrl: true },
   });
   if (!doc) throw new DocumentDeleteError(404, 'Hujjat topilmadi');
-  assertCanDelete(doc.uploadedById, doc.createdAt, actor, now);
 
   // DocumentMetadata / StructuredDocument — onDelete: Cascade, AiCheck.taskDocumentId — SetNull
   await prisma.taskDocument.delete({ where: { id } });

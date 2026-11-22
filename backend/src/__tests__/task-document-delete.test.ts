@@ -83,32 +83,30 @@ afterEach(() => fs.rmSync(uploadsRoot, { recursive: true, force: true }));
 describe('deleteDocument', () => {
   it('vazifa hujjati topilmasa shu ID li arxiv hujjatiga TEGMAYDI', async () => {
     m.archiveDocs.set(5, { id: 5, taskId: 90, fileUrl: '/uploads/documents/a.pdf', uploadedById: 7, archivedAt: NOW });
-    await expect(deleteDocument(5, ADMIN, 'task', NOW)).rejects.toMatchObject({ status: 404 });
+    await expect(deleteDocument(5, 'task')).rejects.toMatchObject({ status: 404 });
     expect(m.archiveDocs.has(5)).toBe(true);
   });
 
   it('bir xil ID: standart holatda faqat vazifa hujjati o\'chadi', async () => {
     m.taskDocs.set(5, { id: 5, taskId: 10, fileUrl: '/uploads/documents/t.pdf', uploadedById: 7, createdAt: NOW });
     m.archiveDocs.set(5, { id: 5, taskId: 90, fileUrl: '/uploads/documents/a.pdf', uploadedById: 7, archivedAt: NOW });
-    await expect(deleteDocument(5, ADMIN, 'task', NOW)).resolves.toEqual({ taskId: 10 });
+    await expect(deleteDocument(5, 'task')).resolves.toEqual({ taskId: 10 });
     expect(m.taskDocs.has(5)).toBe(false);
     expect(m.archiveDocs.has(5)).toBe(true);
   });
 
   it('arxiv hujjati faqat source=archive bilan o\'chadi', async () => {
     m.archiveDocs.set(5, { id: 5, taskId: 90, fileUrl: '/uploads/documents/a.pdf', uploadedById: 7, archivedAt: NOW });
-    await expect(deleteDocument(5, ADMIN, 'archive', NOW)).resolves.toEqual({ taskId: 90 });
+    await expect(deleteDocument(5, 'archive')).resolves.toEqual({ taskId: 90 });
     expect(m.archiveDocs.has(5)).toBe(false);
   });
 
-  it('boshqa xodimning hujjati — 403, o\'ziniki 2 kundan keyin — 403', async () => {
+  it("har qanday xodim istalgan hujjatni o'chira oladi — kim yuklagani va qancha vaqt o'tgani muhim emas", async () => {
     m.taskDocs.set(1, { id: 1, taskId: 10, fileUrl: '/uploads/documents/1.pdf', uploadedById: 99, createdAt: NOW });
-    m.taskDocs.set(2, { id: 2, taskId: 10, fileUrl: '/uploads/documents/2.pdf', uploadedById: 7, createdAt: hoursAgo(49) });
-    m.taskDocs.set(3, { id: 3, taskId: 10, fileUrl: '/uploads/documents/3.pdf', uploadedById: 7, createdAt: hoursAgo(47) });
-    await expect(deleteDocument(1, WORKER, 'task', NOW)).rejects.toBeInstanceOf(DocumentDeleteError);
-    await expect(deleteDocument(2, WORKER, 'task', NOW)).rejects.toMatchObject({ status: 403 });
-    await expect(deleteDocument(3, WORKER, 'task', NOW)).resolves.toEqual({ taskId: 10 });
-    expect([...m.taskDocs.keys()]).toEqual([1, 2]);
+    m.taskDocs.set(2, { id: 2, taskId: 10, fileUrl: '/uploads/documents/2.pdf', uploadedById: 7, createdAt: hoursAgo(24 * 30) });
+    await expect(deleteDocument(1, 'task')).resolves.toEqual({ taskId: 10 });
+    await expect(deleteDocument(2, 'task')).resolves.toEqual({ taskId: 10 });
+    expect([...m.taskDocs.keys()]).toEqual([]);
   });
 });
 

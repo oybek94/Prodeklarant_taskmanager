@@ -399,7 +399,7 @@ router.delete('/:id', requireAuth(), async (req: AuthRequest, res) => {
   }
 
   try {
-    const { taskId } = await deleteDocument(parsed.data.id, req.user!, parsed.data.source);
+    const { taskId } = await deleteDocument(parsed.data.id, parsed.data.source);
     socketEmitter.broadcast('taskDocument:deleted', { taskId });
     res.json({ success: true });
   } catch (error) {

@@ -820,66 +820,14 @@ const TaskDetailPanel: React.FC<TaskDetailPanelProps> = ({
                         >
                           <Icon icon="solar:download-bold-duotone" className="w-4 h-4" />
                         </button>
-{(() => {
-                          // Admin har doim o'chira oladi
-                          const isAdmin = user?.role === 'ADMIN';
-
-                          // Faqat yuklagan foydalanuvchi o'chira oladi
-                          const isOwner = doc.uploadedById === user?.id;
-
-                          // Agar admin yoki yuklagan foydalanuvchi bo'lmasa, hech narsa ko'rsatilmaydi
-                          if (!isAdmin && !isOwner) {
-                            return null;
-                          }
-
-                          // Vaqtni hisoblash (2 kungacha o'chirish mumkin)
-                          const uploadTime = new Date(doc.createdAt || doc.archivedAt || '');
-                          const now = new Date();
-                          const diffInMs = now.getTime() - uploadTime.getTime();
-                          const diffInDays = diffInMs / (1000 * 60 * 60 * 24);
-
-                          // Admin har doim o'chira oladi
-                          if (isAdmin) {
-                            return (
-                              <button
-                                onClick={() => handleDeleteDocument(doc.id)}
-                                className="h-11 w-11 sm:h-8 sm:w-8 rounded-xl sm:rounded-lg border border-[#f1d0cc] bg-[#fff5f4] text-[#b42318] hover:bg-[#ffe9e6] dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-400 dark:hover:bg-rose-500/20 inline-flex items-center justify-center shrink-0 transition-colors"
-                                title="O'chirish (Admin)"
-                              >
-                                <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4" />
-                              </button>
-                            );
-                          }
-
-                          // Yuklagan foydalanuvchi uchun: 2 kungacha o'chira oladi
-                          if (isOwner) {
-                            if (diffInDays <= 2) {
-                              // 2 kungacha o'chirish mumkin
-                              return (
-                                <button
-                                  onClick={() => handleDeleteDocument(doc.id)}
-                                  className="h-11 w-11 sm:h-8 sm:w-8 rounded-xl sm:rounded-lg border border-[#f1d0cc] bg-[#fff5f4] text-[#b42318] hover:bg-[#ffe9e6] dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-400 dark:hover:bg-rose-500/20 inline-flex items-center justify-center shrink-0 transition-colors"
-                                  title="O'chirish"
-                                >
-                                  <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4" />
-                                </button>
-                              );
-                            } else {
-                              // 2 kundan ko'p vaqt o'tgan, o'chirish mumkin emas
-                              const daysPassed = Math.floor(diffInDays);
-                              return (
-                                <span
-                                  className="text-[11px] text-gray-500 dark:text-gray-400 px-1.5 py-0.5 bg-gray-100 dark:bg-slate-700/50 rounded"
-                                  title="2 kundan keyin o'chirish mumkin emas"
-                                >
-                                  O'chirish mumkin emas ({daysPassed} kun o'tdi)
-                                </span>
-                              );
-                            }
-                          }
-
-                          return null;
-                        })()}
+<button
+                          type="button"
+                          onClick={() => handleDeleteDocument(doc.id)}
+                          className="h-11 w-11 sm:h-8 sm:w-8 rounded-xl sm:rounded-lg border border-[#f1d0cc] bg-[#fff5f4] text-[#b42318] hover:bg-[#ffe9e6] dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-400 dark:hover:bg-rose-500/20 inline-flex items-center justify-center shrink-0 transition-colors"
+                          title="O'chirish"
+                        >
+                          <Icon icon="solar:trash-bin-trash-bold-duotone" className="w-4 h-4" />
+                        </button>
                       </div>
                       {docCheck && docCheck.result !== 'PASS' && (
                         <div className="sm:col-span-2 px-3 pb-2 border-b border-[#eceef4] dark:border-slate-700 sm:border-0 sm:px-0 sm:pb-0">

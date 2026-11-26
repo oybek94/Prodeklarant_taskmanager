@@ -20,6 +20,11 @@
 const PT_PER_CM = 72 / 2.54;
 export const SEAL_HEIGHT = 3.8 * PT_PER_CM; // ≈ 107.7pt
 
+/** Invoysdagi imzo rasmining balandligi (pt), scale=1 da */
+export const SIGNATURE_HEIGHT = 60;
+
+// A4 sahifa kengligi (pt)
+export const PAGE_WIDTH = 595.28;
 // A4 sahifa balandligi (pt)
 export const PAGE_HEIGHT = 841.89;
 // PdfStyles.page vertikal paddinglari (scale bilan birga o'zgaradi)

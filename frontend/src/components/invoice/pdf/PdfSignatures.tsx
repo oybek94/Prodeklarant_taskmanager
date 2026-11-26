@@ -2,7 +2,7 @@ import React from 'react';
 import { Text, View, Image } from '@react-pdf/renderer';
 import { styles, SEAL_HEIGHT } from './PdfStyles';
 import { resolveUploadUrl } from '../types';
-import { scaleFont } from './pdfScale';
+import { scaleFont, SIGNATURE_HEIGHT } from './pdfScale';
 import { createPdfI18n, type PdfI18n } from './pdfI18n';
 
 interface PdfSignaturesProps {
@@ -143,7 +143,7 @@ export const PdfSignatures: React.FC<PdfSignaturesProps> = ({
           {signatureUrl && (
             <Image
               src={resolveUploadUrl(signatureUrl)}
-              style={{ height: sc(60), objectFit: 'contain', marginRight: sc(10) }}
+              style={{ height: sc(SIGNATURE_HEIGHT), objectFit: 'contain', marginRight: sc(10) }}
             />
           )}
           {sealUrl && (

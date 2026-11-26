@@ -175,6 +175,7 @@ export const InvoicePriceList: React.FC<InvoicePriceListProps> = React.memo(({
                   <img
                     src={resolveUploadUrl(contract.sellerSignatureUrl || contract.signatureUrl)}
                     alt="Imzo"
+                    data-print-image="signature"
                     className="h-16 sm:h-[90px] w-auto object-contain"
                     crossOrigin="anonymous"
                   />
@@ -185,6 +186,7 @@ export const InvoicePriceList: React.FC<InvoicePriceListProps> = React.memo(({
                   <img
                     src={resolveUploadUrl(contract.sellerSealUrl || contract.sealUrl)}
                     alt="Muhr"
+                    data-print-image="seal"
                     className="h-36 sm:h-[215px] w-auto object-contain"
                     crossOrigin="anonymous"
                   />

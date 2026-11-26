@@ -40,6 +40,7 @@ import { InvoiceNotes } from '../components/invoice/InvoiceNotes';
 import { InvoiceConflictWarning } from '../components/invoice/InvoiceConflictWarning';
 import { ContractRequirementsNote } from '../components/invoice/ContractRequirementsNote';
 import { InvoicePriceList } from '../components/invoice/InvoicePriceList';
+import { sizePriceListPrintImages } from '../components/invoice/priceListPrintSizes';
 
 import axios from 'axios';
 import {
@@ -570,7 +571,9 @@ const Invoice = () => {
               scale: 3,
               useCORS: true,
               logging: false,
-              backgroundColor: '#ffffff'
+              backgroundColor: '#ffffff',
+              // Pechat va imzo qog'ozda invoysdagidek o'lchamda chiqsin
+              onclone: (_doc: Document, clone: HTMLElement) => sizePriceListPrintImages(clone),
             });
 
             const imgData = canvas.toDataURL('image/jpeg', 1.0);

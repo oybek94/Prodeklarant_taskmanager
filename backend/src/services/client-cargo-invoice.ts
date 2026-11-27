@@ -136,8 +136,43 @@ const CARRIED_KEYS = [
 ] as const;
 
 const ORIGIN = 'Республика Узбекистан';
-/** Dasturdagi (AdditionalInfoModal) avtomatik izoh bilan aynan bir xil — keyin tahrirda takrorlanmaydi */
-const palletNote = (weight: string): string => `Товары уложены на деревянных паллетах которые не являются товаром весом ${weight} кг.`;
+const sumField = (items: DraftItem[], key: 'palletCount' | 'palletWeight' | 'netto' | 'brutto'): Prisma.Decimal =>
+  items.reduce((sum, item) => sum.plus(item.fields[key] || 0), new Prisma.Decimal(0));
+
+/** "дер.ящик" → "дер. ящики"; bir nechta tur "и" bilan. Navalom tara emas */
+function containerLabel(items: DraftItem[]): string {
+  const labels = items
+    .map((item) => item.fields.packagingType?.trim() ?? '')
+    .filter((type) => type && type.toLowerCase() !== 'навалом')
+    .map((type) =>
+      type
+        .replace(/\.+$/, '')
+        .replace(/\.(?=\S)/g, '. ')
+        .replace(/ящик$/i, 'ящики')
+        .replace(/короб$/i, 'короба')
+    );
+  return [...new Set(labels)].join(' и ') || 'ящики';
+}
+
+/**
+ * "Особые примечания": umumiy tara = brutto − netto, undan poddon og'irligi ayirilgani — yashiklar.
+ * Poddon soni yoki og'irligi yo'q, yoxud poddon umumiy taradan og'ir bo'lsa izoh yozilmaydi (noto'g'ri son hujjatga tushmasin).
+ */
+function palletNote(items: DraftItem[]): string | undefined {
+  const count = sumField(items, 'palletCount');
+  const pallets = sumField(items, 'palletWeight');
+  const total = sumField(items, 'brutto').minus(sumField(items, 'netto'));
+  if (count.lte(0) || pallets.lte(0) || total.lt(pallets)) return undefined;
+
+  const boxes = total.minus(pallets);
+  const parts = [
+    ...(boxes.gt(0) ? [`${boxes.toString()}кг ${containerLabel(items)}`] : []),
+    `${pallets.toString()}кг паллеты и паллетный уголок`,
+  ];
+  const n = count.toNumber();
+  const placed = n % 10 === 1 && n % 100 !== 11 ? 'паллете' : 'паллетах';
+  return `Товар уложен на ${n} ${placed} и закреплен паллетными уголками, включенными в брутто товара, общим весом в ${total.toString()}кг (${parts.join(', ')}), которые предназначены для циркуляции охлаждающего воздуха.`;
+}
 
 const optionalNumber = (value: string | undefined): number | undefined => (value ? Number(value) : undefined);
 const isFilled = (item: DraftItem): boolean => Object.values(item.fields).some((v) => !!v?.trim());
@@ -176,11 +211,6 @@ export function buildCargoInvoiceInput(data: DraftData, ctx: CargoInvoiceContext
   const items = filled.map((item, index) => toItem(item, index, ctx.sources));
   const totalAmount = items.reduce((sum, item) => sum.plus(item.totalPrice), new Prisma.Decimal(0)).toNumber();
 
-  const palletWeights = filled.flatMap((item) => (item.fields.palletWeight ? [item.fields.palletWeight] : []));
-  const palletWeight = palletWeights.length
-    ? palletWeights.reduce((sum, w) => sum.plus(w), new Prisma.Decimal(0)).toString()
-    : undefined;
-
   const previous = ctx.previousAdditionalInfo ?? {};
   const carried = Object.fromEntries(CARRIED_KEYS.flatMap((key) => (previous[key] === undefined ? [] : [[key, previous[key]]])));
   const { header } = data;
@@ -197,7 +227,6 @@ export function buildCargoInvoiceInput(data: DraftData, ctx: CargoInvoiceContext
       shipmentPlace: ctx.shipmentPlace,
       origin: ORIGIN,
       gln: ctx.contract?.gln,
-      palletWeight,
       fssRegionInternalCode: ctx.region?.internalCode,
       fssRegionName: ctx.region?.name,
       fssRegionExternalCode: ctx.region?.externalCode,
@@ -215,7 +244,7 @@ export function buildCargoInvoiceInput(data: DraftData, ctx: CargoInvoiceContext
     contractNumber: ctx.contract?.contractNumber,
     currency: ctx.contract?.contractCurrency === 'UZS' ? 'UZS' : 'USD',
     totalAmount,
-    notes: palletWeight ? palletNote(palletWeight) : undefined,
+    notes: palletNote(filled),
     // Oldingi invoysdan ko'chgan qiymatlar tipi noma'lum — servis invoiceSchema bilan tekshiradi
     additionalInfo: additionalInfo as CargoInvoiceInput['additionalInfo'],
     items,

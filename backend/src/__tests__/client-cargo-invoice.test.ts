@@ -141,23 +141,58 @@ describe('buildCargoInvoiceInput', () => {
     expect(input.date).toBe(TODAY);
   });
 
-  it("poddon og'irliklari yig'iladi va izohga yoziladi", () => {
-    const data = draft({
-      items: [
-        { uid: 'u1', fields: { ...fields }, bruttoManual: false },
-        { uid: 'u2', fields: { ...fields, palletWeight: '0.5' }, bruttoManual: false },
-      ],
-    });
-    const input = buildCargoInvoiceInput(data, context(), TODAY);
-    expect(input.additionalInfo?.palletWeight).toBe('45.5');
-    expect(input.notes).toBe('Товары уложены на деревянных паллетах которые не являются товаром весом 45.5 кг.');
-    expect(input.totalAmount).toBe(4864);
+  const notesFor = (...items: Array<Record<string, string>>) =>
+    buildCargoInvoiceInput(
+      draft({ items: items.map((f, i) => ({ uid: `u${i}`, fields: f, bruttoManual: false })) }),
+      context(),
+      TODAY
+    ).notes;
+  const note = (pallets: string, total: string, parts: string) =>
+    `Товар уложен на ${pallets} и закреплен паллетными уголками, включенными в брутто товара, общим весом в ${total}кг (${parts}), которые предназначены для циркуляции охлаждающего воздуха.`;
+  const load = {
+    product: 'Хурма свежая',
+    boxCount: '3000',
+    packagingType: 'дер.ящик',
+    palletCount: '33',
+    palletWeight: '520',
+    netto: '19000',
+    brutto: '21650',
+  };
+
+  it("izoh: umumiy tara = brutto − netto, yashik = tara − poddon", () => {
+    expect(notesFor(load)).toBe(note('33 паллетах', '2650', '2130кг дер. ящики, 520кг паллеты и паллетный уголок'));
   });
 
-  it("poddon og'irligi yo'q bo'lsa izoh ham yo'q", () => {
-    const { palletWeight: _unused, ...rest } = fields;
-    const input = buildCargoInvoiceInput(draft({ items: [{ uid: 'u1', fields: rest, bruttoManual: false }] }), context(), TODAY);
-    expect(input.notes).toBeUndefined();
+  it("izoh: bir nechta tovar yig'iladi, qadoq turlari sanab o'tiladi", () => {
+    const second = { ...load, packagingType: 'пласт.ящик', palletCount: '7', palletWeight: '100.5', netto: '1000', brutto: '1300' };
+    expect(notesFor(load, second)).toBe(
+      note('40 паллетах','2950', '2329.5кг дер. ящики и пласт. ящики, 620.5кг паллеты и паллетный уголок')
+    );
+  });
+
+  it.each([
+    ['картон.короб.', 'картон. короба'],
+    ['мешки', 'мешки'],
+    ['', 'ящики'],
+  ])('izoh: qadoq turi "%s" → "%s"', (packagingType, label) => {
+    expect(notesFor({ ...load, packagingType })).toContain(`2130кг ${label}, `);
+  });
+
+  it("izoh: yashik og'irligi qolmasa faqat poddonlar; 21 poddon → 'паллете'", () => {
+    const only = { ...load, packagingType: 'навалом', palletCount: '21', netto: '19000', brutto: '19520' };
+    expect(notesFor(only)).toBe(note('21 паллете', '520', '520кг паллеты и паллетный уголок'));
+  });
+
+  it.each([
+    ["poddon og'irligi yo'q", { palletWeight: '' }],
+    ["poddon soni yo'q", { palletCount: '' }],
+    ["poddon og'irligi umumiy taradan katta", { brutto: '19100' }],
+  ])('izoh yozilmaydi: %s', (_name, over) => {
+    expect(notesFor({ ...load, ...over })).toBeUndefined();
+  });
+
+  it("additionalInfo.palletWeight yozilmaydi (dasturdagi eski poddon jumlasi qo'shilib qolmasin)", () => {
+    const input = buildCargoInvoiceInput(draft(), context(), TODAY);
     expect(input.additionalInfo?.palletWeight).toBeUndefined();
   });
 

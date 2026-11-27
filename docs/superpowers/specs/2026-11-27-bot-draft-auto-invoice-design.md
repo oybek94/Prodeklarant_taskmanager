@@ -36,7 +36,7 @@ Ikki kishi bir vaqtda bossa bitta vazifa yaratiladi (mavjud versiya tekshiruvi).
 | filial, `shipmentPlace` | ariza filiali (`regionText`, bo'lmasa nomi) |
 | `deliveryTerms`, `customsAddress`, `destination`, `vehicleNumber`, `orderNumber`, `temperature` | ariza sarlavhasi |
 | Серийный номер датчика | qo'shimcha maydon (`customFields`) |
-| `palletWeight`, izoh | poddon og'irliklari yig'indisi; izoh matni ilovadagi bilan bir xil ("Товары уложены на деревянных паллетах … весом N кг.") |
+| Особые примечания (2026-11-27 o'zgartirildi) | "Товар уложен на N паллетах и закреплен паллетными уголками … общим весом в Tкг (Yкг дер. ящики, Pкг паллеты и паллетный уголок), …": T = brutto − netto, P = poddon og'irligi, Y = T − P. Poddon soni/og'irligi yo'q yoki P > T bo'lsa izoh yozilmaydi. `additionalInfo.palletWeight` yozilmaydi |
 | `origin` | "Республика Узбекистан" |
 | `manufacturer`, `harvestYear`, ustun va ko'rinish sozlamalari, PDF shriftlari | shu shartnomaning oxirgi invoysi (bo'lsa) |
 | FSS hududi | filialning standart tumani |

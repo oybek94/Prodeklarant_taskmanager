@@ -270,6 +270,7 @@ model Task {
   aiChecks                                   AiCheck[]
   invoice                                    Invoice?
   cargoTracking                              CargoTracking?
+  cargoDraft                                 ClientCargoDraft?
   kpiLogs                                    KpiLog[]
   clientAssignmentBonus                      ClientAssignmentBonus?
   structuredDocuments                        StructuredDocument[]
@@ -1094,6 +1095,9 @@ model ClientCargoDraft {
   updatedAt       DateTime               @updatedAt
   completedAt     DateTime?
   completedByName String?
+  // Yakunlanganda avtomatik yaratilgan vazifa (invoys shu vazifada)
+  taskId          Int?                   @unique
+  task            Task?                  @relation(fields: [taskId], references: [id], onDelete: SetNull)
   client          Client                 @relation(fields: [clientId], references: [id], onDelete: Cascade)
 
   @@index([clientId, status, updatedAt])

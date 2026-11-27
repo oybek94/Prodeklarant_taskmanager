@@ -1,6 +1,7 @@
 import { Prisma, type ClientCargoDraft } from '@prisma/client';
 import { z } from 'zod';
 import { prisma } from '../prisma';
+import { announceCargoInvoice, createCargoInvoiceInTx, prepareCargoInvoice, type CreatedCargoInvoice } from './client-cargo-invoice.service';
 import { callTelegram } from './telegram-bot-api';
 import {
   applyDraftPatch,
@@ -20,6 +21,8 @@ import type { FieldErrors } from './client-cargo-miniapp';
 const MAX_WRITE_ATTEMPTS = 3;
 const SYNC_INTERVAL_MS = 3000;
 const DEFAULT_LIST_LIMIT = 5;
+/** Vazifa + invoys yozuvi: narx snapshot'i kursni tashqi manbadan olishi mumkin, standart 5 soniya yetmay qoladi */
+const TRANSACTION_TIMEOUT_MS = 20000;
 
 export interface DraftView {
   id: number;
@@ -31,6 +34,8 @@ export interface DraftView {
   complete: boolean;
   messageId: number | null;
   completedByName: string | null;
+  /** Yakunlanganda avtomatik yaratilgan vazifa (invoys shu vazifada) */
+  taskId: number | null;
 }
 
 export interface DraftSummary {
@@ -94,6 +99,7 @@ function toView(row: ClientCargoDraft, parsed: ParsedRow): DraftView {
     complete: missing.length === 0,
     messageId: row.messageId,
     completedByName: row.completedByName,
+    taskId: row.taskId ?? null,
   };
 }
 
@@ -177,15 +183,17 @@ export async function listOpenDrafts(scope: ReadScope, limit = DEFAULT_LIST_LIMI
 const lastSyncAt = new Map<number, number>();
 const pendingSync = new Map<number, ReturnType<typeof setTimeout>>();
 
-async function loadMessageContext(data: DraftData): Promise<DraftMessageContext> {
-  const [contract, branch] = await Promise.all([
+async function loadMessageContext(data: DraftData, taskId: number | null): Promise<DraftMessageContext> {
+  const [contract, branch, invoice] = await Promise.all([
     data.contractId ? prisma.contract.findUnique({ where: { id: data.contractId }, select: { contractNumber: true, buyerName: true, contractCurrency: true } }) : null,
     data.branchId ? prisma.branch.findUnique({ where: { id: data.branchId }, select: { name: true, regionText: true } }) : null,
+    taskId ? prisma.invoice.findUnique({ where: { taskId }, select: { invoiceNumber: true } }) : null,
   ]);
   return {
     contractText: contract ? `${contract.contractNumber}, ${contract.buyerName}` : null,
     shipmentPlace: branch ? shipmentPlaceOf(branch) : null,
     currency: contract?.contractCurrency ?? null,
+    invoiceNumber: invoice?.invoiceNumber ?? null,
   };
 }
 
@@ -200,7 +208,7 @@ async function runSyncNow(botToken: string, draftId: number): Promise<SyncResult
   const text = formatDraftMessage({
     data: parsed.data,
     authors: parsed.authors,
-    context: await loadMessageContext(parsed.data),
+    context: await loadMessageContext(parsed.data, row.taskId ?? null),
     status: row.status,
   });
   const reply_markup = {
@@ -278,7 +286,17 @@ export async function syncDraftMessage(botToken: string, draftId: number, option
 
 // ---- Yozish ----
 
-type Decision = { kind: 'error'; error: DraftFailure } | { kind: 'noop' } | { kind: 'write'; data: Prisma.ClientCargoDraftUpdateManyMutationInput };
+type Decision =
+  | { kind: 'error'; error: DraftFailure }
+  | { kind: 'noop' }
+  /** Ariza o'qilgandan beri o'zgargan — qayta o'qib qaror qilish */
+  | { kind: 'retry' }
+  | {
+      kind: 'write';
+      data: Prisma.ClientCargoDraftUpdateManyMutationInput;
+      /** Holat yozuvi bilan bitta tranzaksiyada bajariladi; xato bo'lsa hammasi bekor bo'ladi va `failure` qaytadi */
+      transaction?: { run: (tx: Prisma.TransactionClient) => Promise<void>; failure: DraftFailure };
+    };
 
 /** Versiya bo'yicha optimistik yozuv: to'qnashuvda qayta o'qib, qarorni yangi holat ustida qaytadan hisoblaydi */
 async function mutateDraft(
@@ -300,11 +318,33 @@ async function mutateDraft(
       return { ok: true, draft: toView(row, parsed) };
     }
 
-    const written = await prisma.clientCargoDraft.updateMany({
-      where: { id: row.id, version: row.version, status: 'OPEN' },
-      data: { ...decision.data, version: { increment: 1 } },
-    });
-    if (written.count === 0) continue;
+    if (decision.kind === 'retry') continue;
+
+    const { data, transaction } = decision;
+    const claim = (db: Pick<Prisma.TransactionClient, 'clientCargoDraft'>) =>
+      db.clientCargoDraft.updateMany({
+        where: { id: row.id, version: row.version, status: 'OPEN' },
+        data: { ...data, version: { increment: 1 } },
+      });
+    let count: number;
+    if (!transaction) {
+      count = (await claim(prisma)).count;
+    } else {
+      try {
+        count = await prisma.$transaction(
+          async (tx) => {
+            const claimed = await claim(tx);
+            if (claimed.count > 0) await transaction.run(tx);
+            return claimed.count;
+          },
+          { timeout: TRANSACTION_TIMEOUT_MS }
+        );
+      } catch (e) {
+        console.error('[ClientCargoDraft] Tranzaksiya xatosi:', e instanceof Error ? e.message : e);
+        return transaction.failure;
+      }
+    }
+    if (count === 0) continue;
 
     await options.afterWrite?.(parsed);
     await syncDraftMessage(scope.botToken, id, { immediate: options.immediateSync });
@@ -361,11 +401,13 @@ export async function createDraft(scope: DraftScope, actor: DraftActor, rawPatch
   return view ? { ok: true, draft: view } : NOT_FOUND;
 }
 
+/** Yakunlash: ariza holati, vazifa (PSR yo'q) va invoys bitta tranzaksiyada yoziladi */
 export async function completeDraft(scope: DraftScope, id: number, actor: DraftActor): Promise<DraftResult> {
+  let created: CreatedCargoInvoice | null = null;
   return mutateDraft(
     scope,
     id,
-    (row, parsed) => {
+    async (row, parsed) => {
       if (row.status === 'COMPLETED') return { kind: 'noop' };
       if (row.status === 'CANCELLED') return { kind: 'error', error: CLOSED_ERROR };
       const missing = getMissingRequired(parsed.data);
@@ -373,12 +415,36 @@ export async function completeDraft(scope: DraftScope, id: number, actor: DraftA
         const names = missing.map((m) => (m.itemNumber === null ? m.label : `Товар ${m.itemNumber}: ${m.label}`)).join(', ');
         return { kind: 'error', error: failure(400, `Majburiy maydonlar to'ldirilmagan: ${names}`) };
       }
-      return { kind: 'write', data: { status: 'COMPLETED', completedAt: new Date(), completedByName: actor.name } };
+      const prepared = await prepareCargoInvoice({ clientId: scope.clientId, data: parsed.data, authors: parsed.authors });
+      if (!prepared.ok) {
+        // Boshqa odam shu orada yakunlagan bo'lsa "raqam band" emas, yakunlangan ariza ko'rsatiladi
+        const latest = await findScoped(scope, id);
+        if (latest && latest.version !== row.version) return { kind: 'retry' };
+        return { kind: 'error', error: failure(400, prepared.error) };
+      }
+      return {
+        kind: 'write',
+        data: { status: 'COMPLETED', completedAt: new Date(), completedByName: actor.name },
+        transaction: {
+          run: async (tx) => {
+            created = await createCargoInvoiceInTx(tx, prepared.plan);
+            await tx.clientCargoDraft.update({ where: { id }, data: { taskId: created.task.id } });
+          },
+          failure: failure(502, "Invoys yaratilmadi: server xatosi. Birozdan keyin qayta urinib ko'ring"),
+        },
+      };
     },
     {
       immediateSync: true,
       syncOnNoop: true,
       afterWrite: async (parsed) => {
+        if (created) {
+          try {
+            announceCargoInvoice(created, actor.name);
+          } catch (e) {
+            console.error('[ClientCargoDraft] Invoys haqida xabar berishda xatolik:', e instanceof Error ? e.message : e);
+          }
+        }
         const products = new Set(parsed.data.items.map((item) => item.fields.product).filter((p): p is string => !!p));
         for (const name of products) {
           try {

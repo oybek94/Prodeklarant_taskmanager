@@ -14,6 +14,14 @@ const completeData = (): DraftData => ({
 });
 
 describe('formatDraftMessage', () => {
+  it("yakunlangan xabarda yaratilgan invoys raqami; ochiq yoki raqamsiz bo'lsa qator yo'q", () => {
+    const withNumber = { ...context, invoiceNumber: '1/26' };
+    const done = formatDraftMessage({ data: completeData(), authors: {}, context: withNumber, status: 'COMPLETED' });
+    expect(done).toContain('📥 Invoys yaratildi: № <b>1/26</b>');
+    expect(formatDraftMessage({ data: completeData(), authors: {}, context: withNumber, status: 'OPEN' })).not.toContain('📥');
+    expect(formatDraftMessage({ data: completeData(), authors: {}, context, status: 'COMPLETED' })).not.toContain('📥');
+  });
+
   it("OPEN: qatorlarda muallif yo'q; yetishmayotganlardan keyin oxirgi qatorda kimlar to'ldirgani", () => {
     const data: DraftData = { ...EMPTY_DRAFT_DATA, branchId: 3, header: { vehicleNumber: '01A123BC' }, items: [{ uid: 'u1', fields: { product: 'Яблоки' }, bruttoManual: false }] };
     const authors: AuthorMap = { 'header.vehicleNumber': by('Aziz'), branchId: by('Vali', 2), 'items.u1.product': by('Aziz') };

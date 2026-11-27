@@ -476,7 +476,8 @@ function registerHandlers(instance: TelegramBot, miniAppLink: string | undefined
     else if (action.kind === 'issue-code') await sendCodeToGroup(chat.id, clientId, action.taskId);
     else {
       const draft = await getDraft({ clientId, chatId: String(chat.id) }, action.draftId);
-      const taskId = draft ? await matchDraftToRecentTask(clientId, draft.data.header) : null;
+      // Avtomatik yaratilgan vazifa ma'lum; undan oldin yakunlangan arizalarda raqam/avto bo'yicha qidiriladi
+      const taskId = draft ? (draft.taskId ?? (await matchDraftToRecentTask(clientId, draft.data.header))) : null;
       if (taskId) await sendCodeToGroup(chat.id, clientId, taskId);
       else await sendTaskPicker(chat.id, clientId);
     }

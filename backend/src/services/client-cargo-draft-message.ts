@@ -10,6 +10,8 @@ export interface DraftMessageContext {
   contractText: string | null;
   shipmentPlace: string | null;
   currency: string | null;
+  /** Yakunlanganda yaratilgan invoys raqami */
+  invoiceNumber?: string | null;
 }
 
 export type InlineButton = { text: string; url: string } | { text: string; callback_data: string };
@@ -171,6 +173,9 @@ function buildBody(input: { data: DraftData; authors: AuthorMap; context: DraftM
       const lines = missing.map((m) => `• ${m.itemNumber === null ? '' : `Товар ${m.itemNumber}: `}${escapeHtml(m.label)}`);
       footerBlocks.push(['⏳ <b>Не заполнено:</b>', ...lines].join('\n'));
     }
+  }
+  if (status === 'COMPLETED' && context.invoiceNumber) {
+    footerBlocks.push(`📥 Invoys yaratildi: № <b>${escapeHtml(context.invoiceNumber)}</b>`);
   }
   const contributors = contributorsLine(authors);
   if (contributors) footerBlocks.push(contributors);

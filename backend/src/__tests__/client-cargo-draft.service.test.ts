@@ -16,6 +16,11 @@ const m = vi.hoisted(() => ({
   callTelegram: vi.fn(),
   rememberProduct: vi.fn(),
   rememberDestination: vi.fn(),
+  transaction: vi.fn(),
+  invoiceFindUnique: vi.fn(),
+  prepareInvoice: vi.fn(),
+  createInvoice: vi.fn(),
+  announceInvoice: vi.fn(),
 }));
 
 vi.mock('../prisma', () => ({
@@ -32,7 +37,14 @@ vi.mock('../prisma', () => ({
     contract: { findFirst: m.contractFindFirst, findUnique: m.contractFindUnique },
     branch: { findFirst: m.branchFindFirst, findUnique: m.branchFindUnique },
     packagingType: { findMany: m.packagingFindMany },
+    invoice: { findUnique: m.invoiceFindUnique },
+    $transaction: m.transaction,
   },
+}));
+vi.mock('../services/client-cargo-invoice.service', () => ({
+  prepareCargoInvoice: m.prepareInvoice,
+  createCargoInvoiceInTx: m.createInvoice,
+  announceCargoInvoice: m.announceInvoice,
 }));
 vi.mock('../services/telegram-bot-api', () => ({ callTelegram: m.callTelegram }));
 vi.mock('../services/client-cargo-miniapp.service', () => ({
@@ -86,6 +98,12 @@ beforeEach(() => {
   m.draftUpdate.mockResolvedValue({});
   m.contractFindUnique.mockResolvedValue(null);
   m.branchFindUnique.mockResolvedValue({ name: 'Ташкент', regionText: 'Ташкентская обл.' });
+  m.transaction.mockImplementation((run: (tx: unknown) => Promise<unknown>) =>
+    run({ clientCargoDraft: { updateMany: m.draftUpdateMany, update: m.draftUpdate } })
+  );
+  m.prepareInvoice.mockResolvedValue({ ok: true, plan: { invoiceNumber: '1/26' } });
+  m.createInvoice.mockResolvedValue({ task: { id: 900 }, invoice: { id: 1, taskId: 900, invoiceNumber: '1/26' } });
+  m.invoiceFindUnique.mockResolvedValue({ invoiceNumber: '1/26' });
   delete process.env.CLIENT_BOT_MINIAPP_LINK;
 });
 afterEach(() => {
@@ -284,6 +302,70 @@ describe('completeDraft va cancelDraft', () => {
     expect(result.ok).toBe(true);
     expect(m.draftUpdateMany.mock.calls[0][0].data).toMatchObject({ status: 'CANCELLED' });
     expect(m.callTelegram.mock.calls[0][2].text).toBe('❌ <b>Отменено</b>');
+  });
+});
+
+describe('completeDraft — invoys avtomatik yaratiladi', () => {
+  const open = (id: number) => row({ id, data: completeData() });
+  const done = (id: number) => ({ ...open(id), status: 'COMPLETED', completedByName: 'Aziz', version: 2, taskId: 900 });
+
+  it("holat, vazifa+invoys va taskId bitta tranzaksiyada; keyin bildirishnoma va xabarda invoys raqami", async () => {
+    m.draftFindFirst.mockResolvedValueOnce(open(90)).mockResolvedValue(done(90));
+    m.draftFindUnique.mockResolvedValue(done(90));
+
+    const result = await completeDraft(scope, 90, actor);
+
+    expect(result.ok && result.draft.taskId).toBe(900);
+    expect(m.prepareInvoice).toHaveBeenCalledWith({ clientId: 1, data: completeData(), authors: {} });
+    expect(m.transaction).toHaveBeenCalledTimes(1);
+    expect(m.transaction.mock.calls[0][1]).toEqual({ timeout: 20000 });
+    expect(m.draftUpdate).toHaveBeenCalledWith({ where: { id: 90 }, data: { taskId: 900 } });
+    const order = [m.draftUpdateMany, m.createInvoice, m.draftUpdate, m.announceInvoice].map((fn) => fn.mock.invocationCallOrder[0]);
+    expect(order).toEqual([...order].sort((a, b) => a - b));
+    expect(m.announceInvoice.mock.calls[0][1]).toBe('Aziz');
+    expect(m.invoiceFindUnique.mock.calls[0][0].where).toEqual({ taskId: 900 });
+    expect(m.callTelegram.mock.calls[0][2].text).toContain('📥 Invoys yaratildi: № <b>1/26</b>');
+  });
+
+  it("invoys tekshiruvi o'tmasa 400, ariza ochiq qoladi va hech narsa yozilmaydi", async () => {
+    m.draftFindFirst.mockResolvedValue(open(91));
+    m.prepareInvoice.mockResolvedValue({ ok: false, error: 'Invoys yaratilmadi: raqam band' });
+    const result = await completeDraft(scope, 91, actor);
+    expect(result).toMatchObject({ ok: false, status: 400, error: 'Invoys yaratilmadi: raqam band' });
+    expect(m.draftUpdateMany).not.toHaveBeenCalled();
+    expect(m.createInvoice).not.toHaveBeenCalled();
+  });
+
+  it("ikkinchi bosgan odam 'raqam band' emas, yakunlangan arizani ko'radi", async () => {
+    m.draftFindFirst.mockResolvedValueOnce(open(92)).mockResolvedValue(done(92));
+    m.draftFindUnique.mockResolvedValue(done(92));
+    m.prepareInvoice.mockResolvedValue({ ok: false, error: 'Invoys yaratilmadi: raqam band' });
+    const result = await completeDraft(scope, 92, vali);
+    expect(result.ok).toBe(true);
+    expect(m.createInvoice).not.toHaveBeenCalled();
+  });
+
+  it("poygada yutqazgan (count 0) ikkinchi vazifa yaratmaydi", async () => {
+    m.draftFindFirst.mockResolvedValueOnce(open(93)).mockResolvedValue(done(93));
+    m.draftFindUnique.mockResolvedValue(done(93));
+    m.draftUpdateMany.mockResolvedValue({ count: 0 });
+    const result = await completeDraft(scope, 93, vali);
+    expect(result.ok).toBe(true);
+    expect(m.createInvoice).not.toHaveBeenCalled();
+    expect(m.announceInvoice).not.toHaveBeenCalled();
+  });
+
+  it("yozishda xato: tranzaksiya otadi (rollback), 502, bildirishnoma va 'yakunlandi' xabari yo'q", async () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    m.draftFindFirst.mockResolvedValue(open(94));
+    m.createInvoice.mockRejectedValue(new Error('db down'));
+    const result = await completeDraft(scope, 94, actor);
+    expect(result).toMatchObject({ ok: false, status: 502 });
+    if (!result.ok) expect(result.error).toMatch(/^Invoys yaratilmadi: /);
+    await expect(m.transaction.mock.results[0].value).rejects.toThrow('db down');
+    expect(m.announceInvoice).not.toHaveBeenCalled();
+    expect(m.callTelegram).not.toHaveBeenCalled();
+    spy.mockRestore();
   });
 });
 

@@ -84,7 +84,7 @@ describe('sendCargoInvoicePdf', () => {
     expect(token).toBe('123:TEST');
     expect(document).toMatchObject({ chatId: '-100123', filename: '12_26 АВТО 40232BAA.pdf', replyToMessageId: 55 });
     expect(document.file.toString()).toBe('%PDF-1');
-    expect(document.caption).toContain('12/26');
+    expect(document.caption).toBe("🧾 Инвойс № 12/26\nTekshirib chiqing, xato bo'lsa shu guruhga yozing.");
   });
 
   it("chizishga JSON ko'rinishida beradi va pechat/imzo manzillarini bermaydi", async () => {

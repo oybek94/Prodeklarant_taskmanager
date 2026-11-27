@@ -104,7 +104,7 @@ async function deliver(params: CargoInvoicePdfParams): Promise<CargoInvoicePdfRe
     chatId,
     file: await renderInvoicePdf(source),
     filename: cargoInvoiceFileName(invoice.invoiceNumber, typeof vehicle === 'string' ? vehicle : undefined),
-    caption: `🧾 Инвойс № ${invoice.invoiceNumber}\nTekshirib chiqing, xato bo'lsa shu guruhga yozing. Pechat va imzosiz nusxa.`,
+    caption: `🧾 Инвойс № ${invoice.invoiceNumber}\nTekshirib chiqing, xato bo'lsa shu guruhga yozing.`,
     replyToMessageId: replyToMessageId ?? undefined,
   });
   if (!sent.ok) {

@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useClickOutside } from '../../../hooks/useClickOutside';
 import type { VisibleColumns, ColumnLabels, ColumnLabelKey, InvoiceItem, ViewTab } from '../types';
-import { DEFAULT_VISIBLE_COLUMNS, DEFAULT_COLUMN_LABELS, DEFAULT_COLUMN_ORDER, getVisibleColumnsFromPayload } from '../types';
+import { DEFAULT_VISIBLE_COLUMNS, DEFAULT_COLUMN_ORDER } from '../types';
+import { restoreColumnState } from '../invoiceViewModel';
 
 /**
  * Berilgan yorliqli custom ustun SHU invoysda faolmi — faol bo'lsa kalitini qaytaradi.
@@ -43,35 +44,10 @@ export function useInvoiceColumns({ invoiceId, invoiceAdditionalInfo, duplicateI
     const prevId = lastInvoiceIdRef.current;
     if (id === prevId && (id != null || duplicateInvoiceIdFromState == null)) return;
     lastInvoiceIdRef.current = id;
-    if (id != null && invoiceAdditionalInfo && typeof invoiceAdditionalInfo === 'object') {
-      const fromServer = getVisibleColumnsFromPayload(invoiceAdditionalInfo);
-      if (fromServer) {
-        setVisibleColumns(fromServer);
-      }
-      if (Array.isArray(invoiceAdditionalInfo.columnOrder)) {
-        const savedOrder = [...(invoiceAdditionalInfo.columnOrder as string[])];
-        const missing = DEFAULT_COLUMN_ORDER.filter((c) => !savedOrder.includes(c));
-        if (missing.includes('shtCount')) {
-          const qIdx = savedOrder.indexOf('quantity');
-          if (qIdx !== -1) {
-            savedOrder.splice(qIdx + 1, 0, 'shtCount');
-            missing.splice(missing.indexOf('shtCount'), 1);
-          }
-        }
-        setColumnOrder([...savedOrder, ...missing]);
-      } else {
-        setColumnOrder(DEFAULT_COLUMN_ORDER);
-      }
-      if (Array.isArray(invoiceAdditionalInfo.customColumns)) {
-        setCustomColumns(invoiceAdditionalInfo.customColumns as string[]);
-      } else {
-        setCustomColumns([]);
-      }
-      if (fromServer) return;
-    }
-    setVisibleColumns(DEFAULT_VISIBLE_COLUMNS);
-    setColumnOrder(DEFAULT_COLUMN_ORDER);
-    setCustomColumns([]);
+    const saved = restoreColumnState(id != null ? invoiceAdditionalInfo : undefined);
+    setVisibleColumns(saved.visibleColumns);
+    setColumnOrder(saved.columnOrder);
+    setCustomColumns(saved.customColumns);
   }, [invoiceId, invoiceAdditionalInfo, duplicateInvoiceIdFromState]);
 
   const setVisibleColumnsAndPersist = useCallback(

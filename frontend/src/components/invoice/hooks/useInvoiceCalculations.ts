@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import type { Contract, InvoiceFormData, ColumnLabels, ViewTab, VisibleColumns, ColumnLabelKey } from '../types';
-import { getVisibleColumnsFromPayload } from '../types';
+import { getPartyRoles, getTotalColumnLabel } from '../invoiceViewModel';
 
 interface UseInvoiceCalculationsProps {
   form: InvoiceFormData;
@@ -32,33 +32,13 @@ export const useInvoiceCalculations = ({
       ? contracts.find((contract) => contract.id.toString() === selectedContractId)
       : undefined;
 
-    const isSellerShipper =
-      !!selectedContract?.sellerName &&
-      (!selectedContract?.shipperName ||
-        selectedContract.shipperName.trim() === selectedContract.sellerName.trim());
-
-    // isSellerShipper bilan bir xil mantiq: yuk qabul qiluvchi umuman
-    // ko'rsatilmagan bo'lsa ham sotib oluvchi o'zi yuk qabul qiluvchi hisoblanadi
-    // (sarlavha "Покупатель/Грузополучатель" bo'ladi).
-    const isBuyerConsignee =
-      !!selectedContract?.buyerName &&
-      (!selectedContract?.consigneeName ||
-        selectedContract.consigneeName.trim() === selectedContract.buyerName.trim());
+    const { isSellerShipper, isBuyerConsignee } = getPartyRoles(selectedContract);
 
     const leadingColumnsCount = getLeadingColumnsCount();
     const effectiveColumns = getEffectiveColumns(viewTab, isPdfMode, viewOnly);
 
     const invoiceCurrency = selectedContractCurrency || form.currency || 'USD';
-    const totalColumnLabel =
-      invoiceCurrency === 'USD'
-        ? 'Общая сумма в Долл. США'
-        : invoiceCurrency === 'RUB'
-        ? 'Общая сумма Рубли РФ'
-        : invoiceCurrency === 'EUR'
-        ? 'Общая сумма в Евро'
-        : invoiceCurrency === 'UZS'
-        ? 'Стоимость поставки в узбекских сумах'
-        : columnLabels.total;
+    const totalColumnLabel = getTotalColumnLabel(invoiceCurrency, columnLabels.total);
 
     return {
       selectedContract,

@@ -41,6 +41,7 @@ import { InvoiceConflictWarning } from '../components/invoice/InvoiceConflictWar
 import { ContractRequirementsNote } from '../components/invoice/ContractRequirementsNote';
 import { InvoicePriceList } from '../components/invoice/InvoicePriceList';
 import { sizePriceListPrintImages } from '../components/invoice/priceListPrintSizes';
+import { orderVisibleColumns } from '../components/invoice/invoiceViewModel';
 
 import axios from 'axios';
 import {
@@ -504,14 +505,10 @@ const Invoice = () => {
   }, []);
 
 
-  const orderedVisibleColumns = useMemo(() => {
-    const hasSht = items.some(i => i.unit === 'шт' || i.unit === 'шт.');
-    return columnOrder.filter((key) => {
-      if (key === 'actions') return false; // PDF da actions umuman chiqmaydi
-      if (key === 'shtCount') return hasSht && effectiveColumns['shtCount'];
-      return effectiveColumns[key as keyof VisibleColumns];
-    });
-  }, [columnOrder, effectiveColumns, items]);
+  const orderedVisibleColumns = useMemo(
+    () => orderVisibleColumns(columnOrder, effectiveColumns, items),
+    [columnOrder, effectiveColumns, items]
+  );
 
   /**
    * Inglizcha PDF uchun matn tarjimalari. Hujjat RUSCHA PDF bilan aynan bir xil

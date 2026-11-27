@@ -4,6 +4,7 @@ import type { InvoiceItem, SpecRow } from '../types';
 import { normalizeItem } from '../invoiceUtils';
 import { getVisibleColumnsFromPayload, getLocalDateString, normalizeSavedColumnLabels } from '../types';
 import { sanitizePdfFontSizes, type PdfFontSizes } from '../pdf/pdfFontSizes';
+import { getContractCurrency, invoiceToFormPatch, parseSavedFields } from '../invoiceViewModel';
 
 interface UseInvoiceLoaderParams {
   clientId: string | undefined;
@@ -203,36 +204,9 @@ export function createLoadData({
               }));
               const loadedItems = [{ name: '', unit: 'кг', quantity: 0, packagesCount: undefined, unitPrice: 0, totalPrice: 0 } as InvoiceItem];
               setItems(loadedItems);
-              const dupCustomFields = dupAi?.customFields;
-              setCustomFields(
-                Array.isArray(dupCustomFields)
-                  ? dupCustomFields.map((f: { id?: string; label?: string; value?: string }, idx: number) => ({
-                    id: f?.id && String(f.id).trim() !== '' ? String(f.id) : `loaded_${Date.now()}_${idx}`,
-                    label: String(f?.label ?? ''),
-                    value: String(f?.value ?? ''),
-                  }))
-                  : []
-              );
-              const dupSpecFields = dupAi?.specCustomFields;
-              setSpecCustomFields(
-                Array.isArray(dupSpecFields)
-                  ? dupSpecFields.map((f: { id?: string; label?: string; value?: string }, idx: number) => ({
-                    id: f?.id && String(f.id).trim() !== '' ? String(f.id) : `loaded_${Date.now()}_${idx}`,
-                    label: String(f?.label ?? ''),
-                    value: String(f?.value ?? ''),
-                  }))
-                  : []
-              );
-              const dupPackingFields = dupAi?.packingCustomFields;
-              setPackingCustomFields(
-                Array.isArray(dupPackingFields)
-                  ? dupPackingFields.map((f: { id?: string; label?: string; value?: string }, idx: number) => ({
-                    id: f?.id && String(f.id).trim() !== '' ? String(f.id) : `loaded_${Date.now()}_${idx}`,
-                    label: String(f?.label ?? ''),
-                    value: String(f?.value ?? ''),
-                  }))
-                  : []
-              );
+              setCustomFields(parseSavedFields(dupAi?.customFields));
+              setSpecCustomFields(parseSavedFields(dupAi?.specCustomFields));
+              setPackingCustomFields(parseSavedFields(dupAi?.packingCustomFields));
             } catch (e) {
               console.error('Error loading duplicate invoice:', e);
             }
@@ -316,80 +290,12 @@ export function createLoadData({
             }
           } else {
             setInvoice(inv);
-            setForm((prev: any) => ({
-              ...prev,
-              invoiceNumber: inv.invoiceNumber || undefined,
-              date: inv.date ? inv.date.split('T')[0] : getLocalDateString(),
-              currency: inv.currency || 'USD',
-              contractNumber: inv.contractNumber || '',
-              paymentTerms: inv.additionalInfo?.paymentTerms ?? prev.paymentTerms,
-              dueDate: inv.additionalInfo?.dueDate ?? prev.dueDate,
-              poNumber: inv.additionalInfo?.poNumber ?? prev.poNumber,
-              notes: inv.notes ?? prev.notes,
-              terms: inv.additionalInfo?.terms ?? prev.terms,
-              tax: inv.additionalInfo?.tax ?? prev.tax,
-              discount: inv.additionalInfo?.discount ?? prev.discount,
-              shipping: inv.additionalInfo?.shipping ?? prev.shipping,
-              amountPaid: inv.additionalInfo?.amountPaid ?? prev.amountPaid,
-              deliveryTerms: inv.additionalInfo?.deliveryTerms ?? prev.deliveryTerms,
-              vehicleNumber: inv.additionalInfo?.vehicleNumber ?? prev.vehicleNumber,
-              vehicleWeight: inv.additionalInfo?.vehicleWeight ?? prev.vehicleWeight,
-              fssRegionInternalCode: inv.additionalInfo?.fssRegionInternalCode ?? branchDefaultRegion?.internalCode ?? prev.fssRegionInternalCode,
-              fssRegionName: inv.additionalInfo?.fssRegionName ?? branchDefaultRegion?.name ?? prev.fssRegionName,
-              fssRegionExternalCode: inv.additionalInfo?.fssRegionExternalCode ?? branchDefaultRegion?.externalCode ?? prev.fssRegionExternalCode,
-              loaderWeight: inv.additionalInfo?.loaderWeight ?? prev.loaderWeight,
-              trailerWeight: inv.additionalInfo?.trailerWeight ?? prev.trailerWeight,
-              palletWeight: inv.additionalInfo?.palletWeight ?? prev.palletWeight,
-              trailerNumber: inv.additionalInfo?.trailerNumber ?? prev.trailerNumber,
-              smrNumber: inv.additionalInfo?.smrNumber ?? prev.smrNumber,
-              shipmentPlace: inv.additionalInfo?.shipmentPlace ?? prev.shipmentPlace,
-              customsAddress: inv.additionalInfo?.customsAddress ?? prev.customsAddress,
-              destination: inv.additionalInfo?.destination ?? prev.destination,
-              manufacturer: inv.additionalInfo?.manufacturer ?? prev.manufacturer,
-              orderNumber: inv.additionalInfo?.orderNumber ?? prev.orderNumber,
-              gln: inv.additionalInfo?.gln ?? prev.gln,
-              harvestYear: inv.additionalInfo?.harvestYear ?? prev.harvestYear,
-              documents: inv.additionalInfo?.documents ?? prev.documents,
-              carrier: inv.additionalInfo?.carrier ?? prev.carrier,
-              tirNumber: inv.additionalInfo?.tirNumber ?? prev.tirNumber,
-              temperature: inv.additionalInfo?.temperature ?? prev.temperature,
-              additionalInfo: {
-                ...(prev.additionalInfo || {}),
-                tareRules: inv.additionalInfo?.tareRules ?? [],
-              }
-            }));
+            setForm((prev: any) => invoiceToFormPatch(inv, prev, branchDefaultRegion));
             const loadedItems = (inv.items || []).map(normalizeItem);
             setItems(loadedItems);
-            const loadedCustomFields = inv.additionalInfo?.customFields;
-            setCustomFields(
-              Array.isArray(loadedCustomFields)
-                ? loadedCustomFields.map((f: { id?: string; label?: string; value?: string }, idx: number) => ({
-                  id: f?.id && String(f.id).trim() !== '' ? String(f.id) : `loaded_${Date.now()}_${idx}`,
-                  label: String(f?.label ?? ''),
-                  value: String(f?.value ?? ''),
-                }))
-                : []
-            );
-            const loadedSpecCustomFields = inv.additionalInfo?.specCustomFields;
-            setSpecCustomFields(
-              Array.isArray(loadedSpecCustomFields)
-                ? loadedSpecCustomFields.map((f: { id?: string; label?: string; value?: string }, idx: number) => ({
-                  id: f?.id && String(f.id).trim() !== '' ? String(f.id) : `loaded_${Date.now()}_${idx}`,
-                  label: String(f?.label ?? ''),
-                  value: String(f?.value ?? ''),
-                }))
-                : []
-            );
-            const loadedPackingCustomFields = inv.additionalInfo?.packingCustomFields;
-            setPackingCustomFields(
-              Array.isArray(loadedPackingCustomFields)
-                ? loadedPackingCustomFields.map((f: { id?: string; label?: string; value?: string }, idx: number) => ({
-                  id: f?.id && String(f.id).trim() !== '' ? String(f.id) : `loaded_${Date.now()}_${idx}`,
-                  label: String(f?.label ?? ''),
-                  value: String(f?.value ?? ''),
-                }))
-                : []
-            );
+            setCustomFields(parseSavedFields(inv.additionalInfo?.customFields));
+            setSpecCustomFields(parseSavedFields(inv.additionalInfo?.specCustomFields));
+            setPackingCustomFields(parseSavedFields(inv.additionalInfo?.packingCustomFields));
             const ai = inv.additionalInfo && typeof inv.additionalInfo === 'object' ? inv.additionalInfo as Record<string, unknown> : null;
             const savedVisible = getVisibleColumnsFromPayload(ai);
             if (savedVisible) setVisibleColumns(savedVisible);
@@ -453,8 +359,7 @@ export function createLoadData({
                   }
                   return [...prev, contract];
                 });
-                const contractCurrency = (contract.contractCurrency && ['USD', 'UZS', 'RUB', 'EUR'].includes(contract.contractCurrency)) ? contract.contractCurrency : 'USD';
-                setSelectedContractCurrency(contractCurrency);
+                setSelectedContractCurrency(getContractCurrency(contract));
                 let spec: SpecRow[] = [];
                 if (contract.specification) {
                   if (Array.isArray(contract.specification)) spec = contract.specification;

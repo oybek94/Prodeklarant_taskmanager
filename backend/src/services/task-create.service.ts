@@ -261,39 +261,42 @@ export async function loadPricingInputs(
 
 /** Vazifani narx snapshot'i va 8 ta standart bosqich bilan yaratadi (bitta tranzaksiya) */
 export async function createTask(input: CreateTaskInput, actorId: number) {
-  return prisma.$transaction(async (tx) => {
-    const [client, branch] = await Promise.all([
-      tx.client.findUnique({ where: { id: input.clientId }, select: clientPricingSelect }),
-      tx.branch.findUnique({ where: { id: input.branchId }, select: { id: true } }),
-    ]);
-    // Oldin oddiy Error → 500 edi
-    if (!client) throw new TaskCreateError(404, 'Mijoz topilmadi');
-    if (!branch) throw new TaskCreateError(404, 'Filial topilmadi');
+  return prisma.$transaction((tx) => createTaskInTx(tx, input, actorId));
+}
 
-    const pricing = await loadPricingInputs(tx, client, input.branchId, new Date());
+/** createTask bilan bir xil, lekin chaqiruvchining tranzaksiyasida (yuk botidan vazifa + invoys birga yaratiladi) */
+export async function createTaskInTx(tx: Prisma.TransactionClient, input: CreateTaskInput, actorId: number) {
+  const [client, branch] = await Promise.all([
+    tx.client.findUnique({ where: { id: input.clientId }, select: clientPricingSelect }),
+    tx.branch.findUnique({ where: { id: input.branchId }, select: { id: true } }),
+  ]);
+  // Oldin oddiy Error → 500 edi
+  if (!client) throw new TaskCreateError(404, 'Mijoz topilmadi');
+  if (!branch) throw new TaskCreateError(404, 'Filial topilmadi');
 
-    const snapshot = buildTaskPriceSnapshot({ client, ...pricing });
+  const pricing = await loadPricingInputs(tx, client, input.branchId, new Date());
 
-    const task = await tx.task.create({
-      data: {
-        clientId: input.clientId,
-        branchId: input.branchId,
-        title: input.title,
-        hasPsr: input.hasPsr,
-        afterHoursDeclaration: input.afterHoursDeclaration,
-        afterHoursPayer: input.afterHoursPayer,
-        createdById: actorId,
-        ...(input.comments ? { comments: input.comments } : {}),
-        ...(input.driverPhone ? { driverPhone: input.driverPhone } : {}),
-        ...(input.customsPaymentMultiplier != null ? { customsPaymentMultiplier: input.customsPaymentMultiplier } : {}),
-        ...snapshot,
-      },
-    });
-    await tx.taskStage.createMany({
-      data: STAGE_TEMPLATES.map((name, idx) => ({ taskId: task.id, name, stageOrder: idx + 1 })),
-    });
-    return task;
+  const snapshot = buildTaskPriceSnapshot({ client, ...pricing });
+
+  const task = await tx.task.create({
+    data: {
+      clientId: input.clientId,
+      branchId: input.branchId,
+      title: input.title,
+      hasPsr: input.hasPsr,
+      afterHoursDeclaration: input.afterHoursDeclaration,
+      afterHoursPayer: input.afterHoursPayer,
+      createdById: actorId,
+      ...(input.comments ? { comments: input.comments } : {}),
+      ...(input.driverPhone ? { driverPhone: input.driverPhone } : {}),
+      ...(input.customsPaymentMultiplier != null ? { customsPaymentMultiplier: input.customsPaymentMultiplier } : {}),
+      ...snapshot,
+    },
   });
+  await tx.taskStage.createMany({
+    data: STAGE_TEMPLATES.map((name, idx) => ({ taskId: task.id, name, stageOrder: idx + 1 })),
+  });
+  return task;
 }
 
 type CreatedTask = Awaited<ReturnType<typeof createTask>>;

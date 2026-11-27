@@ -215,7 +215,7 @@ export function validateInvoiceDate(date: string | undefined, now: Date = new Da
   return null;
 }
 
-async function assertNumberFree(
+export async function assertNumberFree(
   invoiceNumber: string,
   contractId: number | undefined,
   exceptInvoiceId?: number
@@ -230,7 +230,7 @@ async function assertNumberFree(
 }
 
 /** Avtomatik invoice raqami: shartnoma bo'lsa shu shartnoma bo'yicha, bo'lmasa global */
-async function nextAutoNumber(contractId: number | undefined): Promise<string> {
+export async function nextAutoNumber(contractId: number | undefined): Promise<string> {
   if (contractId) {
     const lastInvoice = await prisma.invoice.findFirst({
       where: { contractId },
@@ -261,6 +261,37 @@ function toItemRows(invoiceId: number, items: InvoiceItemInput[]): Prisma.Invoic
     orderIndex: item.orderIndex ?? index,
     customFields: item.customFields ? (item.customFields as Prisma.InputJsonValue) : undefined,
   }));
+}
+
+/**
+ * Yangi vazifaga yangi invoys — chaqiruvchining tranzaksiyasida (yuk botidan avtomatik yaratish).
+ * Tekshiruvlar (og'irlik, sana, raqam) chaqiruvchida, yozishdan oldin bajariladi.
+ */
+export async function insertInvoiceInTx(
+  tx: Prisma.TransactionClient,
+  params: { input: InvoiceInput; invoiceNumber: string; task: { id: number; clientId: number; branchId: number } }
+): Promise<{ id: number; taskId: number; invoiceNumber: string }> {
+  const { input, invoiceNumber, task } = params;
+  const created = await tx.invoice.create({
+    data: {
+      invoiceNumber,
+      contractNumber: input.contractNumber,
+      contractId: input.contractId,
+      currency: input.currency ?? 'USD',
+      totalAmount: input.totalAmount ?? 0,
+      notes: input.notes,
+      taskId: task.id,
+      clientId: task.clientId,
+      branchId: task.branchId,
+      date: input.date ? new Date(input.date) : new Date(),
+      additionalInfo: input.additionalInfo ? (input.additionalInfo as Prisma.InputJsonValue) : undefined,
+    },
+    select: { id: true, taskId: true, invoiceNumber: true },
+  });
+  if (input.items && input.items.length > 0) {
+    await tx.invoiceItem.createMany({ data: toItemRows(created.id, input.items) });
+  }
+  return created;
 }
 
 const savedInvoiceInclude = {
@@ -424,7 +455,7 @@ export async function saveInvoice(input: InvoiceInput): Promise<SaveInvoiceResul
 }
 
 /** Real-time: boshqa foydalanuvchilarga invoys saqlangani haqida xabar */
-export function broadcastInvoiceSaved(invoice: SavedInvoice, isNew: boolean, actor: { id: number; name: string }): void {
+export function broadcastInvoiceSaved(invoice: Pick<SavedInvoice, 'id' | 'taskId'>, isNew: boolean, actor: { id: number; name: string }): void {
   socketEmitter.broadcastExcept(actor.id, 'invoice:saved', {
     invoiceId: invoice.id,
     taskId: invoice.taskId,

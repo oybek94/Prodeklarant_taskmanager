@@ -2,6 +2,8 @@ import { describe, it, expect } from 'vitest';
 import {
   buildPatch,
   deriveManualFlags,
+  fieldAnchor,
+  requiredProgress,
   makeUid,
   snapshotFromDraft,
   stripCyrillic,
@@ -208,5 +210,48 @@ describe('totalsLine — 2 va undan ortiq tovar bo\'lsa Итого', () => {
   it("vergulli son ham yig'iladi; faqat bittasi bor bo'lsa shu qismi; hech biri bo'lmasa null", () => {
     expect(totalsLine([{ netto: '1,5', brutto: '' }, { netto: '2,5', brutto: '' }])).toBe('Итого: 4 нетто');
     expect(totalsLine([{ netto: '', brutto: '' }, { netto: '', brutto: '' }])).toBeNull();
+  });
+});
+
+describe('requiredProgress', () => {
+  const item = (uid: string, fields: Partial<typeof blankFields> = {}) => ({ uid, fields: { ...blankFields, ...fields }, bruttoManual: false });
+
+  it('bo\'sh formada serverdagi majburiylar: filial, ikki sarlavha va bitta tovarning to\'rt maydoni', () => {
+    expect(requiredProgress(snap(), true)).toEqual({ done: 0, total: 7 });
+  });
+
+  it('filiallar yo\'q bo\'lsa filial hisobga kirmaydi', () => {
+    expect(requiredProgress(snap(), false)).toEqual({ done: 0, total: 6 });
+  });
+
+  it('to\'ldirilgan maydonlarni sanaydi, faqat bo\'shliqdan iborat qiymat to\'ldirilmagan', () => {
+    const current = snap({
+      branchId: 3,
+      header: { ...blankHeader, deliveryTerms: 'DAP', customsPlace: '   ' },
+      items: [item('u1', { product: 'Xurma', netto: '100' })],
+    });
+    expect(requiredProgress(current, true)).toEqual({ done: 4, total: 7 });
+  });
+
+  it('bo\'sh qo\'shimcha tovar sanalmaydi (serverdagi kabi)', () => {
+    const current = snap({ items: [item('u1', { product: 'Xurma' }), item('u2')] });
+    expect(requiredProgress(current, true)).toEqual({ done: 1, total: 7 });
+  });
+
+  it('har bir to\'ldirilayotgan tovar o\'z majburiylarini qo\'shadi', () => {
+    const current = snap({ items: [item('u1', { product: 'Xurma' }), item('u2', { boxCount: '5' })] });
+    expect(requiredProgress(current, true)).toEqual({ done: 2, total: 11 });
+  });
+});
+
+describe('fieldAnchor', () => {
+  it('server yo\'lini formadagi maydon belgisiga aylantiradi', () => {
+    expect(fieldAnchor('branchId', 'u1')).toBe('branchId');
+    expect(fieldAnchor('header.customsPlace', 'u1')).toBe('header.customsPlace');
+    expect(fieldAnchor('items.u7.netto', 'u1')).toBe('items.u7.netto');
+  });
+
+  it('tovar hali yo\'q bo\'lsa (items.*) birinchi tovarga yo\'naltiradi', () => {
+    expect(fieldAnchor('items.*.product', 'u1')).toBe('items.u1.product');
   });
 });

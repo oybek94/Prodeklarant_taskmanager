@@ -1,20 +1,26 @@
 /* Telegram Mini App: yuk ma'lumotlari formasi. Barcha klasslar .tgc- bilan boshlanadi — asosiy ilovaning
-   global CSS'i (dark mode override'lari) bilan to'qnashmasligi uchun faqat shu klasslar ishlatiladi. */
+   global CSS'i (dark mode override'lari) bilan to'qnashmasligi uchun faqat shu klasslar ishlatiladi.
+   Qoida: doirali qator — tanlanadi; qalamli katak — yoziladi; ko'k pill/tugma — bosiladi; kulrang fon — faqat ko'rsatiladi. */
 
 .tgc {
-  --bg: #f0f5fb;
-  --surface: #ffffff;
-  --field: #f0f5fb;
-  --ink: #1f2937;
-  --input-ink: #000000;
-  --muted: #5b6b7f;
-  --line: #c8dceb;
-  --chip: #e1eaf6;
+  --bg: #eaf0f7;
+  --card: #ffffff;
+  --ink: #14202e;
+  --muted: #4a5a6e;
+  --edge: #7f90a6;
+  --soft: #e6ecf3;
+  --hair: #d3deea;
   --accent: #004e98;
-  --on-accent: #ffffff;
-  --mark: #3a6ea5;
-  --danger: #c2362b;
+  --on: #ffffff;
+  --tint: #e3effc;
+  --ok: #146c43;
+  --oktint: #e2f3e9;
+  --warn: #7f4300;
+  --warntint: #ffefd6;
+  --danger: #b3261e;
 
+  display: flex;
+  flex-direction: column;
   height: var(--tgc-vh, 100dvh);
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -28,17 +34,20 @@
 
 .tgc[data-theme='dark'] {
   --bg: #121212;
-  --surface: #1e1e1e;
-  --field: #2a2a2a;
-  --ink: #e0e0e0;
-  --input-ink: #e0e0e0;
-  --muted: #a0a0a0;
-  --line: #444444;
-  --chip: #333333;
-  --accent: #6ea3cb;
-  --on-accent: #0a1b2d;
-  --mark: #6ea3cb;
-  --danger: #ff8a7a;
+  --card: #1e1e1e;
+  --ink: #edeff2;
+  --muted: #b3bcc7;
+  --edge: #74808e;
+  --soft: #2a2d31;
+  --hair: #33373d;
+  --accent: #82bae8;
+  --on: #08192b;
+  --tint: #1b2f43;
+  --ok: #7fd3a0;
+  --oktint: #173425;
+  --warn: #ffc56e;
+  --warntint: #3a2a10;
+  --danger: #ff9c90;
 }
 
 .tgc *,
@@ -52,203 +61,577 @@
   outline-offset: 2px;
 }
 
-.tgc-wrap {
-  max-width: 480px;
-  margin: 0 auto;
-  padding: 22px 16px 32px;
+.tgc button {
+  font: inherit;
+  cursor: pointer;
 }
 
+.tgc button:disabled {
+  cursor: default;
+}
+
+.tgc-icon {
+  flex: none;
+  width: 18px;
+  height: 18px;
+}
+
+/* Sarlavha va progress */
+.tgc-wrap {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  gap: 14px;
+  flex: 1 0 auto;
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 16px 12px 24px;
+}
+
+.tgc-top {
+  display: grid;
+  gap: 10px;
+  padding: 0 4px;
+}
+
+/* Logotip to'q ko'k: tungi rejimda ham ko'rinishi uchun oq fonda */
 .tgc-logo {
+  justify-self: start;
+  padding: 4px 6px;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.tgc-logo img {
   display: block;
-  height: 34px;
+  height: 28px;
   width: auto;
-  margin: 0 0 18px;
 }
 
 .tgc-title {
   margin: 0;
-  font-size: 27px;
+  font-size: 24px;
   font-weight: 700;
-  letter-spacing: -0.02em;
-  line-height: 1.15;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
 }
 
 .tgc-client {
-  margin: 5px 0 0;
+  margin: 2px 0 0;
   color: var(--muted);
   font-size: 14px;
 }
 
+.tgc-progress {
+  display: grid;
+  gap: 6px;
+}
+
+.tgc-progress-text {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.tgc-progress-track {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: var(--hair);
+}
+
+.tgc-progress-track div {
+  height: 100%;
+  background: var(--ok);
+  transition: width 0.25s;
+}
+
+/* Bo'limlar */
 .tgc-section {
-  margin-top: 24px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 22px;
+  padding: 16px;
+  border-radius: 20px;
+  background: var(--card);
+}
+
+.tgc-section-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
 }
 
 .tgc-section-title {
-  margin: 0 0 10px 4px;
-  font-size: 15px;
-  font-weight: 600;
+  flex: 1;
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
 }
 
-.tgc-group {
-  display: grid;
-  gap: 18px;
+.tgc-step {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--tint);
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.tgc-step-done {
+  background: var(--ok);
+  color: var(--card);
+}
+
+.tgc-locked {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   padding: 16px;
-  background: var(--surface);
   border-radius: 20px;
-}
-
-.tgc-label {
-  display: block;
-  margin-bottom: 7px;
-  color: var(--muted);
-  font-size: 13px;
-  font-weight: 500;
-}
-
-.tgc-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 14px 12px;
-}
-
-.tgc-input {
-  display: block;
-  width: 100%;
-  height: 48px;
-  padding: 0 14px;
-  border: 1.5px solid transparent;
-  border-radius: 12px;
-  background: var(--field);
-  color: var(--ink);
-  font: inherit;
-  font-size: 16px;
-  outline: none;
-  transition: border-color 0.15s, background 0.15s;
-}
-
-.tgc-input::placeholder {
-  color: var(--muted);
-  opacity: 0.65;
-}
-
-.tgc-input:focus {
-  border-color: var(--accent);
-}
-
-.tgc-input[aria-invalid='true'] {
-  border-color: var(--danger);
-}
-
-.tgc-input.tgc-num {
-  font-variant-numeric: tabular-nums;
-  font-weight: 600;
-}
-
-.tgc-input.tgc-plate {
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.tgc-input.tgc-plate::placeholder {
-  font-weight: 400;
-  letter-spacing: 0.06em;
-}
-
-.tgc-select {
-  appearance: none;
-  -webkit-appearance: none;
-  padding-right: 40px;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%238a98aa' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 14px center;
-}
-
-.tgc-suffixed {
-  position: relative;
-}
-
-.tgc-suffixed .tgc-input {
-  padding-right: 58px;
-}
-
-.tgc-suffix {
-  position: absolute;
-  top: 50%;
-  right: 14px;
-  transform: translateY(-50%);
+  background: var(--soft);
   color: var(--muted);
   font-size: 14px;
-  font-weight: 600;
-  pointer-events: none;
 }
 
-.tgc-chips {
+.tgc-locked .tgc-icon {
+  width: 22px;
+  height: 22px;
+}
+
+/* Maydonlar */
+.tgc-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+  border-radius: 14px;
+}
+
+/* "To'ldirish" bosilganda topilgan maydon qisqa vaqt ajralib turadi */
+.tgc-flash {
+  animation: tgc-flash 1.6s ease-out;
+}
+
+.tgc-head {
+  display: grid;
+  gap: 2px;
+}
+
+.tgc-head-row {
   display: flex;
-  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
   gap: 8px;
 }
 
-.tgc-chips + .tgc-input {
-  margin-top: 10px;
+.tgc-label {
+  font-size: 15px;
+  font-weight: 700;
 }
 
-.tgc-chip {
-  max-width: 100%;
-  padding: 9px 13px;
-  border: 1.5px solid transparent;
-  border-radius: 12px;
-  background: var(--chip);
-  color: var(--ink);
-  font: inherit;
-  font-size: 14px;
-  line-height: 1.3;
-  text-align: left;
-  cursor: pointer;
-  transition: background 0.12s, color 0.12s, transform 0.12s;
+.tgc-sublabel {
+  font-size: 13px;
+  font-weight: 700;
 }
 
-.tgc-chip:active {
-  transform: scale(0.97);
+.tgc-badge {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 99px;
+  background: var(--warntint);
+  color: var(--warn);
+  font-size: 12px;
+  font-weight: 600;
 }
 
-.tgc-chip[aria-pressed='true'] {
-  background: var(--accent);
-  color: var(--on-accent);
+.tgc-badge-ok {
+  background: var(--oktint);
+  color: var(--ok);
 }
 
-.tgc-chip-other {
-  border-color: var(--line);
-  border-style: dashed;
-  background: transparent;
+.tgc-badge .tgc-icon {
+  width: 12px;
+  height: 12px;
+  stroke-width: 3.5;
+}
+
+.tgc-help {
+  margin: 0;
   color: var(--muted);
+  font-size: 13px;
+  line-height: 1.4;
 }
 
-.tgc-chip-other[aria-pressed='true'] {
-  border-style: solid;
-  border-color: var(--accent);
-  background: transparent;
-  color: var(--accent);
+.tgc-help-warn {
+  color: var(--danger);
+  font-weight: 600;
 }
 
 .tgc-error {
-  margin: 6px 0 0;
+  margin: 0;
   color: var(--danger);
   font-size: 13px;
 }
 
-/* Guruhga ketadigan xabarning jonli ko'rinishi */
+/* Yoziladigan katak */
+.tgc-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 54px;
+  padding: 0 14px;
+  border: 1.5px solid var(--edge);
+  border-radius: 14px;
+  background: var(--card);
+  cursor: text;
+}
+
+.tgc-box > .tgc-icon {
+  color: var(--accent);
+}
+
+.tgc-box:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1.5px var(--accent);
+}
+
+.tgc-box[data-invalid='true'] {
+  border-color: var(--danger);
+}
+
+.tgc-unit {
+  flex: none;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.tgc-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 10px;
+}
+
+.tgc-cell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 6px;
+  border-radius: 14px;
+}
+
+.tgc-cell .tgc-box {
+  gap: 6px;
+  padding: 0 12px;
+}
+
+/* Tanlanadigan qatorlar */
+.tgc-options {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+}
+
+.tgc-options-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.tgc-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 54px;
+  padding: 11px 13px;
+  border: 1.5px solid var(--edge);
+  border-radius: 14px;
+  background: var(--card);
+  box-shadow: 0 2px 0 var(--hair);
+  color: var(--ink);
+  font-size: 15px;
+  text-align: left;
+  transition: background 0.12s, border-color 0.12s, transform 0.12s;
+}
+
+.tgc-option-wide {
+  grid-column: 1 / -1;
+}
+
+.tgc-option:active,
+.tgc-picker:active {
+  transform: translateY(2px);
+  box-shadow: none;
+}
+
+/* Qalinroq ramka o'lchamni o'zgartirmasin: ichki chiziq bilan */
+.tgc-option[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: var(--tint);
+  box-shadow: inset 0 0 0 1px var(--accent);
+  font-weight: 700;
+}
+
+.tgc-radio {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--accent);
+  border-radius: 50%;
+  color: transparent;
+}
+
+.tgc-radio .tgc-icon {
+  width: 14px;
+  height: 14px;
+  stroke-width: 4;
+}
+
+.tgc-option[aria-pressed='true'] .tgc-radio {
+  background: var(--accent);
+  color: var(--on);
+}
+
+.tgc-option-text {
+  display: grid;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.tgc-option-text small {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 400;
+}
+
+/* Ro'yxat ochadigan tugma */
+.tgc-picker {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 56px;
+  padding: 8px 10px 8px 14px;
+  border: 1.5px solid var(--edge);
+  border-radius: 14px;
+  background: var(--card);
+  box-shadow: 0 2px 0 var(--hair);
+  color: var(--ink);
+  text-align: left;
+}
+
+.tgc-picker-value {
+  min-width: 0;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.tgc-pill {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
+  min-height: 36px;
+  padding: 0 8px 0 12px;
+  border-radius: 10px;
+  background: var(--accent);
+  color: var(--on);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.tgc-field[data-invalid='true'] > .tgc-options .tgc-option,
+.tgc-field[data-invalid='true'] > .tgc-picker {
+  border-color: var(--danger);
+}
+
+/* Pastdan ochiladigan ro'yxat */
+.tgc-sheet-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  height: var(--tgc-vh, 100dvh);
+  background: rgba(6, 18, 32, 0.6);
+}
+
+.tgc .tgc-sheet-backdrop {
+  flex: 1;
+  min-height: 40px;
+  border: 0;
+  background: transparent;
+  touch-action: none;
+}
+
+.tgc-sheet {
+  display: flex;
+  flex-direction: column;
+  max-height: 85%;
+  border-radius: 22px 22px 0 0;
+  background: var(--card);
+}
+
+.tgc-sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 12px 10px 16px;
+}
+
+.tgc-sheet-head h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.tgc-close {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--soft);
+  color: var(--ink);
+}
+
+.tgc-sheet-list {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 4px 16px calc(18px + env(safe-area-inset-bottom));
+}
+
+/* Brutto: faqat ko'rsatiladigan hisob */
+.tgc-auto {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 12px 12px 14px;
+  border-radius: 14px;
+  background: var(--soft);
+}
+
+.tgc-auto div {
+  display: grid;
+  min-width: 0;
+}
+
+.tgc-auto span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.tgc-auto strong {
+  font-size: 22px;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+/* Tugmalar */
+.tgc-secondary,
+.tgc-remove {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  justify-self: start;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1.5px solid var(--accent);
+  border-radius: 12px;
+  background: var(--card);
+  color: var(--accent);
+  font-size: 14px;
+}
+
+.tgc .tgc-secondary,
+.tgc .tgc-remove,
+.tgc .tgc-add,
+.tgc .tgc-send,
+.tgc .tgc-ghost {
+  font-weight: 700;
+}
+
+.tgc-remove {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.tgc-add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 56px;
+  border: 2px solid var(--accent);
+  border-radius: 16px;
+  background: var(--card);
+  color: var(--accent);
+}
+
+.tgc-add:active {
+  transform: scale(0.99);
+}
+
+.tgc-preview {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+}
+
+.tgc-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 54px;
+  padding: 0 16px;
+  border: 1.5px solid var(--edge);
+  border-radius: 16px;
+  background: var(--card);
+  color: var(--ink);
+  text-align: left;
+}
+
+.tgc .tgc-toggle {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.tgc-toggle-action {
+  color: var(--accent);
+}
+
+/* Guruhga ketadigan xabarning ko'rinishi */
 .tgc-bubble {
   padding: 14px 16px;
-  border-left: 4px solid var(--mark);
-  border-radius: 6px 20px 20px 20px;
-  background: var(--surface);
-  font-size: 15px;
-  line-height: 1.6;
+  border-radius: 16px;
+  background: var(--card);
+  font-size: 14px;
+  line-height: 1.7;
 }
 
 .tgc-bubble-head {
-  margin-bottom: 6px;
   font-weight: 700;
 }
 
@@ -261,7 +644,14 @@
 .tgc-bubble-empty {
   margin: 0;
   color: var(--muted);
-  font-size: 14px;
+}
+
+.tgc-bubble-item {
+  margin-top: 12px;
+}
+
+.tgc-bubble-item-title {
+  font-weight: 700;
 }
 
 /* Skroll konteyneri (.tgc) ichida yopishib turadi: klaviatura ochiq bo'lsa ham ko'rinadigan maydonning pastida qoladi */
@@ -269,23 +659,36 @@
   position: sticky;
   bottom: 0;
   z-index: 5;
-  margin-top: -24px;
-  padding: 24px 16px calc(12px + env(safe-area-inset-bottom));
-  background: linear-gradient(to top, var(--bg) 62%, transparent);
-  pointer-events: none;
+  flex: none;
+  padding: 10px 16px calc(14px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--hair);
+  background: var(--card);
 }
 
 .tgc-bar-inner {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
   max-width: 480px;
   margin: 0 auto;
-  pointer-events: auto;
+}
+
+.tgc-bar-status {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  text-align: center;
+}
+
+/* Yozish paytida pastki panel past bo'lsin: yozilayotgan maydonga joy qolsin */
+.tgc:has(.tgc-input:focus) .tgc-bar-status {
+  display: none;
 }
 
 .tgc-banner {
-  margin-bottom: 10px;
   padding: 10px 12px;
   border-radius: 12px;
-  background: color-mix(in srgb, var(--danger) 12%, var(--surface));
+  background: color-mix(in srgb, var(--danger) 12%, var(--card));
   color: var(--danger);
   font-size: 14px;
 }
@@ -294,18 +697,17 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 10px;
   width: 100%;
-  height: 54px;
+  min-height: 56px;
   border: 0;
   border-radius: 16px;
   background: var(--accent);
-  color: var(--on-accent);
-  font: inherit;
-  font-size: 17px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: opacity 0.15s, transform 0.12s;
+  color: var(--on);
+  transition: transform 0.12s;
+}
+
+.tgc .tgc-send {
+  font-size: 18px;
 }
 
 .tgc-send:active:not(:disabled) {
@@ -313,26 +715,22 @@
 }
 
 .tgc-send:disabled {
-  opacity: 0.45;
-  cursor: default;
+  background: var(--soft);
+  color: var(--muted);
 }
 
-.tgc-count {
-  padding: 2px 9px;
-  border-radius: 99px;
-  background: color-mix(in srgb, var(--on-accent) 22%, transparent);
-  font-size: 14px;
-  font-variant-numeric: tabular-nums;
-}
-
+/* Holat ekranlari: yuklanish, xato, saqlandi, yakunlandi */
 .tgc-center {
   display: flex;
+  flex: 1 0 auto;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   gap: 14px;
-  min-height: 100%;
-  padding: 32px 24px;
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 32px 16px;
   text-align: center;
 }
 
@@ -344,27 +742,42 @@
 
 .tgc-center h2 {
   margin: 0;
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 700;
 }
 
+.tgc-missing {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
 .tgc-ghost {
-  height: 50px;
+  min-height: 52px;
   padding: 0 24px;
-  border: 1.5px solid var(--accent);
-  border-radius: 14px;
-  background: transparent;
+  border: 2px solid var(--accent);
+  border-radius: 16px;
+  background: var(--card);
   color: var(--accent);
-  font: inherit;
-  font-size: 16px;
-  font-weight: 600;
-  cursor: pointer;
+}
+
+.tgc-link {
+  min-height: 44px;
+  padding: 0 12px;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  text-decoration: underline;
 }
 
 .tgc-spinner {
   width: 30px;
   height: 30px;
-  border: 3px solid var(--line);
+  border: 3px solid var(--hair);
   border-top-color: var(--accent);
   border-radius: 50%;
   animation: tgc-spin 0.8s linear infinite;
@@ -376,12 +789,12 @@
 }
 
 .tgc-check circle {
-  fill: var(--accent);
+  fill: var(--ok);
 }
 
 .tgc-check path {
   fill: none;
-  stroke: var(--on-accent);
+  stroke: var(--card);
   stroke-width: 5;
   stroke-linecap: round;
   stroke-linejoin: round;
@@ -390,101 +803,57 @@
   animation: tgc-draw 0.45s 0.2s ease-out forwards;
 }
 
-.tgc-sent {
-  width: 100%;
-  max-width: 360px;
-  text-align: left;
-}
-
-@keyframes tgc-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-@keyframes tgc-draw {
-  to {
-    stroke-dashoffset: 0;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .tgc-spinner {
-    animation: none;
-  }
-  .tgc-check path {
-    animation: none;
-    stroke-dashoffset: 0;
-  }
-  .tgc-chip,
-  .tgc-send,
-  .tgc-input {
-    transition: none;
-  }
-}
-
 /* Asosiy ilovaning global `.dark input {...} !important` qoidalari Telegram temasidan mustaqil ravishda
-   bu sahifadagi maydonlarni bo'yab yubormasligi uchun: specificity yuqori + !important. */
+   bu sahifadagi maydonlarni bo'yab yubormasligi uchun: specificity yuqori + !important.
+   Ramka va fon tashqi .tgc-box da, input shaffof. */
 .tgc .tgc-input {
-  background-color: var(--field) !important;
-  color: var(--input-ink) !important;
-  border-color: transparent !important;
+  -webkit-appearance: none;
+  appearance: none;
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  height: 50px;
+  margin: 0;
+  padding: 0;
+  border: 0 !important;
+  border-radius: 0;
+  outline: none;
+  box-shadow: none !important;
+  background-color: transparent !important;
+  color: var(--ink) !important;
+  -webkit-text-fill-color: var(--ink);
+  caret-color: var(--accent);
+  opacity: 1;
+  font: inherit;
+  font-size: 16px;
+  font-weight: 600;
 }
 
 .tgc .tgc-input::placeholder {
   color: var(--muted) !important;
+  -webkit-text-fill-color: var(--muted);
+  font-weight: 400;
+  opacity: 0.8;
 }
 
-.tgc .tgc-input:focus {
-  border-color: var(--accent) !important;
+.tgc .tgc-input.tgc-num {
+  font-size: 18px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 
-.tgc .tgc-input[aria-invalid='true'] {
-  border-color: var(--danger) !important;
+.tgc .tgc-input.tgc-plate {
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
-.tgc-span2 {
-  grid-column: 1 / -1;
-}
-
-.tgc-hint {
-  margin: 8px 0 0;
-  color: var(--muted);
-  font-size: 13px;
-  line-height: 1.4;
-}
-
-.tgc-link {
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--accent);
-  font: inherit;
-  font-weight: 600;
-  text-decoration: underline;
-  cursor: pointer;
-}
-
-/* Ekran klaviaturasi ochiq: pastdagi tugma yozilayotgan maydonni yopib qo'ymasin */
-/* Mobil brauzerlarda yozilgan matn ko'rinmay qolmasligi uchun: "force dark" himoyasi va aniq matn rangi */
+/* Mobil brauzerlarda yozilgan matn ko'rinmay qolmasligi uchun: "force dark" himoyasi */
 .tgc[data-theme='light'] {
   color-scheme: light;
 }
 
 .tgc[data-theme='dark'] {
   color-scheme: dark;
-}
-
-.tgc .tgc-input {
-  -webkit-appearance: none;
-  appearance: none;
-  -webkit-text-fill-color: var(--input-ink);
-  caret-color: var(--accent);
-  opacity: 1;
-}
-
-.tgc .tgc-input::placeholder {
-  -webkit-text-fill-color: var(--muted);
 }
 
 /* WebView'larga sahifa tungi rejimni qo'llashini bildiradi (prefers-color-scheme ishlatilgan sahifa
@@ -500,73 +869,39 @@
   forced-color-adjust: none;
 }
 
-/* Ko'p tovarli forma */
-.tgc-section-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin: 0 0 10px;
+@keyframes tgc-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
-.tgc-section-head .tgc-section-title {
-  margin: 0 0 0 4px;
+@keyframes tgc-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
 }
 
-.tgc-remove {
-  padding: 4px 8px;
-  border: 0;
-  background: none;
-  color: var(--danger);
-  font: inherit;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
+@keyframes tgc-flash {
+  0%,
+  60% {
+    box-shadow: 0 0 0 4px var(--warn);
+  }
+  100% {
+    box-shadow: 0 0 0 4px transparent;
+  }
 }
 
-.tgc-add {
-  display: block;
-  width: 100%;
-  height: 52px;
-  margin-top: 14px;
-  border: 1.5px dashed var(--accent);
-  border-radius: 16px;
-  background: transparent;
-  color: var(--accent);
-  font: inherit;
-  font-size: 16px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.tgc-add:active {
-  transform: scale(0.99);
-}
-
-.tgc-bubble-item {
-  margin-top: 12px;
-}
-
-.tgc-bubble-item-title {
-  font-weight: 700;
-}
-
-/* Hamkorlikda to'ldirish: maydonni kim kiritgani va yetishmayotganlar ro'yxati */
-.tgc-missing {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  text-align: left;
-  color: var(--muted);
-  line-height: 1.6;
-}
-
-.tgc-missing li::before {
-  content: '⏳ ';
-}
-
-/* Ogohlantirish (masalan avto raqamiga kirill yozilganda) */
-.tgc-hint-warn {
-  color: #e5484d;
-  font-weight: 500;
+@media (prefers-reduced-motion: reduce) {
+  .tgc-spinner {
+    animation: none;
+  }
+  .tgc-check path {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+  .tgc-option,
+  .tgc-send,
+  .tgc-progress-track div {
+    transition: none;
+  }
 }

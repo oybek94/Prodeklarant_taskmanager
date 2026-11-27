@@ -175,6 +175,27 @@ export function totalsLine(items: Array<{ netto: string; brutto: string }>): str
   return parts.length > 0 ? `Итого: ${parts.join(' / ')}` : null;
 }
 
+/** Backend `client-cargo-draft.ts` dagi REQUIRED_HEADER_KEYS / REQUIRED_ITEM_KEYS bilan mos */
+export const REQUIRED_HEADER_FIELDS: readonly HeaderField[] = ['deliveryTerms', 'customsPlace'];
+export const REQUIRED_ITEM_FIELDS: readonly ItemField[] = ['product', 'boxCount', 'netto', 'brutto'];
+
+/** Majburiy maydonlar progressi (serverdagi hisob bilan bir xil: bo'sh tovar sanalmaydi, tovar bo'lmasa bittasi kutiladi) */
+export function requiredProgress(current: FormSnapshot, hasBranches: boolean): { done: number; total: number } {
+  const filled = (value: string) => value.trim() !== '';
+  const items = current.items.filter((item) => ITEM_FIELDS.some((k) => filled(item.fields[k])));
+  const values = [
+    ...(hasBranches ? [current.branchId !== null] : []),
+    ...REQUIRED_HEADER_FIELDS.map((k) => filled(current.header[k])),
+    ...(items.length > 0 ? items.flatMap((item) => REQUIRED_ITEM_FIELDS.map((k) => filled(item.fields[k]))) : REQUIRED_ITEM_FIELDS.map(() => false)),
+  ];
+  return { done: values.filter(Boolean).length, total: values.length };
+}
+
+/** Serverdagi yetishmayotgan maydon yo'li → formadagi `data-field` belgisi; `items.*` — hali tovar yo'q, birinchisiga */
+export function fieldAnchor(path: string, firstItemUid: string): string {
+  return path.replace(/^items\.\*\./, `items.${firstItemUid}.`);
+}
+
 /** Avto raqami faqat lotin alifbosida (invoys dasturidagi qoida bilan bir xil): kirill belgilari (U+0400–U+04FF) o'chiriladi */
 export function stripCyrillic(raw: string): { value: string; stripped: boolean } {
   const value = raw.replace(/[Ѐ-ӿ]/g, '');

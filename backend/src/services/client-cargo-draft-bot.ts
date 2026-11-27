@@ -26,11 +26,11 @@ export function buildNewCargoReply(input: { chatId: string; miniAppLink: string;
   return { text: "📋 Ochiq yuk arizalari bor. To'ldirishni davom ettiring yoki yangisini boshlang:", keyboard: rows };
 }
 
-export type DraftCallbackAction = 'done' | 'cancel' | 'cancel-yes' | 'cancel-no';
+export type DraftCallbackAction = 'done' | 'cancel' | 'cancel-yes' | 'cancel-no' | 'invoice';
 
 /** `cargo:<amal>:<arizaId>` — boshqa callback'lar (masalan arxiv) uchun null */
 export function parseDraftCallback(data: string): { action: DraftCallbackAction; draftId: number } | null {
-  const match = /^cargo:(done|cancel-yes|cancel-no|cancel):([1-9]\d{0,9})$/.exec(data);
+  const match = /^cargo:(done|cancel-yes|cancel-no|cancel|invoice):([1-9]\d{0,9})$/.exec(data);
   if (!match) return null;
   return { action: match[1] as DraftCallbackAction, draftId: Number(match[2]) };
 }

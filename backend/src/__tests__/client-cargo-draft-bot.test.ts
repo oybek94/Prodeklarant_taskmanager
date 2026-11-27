@@ -44,6 +44,7 @@ describe('parseDraftCallback', () => {
     expect(parseDraftCallback('cargo:cancel:12')).toEqual({ action: 'cancel', draftId: 12 });
     expect(parseDraftCallback('cargo:cancel-yes:12')).toEqual({ action: 'cancel-yes', draftId: 12 });
     expect(parseDraftCallback('cargo:cancel-no:12')).toEqual({ action: 'cancel-no', draftId: 12 });
+    expect(parseDraftCallback('cargo:invoice:12')).toEqual({ action: 'invoice', draftId: 12 });
   });
   it("boshqa va noto'g'ri ma'lumotlarda null (arxiv callback'lari ham)", () => {
     for (const bad of ['arx:p:1', 'arx:t:5', 'cargo:done:abc', 'cargo:done:', 'cargo:other:1', 'cargo:done:0', 'cargo:done:7:8', '']) {

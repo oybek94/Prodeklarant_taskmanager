@@ -199,6 +199,16 @@ describe('buildDraftKeyboard', () => {
     expect(buildDraftKeyboard({ ...base, status: 'CANCELLED', complete: true })).toEqual([]);
   });
 
+  it("COMPLETED va invoys bor: birinchi qatorda Invoysni ko'rish", () => {
+    const kb = buildDraftKeyboard({ ...base, status: 'COMPLETED', complete: true, hasInvoice: true });
+    expect(kb[0]).toEqual([{ text: "📄 Invoysni ko'rish", callback_data: 'cargo:invoice:7' }]);
+    expect(kb).toHaveLength(2);
+  });
+
+  it("ochiq arizada invoys tugmasi chiqmaydi", () => {
+    expect(JSON.stringify(buildDraftKeyboard({ ...base, status: 'OPEN', complete: true, hasInvoice: true }))).not.toContain('cargo:invoice');
+  });
+
   it('callback_data 64 baytdan oshmaydi', () => {
     for (const status of ['OPEN', 'COMPLETED'] as const) {
       const all = buildDraftKeyboard({ ...base, draftId: 2147483647, status, complete: true, confirmCancel: false }).flat();

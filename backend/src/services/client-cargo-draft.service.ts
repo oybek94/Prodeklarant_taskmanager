@@ -2,6 +2,7 @@ import { Prisma, type ClientCargoDraft } from '@prisma/client';
 import { z } from 'zod';
 import { prisma } from '../prisma';
 import { announceCargoInvoice, createCargoInvoiceInTx, prepareCargoInvoice, type CreatedCargoInvoice } from './client-cargo-invoice.service';
+import { sendCargoInvoicePdf } from './client-cargo-invoice-pdf.service';
 import { callTelegram } from './telegram-bot-api';
 import {
   applyDraftPatch,
@@ -212,7 +213,14 @@ async function runSyncNow(botToken: string, draftId: number): Promise<SyncResult
     status: row.status,
   });
   const reply_markup = {
-    inline_keyboard: buildDraftKeyboard({ draftId, chatId: row.chatId, status: row.status, complete: view.complete, miniAppLink: miniAppLink() }),
+    inline_keyboard: buildDraftKeyboard({
+      draftId,
+      chatId: row.chatId,
+      status: row.status,
+      complete: view.complete,
+      miniAppLink: miniAppLink(),
+      hasInvoice: view.taskId !== null,
+    }),
   };
 
   if (row.messageId !== null) {
@@ -404,6 +412,7 @@ export async function createDraft(scope: DraftScope, actor: DraftActor, rawPatch
 /** Yakunlash: ariza holati, vazifa (PSR yo'q) va invoys bitta tranzaksiyada yoziladi */
 export async function completeDraft(scope: DraftScope, id: number, actor: DraftActor): Promise<DraftResult> {
   let created: CreatedCargoInvoice | null = null;
+  let messageId: number | null = null;
   return mutateDraft(
     scope,
     id,
@@ -422,6 +431,7 @@ export async function completeDraft(scope: DraftScope, id: number, actor: DraftA
         if (latest && latest.version !== row.version) return { kind: 'retry' };
         return { kind: 'error', error: failure(400, prepared.error) };
       }
+      messageId = row.messageId;
       return {
         kind: 'write',
         data: { status: 'COMPLETED', completedAt: new Date(), completedByName: actor.name },
@@ -444,6 +454,15 @@ export async function completeDraft(scope: DraftScope, id: number, actor: DraftA
           } catch (e) {
             console.error('[ClientCargoDraft] Invoys haqida xabar berishda xatolik:', e instanceof Error ? e.message : e);
           }
+          // Tekshirish uchun PDF fonda yuboriladi: tugma javobi va Mini App chizishni kutmaydi (xato otmaydi)
+          void sendCargoInvoicePdf({
+            botToken: scope.botToken,
+            clientId: scope.clientId,
+            chatId: scope.chatId,
+            taskId: created.task.id,
+            replyToMessageId: messageId,
+            notifyOnFailure: true,
+          });
         }
         const products = new Set(parsed.data.items.map((item) => item.fields.product).filter((p): p is string => !!p));
         for (const name of products) {

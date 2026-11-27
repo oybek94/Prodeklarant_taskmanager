@@ -220,11 +220,14 @@ export function buildDraftKeyboard(input: {
   complete: boolean;
   miniAppLink: string | null;
   confirmCancel?: boolean;
+  /** Yakunlanganda invoys yaratilgan — uni ko'rish tugmasi chiqadi */
+  hasInvoice?: boolean;
 }): InlineButton[][] {
-  const { draftId, chatId, status, complete, miniAppLink, confirmCancel } = input;
-  // Yakunlangan yukda haydovchi kodi va fura joylashuvi tugmalari (handler: cargo-tracking callback'lari)
+  const { draftId, chatId, status, complete, miniAppLink, confirmCancel, hasInvoice } = input;
+  // Yakunlangan yukda invoys, haydovchi kodi va fura joylashuvi tugmalari (haydovchi/fura handler'i: cargo-tracking callback'lari)
   if (status === 'COMPLETED') {
-    return [[{ text: '🔑 Код водителя', callback_data: `trk:d:${draftId}` }, { text: '📍 Где фура?', callback_data: 'trk:f' }]];
+    const tracking: InlineButton[] = [{ text: '🔑 Код водителя', callback_data: `trk:d:${draftId}` }, { text: '📍 Где фура?', callback_data: 'trk:f' }];
+    return hasInvoice ? [[{ text: "📄 Invoysni ko'rish", callback_data: `cargo:invoice:${draftId}` }], tracking] : [tracking];
   }
   if (status !== 'OPEN') return [];
   if (confirmCancel) {

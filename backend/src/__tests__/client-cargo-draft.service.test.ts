@@ -21,6 +21,7 @@ const m = vi.hoisted(() => ({
   prepareInvoice: vi.fn(),
   createInvoice: vi.fn(),
   announceInvoice: vi.fn(),
+  sendInvoicePdf: vi.fn(),
 }));
 
 vi.mock('../prisma', () => ({
@@ -47,6 +48,7 @@ vi.mock('../services/client-cargo-invoice.service', () => ({
   announceCargoInvoice: m.announceInvoice,
 }));
 vi.mock('../services/telegram-bot-api', () => ({ callTelegram: m.callTelegram }));
+vi.mock('../services/client-cargo-invoice-pdf.service', () => ({ sendCargoInvoicePdf: m.sendInvoicePdf }));
 vi.mock('../services/client-cargo-miniapp.service', () => ({
   rememberProduct: m.rememberProduct,
   rememberDestination: m.rememberDestination,
@@ -104,6 +106,7 @@ beforeEach(() => {
   m.prepareInvoice.mockResolvedValue({ ok: true, plan: { invoiceNumber: '1/26' } });
   m.createInvoice.mockResolvedValue({ task: { id: 900 }, invoice: { id: 1, taskId: 900, invoiceNumber: '1/26' } });
   m.invoiceFindUnique.mockResolvedValue({ invoiceNumber: '1/26' });
+  m.sendInvoicePdf.mockResolvedValue({ ok: true });
   delete process.env.CLIENT_BOT_MINIAPP_LINK;
 });
 afterEach(() => {
@@ -327,6 +330,33 @@ describe('completeDraft — invoys avtomatik yaratiladi', () => {
     expect(m.callTelegram.mock.calls[0][2].text).toContain('📥 Invoys yaratildi: № <b>1/26</b>');
   });
 
+  it("yakunlangach invoys PDF'i guruhga yuboriladi; chizish tugashi kutilmaydi", async () => {
+    m.draftFindFirst.mockResolvedValueOnce(open(95)).mockResolvedValue(done(95));
+    m.draftFindUnique.mockResolvedValue(done(95));
+    m.sendInvoicePdf.mockReturnValue(new Promise(() => undefined)); // hech qachon tugamaydi
+
+    const result = await completeDraft(scope, 95, actor);
+
+    expect(result.ok).toBe(true);
+    expect(m.sendInvoicePdf).toHaveBeenCalledWith({
+      botToken: '123:TEST',
+      clientId: 1,
+      chatId: '-100123',
+      taskId: 900,
+      replyToMessageId: 55,
+      notifyOnFailure: true,
+    });
+    const keyboard = JSON.stringify(m.callTelegram.mock.calls[0][2].reply_markup);
+    expect(keyboard).toContain('cargo:invoice:95');
+  });
+
+  it("oldin yakunlangan arizani qayta yakunlash PDF'ni qayta yubormaydi", async () => {
+    m.draftFindFirst.mockResolvedValue(done(96));
+    m.draftFindUnique.mockResolvedValue(done(96));
+    await completeDraft(scope, 96, vali);
+    expect(m.sendInvoicePdf).not.toHaveBeenCalled();
+  });
+
   it("invoys tekshiruvi o'tmasa 400, ariza ochiq qoladi va hech narsa yozilmaydi", async () => {
     m.draftFindFirst.mockResolvedValue(open(91));
     m.prepareInvoice.mockResolvedValue({ ok: false, error: 'Invoys yaratilmadi: raqam band' });
@@ -364,6 +394,7 @@ describe('completeDraft — invoys avtomatik yaratiladi', () => {
     if (!result.ok) expect(result.error).toMatch(/^Invoys yaratilmadi: /);
     await expect(m.transaction.mock.results[0].value).rejects.toThrow('db down');
     expect(m.announceInvoice).not.toHaveBeenCalled();
+    expect(m.sendInvoicePdf).not.toHaveBeenCalled();
     expect(m.callTelegram).not.toHaveBeenCalled();
     spy.mockRestore();
   });

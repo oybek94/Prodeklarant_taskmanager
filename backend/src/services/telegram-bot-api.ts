@@ -5,13 +5,39 @@ const TELEGRAM_TIMEOUT_MS = 10_000;
 
 export type TelegramResult<T> = { ok: true; result: T } | { ok: false; description: string };
 
-export async function callTelegram<T>(token: string, method: string, body: Record<string, unknown>): Promise<TelegramResult<T>> {
+/** Fayl yuklash JSON chaqiruvlaridan sekinroq */
+const TELEGRAM_UPLOAD_TIMEOUT_MS = 30_000;
+
+export function callTelegram<T>(token: string, method: string, body: Record<string, unknown>): Promise<TelegramResult<T>> {
+  return request<T>(token, method, { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }, TELEGRAM_TIMEOUT_MS);
+}
+
+export interface TelegramDocument {
+  chatId: string;
+  file: Buffer;
+  filename: string;
+  caption: string;
+  replyToMessageId?: number;
+}
+
+export function sendTelegramDocument(token: string, document: TelegramDocument): Promise<TelegramResult<{ message_id: number }>> {
+  const form = new FormData();
+  form.set('chat_id', document.chatId);
+  form.set('caption', document.caption);
+  if (document.replyToMessageId !== undefined) {
+    // Javob berilayotgan xabar o'chirilgan bo'lsa ham hujjat yuborilsin
+    form.set('reply_parameters', JSON.stringify({ message_id: document.replyToMessageId, allow_sending_without_reply: true }));
+  }
+  form.set('document', new Blob([new Uint8Array(document.file)], { type: 'application/pdf' }), document.filename);
+  return request(token, 'sendDocument', { body: form }, TELEGRAM_UPLOAD_TIMEOUT_MS);
+}
+
+async function request<T>(token: string, method: string, init: RequestInit, timeoutMs: number): Promise<TelegramResult<T>> {
   try {
     const response = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
+      ...init,
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(TELEGRAM_TIMEOUT_MS),
+      signal: AbortSignal.timeout(timeoutMs),
     });
     const json = (await response.json()) as { ok: boolean; result?: T; description?: string };
     if (json.ok && json.result !== undefined) return { ok: true, result: json.result };

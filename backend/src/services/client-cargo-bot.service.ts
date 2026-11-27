@@ -4,6 +4,7 @@ import { linkGroupByCode, migrateBotGroupChatId } from './client-cargo-bot-link.
 import { actorFromTelegramUser, buildNewCargoReply, parseDraftCallback, type DraftCallbackAction } from './client-cargo-draft-bot';
 import { buildDraftKeyboard } from './client-cargo-draft-message';
 import { cancelDraft, completeDraft, getDraft, listOpenDrafts } from './client-cargo-draft.service';
+import { sendCargoInvoicePdf } from './client-cargo-invoice-pdf.service';
 import {
   type ArchivePage,
   chunkForAlbums,
@@ -483,7 +484,7 @@ function registerHandlers(instance: TelegramBot, miniAppLink: string | undefined
     }
   };
 
-  /** Jonli xabardagi Yakunlash / Bekor qilish tugmalari. Egalik (guruh+mijoz) servisda tekshiriladi. */
+  /** Jonli xabardagi Yakunlash / Bekor qilish / Invoysni ko'rish tugmalari. Egalik (guruh+mijoz) servisda tekshiriladi. */
   const handleDraftCallback = async (query: TelegramBot.CallbackQuery, chatId: number, messageId: number, action: DraftCallbackAction, draftId: number): Promise<void> => {
     const clientId = await getClientIdByGroup(String(chatId));
     if (!clientId) {
@@ -501,6 +502,18 @@ function registerHandlers(instance: TelegramBot, miniAppLink: string | undefined
         return;
       }
       await instance.answerCallbackQuery(query.id, { text: action === 'done' ? '✅ Yakunlandi' : '❌ Bekor qilindi' });
+      return;
+    }
+
+    if (action === 'invoice') {
+      const completed = await getDraft({ clientId, chatId: String(chatId) }, draftId);
+      if (!completed || completed.status !== 'COMPLETED' || completed.taskId === null) {
+        await reject('Invoys topilmadi.');
+        return;
+      }
+      await instance.answerCallbackQuery(query.id, { text: 'Invoys tayyorlanmoqda…' });
+      const sent = await sendCargoInvoicePdf({ botToken, clientId, chatId: String(chatId), taskId: completed.taskId, replyToMessageId: messageId });
+      if (!sent.ok) await instance.sendMessage(chatId, sent.error);
       return;
     }
 

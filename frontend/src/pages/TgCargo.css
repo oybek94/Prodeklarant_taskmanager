@@ -519,33 +519,6 @@
   padding: 4px 16px calc(18px + env(safe-area-inset-bottom));
 }
 
-/* Brutto: faqat ko'rsatiladigan hisob */
-.tgc-auto {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 12px 12px 12px 14px;
-  border-radius: 14px;
-  background: var(--soft);
-}
-
-.tgc-auto div {
-  display: grid;
-  min-width: 0;
-}
-
-.tgc-auto span {
-  color: var(--muted);
-  font-size: 13px;
-}
-
-.tgc-auto strong {
-  font-size: 22px;
-  font-variant-numeric: tabular-nums;
-  overflow-wrap: anywhere;
-}
-
 /* Tugmalar */
 .tgc-secondary,
 .tgc-remove {

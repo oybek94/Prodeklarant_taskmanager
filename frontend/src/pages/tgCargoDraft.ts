@@ -196,6 +196,9 @@ export function fieldAnchor(path: string, firstItemUid: string): string {
   return path.replace(/^items\.\*\./, `items.${firstItemUid}.`);
 }
 
+/** Formada Oltiariq filiali mijozga "Farg'ona" deb ko'rsatiladi. Bazadagi nom o'zgarmaydi: boshqa mantiq unga tayanadi */
+export const branchLabel = (name: string): string => name.replace(/oltiariq/gi, "Farg'ona");
+
 /** Avto raqami faqat lotin alifbosida (invoys dasturidagi qoida bilan bir xil): kirill belgilari (U+0400–U+04FF) o'chiriladi */
 export function stripCyrillic(raw: string): { value: string; stripped: boolean } {
   const value = raw.replace(/[Ѐ-ӿ]/g, '');

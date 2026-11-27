@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
+  branchLabel,
   buildPatch,
   deriveManualFlags,
   fieldAnchor,
@@ -253,5 +254,16 @@ describe('fieldAnchor', () => {
 
   it('tovar hali yo\'q bo\'lsa (items.*) birinchi tovarga yo\'naltiradi', () => {
     expect(fieldAnchor('items.*.product', 'u1')).toBe('items.u1.product');
+  });
+});
+
+describe('branchLabel', () => {
+  it('Oltiariq filiali formada Farg\'ona deb ko\'rsatiladi', () => {
+    expect(branchLabel('Oltiariq')).toBe('Farg\'ona');
+    expect(branchLabel('OLTIARIQ filiali')).toBe('Farg\'ona filiali');
+  });
+
+  it('boshqa filial nomlari o\'zgarmaydi', () => {
+    expect(branchLabel('Toshkent')).toBe('Toshkent');
   });
 });

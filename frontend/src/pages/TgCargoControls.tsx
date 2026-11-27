@@ -189,10 +189,7 @@ function Picker({ title, options, selected, onSelect, other }: OptionListProps &
           <button type="button" className="tgc-sheet-backdrop" aria-label="Yopish" tabIndex={-1} onClick={close} />
           <div className="tgc-sheet" role="dialog" aria-modal="true" aria-label={title}>
             <div className="tgc-sheet-head">
-              <div>
-                <h3>{title}</h3>
-                <p className="tgc-help">Bittasini bosib tanlang</p>
-              </div>
+              <h3>{title}</h3>
               <button type="button" className="tgc-close" aria-label="Yopish" onClick={close}><Icon name="close" /></button>
             </div>
             <div className="tgc-sheet-list">
@@ -250,7 +247,6 @@ export function ChoiceField({ id, anchor, label, options, value, required, error
         htmlFor={options.length === 0 ? id : undefined}
         required={required}
         filled={value.trim() !== ''}
-        help={options.length > 0 && !asPicker ? 'Bittasini bosib tanlang' : undefined}
       />
       {options.length > 0 &&
         (asPicker ? (

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { API_BASE_URL } from '../lib/api';
-import { buildPatch, deriveManualFlags, fieldAnchor, makeUid, requiredProgress, snapshotFromDraft, stripCyrillic, totalsLine, type DraftView, type FormSnapshot, type MissingField, type SnapshotItem } from './tgCargoDraft';
+import { branchLabel, buildPatch,deriveManualFlags, fieldAnchor, makeUid, requiredProgress, snapshotFromDraft, stripCyrillic, totalsLine, type DraftView, type FormSnapshot, type MissingField, type SnapshotItem } from './tgCargoDraft';
 import { ChoiceField, ErrorText, FieldHead, Icon, NumberBox, NumberGroup, Section, TextField, type ChoiceOption } from './TgCargoControls';
 import './TgCargo.css';
 
@@ -860,7 +860,7 @@ export default function TgCargo() {
                   id="tgc-branch"
                   anchor="branchId"
                   label={HEADER_LABELS.shipmentPlace}
-                  options={c.branches.map((b) => ({ value: String(b.id), text: b.name, sub: b.place && b.place !== b.name ? b.place : undefined }))}
+                  options={c.branches.map((b) => ({ value: String(b.id), text: branchLabel(b.name), sub: b.place && b.place !== b.name ? branchLabel(b.place) : undefined }))}
                   value={branchId === null ? '' : String(branchId)}
                   required
                   onSelect={(v) => setBranchId(v === null ? null : Number(v))}
@@ -944,27 +944,19 @@ export default function TgCargo() {
                   <NumberGroup id={inputId('pallets')} title="Поддоны" cells={[cell('palletCount', false, 'шт.'), cell('palletWeight', true, 'кг')]} />
                   <NumberGroup id={inputId('weight')} title="Вес и цена" required filled={item.netto !== ''} cells={[cell('netto', true, 'кг'), cell('price', true, currencySuffix ?? undefined)]} />
                   <div className="tgc-field" data-field={errorKey('brutto')} data-invalid={!!fieldErrors[errorKey('brutto')]}>
-                    {item.bruttoOverride === null ? (
-                      <>
-                        <div className="tgc-auto">
-                          <div>
-                            <span>{ITEM_LABELS.brutto} · o'zi hisoblanadi</span>
-                            <strong>{brutto ? `${brutto} кг` : '—'}</strong>
-                          </div>
-                          <button type="button" className="tgc-secondary" onClick={() => updateItem(item.uid, { bruttoOverride: brutto }, errorKey('brutto'))}>
-                            O'zgartirish
-                          </button>
-                        </div>
-                        <p className="tgc-help">Нетто + вес ящиков + вес поддонов</p>
-                      </>
-                    ) : (
-                      <>
-                        <FieldHead id={inputId('brutto')} htmlFor={inputId('brutto')} label={ITEM_LABELS.brutto} required filled={brutto !== ''} help="Qo'lda o'zgartirildi" />
-                        <NumberBox id={inputId('brutto')} decimal unit="кг" value={brutto} error={fieldErrors[errorKey('brutto')]} onChange={(v) => updateItem(item.uid, { bruttoOverride: v }, errorKey('brutto'))} />
-                        <button type="button" className="tgc-secondary" onClick={() => updateItem(item.uid, { bruttoOverride: null }, errorKey('brutto'))}>
-                          Qayta hisoblash
-                        </button>
-                      </>
+                    <FieldHead
+                      id={inputId('brutto')}
+                      htmlFor={inputId('brutto')}
+                      label={ITEM_LABELS.brutto}
+                      required
+                      filled={brutto !== ''}
+                      help={item.bruttoOverride === null ? "O'zi hisoblanadi: Нетто + вес ящиков + вес поддонов" : "Qo'lda o'zgartirildi"}
+                    />
+                    <NumberBox id={inputId('brutto')} decimal unit="кг" value={brutto} error={fieldErrors[errorKey('brutto')]} onChange={(v) => updateItem(item.uid, { bruttoOverride: v }, errorKey('brutto'))} />
+                    {item.bruttoOverride !== null && (
+                      <button type="button" className="tgc-secondary" onClick={() => updateItem(item.uid, { bruttoOverride: null }, errorKey('brutto'))}>
+                        Qayta hisoblash
+                      </button>
                     )}
                     <ErrorText error={fieldErrors[errorKey('brutto')]} />
                   </div>

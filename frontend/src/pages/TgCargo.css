@@ -116,20 +116,6 @@
   padding: 0 4px;
 }
 
-/* Logotip to'q ko'k: tungi rejimda ham ko'rinishi uchun oq fonda */
-.tgc-logo {
-  justify-self: start;
-  padding: 4px 6px;
-  border-radius: 8px;
-  background: #ffffff;
-}
-
-.tgc-logo img {
-  display: block;
-  height: 28px;
-  width: auto;
-}
-
 .tgc-title {
   margin: 0;
   font-size: 1.5rem;
@@ -206,8 +192,8 @@
   width: 2rem;
   height: 2rem;
   border-radius: 50%;
-  background: var(--tint);
-  color: var(--accent);
+  background: var(--soft);
+  color: var(--muted);
   font-weight: 700;
 }
 
@@ -368,8 +354,10 @@
   gap: 8px;
 }
 
+/* Ikki ustun: nomi yarim qatorga sig'maydigan variant so'z o'rtasidan bo'linmay, butun qatorni oladi */
 .tgc-options-2 {
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, max(7.5rem, calc(50% - 4px))), 1fr));
+  display: flex;
+  flex-wrap: wrap;
 }
 
 .tgc-option {
@@ -390,6 +378,17 @@
 
 .tgc-option-wide {
   grid-column: 1 / -1;
+}
+
+.tgc-options-2 > .tgc-option {
+  flex: 1 1 calc(50% - 4px);
+  gap: 10px;
+  max-width: 100%;
+  padding-inline: 10px;
+}
+
+.tgc-options-2 > .tgc-option-wide {
+  flex-basis: 100%;
 }
 
 .tgc-option:active,
@@ -433,6 +432,11 @@
   display: grid;
   min-width: 0;
   overflow-wrap: anywhere;
+}
+
+/* break-word katakning eng kichik enini uzun so'zdan kichraytirmaydi (anywhere kichraytiradi) */
+.tgc-options-2 .tgc-option-text {
+  overflow-wrap: break-word;
 }
 
 .tgc-option-text small {
@@ -602,6 +606,41 @@
 
 .tgc-add:active {
   transform: scale(0.99);
+}
+
+/* Ixtiyoriy maydonlar: bo'lim ichidagi oraliq bilan bir xil */
+.tgc-extra {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 22px;
+}
+
+.tgc-disclosure {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 56px;
+  padding: 8px 14px;
+  border: 1.5px solid var(--edge);
+  border-radius: 14px;
+  background: var(--card);
+  color: var(--ink);
+  text-align: left;
+}
+
+.tgc .tgc-disclosure {
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+.tgc-disclosure > .tgc-icon {
+  color: var(--accent);
+}
+
+.tgc-disclosure[aria-expanded='true'] > .tgc-icon {
+  transform: rotate(180deg);
 }
 
 .tgc-preview {
@@ -919,6 +958,10 @@
 
   .tgc-box > .tgc-icon {
     color: CanvasText;
+  }
+
+  .tgc-disclosure > .tgc-icon {
+    color: ButtonText;
   }
 
   .tgc-option[aria-pressed='false'] .tgc-radio .tgc-icon {

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { API_BASE_URL } from '../lib/api';
 import { REQUIRED_ITEM_FIELDS, branchLabel, buildPatch, deriveManualFlags, fieldAnchor, makeUid, requiredProgress,snapshotFromDraft, stripCyrillic, totalsLine, type DraftView, type FormSnapshot, type MissingField, type SnapshotItem } from './tgCargoDraft';
-import { ChoiceField, ErrorText, FieldHead, Icon, NumberBox, NumberGroup, Section, TextField, type ChoiceOption } from './TgCargoControls';
+import { ChoiceField, Disclosure, ErrorText, FieldHead, Icon, NumberBox, NumberGroup, Section, TextField, type ChoiceOption } from './TgCargoControls';
 import './TgCargo.css';
 
 // Telegram Mini App: yuk ma'lumotlari formasi. Guruhdagi "Formani ochish" tugmasi orqali ochiladi.
@@ -80,6 +80,9 @@ type UndoEntry =
 
 /** Shartnomaga bog'liq maydonlar: shartnoma almashsa eskiradi */
 const CONTRACT_FIELDS: readonly ManualKey[] = ['deliveryTerms', 'customsPlace', 'destination'];
+
+/** Kamdan-kam to'ldiriladigan maydonlar: "Qo'shimcha" ostida yig'ib qo'yiladi */
+const EXTRA_FIELDS = ['orderNumber', 'temperature', 'sensorSerial'] as const satisfies readonly HeaderField[];
 
 const EMPTY_HEADER: HeaderValues = {
   invoiceNumber: '',
@@ -371,6 +374,7 @@ export default function TgCargo() {
   /** "Boshqa — o'zim yozaman" tanlangan tovarlar (uid) */
   const [otherProducts, setOtherProducts] = useState<ReadonlySet<string>>(() => new Set());
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [extraOpen, setExtraOpen] = useState(false);
   /** Oxirgisi birinchi qaytariladi; saqlangach tozalanadi */
   const [undoStack, setUndoStack] = useState<UndoEntry[]>([]);
   /** Formaga qaytganda ko'rsatiladigan maydon (data-field) */
@@ -421,6 +425,8 @@ export default function TgCargo() {
           const view = await tgFetch<DraftView>(`/drafts/${draftId}`, data);
           if (cancelled) return;
           adoptDraft(view, ctx.contracts);
+          // Oldin kiritilgan qiymat yashirinib qolmasin
+          if (EXTRA_FIELDS.some((key) => view.data.header[key])) setExtraOpen(true);
           setPhase(CLOSED_STATUSES.has(view.status) ? 'closed' : 'ready');
         } else {
           setPhase('ready');
@@ -633,7 +639,11 @@ export default function TgCargo() {
 
   const showError = (e: unknown, fallback: string) => {
     window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('error');
-    if (e instanceof ApiError) setFieldErrors(e.fieldErrors ?? {});
+    if (e instanceof ApiError) {
+      setFieldErrors(e.fieldErrors ?? {});
+      // Xato yig'ilgan bo'limdagi maydonda bo'lsa ko'rinishi uchun ochamiz
+      if (EXTRA_FIELDS.some((key) => e.fieldErrors?.[key])) setExtraOpen(true);
+    }
     const message = e instanceof Error ? e.message : fallback;
     setFormError(e instanceof OfflineError ? `${message} Kiritganlaringiz saqlanib turibdi.` : message);
     setPhase('ready');
@@ -847,7 +857,6 @@ export default function TgCargo() {
     <>
       <div className="tgc-wrap">
         <header className="tgc-top">
-          <span className="tgc-logo"><img src="/logo.png" alt="Prodeklarant" /></span>
           <div>
             <h1 className="tgc-title">Yuk ma'lumoti</h1>
             <p className="tgc-client">{draft ? `${c.clientName} · Ariza № ${draft.id}` : c.clientName}</p>
@@ -952,9 +961,18 @@ export default function TgCargo() {
                   onSelect={(v) => setBranchId(v === null ? null : Number(v))}
                 />
               )}
-              <TextField id="tgc-order" anchor="header.orderNumber" label={HEADER_LABELS.orderNumber} value={header.orderNumber} placeholder="Bo'lsa yozing" maxLength={50} error={fieldErrors.orderNumber} onChange={(v) => setHeaderValue('orderNumber', v)} />
-              <TextField id="tgc-temperature" anchor="header.temperature" label={HEADER_LABELS.temperature} value={header.temperature} placeholder="+2 C" maxLength={20} error={fieldErrors.temperature} onChange={(v) => setHeaderValue('temperature', v)} />
-              <TextField id="tgc-sensor" anchor="header.sensorSerial" label={HEADER_LABELS.sensorSerial} value={header.sensorSerial} placeholder="Datchik raqami" maxLength={60} error={fieldErrors.sensorSerial} onChange={(v) => setHeaderValue('sensorSerial', v)} />
+              <Disclosure
+                id="tgc-extra"
+                title="Qo'shimcha"
+                names={EXTRA_FIELDS.map((key) => HEADER_LABELS[key])}
+                filled={EXTRA_FIELDS.filter((key) => header[key].trim() !== '').length}
+                open={extraOpen}
+                onToggle={() => setExtraOpen((v) => !v)}
+              >
+                <TextField id="tgc-order" anchor="header.orderNumber" label={HEADER_LABELS.orderNumber} value={header.orderNumber} placeholder="Bo'lsa yozing" maxLength={50} error={fieldErrors.orderNumber} onChange={(v) => setHeaderValue('orderNumber', v)} />
+                <TextField id="tgc-temperature" anchor="header.temperature" label={HEADER_LABELS.temperature} value={header.temperature} placeholder="+2 C" maxLength={20} error={fieldErrors.temperature} onChange={(v) => setHeaderValue('temperature', v)} />
+                <TextField id="tgc-sensor" anchor="header.sensorSerial" label={HEADER_LABELS.sensorSerial} value={header.sensorSerial} placeholder="Datchik raqami" maxLength={60} error={fieldErrors.sensorSerial} onChange={(v) => setHeaderValue('sensorSerial', v)} />
+              </Disclosure>
             </Section>
 
             {items.map((item, index) => {
@@ -1024,7 +1042,7 @@ export default function TgCargo() {
                       label={ITEM_LABELS.packagingType}
                       options={textOptions(packagingOptionsFor(item.packagingType))}
                       value={item.packagingType}
-                      picker
+                      columns={2}
                       error={fieldErrors[errorKey('packagingType')]}
                       onSelect={(v) => updateItem(item.uid, { packagingType: v ?? '' }, errorKey('packagingType'))}
                     />

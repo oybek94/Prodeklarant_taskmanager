@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { Fragment, useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 
 // Yuk formasining boshqaruv elementlari. Har turning o'z ko'rinishi bor, mijoz nima bosilishini bir qarashda ajratsin:
 // doirali qator — bosib tanlanadi; qalamli oq katak — yoziladi; ko'k "Tanlash" — ro'yxat ochiladi; kulrang fon — faqat ko'rsatiladi.
@@ -10,6 +10,7 @@ const ICON_PATHS = {
   check: 'M5 13l4 4L19 7',
   pencil: 'M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4',
   next: 'M9 6l6 6-6 6',
+  down: 'M6 9l6 6 6-6',
   close: 'M6 6l12 12M18 6L6 18',
   trash: 'M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13',
   plus: 'M12 5v14M5 12h14',
@@ -42,6 +43,30 @@ export function Section({ step, title, titleLang, done, action, children }: { st
       </div>
       {children}
     </section>
+  );
+}
+
+/**
+ * Ixtiyoriy maydonlar yig'ib qo'yiladi: sarlavha ostida ichidagi maydon nomlari, yig'ilgan paytda
+ * to'ldirilgani bo'lsa ularning soni turadi — yashirin qiymat e'tibordan chetda qolmasin.
+ */
+export function Disclosure({ id, title, names, filled, open, onToggle, children }: { id: string; title: string; names: string[]; filled: number; open: boolean; onToggle: () => void; children: ReactNode }) {
+  const showCount = !open && filled > 0;
+  return (
+    <div className="tgc-extra">
+      <button type="button" className="tgc-disclosure" aria-expanded={open} aria-controls={open ? id : undefined} onClick={onToggle}>
+        <span className="tgc-option-text">
+          <span>{title}</span>
+          <small lang={showCount ? undefined : 'ru'}>{showCount ? `${filled} ta to'ldirilgan` : names.join(', ')}</small>
+        </span>
+        <Icon name="down" />
+      </button>
+      {open && (
+        <div id={id} className="tgc-extra">
+          {children}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -157,12 +182,25 @@ interface OptionListProps {
   columns?: 1 | 2;
 }
 
+/** "картон.короб." kabi qisqartmalar tor katakda nuqtadan keyin sinadi, so'z o'rtasidan emas */
+const breakAfterDots = (text: string): ReactNode =>
+  text.split('.').map((part, i) => (
+    <Fragment key={i}>
+      {i > 0 && (
+        <>
+          .<wbr />
+        </>
+      )}
+      {part}
+    </Fragment>
+  ));
+
 function OptionButton({ pressed, text, sub, lang, wide, onClick }: { pressed: boolean; text: string; sub?: string; lang?: 'uz' | 'ru'; wide?: boolean; onClick: () => void }) {
   return (
     <button type="button" className={wide ? 'tgc-option tgc-option-wide' : 'tgc-option'} aria-pressed={pressed} onClick={onClick}>
       <span className="tgc-radio" aria-hidden="true"><Icon name="check" /></span>
       <span className="tgc-option-text">
-        <span lang={lang}>{text}</span>
+        <span lang={lang}>{breakAfterDots(text)}</span>
         {sub && <small lang={lang}>{sub}</small>}
       </span>
     </button>
@@ -294,15 +332,13 @@ interface ChoiceFieldProps {
   required?: boolean;
   error?: string;
   columns?: 1 | 2;
-  /** Variantlar soni oz bo'lsa ham ro'yxat tugmasi ko'rsatiladi */
-  picker?: boolean;
   onSelect: (value: string | null) => void;
   /** Ro'yxatda yo'q qiymatni qo'lda yozish; variant umuman bo'lmasa faqat yozish katagi chiqadi */
   manual?: { active: boolean; placeholder: string; onToggle: () => void; onType: (value: string) => void };
 }
 
-export function ChoiceField({ id, anchor, label, options, value, required, error, columns, picker, onSelect, manual }: ChoiceFieldProps) {
-  const asPicker = picker || options.length > MAX_INLINE_OPTIONS;
+export function ChoiceField({ id, anchor, label, options, value, required, error, columns, onSelect, manual }: ChoiceFieldProps) {
+  const asPicker = options.length > MAX_INLINE_OPTIONS;
   const showInput = !!manual && (manual.active || options.length === 0);
   const other = manual && { active: manual.active, onToggle: manual.onToggle };
   const selected = value || null;

@@ -13,8 +13,11 @@ const context = {
   ],
   branches: [],
   products: ['Xurmo', 'Uzum'],
-  packagingTypes: ['yashik'],
+  packagingTypes: ['yashik', 'qop'],
 };
+
+/** Sahifaga sig'maydigan ro'yxat: pastdan ochiladi */
+const manyPackagingTypes = Array.from({ length: 9 }, (_, i) => `qadoq ${i + 1}`);
 
 const savedDraft = {
   id: 5,
@@ -81,6 +84,9 @@ const closingGuardOn = () => {
 /** Server javoblari: testlar kerakli holatni shu o'zgaruvchilar orqali beradi */
 let offline = false;
 let draftReply: unknown = savedDraft;
+let contextReply: unknown = context;
+/** Berilsa saqlash so'rovi 400 bilan shu javobni qaytaradi */
+let errorReply: { error: string; errors: Record<string, string> } | null = null;
 
 const mount = async (readySelector = '.tgc-bar') => {
   host = document.createElement('div');
@@ -102,12 +108,16 @@ beforeEach(async () => {
   backHandlers.clear();
   offline = false;
   draftReply = savedDraft;
+  contextReply = context;
+  errorReply = null;
   (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
   Element.prototype.scrollIntoView = () => {};
   window.Telegram = { WebApp: webApp };
   vi.stubGlobal('fetch', async (url: string) => {
     if (offline) throw new TypeError('Failed to fetch');
-    return { ok: true, status: 200, json: async () => (url.endsWith('/context') ? context : draftReply) };
+    if (url.endsWith('/context')) return { ok: true, status: 200, json: async () => contextReply };
+    if (errorReply) return { ok: false, status: 400, json: async () => errorReply };
+    return { ok: true, status: 200, json: async () => draftReply };
   });
   await mount();
 });
@@ -218,6 +228,9 @@ describe('tovarni o\'chirish', () => {
 
 describe('pastdan ochiladigan ro\'yxat', () => {
   const openSheet = async () => {
+    await unmount();
+    contextReply = { ...context, packagingTypes: manyPackagingTypes };
+    await mount();
     await pickOption('12/2026');
     const trigger = must<HTMLButtonElement>('.tgc-picker');
     trigger.focus();
@@ -335,5 +348,96 @@ describe('til belgisi', () => {
     expect(must('.tgc-option-text > span', 'Xurmo').getAttribute('lang')).toBe('ru');
     expect(must('.tgc-option-text > span', 'Boshqa').getAttribute('lang')).toBeNull();
     expect(must('.tgc-section-title', 'Shartnoma').getAttribute('lang')).toBeNull();
+  });
+});
+
+describe('ixtiyoriy maydonlar', () => {
+  const toggle = () => must<HTMLButtonElement>('.tgc-disclosure', "Qo'shimcha");
+  const orderInput = () => find<HTMLInputElement>('#tgc-order');
+
+  it('boshida yig\x27ilgan: bosilsa ochiladi, qayta bosilsa yopiladi', async () => {
+    await pickOption('12/2026');
+    expect(toggle().getAttribute('aria-expanded')).toBe('false');
+    expect(orderInput()).toBeUndefined();
+    expect(find('#tgc-temperature')).toBeUndefined();
+    expect(find('#tgc-sensor')).toBeUndefined();
+
+    await act(async () => toggle().click());
+    expect(toggle().getAttribute('aria-expanded')).toBe('true');
+    expect(orderInput()).toBeDefined();
+    expect(find('#tgc-temperature')).toBeDefined();
+    expect(find('#tgc-sensor')).toBeDefined();
+
+    await act(async () => toggle().click());
+    expect(orderInput()).toBeUndefined();
+  });
+
+  it('yig\x27ilganda ichida nechta maydon to\x27ldirilgani ko\x27rinadi, qiymat saqlanib qoladi', async () => {
+    await pickOption('12/2026');
+    expect(toggle().textContent).not.toContain('to\x27ldirilgan');
+    await act(async () => toggle().click());
+    await type(orderInput()!, 'A-1');
+    await act(async () => toggle().click());
+    expect(toggle().textContent).toContain('1 ta to\x27ldirilgan');
+    await act(async () => toggle().click());
+    expect(orderInput()!.value).toBe('A-1');
+  });
+
+  it('saqlangan arizada qiymat bo\x27lsa bo\x27lim o\x27zi ochiq turadi', async () => {
+    await unmount();
+    contextReply = { ...context, launch: { draft: 5 } };
+    draftReply = { ...savedDraft, data: { ...savedDraft.data, header: { temperature: '+2 C' } } };
+    await mount('#tgc-temperature');
+    expect(toggle().getAttribute('aria-expanded')).toBe('true');
+  });
+
+  it('server xatosi yig\x27ilgan maydonda bo\x27lsa bo\x27lim ochilib xato ko\x27rinadi', async () => {
+    await pickOption('12/2026');
+    await act(async () => toggle().click());
+    await type(must<HTMLInputElement>('#tgc-temperature'), 'juda issiq');
+    await act(async () => toggle().click());
+    errorReply = { error: 'Maydonlar noto\x27g\x27ri', errors: { temperature: 'Harorat noto\x27g\x27ri' } };
+
+    await click('.tgc-send', 'Saqlash');
+
+    expect(host.textContent).toContain('Harorat noto\x27g\x27ri');
+    expect(must('#tgc-temperature').getAttribute('aria-invalid')).toBe('true');
+  });
+});
+
+describe('qadoq turi', () => {
+  it('variantlar sahifaning o\x27zida chiqadi va qayta bosilsa bekor bo\x27ladi', async () => {
+    await pickOption('12/2026');
+    expect(find('.tgc-picker')).toBeUndefined();
+    await pickOption('yashik');
+    expect(option('yashik').getAttribute('aria-pressed')).toBe('true');
+    await pickOption('yashik');
+    expect(option('yashik').getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('qisqartmali nom nuqtadan keyin sinishi mumkin, matni o\x27zgarmaydi', async () => {
+    await unmount();
+    contextReply = { ...context, packagingTypes: ['картон.короб.'] };
+    await mount();
+    await pickOption('12/2026');
+    const text = must('.tgc-option-text > span', 'картон');
+    expect(text.textContent).toBe('картон.короб.');
+    expect(text.querySelector('wbr')?.previousSibling?.textContent).toBe('.');
+  });
+
+  it('variantlar sakkiztadan ko\x27p bo\x27lsa ro\x27yxat tugmasi chiqadi', async () => {
+    await unmount();
+    contextReply = { ...context, packagingTypes: manyPackagingTypes };
+    await mount();
+    await pickOption('12/2026');
+    expect(find('.tgc-picker')).toBeDefined();
+    expect(find('.tgc-option', 'qadoq 1')).toBeUndefined();
+  });
+});
+
+describe('sarlavha', () => {
+  it('logotipsiz: sahifa nomi bilan boshlanadi', () => {
+    expect(find('.tgc-top img')).toBeUndefined();
+    expect(must('.tgc-top h1').textContent).toBe("Yuk ma'lumoti");
   });
 });

@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 
 // Yuk formasining boshqaruv elementlari. Har turning o'z ko'rinishi bor, mijoz nima bosilishini bir qarashda ajratsin:
 // doirali qator — bosib tanlanadi; qalamli oq katak — yoziladi; ko'k "Tanlash" — ro'yxat ochiladi; kulrang fon — faqat ko'rsatiladi.
@@ -173,46 +173,104 @@ function OptionList({ options, selected, onSelect, other, columns = 1 }: OptionL
   );
 }
 
+/**
+ * Pastdan ochiladigan modal ro'yxat. `showModal` fokusni ichkarida ushlaydi va orqa fonni bosilmaydigan qiladi;
+ * Escape va Telegram "orqaga" tugmasi ro'yxatni yopadi (Mini App'ni emas).
+ */
+function Sheet({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
+  const ref = useRef<HTMLDialogElement>(null);
+
+  useEffect(() => {
+    const dialog = ref.current;
+    if (!dialog) return;
+    if (!dialog.open) {
+      if (typeof dialog.showModal === 'function') dialog.showModal();
+      else dialog.setAttribute('open', ''); // eski WebView
+    }
+    const initial = dialog.querySelector<HTMLElement>('.tgc-sheet [aria-pressed="true"]') ?? dialog.querySelector<HTMLElement>('.tgc-close');
+    initial?.focus();
+  }, []);
+
+  useEffect(() => {
+    const backButton = window.Telegram?.WebApp?.BackButton;
+    if (!backButton) return;
+    try {
+      backButton.onClick(onClose);
+      backButton.show();
+    } catch {
+      // eski Telegram versiyalarida mavjud emas
+    }
+    return () => {
+      try {
+        backButton.offClick(onClose);
+        backButton.hide();
+      } catch {
+        // eski Telegram versiyalarida mavjud emas
+      }
+    };
+  }, [onClose]);
+
+  return (
+    <dialog
+      ref={ref}
+      className="tgc-sheet-layer"
+      aria-label={title}
+      onCancel={(e) => {
+        e.preventDefault();
+        onClose();
+      }}
+      onClose={onClose}
+    >
+      <button type="button" className="tgc-sheet-backdrop" aria-label="Yopish" tabIndex={-1} onClick={onClose} />
+      <div className="tgc-sheet">
+        <div className="tgc-sheet-head">
+          <h3>{title}</h3>
+          <button type="button" className="tgc-close" aria-label="Yopish" onClick={onClose}><Icon name="close" /></button>
+        </div>
+        <div className="tgc-sheet-list">{children}</div>
+      </div>
+    </dialog>
+  );
+}
+
 /** Tugma bosilganda variantlar pastdan ochiladi */
 function Picker({ title, options, selected, onSelect, other }: OptionListProps & { title: string }) {
   const [open, setOpen] = useState(false);
   const current = other?.active ? 'Boshqa' : options.find((o) => o.value === selected)?.text;
-  const close = () => setOpen(false);
+  const close = useCallback(() => setOpen(false), []);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const wasOpen = useRef(false);
+  // Fokus ro'yxat DOM'dan chiqqandan keyin qaytariladi: modal ochiq paytda orqadagi tugma fokus olmaydi
+  useEffect(() => {
+    if (wasOpen.current && !open) triggerRef.current?.focus({ preventScroll: true });
+    wasOpen.current = open;
+  }, [open]);
   return (
     <>
-      <button type="button" className="tgc-picker" aria-haspopup="dialog" onClick={() => setOpen(true)}>
+      <button ref={triggerRef} type="button" className="tgc-picker" aria-haspopup="dialog" onClick={() => setOpen(true)}>
         <span className="tgc-picker-value">{current ?? 'Tanlanmagan'}</span>
         <span className="tgc-pill">{current ? 'Almashtirish' : 'Tanlash'}<Icon name="next" /></span>
       </button>
       {open && (
-        <div className="tgc-sheet-layer">
-          <button type="button" className="tgc-sheet-backdrop" aria-label="Yopish" tabIndex={-1} onClick={close} />
-          <div className="tgc-sheet" role="dialog" aria-modal="true" aria-label={title}>
-            <div className="tgc-sheet-head">
-              <h3>{title}</h3>
-              <button type="button" className="tgc-close" aria-label="Yopish" onClick={close}><Icon name="close" /></button>
-            </div>
-            <div className="tgc-sheet-list">
-              <OptionList
-                options={options}
-                selected={selected}
-                onSelect={(v) => {
-                  onSelect(v);
+        <Sheet title={title} onClose={close}>
+          <OptionList
+            options={options}
+            selected={selected}
+            onSelect={(v) => {
+              onSelect(v);
+              close();
+            }}
+            other={
+              other && {
+                active: other.active,
+                onToggle: () => {
+                  other.onToggle();
                   close();
-                }}
-                other={
-                  other && {
-                    active: other.active,
-                    onToggle: () => {
-                      other.onToggle();
-                      close();
-                    },
-                  }
-                }
-              />
-            </div>
-          </div>
-        </div>
+                },
+              }
+            }
+          />
+        </Sheet>
       )}
     </>
   );

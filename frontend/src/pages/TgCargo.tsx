@@ -19,6 +19,15 @@ interface TelegramWebApp {
   onEvent?: (event: 'themeChanged', handler: () => void) => void;
   offEvent?: (event: 'themeChanged', handler: () => void) => void;
   HapticFeedback?: { notificationOccurred: (type: 'success' | 'error' | 'warning') => void };
+  /** Yoqilgan bo'lsa Mini App'ni yopishdan oldin Telegram tasdiq so'raydi */
+  enableClosingConfirmation?: () => void;
+  disableClosingConfirmation?: () => void;
+  BackButton?: {
+    show: () => void;
+    hide: () => void;
+    onClick: (handler: () => void) => void;
+    offClick: (handler: () => void) => void;
+  };
 }
 
 declare global {
@@ -63,6 +72,14 @@ interface ItemState extends Record<ItemField, string> {
   /** null — Brutto avtomatik hisoblanadi; qiymat bo'lsa foydalanuvchi qo'lda o'zgartirgan */
   bruttoOverride: string | null;
 }
+
+/** "Qaytarish" bilan bekor qilinadigan amallar: tovarni o'chirish va shartnoma almashganda maydonlarning tozalanishi */
+type UndoEntry =
+  | { kind: 'item'; item: ItemState; index: number }
+  | { kind: 'contract'; contractId: number | null; terms: Pick<HeaderValues, ManualKey>; manual: ManualFlags };
+
+/** Shartnomaga bog'liq maydonlar: shartnoma almashsa eskiradi */
+const CONTRACT_FIELDS: readonly ManualKey[] = ['deliveryTerms', 'customsPlace', 'destination'];
 
 const EMPTY_HEADER: HeaderValues = {
   invoiceNumber: '',
@@ -150,6 +167,9 @@ const computeBrutto = (v: Pick<ItemState, 'netto' | 'boxWeight' | 'palletWeight'
 };
 
 const bruttoOf = (item: ItemState) => item.bruttoOverride ?? computeBrutto(item);
+
+/** Hech narsa kiritilmagan tovar: o'chirilsa qaytarish taklif qilinmaydi */
+const isUntouched = (item: ItemState): boolean => item.bruttoOverride === null && ITEM_ORDER.every((key) => key === 'brutto' || item[key] === '');
 
 /** 2026-10-12T... → 12.10.2026 */
 const formatDate = (iso: string): string => {
@@ -330,7 +350,7 @@ export default function TgCargo() {
   const [items, setItems] = useState<ItemState[]>(() => initialSnapshot.items.map(itemStateOf));
   /** Serverdagi saqlangan ariza (yangi bo'lsa null) va uning formadagi ko'rinishi — o'zgarishni solishtirish uchun */
   const [draft, setDraft] = useState<DraftView | null>(null);
-  const baseRef = useRef<FormSnapshot>(initialSnapshot);
+  const [base, setBase] = useState<FormSnapshot>(initialSnapshot);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [formError, setFormError] = useState('');
   const [plateCyrillicWarning, setPlateCyrillicWarning] = useState(false);
@@ -338,19 +358,22 @@ export default function TgCargo() {
   /** "Boshqa — o'zim yozaman" tanlangan tovarlar (uid) */
   const [otherProducts, setOtherProducts] = useState<ReadonlySet<string>>(() => new Set());
   const [previewOpen, setPreviewOpen] = useState(false);
+  /** Oxirgisi birinchi qaytariladi; saqlangach tozalanadi */
+  const [undoStack, setUndoStack] = useState<UndoEntry[]>([]);
   /** Formaga qaytganda ko'rsatiladigan maydon (data-field) */
   const pendingAnchorRef = useRef<string | null>(null);
 
   /** Saqlangan holatni (server javobini) formaga to'ldiradi va solishtirish bazasini yangilaydi */
   const adoptDraft = useCallback((view: DraftView, contracts: ContractInfo[]) => {
     const snapshot = snapshotFromDraft(view);
-    baseRef.current = snapshot;
+    setBase(snapshot);
     setDraft(view);
     setHeader(snapshot.header);
     setContractId(snapshot.contractId);
     setBranchId(snapshot.branchId);
     setManual(deriveManualFlags(snapshot.header, contracts.find((c) => c.id === snapshot.contractId) ?? null));
     setItems(snapshot.items.map(itemStateOf));
+    setUndoStack([]);
   }, []);
 
   useEffect(() => {
@@ -487,7 +510,12 @@ export default function TgCargo() {
     setHeaderValue(key, value);
   };
 
-  const changeContract = (id: number | null) => {
+  const changeContract = (id: number) => {
+    if (id === contractId) return;
+    if (CONTRACT_FIELDS.some((key) => header[key].trim() !== '')) {
+      const terms = { deliveryTerms: header.deliveryTerms, customsPlace: header.customsPlace, destination: header.destination };
+      setUndoStack((prev) => [...prev, { kind: 'contract', contractId, terms, manual }]);
+    }
     setContractId(id);
     // Shartnoma o'zgarsa, unga bog'liq tanlovlar eskirgan bo'ladi
     setHeader((prev) => ({ ...prev, deliveryTerms: '', customsPlace: '', destination: '' }));
@@ -523,9 +551,29 @@ export default function TgCargo() {
     setItems((prev) => (prev.length >= MAX_ITEMS ? prev : [...prev, newItem(makeUid())]));
   };
   const removeItem = (uid: string) => {
-    setItems((prev) => (prev.length > 1 ? prev.filter((it) => it.uid !== uid) : prev));
+    const index = items.findIndex((it) => it.uid === uid);
+    if (index === -1 || items.length <= 1) return;
+    const item = items[index];
+    if (!isUntouched(item)) setUndoStack((prev) => [...prev, { kind: 'item', item, index }]);
+    setItems((prev) => prev.filter((it) => it.uid !== uid));
     // Xato kaliti tovar uid'iga bog'langan: o'chirilgan tovarning xatolari tushib qoladi
     setFieldErrors((prev) => Object.fromEntries(Object.entries(prev).filter(([k]) => !k.startsWith(`items.${uid}.`))));
+  };
+
+  const lastUndo = undoStack.length > 0 ? undoStack[undoStack.length - 1] : null;
+  // Tovarlar soni chegaraga yetgan bo'lsa o'chirilgan tovarni qaytarib bo'lmaydi
+  const undo = lastUndo?.kind === 'item' && items.length >= MAX_ITEMS ? null : lastUndo;
+  const applyUndo = () => {
+    if (!undo) return;
+    setUndoStack((prev) => prev.slice(0, -1));
+    if (undo.kind === 'item') {
+      setItems((prev) => [...prev.slice(0, undo.index), undo.item, ...prev.slice(undo.index)]);
+      return;
+    }
+    setContractId(undo.contractId);
+    setHeader((prev) => ({ ...prev, ...undo.terms }));
+    setManual(undo.manual);
+    CONTRACT_FIELDS.forEach(clearError);
   };
 
   const preview = useMemo(() => buildPreview(header, contract, branch ? (branch.place ?? branch.name) : '', items), [header, contract, branch, items]);
@@ -552,6 +600,18 @@ export default function TgCargo() {
       bruttoManual: it.bruttoOverride !== null,
     })),
   });
+
+  // Saqlanmagan o'zgarish bor paytda Mini App tasodifan yopilib, kiritilganlar yo'qolmasin
+  const dirty = buildPatch(base, currentSnapshot()) !== null;
+  useEffect(() => {
+    const webApp = window.Telegram?.WebApp;
+    try {
+      if (dirty) webApp?.enableClosingConfirmation?.();
+      else webApp?.disableClosingConfirmation?.();
+    } catch {
+      // eski Telegram versiyalarida mavjud emas
+    }
+  }, [dirty]);
 
   const showError = (e: unknown, fallback: string) => {
     window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('error');
@@ -584,7 +644,7 @@ export default function TgCargo() {
     setFieldErrors({});
     setPhase('sending');
     try {
-      const patch = buildPatch(baseRef.current, currentSnapshot());
+      const patch = buildPatch(base, currentSnapshot());
       let view: DraftView;
       if (draft === null) {
         if (!patch) throw new Error("Hech narsa kiritilmadi. Kamida bitta maydonni to'ldiring");
@@ -789,7 +849,10 @@ export default function TgCargo() {
               options={contractOptions}
               value={contractId === null ? '' : String(contractId)}
               required
-              onSelect={(v) => changeContract(v === null ? null : Number(v))}
+              // Tanlangan shartnomani qayta bosish tanlovni bekor qilmaydi: aks holda to'ldirilgan maydonlar o'chib ketardi
+              onSelect={(v) => {
+                if (v !== null) changeContract(Number(v));
+              }}
             />
           ) : (
             <p className="tgc-help">Mijozda shartnoma yo'q</p>
@@ -984,6 +1047,12 @@ export default function TgCargo() {
       <div className="tgc-bar">
         <div className="tgc-bar-inner">
           {formError && <div className="tgc-banner" role="alert">{formError}</div>}
+          {undo && (
+            <div className="tgc-undo">
+              <span role="status">{undo.kind === 'item' ? `Товар ${undo.index + 1} o'chirildi` : "Shartnoma almashdi, yo'nalish tozalandi"}</span>
+              <button type="button" className="tgc-secondary" onClick={applyUndo}>Qaytarish</button>
+            </div>
+          )}
           <p className="tgc-bar-status" role="status">{barText}</p>
           <button type="button" className="tgc-send" disabled={sending || !contractChosen || filledCount === 0} onClick={save}>
             {sending ? 'Saqlanmoqda' : 'Saqlash'}

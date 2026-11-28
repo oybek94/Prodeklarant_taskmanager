@@ -458,7 +458,7 @@
   border-color: var(--danger);
 }
 
-/* Pastdan ochiladigan ro'yxat */
+/* Pastdan ochiladigan ro'yxat. <dialog> ning brauzer standart o'lcham va ramkalari bekor qilinadi */
 .tgc-sheet-layer {
   position: fixed;
   inset: 0;
@@ -466,8 +466,21 @@
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
+  width: 100%;
+  max-width: 100%;
   height: var(--tgc-vh, 100dvh);
+  max-height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
   background: rgba(6, 18, 32, 0.6);
+  color: var(--ink);
+}
+
+/* Qoraytirish qatlamning o'zida */
+.tgc-sheet-layer::backdrop {
+  background: transparent;
 }
 
 .tgc .tgc-sheet-backdrop {
@@ -653,8 +666,20 @@
   text-align: center;
 }
 
+.tgc-undo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 6px 6px 12px;
+  border-radius: 14px;
+  background: var(--soft);
+  font-size: 14px;
+}
+
 /* Yozish paytida pastki panel past bo'lsin: yozilayotgan maydonga joy qolsin */
-.tgc:has(.tgc-input:focus) .tgc-bar-status {
+.tgc:has(.tgc-input:focus) .tgc-bar-status,
+.tgc:has(.tgc-input:focus) .tgc-undo {
   display: none;
 }
 

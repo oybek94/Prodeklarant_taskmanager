@@ -28,7 +28,7 @@ export function ErrorText({ error }: { error?: string }) {
   return error ? <p className="tgc-error" role="alert">{error}</p> : null;
 }
 
-export function Section({ step, title, done, action, children }: { step: number; title: string; done: boolean; action?: ReactNode; children: ReactNode }) {
+export function Section({ step, title, titleLang, done, action, children }: { step: number; title: string; titleLang?: 'ru'; done: boolean; action?: ReactNode; children: ReactNode }) {
   return (
     <section className="tgc-section">
       <div className="tgc-section-head">
@@ -37,7 +37,7 @@ export function Section({ step, title, done, action, children }: { step: number;
         ) : (
           <span className="tgc-step" aria-hidden="true">{step}</span>
         )}
-        <h2 className="tgc-section-title">{title}</h2>
+        <h2 className="tgc-section-title" lang={titleLang}>{title}</h2>
         {action}
       </div>
       {children}
@@ -55,21 +55,25 @@ interface FieldHeadProps {
   help?: string;
 }
 
+function RequiredBadge({ filled }: { filled?: boolean }) {
+  return filled ? (
+    <span className="tgc-badge tgc-badge-ok"><Icon name="check" />Tayyor</span>
+  ) : (
+    <span className="tgc-badge">Majburiy</span>
+  );
+}
+
+/** Maydon yorliqlari (`label`) guruh xabaridagi kabi ruscha */
 export function FieldHead({ id, label, htmlFor, required, filled, help }: FieldHeadProps) {
   return (
     <div className="tgc-head">
       <div className="tgc-head-row">
         {htmlFor ? (
-          <label className="tgc-label" id={`${id}-label`} htmlFor={htmlFor}>{label}</label>
+          <label className="tgc-label" lang="ru" id={`${id}-label`} htmlFor={htmlFor}>{label}</label>
         ) : (
-          <span className="tgc-label" id={`${id}-label`}>{label}</span>
+          <span className="tgc-label" lang="ru" id={`${id}-label`}>{label}</span>
         )}
-        {required &&
-          (filled ? (
-            <span className="tgc-badge tgc-badge-ok"><Icon name="check" />Tayyor</span>
-          ) : (
-            <span className="tgc-badge">Majburiy</span>
-          ))}
+        {required && <RequiredBadge filled={filled} />}
       </div>
       {help && <p className="tgc-help">{help}</p>}
     </div>
@@ -87,11 +91,12 @@ interface TextBoxProps {
   inputMode?: 'numeric' | 'decimal';
   /** O'ng tomondagi o'lchov birligi; berilsa qalam belgisi ko'rsatilmaydi */
   unit?: string;
+  required?: boolean;
   onChange: (value: string) => void;
   onBlur?: () => void;
 }
 
-export function TextBox({ id, value, placeholder, error, maxLength = 200, plate, inputMode, unit, onChange, onBlur }: TextBoxProps) {
+export function TextBox({ id, value, placeholder, error, maxLength = 200, plate, inputMode, unit, required, onChange, onBlur }: TextBoxProps) {
   const className = `tgc-input${plate ? ' tgc-plate' : ''}${inputMode ? ' tgc-num' : ''}`;
   return (
     <label className="tgc-box" data-invalid={!!error}>
@@ -108,6 +113,7 @@ export function TextBox({ id, value, placeholder, error, maxLength = 200, plate,
         placeholder={placeholder}
         aria-labelledby={`${id}-label`}
         aria-invalid={!!error}
+        aria-required={required || undefined}
         onChange={(e) => onChange(e.target.value)}
         onBlur={onBlur}
       />
@@ -137,6 +143,8 @@ export interface ChoiceOption {
   value: string;
   text: string;
   sub?: string;
+  /** Variantlar odatda ruscha ma'lumot (shartnoma, tovar); o'zbekchalari shu yerda belgilanadi */
+  lang?: 'uz';
 }
 
 interface OptionListProps {
@@ -149,13 +157,13 @@ interface OptionListProps {
   columns?: 1 | 2;
 }
 
-function OptionButton({ pressed, text, sub, wide, onClick }: { pressed: boolean; text: string; sub?: string; wide?: boolean; onClick: () => void }) {
+function OptionButton({ pressed, text, sub, lang, wide, onClick }: { pressed: boolean; text: string; sub?: string; lang?: 'uz' | 'ru'; wide?: boolean; onClick: () => void }) {
   return (
     <button type="button" className={wide ? 'tgc-option tgc-option-wide' : 'tgc-option'} aria-pressed={pressed} onClick={onClick}>
       <span className="tgc-radio" aria-hidden="true"><Icon name="check" /></span>
       <span className="tgc-option-text">
-        <span>{text}</span>
-        {sub && <small>{sub}</small>}
+        <span lang={lang}>{text}</span>
+        {sub && <small lang={lang}>{sub}</small>}
       </span>
     </button>
   );
@@ -166,7 +174,7 @@ function OptionList({ options, selected, onSelect, other, columns = 1 }: OptionL
     <div className={columns === 2 ? 'tgc-options tgc-options-2' : 'tgc-options'}>
       {options.map((o) => {
         const pressed = !other?.active && selected === o.value;
-        return <OptionButton key={o.value} pressed={pressed} text={o.text} sub={o.sub} onClick={() => onSelect(pressed ? null : o.value)} />;
+        return <OptionButton key={o.value} pressed={pressed} text={o.text} sub={o.sub} lang={o.lang ?? 'ru'} onClick={() => onSelect(pressed ? null : o.value)} />;
       })}
       {other && <OptionButton wide pressed={other.active} text="Boshqa — o'zim yozaman" onClick={other.onToggle} />}
     </div>
@@ -224,7 +232,7 @@ function Sheet({ title, onClose, children }: { title: string; onClose: () => voi
       <button type="button" className="tgc-sheet-backdrop" aria-label="Yopish" tabIndex={-1} onClick={onClose} />
       <div className="tgc-sheet">
         <div className="tgc-sheet-head">
-          <h3>{title}</h3>
+          <h3 lang="ru">{title}</h3>
           <button type="button" className="tgc-close" aria-label="Yopish" onClick={onClose}><Icon name="close" /></button>
         </div>
         <div className="tgc-sheet-list">{children}</div>
@@ -236,7 +244,8 @@ function Sheet({ title, onClose, children }: { title: string; onClose: () => voi
 /** Tugma bosilganda variantlar pastdan ochiladi */
 function Picker({ title, options, selected, onSelect, other }: OptionListProps & { title: string }) {
   const [open, setOpen] = useState(false);
-  const current = other?.active ? 'Boshqa' : options.find((o) => o.value === selected)?.text;
+  const chosen = options.find((o) => o.value === selected);
+  const current = other?.active ? 'Boshqa' : chosen?.text;
   const close = useCallback(() => setOpen(false), []);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const wasOpen = useRef(false);
@@ -248,7 +257,7 @@ function Picker({ title, options, selected, onSelect, other }: OptionListProps &
   return (
     <>
       <button ref={triggerRef} type="button" className="tgc-picker" aria-haspopup="dialog" onClick={() => setOpen(true)}>
-        <span className="tgc-picker-value">{current ?? 'Tanlanmagan'}</span>
+        <span className="tgc-picker-value" lang={!other?.active && chosen ? (chosen.lang ?? 'ru') : undefined}>{current ?? 'Tanlanmagan'}</span>
         <span className="tgc-pill">{current ? 'Almashtirish' : 'Tanlash'}<Icon name="next" /></span>
       </button>
       {open && (
@@ -325,6 +334,7 @@ export interface NumberCell {
   value: string;
   unit?: string;
   decimal?: boolean;
+  required?: boolean;
   error?: string;
   onChange: (value: string) => void;
 }
@@ -338,10 +348,11 @@ const sanitizeDecimal = (v: string) => {
   return cleaned.slice(0, sepIndex + 1) + cleaned.slice(sepIndex + 1).replace(/[.,]/g, '');
 };
 
-export function NumberBox({ id, value, unit, decimal, error, onChange }: Omit<NumberCell, 'anchor' | 'label'>) {
+export function NumberBox({ id, value, unit, decimal, required, error, onChange }: Omit<NumberCell, 'anchor' | 'label'>) {
   return (
     <TextBox
       id={id}
+      required={required}
       value={value}
       unit={unit}
       inputMode={decimal ? 'decimal' : 'numeric'}
@@ -352,16 +363,17 @@ export function NumberBox({ id, value, unit, decimal, error, onChange }: Omit<Nu
   );
 }
 
-/** Yonma-yon raqamli kataklar (masalan yashiklar soni va og'irligi) */
-export function NumberGroup({ id, title, required, filled, cells }: { id: string; title: string; required?: boolean; filled?: boolean; cells: NumberCell[] }) {
+/** Yonma-yon raqamli kataklar (masalan yashiklar soni va og'irligi). "Majburiy" belgisi aynan majburiy katak ostida */
+export function NumberGroup({ id, title, cells }: { id: string; title: string; cells: NumberCell[] }) {
   return (
     <div className="tgc-field" role="group" aria-labelledby={`${id}-label`}>
-      <FieldHead id={id} label={title} required={required} filled={filled} />
+      <FieldHead id={id} label={title} />
       <div className="tgc-pair">
         {cells.map(({ anchor, label, ...cell }) => (
           <div key={cell.id} className="tgc-cell" data-field={anchor}>
-            <label className="tgc-sublabel" id={`${cell.id}-label`} htmlFor={cell.id}>{label}</label>
+            <label className="tgc-sublabel" lang="ru" id={`${cell.id}-label`} htmlFor={cell.id}>{label}</label>
             <NumberBox {...cell} />
+            {cell.required && <RequiredBadge filled={cell.value !== ''} />}
             <ErrorText error={cell.error} />
           </div>
         ))}

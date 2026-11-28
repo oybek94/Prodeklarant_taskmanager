@@ -179,11 +179,15 @@ export function totalsLine(items: Array<{ netto: string; brutto: string }>): str
 export const REQUIRED_HEADER_FIELDS: readonly HeaderField[] = ['deliveryTerms', 'customsPlace'];
 export const REQUIRED_ITEM_FIELDS: readonly ItemField[] = ['product', 'boxCount', 'netto', 'brutto'];
 
-/** Majburiy maydonlar progressi (serverdagi hisob bilan bir xil: bo'sh tovar sanalmaydi, tovar bo'lmasa bittasi kutiladi) */
-export function requiredProgress(current: FormSnapshot, hasBranches: boolean): { done: number; total: number } {
+/**
+ * Majburiy maydonlar progressi (serverdagi hisob kabi: bo'sh tovar sanalmaydi, tovar bo'lmasa bittasi kutiladi).
+ * Farqi: shartnomasi bor mijozda shartnoma ham sanaladi — formada u tanlanmaguncha qolgan maydonlar ochilmaydi.
+ */
+export function requiredProgress(current: FormSnapshot, hasBranches: boolean, hasContracts = false): { done: number; total: number } {
   const filled = (value: string) => value.trim() !== '';
   const items = current.items.filter((item) => ITEM_FIELDS.some((k) => filled(item.fields[k])));
   const values = [
+    ...(hasContracts ? [current.contractId !== null] : []),
     ...(hasBranches ? [current.branchId !== null] : []),
     ...REQUIRED_HEADER_FIELDS.map((k) => filled(current.header[k])),
     ...(items.length > 0 ? items.flatMap((item) => REQUIRED_ITEM_FIELDS.map((k) => filled(item.fields[k]))) : REQUIRED_ITEM_FIELDS.map(() => false)),

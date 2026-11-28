@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { API_BASE_URL } from '../lib/api';
-import { branchLabel, buildPatch,deriveManualFlags, fieldAnchor, makeUid, requiredProgress, snapshotFromDraft, stripCyrillic, totalsLine, type DraftView, type FormSnapshot, type MissingField, type SnapshotItem } from './tgCargoDraft';
+import { REQUIRED_ITEM_FIELDS, branchLabel, buildPatch, deriveManualFlags, fieldAnchor, makeUid, requiredProgress,snapshotFromDraft, stripCyrillic, totalsLine, type DraftView, type FormSnapshot, type MissingField, type SnapshotItem } from './tgCargoDraft';
 import { ChoiceField, ErrorText, FieldHead, Icon, NumberBox, NumberGroup, Section, TextField, type ChoiceOption } from './TgCargoControls';
 import './TgCargo.css';
 
@@ -121,7 +121,9 @@ const newItem = (uid: string): ItemState => ({
 
 const TELEGRAM_SDK_URL = 'https://telegram.org/js/telegram-web-app.js';
 const FONT_URL = 'https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&display=swap';
-const CLOSE_DELAY_MS = 2200;
+/** "Yakunlandi" ekrani o'qib ulgurilsin; kutishni istamagan "Yopish" tugmasini bosadi */
+const CLOSE_DELAY_MS = 8000;
+const OFFLINE_MESSAGE = "Internet aloqasi yo'q. Aloqani tekshirib, qayta urinib ko'ring.";
 const MAX_ITEMS = 20;
 const SCHEME_COLORS: Record<Scheme, string> = { light: '#eaf0f7', dark: '#121212' };
 
@@ -286,11 +288,20 @@ class ApiError extends Error {
   }
 }
 
+/** So'rov serverga yetib bormadi: brauzerning inglizcha xatosi o'rniga tushunarli matn */
+class OfflineError extends Error {
+  constructor() {
+    super(OFFLINE_MESSAGE);
+  }
+}
+
 async function tgFetch<T>(path: string, initData: string, body?: unknown, method?: 'POST' | 'PATCH'): Promise<T> {
   const response = await fetch(`${API_BASE_URL}/tg-cargo${path}`, {
     method: method ?? (body === undefined ? 'GET' : 'POST'),
     headers: { Authorization: `tma ${initData}`, 'Content-Type': 'application/json' },
     body: body === undefined ? undefined : JSON.stringify(body),
+  }).catch(() => {
+    throw new OfflineError();
   });
   const json = (await response.json().catch(() => ({}))) as { error?: string; errors?: FieldErrors } & T;
   if (!response.ok) throw new ApiError(json.error ?? 'Xatolik yuz berdi', json.errors, response.status);
@@ -300,7 +311,7 @@ async function tgFetch<T>(path: string, initData: string, body?: unknown, method
 function PreviewBubble({ model, empty }: { model: PreviewModel; empty: string }) {
   if (previewCount(model) === 0) return <div className="tgc-bubble"><p className="tgc-bubble-empty">{empty}</p></div>;
   return (
-    <div className="tgc-bubble">
+    <div className="tgc-bubble" lang="ru">
       <div className="tgc-bubble-head">🚛 Данные о грузе</div>
       {model.header.map((row) => (
         <div key={row.label}>
@@ -338,6 +349,8 @@ const missingPlace = (m: MissingField): string => {
 export default function TgCargo() {
   const [phase, setPhase] = useState<Phase>('loading');
   const [fatalError, setFatalError] = useState('');
+  /** "Qayta urinish" bosilganda yuklash effekti qayta ishlaydi */
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const [context, setContext] = useState<CargoContext | null>(null);
   const [initData, setInitData] = useState('');
   const [scheme, setScheme] = useState<Scheme>(systemScheme);
@@ -422,7 +435,12 @@ export default function TgCargo() {
       cancelled = true;
       detach?.();
     };
-  }, [adoptDraft]);
+  }, [adoptDraft, loadAttempt]);
+
+  const retryLoad = () => {
+    setPhase('loading');
+    setLoadAttempt((n) => n + 1);
+  };
 
   // Telegram'ning yuqori paneli va overscroll foni sahifa rangiga mos bo'lsin
   useEffect(() => {
@@ -616,7 +634,8 @@ export default function TgCargo() {
   const showError = (e: unknown, fallback: string) => {
     window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred('error');
     if (e instanceof ApiError) setFieldErrors(e.fieldErrors ?? {});
-    setFormError(e instanceof Error ? e.message : fallback);
+    const message = e instanceof Error ? e.message : fallback;
+    setFormError(e instanceof OfflineError ? `${message} Kiritganlaringiz saqlanib turibdi.` : message);
     setPhase('ready');
     // Birinchi xatoli maydonga o'tamiz
     window.setTimeout(() => document.querySelector<HTMLElement>('[aria-invalid="true"], [data-invalid="true"]')?.scrollIntoView({ block: 'center' }), 100);
@@ -689,6 +708,7 @@ export default function TgCargo() {
     <div
       ref={rootRef}
       className="tgc"
+      lang="uz"
       data-theme={scheme}
       onFocusCapture={(e) => {
         if (!isEditable(e.target)) return;
@@ -714,6 +734,8 @@ export default function TgCargo() {
       <div className="tgc-center">
         <h2>Formani ochib bo'lmadi</h2>
         <p>{fatalError}</p>
+        {/* initData bo'lmasa (Telegram'dan tashqarida) qayta urinish foyda bermaydi */}
+        {initData && <button type="button" className="tgc-ghost" onClick={retryLoad}>Qayta urinish</button>}
       </div>
     );
   }
@@ -735,6 +757,7 @@ export default function TgCargo() {
         </svg>
         <h2>Yakunlandi</h2>
         <p>Yuk ma'lumotlari to'liq, guruhdagi xabar yangilandi.</p>
+        <button type="button" className="tgc-ghost" onClick={() => window.Telegram?.WebApp?.close()}>Yopish</button>
       </div>
     );
   }
@@ -747,7 +770,7 @@ export default function TgCargo() {
         </svg>
         <h2>Saqlandi</h2>
         {draft.complete ? (
-          <p>Hamma majburiy maydonlar to'ldirilgan. Yakunlaysizmi?</p>
+          <p>Hamma majburiy maydonlar to'ldirilgan. Yakunlangach arizani o'zgartirib bo'lmaydi: vazifa va invoys yaratiladi.</p>
         ) : (
           <>
             <p>Guruhdagi xabar yangilandi. Qolganini to'ldirish uchun qatorni bosing:</p>
@@ -756,7 +779,7 @@ export default function TgCargo() {
                 <li key={m.path}>
                   <button type="button" className="tgc-picker" onClick={() => jumpToField(m.path)}>
                     <span className="tgc-option-text">
-                      <span className="tgc-picker-value">{m.label}</span>
+                      <span className="tgc-picker-value" lang="ru">{m.label}</span>
                       <small>{missingPlace(m)}</small>
                     </span>
                     <span className="tgc-pill">To'ldirish<Icon name="next" /></span>
@@ -784,7 +807,7 @@ export default function TgCargo() {
   const packagingOptionsFor = (current: string): string[] => (current && !packagingTypes.includes(current) ? [...packagingTypes, current] : packagingTypes);
   // Shartnoma tanlanmaguncha qolgan maydonlar ko'rinmaydi. Mijozda shartnoma bo'lmasa tanlash imkoni yo'q, forma ochiq.
   const contractChosen = contractId !== null || c.contracts.length === 0;
-  const progress = requiredProgress(currentSnapshot(), c.branches.length > 0);
+  const progress = requiredProgress(currentSnapshot(), c.branches.length > 0, c.contracts.length > 0);
   const remaining = progress.total - progress.done;
   const barText = !contractChosen
     ? 'Boshlash uchun shartnomani tanlang'
@@ -923,7 +946,7 @@ export default function TgCargo() {
                   id="tgc-branch"
                   anchor="branchId"
                   label={HEADER_LABELS.shipmentPlace}
-                  options={c.branches.map((b) => ({ value: String(b.id), text: branchLabel(b.name), sub: b.place && b.place !== b.name ? branchLabel(b.place) : undefined }))}
+                  options={c.branches.map((b) => ({ value: String(b.id), text: branchLabel(b.name), sub: b.place && b.place !== b.name ? branchLabel(b.place) : undefined, lang: 'uz' as const }))}
                   value={branchId === null ? '' : String(branchId)}
                   required
                   onSelect={(v) => setBranchId(v === null ? null : Number(v))}
@@ -942,6 +965,7 @@ export default function TgCargo() {
               /** Raqamli katak: id, belgi va xato kaliti tovar maydonidan hosil bo'ladi */
               const cell = (field: Exclude<ItemField, 'product' | 'packagingType'>, decimal: boolean, unit?: string) => ({
                 id: inputId(field),
+                required: REQUIRED_ITEM_FIELDS.includes(field),
                 anchor: errorKey(field),
                 label: ITEM_LABELS[field],
                 value: item[field],
@@ -955,6 +979,7 @@ export default function TgCargo() {
                   key={item.uid}
                   step={4 + index}
                   title={`Товар ${index + 1}`}
+                  titleLang="ru"
                   done={item.product.trim() !== '' && item.boxCount !== '' && item.netto !== '' && brutto !== ''}
                   action={
                     items.length > 1 ? (
@@ -991,7 +1016,7 @@ export default function TgCargo() {
                       },
                     }}
                   />
-                  <NumberGroup id={inputId('boxes')} title="Ящики" required filled={item.boxCount !== ''} cells={[cell('boxCount', false, 'шт.'), cell('boxWeight', true, 'кг')]} />
+                  <NumberGroup id={inputId('boxes')} title="Ящики" cells={[cell('boxCount', false, 'шт.'), cell('boxWeight', true, 'кг')]} />
                   {packagingTypes.length > 0 && (
                     <ChoiceField
                       id={inputId('packaging')}
@@ -1005,7 +1030,7 @@ export default function TgCargo() {
                     />
                   )}
                   <NumberGroup id={inputId('pallets')} title="Поддоны" cells={[cell('palletCount', false, 'шт.'), cell('palletWeight', true, 'кг')]} />
-                  <NumberGroup id={inputId('weight')} title="Вес и цена" required filled={item.netto !== ''} cells={[cell('netto', true, 'кг'), cell('price', true, currencySuffix ?? undefined)]} />
+                  <NumberGroup id={inputId('weight')} title="Вес и цена" cells={[cell('netto', true, 'кг'), cell('price', true, currencySuffix ?? undefined)]} />
                   <div className="tgc-field" data-field={errorKey('brutto')} data-invalid={!!fieldErrors[errorKey('brutto')]}>
                     <FieldHead
                       id={inputId('brutto')}
@@ -1015,7 +1040,7 @@ export default function TgCargo() {
                       filled={brutto !== ''}
                       help={item.bruttoOverride === null ? "O'zi hisoblanadi: Нетто + вес ящиков + вес поддонов" : "Qo'lda o'zgartirildi"}
                     />
-                    <NumberBox id={inputId('brutto')} decimal unit="кг" value={brutto} error={fieldErrors[errorKey('brutto')]} onChange={(v) => updateItem(item.uid, { bruttoOverride: v }, errorKey('brutto'))} />
+                    <NumberBox id={inputId('brutto')} required decimal unit="кг" value={brutto} error={fieldErrors[errorKey('brutto')]} onChange={(v) => updateItem(item.uid, { bruttoOverride: v }, errorKey('brutto'))} />
                     {item.bruttoOverride !== null && (
                       <button type="button" className="tgc-secondary" onClick={() => updateItem(item.uid, { bruttoOverride: null }, errorKey('brutto'))}>
                         Qayta hisoblash

@@ -78,25 +78,43 @@ const closingGuardOn = () => {
   return last(webApp.enableClosingConfirmation) > last(webApp.disableClosingConfirmation);
 };
 
-beforeEach(async () => {
-  vi.clearAllMocks();
-  backHandlers.clear();
-  (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
-  Element.prototype.scrollIntoView = () => {};
-  window.Telegram = { WebApp: webApp };
-  vi.stubGlobal('fetch', async (url: string) => ({ ok: true, status: 200, json: async () => (url.endsWith('/context') ? context : savedDraft) }));
+/** Server javoblari: testlar kerakli holatni shu o'zgaruvchilar orqali beradi */
+let offline = false;
+let draftReply: unknown = savedDraft;
+
+const mount = async (readySelector = '.tgc-bar') => {
   host = document.createElement('div');
   document.body.appendChild(host);
   root = createRoot(host);
   await act(async () => root.render(createElement(TgCargo)));
   await act(async () => {
-    await vi.waitFor(() => must('.tgc-bar'));
+    await vi.waitFor(() => must(readySelector));
   });
+};
+
+const unmount = async () => {
+  await act(async () => root.unmount());
+  host.remove();
+};
+
+beforeEach(async () => {
+  vi.clearAllMocks();
+  backHandlers.clear();
+  offline = false;
+  draftReply = savedDraft;
+  (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+  Element.prototype.scrollIntoView = () => {};
+  window.Telegram = { WebApp: webApp };
+  vi.stubGlobal('fetch', async (url: string) => {
+    if (offline) throw new TypeError('Failed to fetch');
+    return { ok: true, status: 200, json: async () => (url.endsWith('/context') ? context : draftReply) };
+  });
+  await mount();
 });
 
 afterEach(async () => {
-  await act(async () => root.unmount());
-  host.remove();
+  await unmount();
+  vi.useRealTimers();
   vi.unstubAllGlobals();
 });
 
@@ -229,5 +247,93 @@ describe('pastdan ochiladigan ro\'yxat', () => {
     expect(find('.tgc-sheet')).toBeUndefined();
     expect(webApp.BackButton.hide).toHaveBeenCalled();
     expect(backHandlers.size).toBe(0);
+  });
+});
+
+describe('internet uzilishi', () => {
+  it('saqlashda inglizcha xato o\'rniga tushunarli matn chiqadi, kiritilgan qiymat qoladi', async () => {
+    await pickOption('12/2026');
+    await type(invoiceInput(), '77');
+    offline = true;
+    await click('.tgc-send', 'Saqlash');
+    const banner = must('.tgc-banner').textContent;
+    expect(banner).toContain("Internet aloqasi yo'q");
+    expect(banner).not.toContain('Failed to fetch');
+    expect(invoiceInput().value).toBe('77');
+  });
+
+  it('forma yuklanmasa "Qayta urinish" tugmasi uni qayta yuklaydi', async () => {
+    await unmount();
+    offline = true;
+    await mount('.tgc-center h2');
+    expect(host.textContent).toContain("Internet aloqasi yo'q");
+    offline = false;
+    await click('button', 'Qayta urinish');
+    await act(async () => {
+      await vi.waitFor(() => must('.tgc-bar'));
+    });
+  });
+});
+
+describe('majburiy maydonlar belgisi', () => {
+  const progress = () => must('.tgc-progress-text').textContent;
+  const cell = (field: string) => must<HTMLInputElement>(`input[id$="-${field}"]`).closest<HTMLElement>('.tgc-cell')!;
+
+  it('shartnoma ham progressda sanaladi', async () => {
+    expect(progress()).toContain('0 / 7');
+    await pickOption('12/2026');
+    expect(progress()).toContain('1 / 7');
+  });
+
+  it('"Majburiy" belgisi guruhda emas, aynan majburiy katakda turadi', async () => {
+    await pickOption('12/2026');
+    expect(cell('netto').textContent).toContain('Majburiy');
+    expect(cell('boxCount').textContent).toContain('Majburiy');
+    expect(cell('price').textContent).not.toContain('Majburiy');
+    expect(cell('boxWeight').textContent).not.toContain('Majburiy');
+    expect(must('[aria-labelledby$="-weight-label"] .tgc-head').textContent).not.toContain('Majburiy');
+    expect(nettoInput(0).getAttribute('aria-required')).toBe('true');
+
+    await type(nettoInput(0), '100');
+
+    expect(cell('netto').textContent).toContain('Tayyor');
+    expect(cell('price').textContent).not.toContain('Tayyor');
+  });
+});
+
+describe('yakunlash', () => {
+  const saveComplete = async () => {
+    draftReply = { ...savedDraft, complete: true };
+    await pickOption('12/2026');
+    await click('.tgc-send', 'Saqlash');
+  };
+
+  it('tugmadan oldin oqibati aytiladi', async () => {
+    await saveComplete();
+    expect(host.textContent).toContain("o'zgartirib bo'lmaydi");
+    expect(host.textContent).toContain('invoys yaratiladi');
+  });
+
+  it('"Yakunlandi" ekranida yopish tugmasi bor va ilova shoshmasdan yopiladi', async () => {
+    await saveComplete();
+    vi.useFakeTimers();
+    await click('.tgc-send', 'Yakunlash');
+    await act(async () => void vi.advanceTimersByTime(5000));
+    expect(webApp.close).not.toHaveBeenCalled();
+    await click('button', 'Yopish');
+    expect(webApp.close).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('til belgisi', () => {
+  it('sahifa o\'zbekcha, ruscha yorliq va variantlar ruscha deb belgilanadi', async () => {
+    await pickOption('12/2026');
+    expect(must('.tgc').getAttribute('lang')).toBe('uz');
+    expect(must('.tgc-label', 'Инвойс').getAttribute('lang')).toBe('ru');
+    expect(must('.tgc-sublabel', 'Нетто').getAttribute('lang')).toBe('ru');
+    expect(must('.tgc-section-title', 'Товар 1').getAttribute('lang')).toBe('ru');
+    expect(must('.tgc-option-text > span', 'Xurmo').getAttribute('lang')).toBe('ru');
+    expect(must('.tgc-option-text > span', 'Boshqa').getAttribute('lang')).toBeNull();
+    expect(must('.tgc-section-title', 'Shartnoma').getAttribute('lang')).toBeNull();
   });
 });
